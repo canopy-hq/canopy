@@ -2,8 +2,8 @@
 phase: 1
 slug: app-shell-single-terminal
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-01
 ---
 
@@ -38,11 +38,11 @@ created: 2026-04-01
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 1-01-01 | 01 | 0 | SHELL-01 | unit | `cd src-tauri && cargo test` | ❌ W0 | ⬜ pending |
-| 1-01-02 | 01 | 1 | TERM-01 | unit | `cd src-tauri && cargo test pty` | ❌ W0 | ⬜ pending |
-| 1-01-03 | 01 | 1 | TERM-07 | unit | `bun run test` | ❌ W0 | ⬜ pending |
-| 1-02-01 | 02 | 1 | SHELL-02 | unit | `bun run test` | ❌ W0 | ⬜ pending |
-| 1-02-02 | 02 | 1 | SHELL-03 | unit | `bun run test` | ❌ W0 | ⬜ pending |
+| 1-01-00 | 01 | 0 | — | scaffold | `bun run test` | Yes (W0) | ⬜ pending |
+| 1-01-01 | 01 | 1 | SHELL-01 | unit | `cd src-tauri && cargo check` | Yes (W0) | ⬜ pending |
+| 1-01-02 | 01 | 1 | TERM-01 | unit | `cd src-tauri && cargo test` | Yes (W0) | ⬜ pending |
+| 1-02-01 | 02 | 2 | SHELL-02, SHELL-03 | unit | `bun run test && cd src-tauri && cargo test` | Yes (W0) | ⬜ pending |
+| 1-02-02 | 02 | 2 | — | checkpoint | `bun run test && cd src-tauri && cargo test` | Yes (W0) | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -50,10 +50,11 @@ created: 2026-04-01
 
 ## Wave 0 Requirements
 
-- [ ] `src-tauri/src/pty/tests.rs` — stubs for PTY spawn/read/write
-- [ ] `src/components/__tests__/` — test directory structure
-- [ ] `vitest.config.ts` — Vitest configuration
-- [ ] Test runner scripts in `package.json`
+- [x] `src-tauri/src/pty.rs` — inline `#[cfg(test)] mod tests` with PTY manager stubs (created in 01-01 Task 1)
+- [x] `src/components/__tests__/Terminal.test.tsx` — mocked xterm.js/Tauri placeholder tests (created in 01-01 Task 0)
+- [x] `src/components/__tests__/ToastProvider.test.tsx` — toast queue placeholder tests (created in 01-01 Task 0)
+- [x] `vitest.config.ts` — Vitest configuration (created in 01-01 Task 1)
+- [x] Test runner scripts in `package.json` (created in 01-01 Task 1)
 
 ---
 
@@ -71,11 +72,11 @@ created: 2026-04-01
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
