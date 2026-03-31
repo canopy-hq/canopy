@@ -35,7 +35,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Sidebar
 
 - [ ] **SIDE-01**: Sidebar (230px default, resizable, toggle with Cmd+B) shows workspace list
-- [ ] **SIDE-02**: Workspaces expand/collapse to show branches (⎇ blue) and worktrees (◆ purple) as children
+- [ ] **SIDE-02**: Workspaces expand/collapse to show branches (⎇ blue) and worktrees (purple) as children
 - [ ] **SIDE-03**: Each item shows agent status dot (green pulsing = working, amber breathing = waiting, none = idle)
 - [ ] **SIDE-04**: Collapsed repo shows agent summary dots + chevron
 - [ ] **SIDE-05**: "Import Repository" button at bottom of sidebar
@@ -143,66 +143,66 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TERM-01 | — | Pending |
-| TERM-02 | — | Pending |
-| TERM-03 | — | Pending |
-| TERM-04 | — | Pending |
-| TERM-05 | — | Pending |
-| TERM-06 | — | Pending |
-| TERM-07 | — | Pending |
-| TABS-01 | — | Pending |
-| TABS-02 | — | Pending |
-| TABS-03 | — | Pending |
-| TABS-04 | — | Pending |
-| TABS-05 | — | Pending |
-| KEYS-01 | — | Pending |
-| KEYS-02 | — | Pending |
-| KEYS-03 | — | Pending |
-| KEYS-04 | — | Pending |
-| SIDE-01 | — | Pending |
-| SIDE-02 | — | Pending |
-| SIDE-03 | — | Pending |
-| SIDE-04 | — | Pending |
-| SIDE-05 | — | Pending |
-| SIDE-06 | — | Pending |
-| GIT-01 | — | Pending |
-| GIT-02 | — | Pending |
-| GIT-03 | — | Pending |
-| GIT-04 | — | Pending |
-| GIT-05 | — | Pending |
-| GIT-06 | — | Pending |
-| AGNT-01 | — | Pending |
-| AGNT-02 | — | Pending |
-| AGNT-03 | — | Pending |
-| AGNT-04 | — | Pending |
-| AGNT-05 | — | Pending |
-| AGNT-06 | — | Pending |
-| AGNT-07 | — | Pending |
-| AGNT-08 | — | Pending |
-| AGNT-09 | — | Pending |
-| AGNT-10 | — | Pending |
-| THME-01 | — | Pending |
-| THME-02 | — | Pending |
-| THME-03 | — | Pending |
-| SETT-01 | — | Pending |
-| SETT-02 | — | Pending |
-| SETT-03 | — | Pending |
-| SETT-04 | — | Pending |
-| SETT-05 | — | Pending |
-| SESS-01 | — | Pending |
-| SESS-02 | — | Pending |
-| SESS-03 | — | Pending |
-| STAT-01 | — | Pending |
-| STAT-02 | — | Pending |
-| SHELL-01 | — | Pending |
-| SHELL-02 | — | Pending |
-| SHELL-03 | — | Pending |
+| SHELL-01 | Phase 1 | Pending |
+| SHELL-02 | Phase 1 | Pending |
+| SHELL-03 | Phase 1 | Pending |
+| TERM-01 | Phase 1 | Pending |
+| TERM-07 | Phase 1 | Pending |
+| TERM-02 | Phase 2 | Pending |
+| TERM-03 | Phase 2 | Pending |
+| TERM-04 | Phase 2 | Pending |
+| TERM-05 | Phase 2 | Pending |
+| TERM-06 | Phase 2 | Pending |
+| KEYS-01 | Phase 2 | Pending |
+| KEYS-02 | Phase 2 | Pending |
+| KEYS-03 | Phase 2 | Pending |
+| TABS-01 | Phase 3 | Pending |
+| TABS-02 | Phase 3 | Pending |
+| TABS-03 | Phase 3 | Pending |
+| THME-01 | Phase 3 | Pending |
+| THME-02 | Phase 3 | Pending |
+| THME-03 | Phase 3 | Pending |
+| STAT-01 | Phase 3 | Pending |
+| STAT-02 | Phase 3 | Pending |
+| GIT-01 | Phase 4 | Pending |
+| GIT-02 | Phase 4 | Pending |
+| GIT-03 | Phase 4 | Pending |
+| GIT-04 | Phase 4 | Pending |
+| GIT-05 | Phase 4 | Pending |
+| GIT-06 | Phase 4 | Pending |
+| SIDE-01 | Phase 4 | Pending |
+| SIDE-02 | Phase 4 | Pending |
+| SIDE-05 | Phase 4 | Pending |
+| SIDE-06 | Phase 4 | Pending |
+| AGNT-01 | Phase 5 | Pending |
+| AGNT-02 | Phase 5 | Pending |
+| AGNT-03 | Phase 5 | Pending |
+| AGNT-04 | Phase 5 | Pending |
+| AGNT-05 | Phase 5 | Pending |
+| AGNT-06 | Phase 5 | Pending |
+| AGNT-07 | Phase 5 | Pending |
+| AGNT-08 | Phase 5 | Pending |
+| AGNT-09 | Phase 5 | Pending |
+| AGNT-10 | Phase 5 | Pending |
+| TABS-04 | Phase 5 | Pending |
+| TABS-05 | Phase 5 | Pending |
+| SIDE-03 | Phase 5 | Pending |
+| SIDE-04 | Phase 5 | Pending |
+| SESS-01 | Phase 6 | Pending |
+| SESS-02 | Phase 6 | Pending |
+| SESS-03 | Phase 6 | Pending |
+| SETT-01 | Phase 6 | Pending |
+| SETT-02 | Phase 6 | Pending |
+| SETT-03 | Phase 6 | Pending |
+| SETT-04 | Phase 6 | Pending |
+| SETT-05 | Phase 6 | Pending |
+| KEYS-04 | Phase 6 | Pending |
 
 **Coverage:**
-- v1 requirements: 52 total
-- Mapped to phases: 0
-- Unmapped: 52
+- v1 requirements: 54 total
+- Mapped to phases: 54
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-31*
-*Last updated: 2026-03-31 after initial definition*
+*Last updated: 2026-03-31 after roadmap creation*
