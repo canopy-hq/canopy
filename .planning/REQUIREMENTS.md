@@ -91,8 +91,8 @@ Requirements for initial release. Each maps to roadmap phases.
 ### App Shell
 
 - [x] **SHELL-01**: Tauri v2 app with Rust backend and React + TypeScript frontend
-- [ ] **SHELL-02**: macOS menu bar: Superagent (About, Settings, Quit), Edit (Undo/Redo/Cut/Copy/Paste/Select All), Window (Minimize/Zoom/Close)
-- [ ] **SHELL-03**: Error toast notifications (bottom-right, red accent, auto-dismiss 8s)
+- [x] **SHELL-02**: macOS menu bar: Superagent (About, Settings, Quit), Edit (Undo/Redo/Cut/Copy/Paste/Select All), Window (Minimize/Zoom/Close)
+- [x] **SHELL-03**: Error toast notifications (bottom-right, red accent, auto-dismiss 8s)
 
 ## v2 Requirements
 
@@ -144,8 +144,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | SHELL-01 | Phase 1 | Complete |
-| SHELL-02 | Phase 1 | Pending |
-| SHELL-03 | Phase 1 | Pending |
+| SHELL-02 | Phase 1 | Complete |
+| SHELL-03 | Phase 1 | Complete |
 | TERM-01 | Phase 1 | Complete |
 | TERM-07 | Phase 1 | Complete |
 | TERM-02 | Phase 2 | Pending |

@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md — Scaffold Tauri v2 project and wire PTY terminal (SHELL-01, TERM-01, TERM-07)
-- [ ] 01-02-PLAN.md — Add macOS menu bar and error toast system (SHELL-02, SHELL-03)
+- [x] 01-02-PLAN.md — Add macOS menu bar and error toast system (SHELL-02, SHELL-03)
 
 ### Phase 2: Split Panes + Keyboard
 **Goal**: User can create a multi-pane terminal workspace with keyboard-driven navigation
