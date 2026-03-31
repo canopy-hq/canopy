@@ -1,0 +1,40 @@
+{
+  "name": "superagent",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run --reporter=verbose",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "~2.10",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-web-links": "^0.12.0",
+    "@xterm/addon-webgl": "^0.19.0",
+    "@xterm/xterm": "~6.0",
+    "react": "~19.2",
+    "react-aria-components": "^1.16.0",
+    "react-dom": "~19.2",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
+    "@tauri-apps/cli": "~2.10",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "jsdom": "^29.0.1",
+    "tailwindcss": "~4.2",
+    "typescript": "~5",
+    "vite": "~8.0",
+    "vitest": "~4.1"
+  }
+}
