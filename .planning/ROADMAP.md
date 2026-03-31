@@ -30,11 +30,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Terminal renders 256-color output, handles mouse events, and displays alternate screen apps (vim, htop) correctly
   3. macOS menu bar shows standard menus (About, Settings, Quit, Edit, Window) with working shortcuts
   4. Error conditions display toast notifications in bottom-right corner
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — Scaffold Tauri v2 project and wire PTY terminal (SHELL-01, TERM-01, TERM-07)
+- [ ] 01-02-PLAN.md — Add macOS menu bar and error toast system (SHELL-02, SHELL-03)
 
 ### Phase 2: Split Panes + Keyboard
 **Goal**: User can create a multi-pane terminal workspace with keyboard-driven navigation
@@ -120,7 +120,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. App Shell + Single Terminal | 0/0 | Not started | - |
+| 1. App Shell + Single Terminal | 0/2 | Planning complete | - |
 | 2. Split Panes + Keyboard | 0/0 | Not started | - |
 | 3. Tabs + Themes + Status Bar | 0/0 | Not started | - |
 | 4. Git Integration + Sidebar | 0/0 | Not started | - |
