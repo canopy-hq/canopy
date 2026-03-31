@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Superagent — Settings Proposals</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0f; color: #e5e5e5; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', sans-serif; padding: 24px; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .sub { color: #888; font-size: 14px; margin-bottom: 32px; }
+  .mockup-section { margin-bottom: 56px; }
+  .mockup-section h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .mockup-section > p { color: #777; font-size: 13px; margin-bottom: 14px; }
+  .frame { border-radius: 12px; overflow: hidden; border: 1px solid #222; box-shadow: 0 8px 32px #00000050; }
+  .select-btn { display: inline-block; margin-top: 10px; padding: 6px 16px; background: #1a1a2e; border: 1px solid #333; border-radius: 6px; color: #818cf8; font-size: 12px; cursor: pointer; }
+  .select-btn:hover { background: #818cf820; border-color: #818cf8; }
+  .select-btn.selected { background: #818cf830; border-color: #818cf8; color: #fff; }
+</style>
+<script>
+function toggleMockup(btn, id) {
+  btn.classList.toggle('selected');
+  btn.textContent = btn.classList.contains('selected') ? '✓ Selected' : 'Select this design';
+  fetch('/event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'click',choice:id,text:'Settings '+id})}).catch(()=>{});
+}
+</script>
+</head>
+<body>
+
+<h1>Settings — Full View Proposals</h1>
+<p class="sub">⌘, opens settings. Replaces entire UI. Left nav with sections (Git, Worktrees for now). Scroll to see all 5.</p>
+
+<!-- ============================================ -->
+<!-- 1: MACOS SYSTEM PREFS STYLE -->
+<!-- ============================================ -->
+<div class="mockup-section">
+  <h2>1. macOS System Settings Style</h2>
+  <p>Inspired by macOS Ventura System Settings. Left nav with icons, content on right. Clean, familiar to Mac users. Back button to return to app.</p>
+  <div class="frame" style="display: flex; height: 520px;">
+    <!-- Settings nav -->
+    <div style="width: 220px; background: #111; border-right: 1px solid #1e1e1e; display: flex; flex-direction: column;">
+      <!-- Header -->
+      <div style="padding: 14px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #1e1e1e;">
+        <span style="color: #818cf8; cursor: pointer; font-size: 16px;">←</span>
+        <span style="font-weight: 600; font-size: 14px;">Settings</span>
+      </div>
+      <!-- Search -->
+      <div style="padding: 8px 12px;">
+        <div style="background: #1a1a1a; border: 1px solid #222; border-radius: 6px; padding: 6px 10px; font-size: 11px; color: #444; display: flex; align-items: center; gap: 6px;">
+          🔍 Search settings...
+        </div>
+      </div>
+      <!-- Nav items -->
+      <div style="flex: 1; padding: 4px 8px;">
+        <div style="display: flex; align-items: center; padding: 8px 10px; border-radius: 6px; margin-bottom: 2px; cursor: pointer; color: #888; font-size: 12px; gap: 8px;">
+          <span style="font-size: 14px; width: 20px; text-align: center;">⎇</span>
+          Git
+        </div>
+        <!-- Active -->
+        <div style="display: flex; align-items: center; padding: 8px 10px; border-radius: 6px; margin-bottom: 2px; cursor: pointer; color: #e5e5e5; font-size: 12px; background: #1a1a2e; border: 1px solid #818cf825; gap: 8px;">
+          <span style="font-size: 14px; width: 20px; text-align: center;">◆</span>
+          Worktrees
+        </div>
+      </div>
+      <!-- Version -->
+      <div style="padding: 12px 16px; border-top: 1px solid #1e1e1e; font-size: 10px; color: #333;">
+        Superagent v0.1.0
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div style="flex: 1; background: #0a0a0a; display: flex; flex-direction: column; overflow-y: auto;">
+      <div style="padding: 28px 32px; max-width: 600px;">
+        <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 4px;">Worktrees</h2>
+        <p style="font-size: 12px; color: #666; margin-bottom: 24px;">Configure how worktrees are created and managed.</p>
+
+        <!-- Worktree base path -->
+        <div style="margin-bottom: 24px;">
+          <label style="font-size: 12px; color: #999; display: block; margin-bottom: 6px;">Default worktree location</label>
+          <div style="display: flex; gap: 8px;">
+            <div style="flex: 1; background: #111; border: 1px solid #222; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #e5e5e5; font-family: 'SF Mono', monospace; display: flex; align-items: center;">
+              ~/worktrees
+            </div>
+            <div style="background: #1a1a1a; border: 1px solid #222; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #888; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+              📂 Browse
+            </div>
+          </div>
+          <div style="font-size: 11px; color: #444; margin-top: 6px;">New worktrees will be created in this directory by default.</div>
+        </div>
+
+        <!-- Naming pattern -->
+        <div style="margin-bottom: 24px;">
+          <label style="font-size: 12px; color: #999; display: block; margin-bottom: 6px;">Worktree naming pattern</label>
+          <div style="background: #111; border: 1px solid #222; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #e5e5e5; font-family: 'SF Mono', monospace;">
+            {branch-name}
+          </div>
+          <div style="font-size: 11px; color: #444; margin-top: 6px;">
+            Available variables: <code style="background: #1a1a1a; padding: 1px 4px; border-radius: 3px; color: #888;">{branch-name}</code> <code style="background: #1a1a1a; padding: 1px 4px; border-radius: 3px; color: #888;">{repo-name}</code> <code style="background: #1a1a1a; padding: 1px 4px; border-radius: 3px; color: #888;">{date}</code>
+          </div>
+        </div>
+
+        <!-- Cleanup -->
+        <div style="margin-bottom: 24px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+            <label style="font-size: 12px; color: #999;">Auto-cleanup merged worktrees</label>
+            <!-- Toggle -->
+            <div style="width: 36px; height: 20px; background: #333; border-radius: 10px; cursor: pointer; position: relative;">
+              <div style="width: 16px; height: 16px; background: #666; border-radius: 50%; position: absolute; top: 2px; left: 2px;"></div>
+            </div>
+          </div>
+          <div style="font-size: 11px; color: #444;">Remove worktree directories when their branch is merged and deleted.</div>
+        </div>
+
+        <!-- Divider -->
+        <div style="height: 1px; background: #1e1e1e; margin: 24px 0;"></div>
+
+        <!-- Existing worktrees -->
+        <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: #999;">Imported Worktrees</h3>
+        <div style="background: #111; border: 1px solid #1e1e1e; border-radius: 8px; overflow: hidden;">
+          <div style="display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid #1e1e1e;">
+            <span style="font-size: 11px; color: #a78bfa; margin-right: 6px;">◆</span>
+            <span style="font-size: 12px; color: #e5e5e5; flex: 1;">feat/terminal</span>
+            <span style="font-size: 10px; color: #555; font-family: monospace;">~/worktrees/feat-terminal</span>
+            <span style="margin-left: 12px; color: #444; cursor: pointer; font-size: 12px;">✕</span>
+          </div>
+          <div style="display: flex; align-items: center; padding: 10px 12px;">
+            <span style="font-size: 11px; color: #a78bfa; margin-right: 6px;">◆</span>
+            <span style="font-size: 12px; color: #e5e5e5; flex: 1;">fix/auth</span>
+            <span style="font-size: 10px; color: #555; font-family: monospace;">~/worktrees/fix-auth</span>
+            <span style="margin-left: 12px; color: #444; cursor: pointer; font-size: 12px;">✕</span>
+          </div>
+        </div>
+        <div style="margin-top: 8px;">
+          <span style="font-size: 11px; color: #818cf8; cursor: pointer;">+ Import existing worktree</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="select-btn" onclick="toggleMockup(this, '1-macos')">Select this design</div>
+</div>
+
+<!-- ============================================ -->
+<!-- 2: LINEAR/RAYCAST STYLE -->
+<!-- ============================================ -->
+<div class="mockup-section">
+  <h2>2. Linear/Raycast Style</h2>
+  <p>Compact left nav with just icons + labels. Content area with grouped cards. Minimal borders, lots of whitespace. Modern SaaS feel.</p>
+  <div class="frame" style="display: flex; height: 520px;">
+    <!-- Minimal nav -->
+    <div style="width: 180px; background: #0e0e0e; border-right: 1px solid #1a1a1a; display: flex; flex-direction: column;">
+      <div style="padding: 14px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #1a1a1a;">
+        <span style="color: #888; cursor: pointer; font-size: 14px;">←</span>
+        <span style="font-weight: 600; font-size: 13px; color: #ccc;">Settings</span>
+      </div>
+      <div style="flex: 1; padding: 8px;">
+        <div style="display: flex; align-items: center; padding: 7px 10px; border-radius: 5px; margin-bottom: 1px; cursor: pointer; color: #777; font-size: 12px; gap: 8px;">
+          <span style="font-size: 12px; color: #60a5fa;">⎇</span> Git
+        </div>
+        <div style="display: flex; align-items: center; padding: 7px 10px; border-radius: 5px; margin-bottom: 1px; cursor: pointer; color: #e5e5e5; font-size: 12px; background: #161616; gap: 8px;">
+          <span style="font-size: 12px; color: #a78bfa;">◆</span> Worktrees
+        </div>
+      </div>
+      <div style="padding: 10px 16px; font-size: 9px; color: #333;">v0.1.0</div>
+    </div>
+
+    <!-- Content -->
+    <div style="flex: 1; background: #080808; overflow-y: auto;">
+      <div style="padding: 28px 32px; max-width: 560px;">
+        <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 20px;">Worktrees</h2>
+
+        <!-- Card: Location -->
+        <div style="background: #111; border: 1px solid #1a1a1a; border-radius: 10px; padding: 16px; margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <div>
+              <div style="font-size: 12px; font-weight: 500; margin-bottom: 2px;">Default location</div>
+              <div style="font-size: 11px; color: #555;">Where new worktrees are created</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <div style="flex: 1; background: #0a0a0a; border: 1px solid #1e1e1e; border-radius: 6px; padding: 9px 10px; font-size: 12px; color: #e5e5e5; font-family: monospace;">~/worktrees</div>
+            <div style="background: #1a1a1a; border: 1px solid #1e1e1e; border-radius: 6px; padding: 9px 12px; font-size: 11px; color: #888; cursor: pointer;">Browse</div>
+          </div>
+        </div>
+
+        <!-- Card: Naming -->
+        <div style="background: #111; border: 1px solid #1a1a1a; border-radius: 10px; padding: 16px; margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <div>
+              <div style="font-size: 12px; font-weight: 500; margin-bottom: 2px;">Naming pattern</div>
+              <div style="font-size: 11px; color: #555;">How worktree directories are named</div>
+            </div>
+          </div>
+          <div style="background: #0a0a0a; border: 1px solid #1e1e1e; border-radius: 6px; padding: 9px 10px; font-size: 12px; color: #e5e5e5; font-family: monospace;">{branch-name}</div>
+        </div>
+
+        <!-- Card: Auto-cleanup -->
+        <div style="background: #111; border: 1px solid #1a1a1a; border-radius: 10px; padding: 16px; margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <div style="font-size: 12px; font-weight: 500; margin-bottom: 2px;">Auto-cleanup</div>
+              <div style="font-size: 11px; color: #555;">Remove worktrees when branch is merged</div>
+            </div>
+            <div style="width: 36px; height: 20px; background: #333; border-radius: 10px; cursor: pointer; position: relative;">
+              <div style="width: 16px; height: 16px; background: #666; border-radius: 50%; position: absolute; top: 2px; left: 2px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Imported -->
+        <h3 style="font-size: 12px; font-weight: 600; margin: 20px 0 10px; color: #888;">Imported Worktrees</h3>
+        <div style="background: #111; border: 1px solid #1a1a1a; border-radius: 10px; overflow: hidden;">
+          <div style="display: flex; align-items: center; padding: 10px 14px; border-bottom: 1px solid #1a1a1a;">
+            <span style="color: #a78bfa; margin-right: 6px; font-size: 11px;">◆</span>
+            <span style="font-size: 12px; flex: 1;">feat/terminal</span>
+            <span style="font-size: 10px; color: #444; font-family: monospace; margin-right: 10px;">~/worktrees/feat-terminal</span>
+            <span style="color: #333; cursor: pointer;">✕</span>
+          </div>
+          <div style="display: flex; align-items: center; padding: 10px 14px;">
+            <span style="color: #a78bfa; margin-right: 6px; font-size: 11px;">◆</span>
+            <span style="font-size: 12px; flex: 1;">fix/auth</span>
+            <span style="font-size: 10px; color: #444; font-family: monospace; margin-right: 10px;">~/worktrees/fix-auth</span>
+            <span style="color: #333; cursor: pointer;">✕</span>
+          </div>
+        </div>
+        <div style="margin-top: 8px;"><span style="font-size: 11px; color: #818cf8; cursor: pointer;">+ Import existing worktree</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="select-btn" onclick="toggleMockup(this, '2-linear')">Select this design</div>
+</div>
+
+<!-- ============================================ -->
+<!-- 3: ALSO SHOWING GIT SECTION -->
+<!-- ============================================ -->
+<div class="mockup-section">
+  <h2>3. Git Section — What it Looks Like</h2>
+  <p>Same layout as above but showing the Git settings section. Default shell, git path, author config. Gives you a feel for how it scales.</p>
+  <div class="frame" style="display: flex; height: 520px;">
+    <div style="width: 180px; background: #0e0e0e; border-right: 1px solid #1a1a1a; display: flex; flex-direction: column;">
+      <div style="padding: 14px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #1a1a1a;">
+        <span style="color: #888; cursor: pointer; font-size: 14px;">←</span>
+        <span style="font-weight: 600; font-size: 13px; color: #ccc;">Settings</span>
+      </div>
+      <div style="flex: 1; padding: 8px;">
+        <!-- Active: Git -->
+        <div style="display: flex; align-items: center; padding: 7px 10px; border-radius: 5px; margin-bottom: 1px; cursor: pointer; color: #e5e5e5; font-size: 12px; background: #161616; gap: 8px;">
+          <span style="font-size: 12px; color: #60a5fa;">⎇</span> Git
+        </div>
+        <div style="display: flex; align-items: center; padding: 7px 10px; border-radius: 5px; margin-bottom: 1px; cursor: pointer; color: #777; font-size: 12px; gap: 8px;">
+          <span style="font-size: 12px; color: #a78bfa;">◆</span> Worktrees
+        </div>
+      </div>
+      <div style="padding: 10px 16px; font-size: 9px; color: #333;">v0.1.0</div>
+    </div>
+
+    <div style="flex: 1; background: #080808; overflow-y: auto;">
+      <div style="padding: 28px 32px; max-width: 560px;">
+        <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 20px;">Git</h2>
+
+        <!-- Card: Default shell -->
+        <div style="background: #111; border: 1px solid #1a1a1a; border-radius: 10px; padding: 16px; margin-bottom: 12px;">
+          <div style="margin-bottom: 12px;">
+            <div style="font-size: 12px; font-weight: 500; margin-bottom: 2px;">Default shell</div>
+            <div style="font-size: 11px; color: #555;">Shell used for new terminal sessions</div>
+          </div>
+          <div style="background: #0a0a0a; border: 1px solid #1e1e1e; border-radius: 6px; padding: 9px 10px; font-size: 12px; color: #e5e5e5; font-family: monospace; display: flex; justify-content: space-between;">
+            /bin/zsh
+            <span style="color: #444;">▼</span>
+          </div>
+        </div>
+
+        <!-- Card: Git binary -->
+        <div style="background: #111; border: 1px solid #1a1a1a; border-radius: 10px; padding: 16px; margin-bottom: 12px;">
+          <div style="margin-bottom: 12px;">
+            <div style="font-size: 12px; font-weight: 500; margin-bottom: 2px;">Git binary path</div>
+            <div style="font-size: 11px; color: #555;">Path to git executable</div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <div style="flex: 1; background: #0a0a0a; border: 1px solid #1e1e1e; border-radius: 6px; padding: 9px 10px; font-size: 12px; color: #888; font-family: monospace;">/usr/bin/git</div>
+            <div style="background: #1a1a1a; border: 1px solid #1e1e1e; border-radius: 6px; padding: 9px 12px; font-size: 11px; color: #888; cursor: pointer;">Detect</div>
+          </div>
+        </div>
+
+        <!-- Card: Auto-fetch -->
+        <div style="background: #111; border: 1px solid #1a1a1a; border-radius: 10px; padding: 16px; margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <div style="font-size: 12px; font-weight: 500; margin-bottom: 2px;">Auto-fetch</div>
+              <div style="font-size: 11px; color: #555;">Periodically fetch from remotes</div>
+            </div>
+            <div style="width: 36px; height: 20px; background: #818cf8; border-radius: 10px; cursor: pointer; position: relative;">
+              <div style="width: 16px; height: 16px; background: #fff; border-radius: 50%; position: absolute; top: 2px; right: 2px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Fetch interval -->
+        <div style="background: #111; border: 1px solid #1a1a1a; border-radius: 10px; padding: 16px;">
+          <div style="margin-bottom: 12px;">
+            <div style="font-size: 12px; font-weight: 500; margin-bottom: 2px;">Fetch interval</div>
+            <div style="font-size: 11px; color: #555;">How often to fetch (in minutes)</div>
+          </div>
+          <div style="background: #0a0a0a; border: 1px solid #1e1e1e; border-radius: 6px; padding: 9px 10px; font-size: 12px; color: #e5e5e5; width: 80px;">
+            5
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="select-btn" onclick="toggleMockup(this, '3-git')">Select this design</div>
+</div>
+
+<!-- ============================================ -->
+<!-- 4: WIDER NAV WITH DESCRIPTIONS -->
+<!-- ============================================ -->
+<div class="mockup-section">
+  <h2>4. Descriptive Nav — Wider Sidebar with Subtitles</h2>
+  <p>Settings nav items have description text underneath. More discoverable. Good as sections grow over time.</p>
+  <div class="frame" style="display: flex; height: 520px;">
+    <div style="width: 240px; background: #111; border-right: 1px solid #1e1e1e; display: flex; flex-direction: column;">
+      <div style="padding: 14px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #1e1e1e;">
+        <span style="color: #818cf8; cursor: pointer; font-size: 16px;">←</span>
+        <span style="font-weight: 600; font-size: 14px;">Settings</span>
+      </div>
+      <div style="flex: 1; padding: 8px;">
+        <div style="padding: 10px 12px; border-radius: 8px; margin-bottom: 4px; cursor: pointer; color: #888;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
+            <span style="font-size: 13px; color: #60a5fa;">⎇</span>
+            <span style="font-size: 12px;">Git</span>
+          </div>
+          <div style="font-size: 10px; color: #444; padding-left: 21px;">Shell, binary, fetch</div>
+        </div>
+        <!-- Active -->
+        <div style="padding: 10px 12px; border-radius: 8px; margin-bottom: 4px; cursor: pointer; background: #1a1a2e; border: 1px solid #818cf820;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
+            <span style="font-size: 13px; color: #a78bfa;">◆</span>
+            <span style="font-size: 12px; color: #e5e5e5;">Worktrees</span>
+          </div>
+          <div style="font-size: 10px; color: #666; padding-left: 21px;">Location, naming, cleanup</div>
+        </div>
+      </div>
+      <div style="padding: 12px 16px; border-top: 1px solid #1e1e1e; font-size: 10px; color: #333;">Superagent v0.1.0</div>
+    </div>
+
+    <div style="flex: 1; background: #0a0a0a; overflow-y: auto;">
+      <div style="padding: 28px 32px; max-width: 560px;">
+        <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 4px;">Worktrees</h2>
+        <p style="font-size: 12px; color: #555; margin-bottom: 24px;">Configure how worktrees are created and managed.</p>
+
+        <div style="margin-bottom: 24px;">
+          <label style="font-size: 12px; color: #999; display: block; margin-bottom: 6px;">Default worktree location</label>
+          <div style="display: flex; gap: 8px;">
+            <div style="flex: 1; background: #111; border: 1px solid #222; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #e5e5e5; font-family: monospace;">~/worktrees</div>
+            <div style="background: #1a1a1a; border: 1px solid #222; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #888; cursor: pointer;">📂 Browse</div>
+          </div>
+          <div style="font-size: 11px; color: #444; margin-top: 6px;">New worktrees will be created here.</div>
+        </div>
+
+        <div style="margin-bottom: 24px;">
+          <label style="font-size: 12px; color: #999; display: block; margin-bottom: 6px;">Naming pattern</label>
+          <div style="background: #111; border: 1px solid #222; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #e5e5e5; font-family: monospace;">{branch-name}</div>
+        </div>
+
+        <div style="margin-bottom: 24px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <label style="font-size: 12px; color: #999;">Auto-cleanup merged worktrees</label>
+              <div style="font-size: 11px; color: #444; margin-top: 2px;">Remove directories when branch is merged</div>
+            </div>
+            <div style="width: 36px; height: 20px; background: #333; border-radius: 10px; cursor: pointer; position: relative;">
+              <div style="width: 16px; height: 16px; background: #666; border-radius: 50%; position: absolute; top: 2px; left: 2px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="height: 1px; background: #1e1e1e; margin: 24px 0;"></div>
+
+        <h3 style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: #888;">Imported Worktrees</h3>
+        <div style="background: #111; border: 1px solid #1e1e1e; border-radius: 8px; overflow: hidden;">
+          <div style="display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid #1e1e1e;">
+            <span style="color: #a78bfa; margin-right: 6px; font-size: 11px;">◆</span>
+            <span style="font-size: 12px; flex: 1;">feat/terminal</span>
+            <span style="font-size: 10px; color: #555; font-family: monospace;">~/worktrees/feat-terminal</span>
+            <span style="margin-left: 12px; color: #444; cursor: pointer;">✕</span>
+          </div>
+          <div style="display: flex; align-items: center; padding: 10px 12px;">
+            <span style="color: #a78bfa; margin-right: 6px; font-size: 11px;">◆</span>
+            <span style="font-size: 12px; flex: 1;">fix/auth</span>
+            <span style="font-size: 10px; color: #555; font-family: monospace;">~/worktrees/fix-auth</span>
+            <span style="margin-left: 12px; color: #444; cursor: pointer;">✕</span>
+          </div>
+        </div>
+        <div style="margin-top: 8px;"><span style="font-size: 11px; color: #818cf8; cursor: pointer;">+ Import existing worktree</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="select-btn" onclick="toggleMockup(this, '4-descriptive')">Select this design</div>
+</div>
+
+<!-- ============================================ -->
+<!-- 5: KEYBOARD HINT -->
+<!-- ============================================ -->
+<div class="mockup-section">
+  <h2>5. With Keyboard Navigation</h2>
+  <p>Same Linear style but with visible ⌘, shortcut badge and keyboard nav hints (↑↓ to switch sections, Esc to close). Power-user friendly.</p>
+  <div class="frame" style="display: flex; height: 520px;">
+    <div style="width: 200px; background: #0e0e0e; border-right: 1px solid #1a1a1a; display: flex; flex-direction: column;">
+      <div style="padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1a1a1a;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="color: #888; cursor: pointer; font-size: 14px;">←</span>
+          <span style="font-weight: 600; font-size: 13px; color: #ccc;">Settings</span>
+        </div>
+        <span style="font-size: 9px; color: #333; background: #1a1a1a; padding: 2px 5px; border-radius: 3px;">⌘,</span>
+      </div>
+      <div style="flex: 1; padding: 8px;">
+        <div style="display: flex; align-items: center; padding: 7px 10px; border-radius: 5px; margin-bottom: 1px; cursor: pointer; color: #777; font-size: 12px; gap: 8px;">
+          <span style="font-size: 12px; color: #60a5fa;">⎇</span> Git
+        </div>
+        <div style="display: flex; align-items: center; padding: 7px 10px; border-radius: 5px; margin-bottom: 1px; cursor: pointer; color: #e5e5e5; font-size: 12px; background: #161616; gap: 8px;">
+          <span style="font-size: 12px; color: #a78bfa;">◆</span> Worktrees
+        </div>
+      </div>
+      <!-- Keyboard hints -->
+      <div style="padding: 8px 12px; border-top: 1px solid #1a1a1a; display: flex; gap: 8px; justify-content: center;">
+        <span style="font-size: 9px; color: #333;"><span style="background: #1a1a1a; padding: 1px 3px; border-radius: 2px;">↑↓</span> navigate</span>
+        <span style="font-size: 9px; color: #333;"><span style="background: #1a1a1a; padding: 1px 3px; border-radius: 2px;">Esc</span> close</span>
+      </div>
+    </div>
+
+    <div style="flex: 1; background: #080808; overflow-y: auto;">
+      <div style="padding: 28px 32px; max-width: 560px;">
+        <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 20px;">Worktrees</h2>
+
+        <div style="background: #111; border: 1px solid #1a1a1a; border-radius: 10px; padding: 16px; margin-bottom: 12px;">
+          <div style="margin-bottom: 12px;">
+            <div style="font-size: 12px; font-weight: 500; margin-bottom: 2px;">Default location</div>
+            <div style="font-size: 11px; color: #555;">Where new worktrees are created</div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <div style="flex: 1; background: #0a0a0a; border: 1px solid #1e1e1e; border-radius: 6px; padding: 9px 10px; font-size: 12px; color: #e5e5e5; font-family: monospace;">~/worktrees</div>
+            <div style="background: #1a1a1a; border: 1px solid #1e1e1e; border-radius: 6px; padding: 9px 12px; font-size: 11px; color: #888; cursor: pointer;">Browse</div>
+          </div>
+        </div>
+
+        <div style="background: #111; border: 1px solid #1a1a1a; border-radius: 10px; padding: 16px; margin-bottom: 12px;">
+          <div style="margin-bottom: 12px;">
+            <div style="font-size: 12px; font-weight: 500; margin-bottom: 2px;">Naming pattern</div>
+            <div style="font-size: 11px; color: #555;">Directory naming for worktrees</div>
+          </div>
+          <div style="background: #0a0a0a; border: 1px solid #1e1e1e; border-radius: 6px; padding: 9px 10px; font-size: 12px; color: #e5e5e5; font-family: monospace;">{branch-name}</div>
+        </div>
+
+        <div style="background: #111; border: 1px solid #1a1a1a; border-radius: 10px; padding: 16px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <div style="font-size: 12px; font-weight: 500; margin-bottom: 2px;">Auto-cleanup</div>
+              <div style="font-size: 11px; color: #555;">Remove when branch merged</div>
+            </div>
+            <div style="width: 36px; height: 20px; background: #333; border-radius: 10px; cursor: pointer; position: relative;">
+              <div style="width: 16px; height: 16px; background: #666; border-radius: 50%; position: absolute; top: 2px; left: 2px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="select-btn" onclick="toggleMockup(this, '5-keyboard')">Select this design</div>
+</div>
+
+<div style="text-align: center; padding: 32px 0; color: #555; font-size: 13px; border-top: 1px solid #1e1e1e; margin-top: 16px;">
+  Click "Select" on your favorites. All proposals show both Git and Worktrees sections.
+</div>
+
+</body>
+</html>

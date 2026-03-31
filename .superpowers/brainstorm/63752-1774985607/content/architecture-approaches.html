@@ -1,0 +1,56 @@
+<h2>Architecture Approaches</h2>
+<p class="subtitle">How should the Rust backend and SolidJS frontend communicate?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)" style="border-left: 3px solid #22c55e;">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Recommended: Event-Driven IPC</h3>
+      <p><strong>Rust backend</strong> owns all PTY sessions, git operations, and filesystem access. Communicates with frontend via Tauri's typed event system + commands.</p>
+      <br/>
+      <div style="font-family: monospace; font-size: 13px; background: #1a1a2e; padding: 16px; border-radius: 8px; line-height: 1.6;">
+        <span style="color: #818cf8;">┌─────────────────────────────────┐</span><br/>
+        <span style="color: #818cf8;">│</span> <span style="color: #e2e8f0;">SolidJS Frontend</span> <span style="color: #818cf8;">│</span><br/>
+        <span style="color: #818cf8;">│</span> <span style="color: #94a3b8;">xterm.js │ sidebar │ pane mgr</span> <span style="color: #818cf8;">│</span><br/>
+        <span style="color: #818cf8;">└──────────┬──────────────────────┘</span><br/>
+        <span style="color: #fbbf24;">           │ Tauri Commands + Events</span><br/>
+        <span style="color: #818cf8;">┌──────────┴──────────────────────┐</span><br/>
+        <span style="color: #818cf8;">│</span> <span style="color: #e2e8f0;">Rust Backend</span> <span style="color: #818cf8;">│</span><br/>
+        <span style="color: #818cf8;">│</span> <span style="color: #94a3b8;">PTY mgr │ git ops │ fs watch</span> <span style="color: #818cf8;">│</span><br/>
+        <span style="color: #818cf8;">│</span> <span style="color: #94a3b8;">process detect │ workspace mgr</span> <span style="color: #818cf8;">│</span><br/>
+        <span style="color: #818cf8;">└─────────────────────────────────┘</span>
+      </div>
+      <br/>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Clean separation — Rust does heavy lifting, JS does rendering</li><li>Type-safe IPC via Tauri's command system</li><li>PTY I/O stays in Rust, only rendered bytes go to frontend</li><li>Easy to add new backend capabilities</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Slightly more boilerplate for each new command</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>WebSocket Bridge</h3>
+      <p><strong>Rust backend</strong> runs a local WebSocket server. Frontend connects via WS for PTY streaming and HTTP for commands.</p>
+      <br/>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Familiar web pattern</li><li>Could support remote terminals later</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Extra complexity — managing WS connections on top of Tauri IPC</li><li>Duplicates what Tauri already provides natively</li><li>More latency than direct IPC</li><li>Security surface (open port)</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Hybrid: Tauri IPC + Shared Memory for PTY</h3>
+      <p>Use Tauri commands for git/workspace ops, but <strong>shared memory buffer</strong> for PTY I/O to minimize copy overhead on high-throughput terminal output.</p>
+      <br/>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Maximum throughput for terminal rendering</li><li>Near-zero copy for PTY data</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Significant complexity for marginal gain</li><li>Tauri's event system is already fast enough for terminal data</li><li>Shared memory in WebView is non-trivial</li><li>Premature optimization</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

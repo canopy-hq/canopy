@@ -1,0 +1,344 @@
+<h2>Design — Theme Proposals</h2>
+<p class="subtitle">Click to select your favorite(s). Sidebar is resizable in all variants.</p>
+
+<div class="options" data-multiselect>
+
+  <!-- Theme 1: Carbon -->
+  <div class="option" data-choice="1-carbon" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>Carbon</h3>
+      <p style="color: #94a3b8; margin-bottom: 12px;">Superset-inspired. Pure dark greys, no color tints. Minimal, utilitarian.</p>
+      <div style="border-radius: 8px; overflow: hidden; border: 1px solid #333;">
+        <div style="display: flex; height: 260px;">
+          <!-- Sidebar -->
+          <div style="width: 180px; background: #161616; border-right: 1px solid #2a2a2a; display: flex; flex-direction: column; flex-shrink: 0;">
+            <div style="padding: 10px 12px; border-bottom: 1px solid #2a2a2a; color: #e0e0e0; font-size: 12px; font-weight: 600; display: flex; justify-content: space-between; align-items: center;">
+              Superagent
+              <span style="color: #6b6b6b;">⚙</span>
+            </div>
+            <div style="padding: 8px; flex: 1;">
+              <div style="display: flex; align-items: center; padding: 5px 8px; border-radius: 4px; color: #c0c0c0; font-size: 11px; margin-bottom: 2px;">
+                <span style="color: #6b6b6b; margin-right: 6px; font-size: 9px;">▼</span>superagent
+              </div>
+              <div style="padding-left: 22px;">
+                <div style="display: flex; align-items: center; padding: 4px 8px; border-radius: 4px; background: #2a2a2a; color: #e0e0e0; font-size: 11px; margin-bottom: 2px;">
+                  <span style="color: #4ade80; margin-right: 6px; font-size: 7px;">●</span>main
+                </div>
+                <div style="display: flex; align-items: center; padding: 4px 8px; color: #888; font-size: 11px; margin-bottom: 2px;">
+                  <span style="color: #fbbf24; margin-right: 6px; font-size: 7px;">●</span>feat/ui
+                  <span style="margin-left: auto; background: #4ade8020; color: #4ade80; font-size: 8px; padding: 1px 4px; border-radius: 3px;">agent</span>
+                </div>
+              </div>
+            </div>
+            <!-- Resize handle indicator -->
+            <div style="position: absolute; right: 0; top: 50%; width: 3px; height: 24px; background: #3a3a3a; border-radius: 2px;"></div>
+          </div>
+          <!-- Main -->
+          <div style="flex: 1; display: flex; flex-direction: column; background: #111111;">
+            <div style="display: flex; background: #161616; border-bottom: 1px solid #2a2a2a; padding: 0 8px; height: 32px; align-items: center;">
+              <div style="padding: 4px 12px; background: #111111; border-radius: 4px 4px 0 0; color: #e0e0e0; font-size: 11px; border: 1px solid #2a2a2a; border-bottom: 1px solid #111111; position: relative; top: 1px;">main</div>
+              <div style="padding: 4px 12px; color: #6b6b6b; font-size: 11px;">feat/ui</div>
+            </div>
+            <div style="flex: 1; padding: 10px; font-family: monospace; font-size: 11px; color: #a0a0a0; line-height: 1.6;">
+              <span style="color: #4ade80;">➜</span> <span style="color: #c0c0c0;">~/superagent</span> $ <span style="color: #e0e0e0;">_</span>
+            </div>
+            <div style="background: #161616; border-top: 1px solid #2a2a2a; padding: 3px 10px; font-size: 10px; color: #6b6b6b;">
+              superagent │ main │ 1 pane
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Theme 2: Graphite -->
+  <div class="option" data-choice="2-graphite" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>Graphite</h3>
+      <p style="color: #94a3b8; margin-bottom: 12px;">Warm dark grey with subtle blue accents. Professional, easy on the eyes.</p>
+      <div style="border-radius: 8px; overflow: hidden; border: 1px solid #3a3a44;">
+        <div style="display: flex; height: 260px;">
+          <div style="width: 180px; background: #1c1c22; border-right: 1px solid #2e2e38; display: flex; flex-direction: column; flex-shrink: 0;">
+            <div style="padding: 10px 12px; border-bottom: 1px solid #2e2e38; color: #d4d4dc; font-size: 12px; font-weight: 600;">Superagent</div>
+            <div style="padding: 8px; flex: 1;">
+              <div style="display: flex; align-items: center; padding: 5px 8px; color: #b0b0bc; font-size: 11px; margin-bottom: 2px;">
+                <span style="color: #6b6b78; margin-right: 6px; font-size: 9px;">▼</span>superagent
+              </div>
+              <div style="padding-left: 22px;">
+                <div style="display: flex; align-items: center; padding: 4px 8px; border-radius: 4px; background: #2a2a34; color: #d4d4dc; font-size: 11px; margin-bottom: 2px;">
+                  <span style="color: #60a5fa; margin-right: 6px; font-size: 7px;">●</span>main
+                </div>
+                <div style="display: flex; align-items: center; padding: 4px 8px; color: #8888a0; font-size: 11px;">
+                  <span style="color: #fbbf24; margin-right: 6px; font-size: 7px;">●</span>feat/ui
+                  <span style="margin-left: auto; background: #60a5fa20; color: #60a5fa; font-size: 8px; padding: 1px 4px; border-radius: 3px;">agent</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; background: #16161c;">
+            <div style="display: flex; background: #1c1c22; border-bottom: 1px solid #2e2e38; padding: 0 8px; height: 32px; align-items: center;">
+              <div style="padding: 4px 12px; background: #16161c; border-radius: 4px 4px 0 0; color: #d4d4dc; font-size: 11px; border: 1px solid #2e2e38; border-bottom: 1px solid #16161c; position: relative; top: 1px;">main</div>
+            </div>
+            <div style="flex: 1; padding: 10px; font-family: monospace; font-size: 11px; color: #9090a0; line-height: 1.6;">
+              <span style="color: #60a5fa;">➜</span> <span style="color: #b0b0bc;">~/superagent</span> $ <span style="color: #d4d4dc;">_</span>
+            </div>
+            <div style="background: #1c1c22; border-top: 1px solid #2e2e38; padding: 3px 10px; font-size: 10px; color: #6b6b78;">
+              superagent │ main │ 1 pane
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Theme 3: Obsidian -->
+  <div class="option" data-choice="3-obsidian" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content">
+      <h3>Obsidian</h3>
+      <p style="color: #94a3b8; margin-bottom: 12px;">Near-black with green accents. Terminal-native feel. Ghostty/Alacritty vibes.</p>
+      <div style="border-radius: 8px; overflow: hidden; border: 1px solid #222;">
+        <div style="display: flex; height: 260px;">
+          <div style="width: 180px; background: #0d0d0d; border-right: 1px solid #1a1a1a; display: flex; flex-direction: column; flex-shrink: 0;">
+            <div style="padding: 10px 12px; border-bottom: 1px solid #1a1a1a; color: #c8c8c8; font-size: 12px; font-weight: 600;">Superagent</div>
+            <div style="padding: 8px; flex: 1;">
+              <div style="display: flex; align-items: center; padding: 5px 8px; color: #909090; font-size: 11px; margin-bottom: 2px;">
+                <span style="color: #555; margin-right: 6px; font-size: 9px;">▼</span>superagent
+              </div>
+              <div style="padding-left: 22px;">
+                <div style="display: flex; align-items: center; padding: 4px 8px; border-radius: 4px; background: #1a1a1a; color: #c8c8c8; font-size: 11px; margin-bottom: 2px;">
+                  <span style="color: #22c55e; margin-right: 6px; font-size: 7px;">●</span>main
+                </div>
+                <div style="display: flex; align-items: center; padding: 4px 8px; color: #666; font-size: 11px;">
+                  <span style="color: #fbbf24; margin-right: 6px; font-size: 7px;">●</span>feat/ui
+                  <span style="margin-left: auto; background: #22c55e18; color: #22c55e; font-size: 8px; padding: 1px 4px; border-radius: 3px;">agent</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; background: #080808;">
+            <div style="display: flex; background: #0d0d0d; border-bottom: 1px solid #1a1a1a; padding: 0 8px; height: 32px; align-items: center;">
+              <div style="padding: 4px 12px; background: #080808; border-radius: 4px 4px 0 0; color: #c8c8c8; font-size: 11px; border: 1px solid #1a1a1a; border-bottom: 1px solid #080808; position: relative; top: 1px;">main</div>
+            </div>
+            <div style="flex: 1; padding: 10px; font-family: monospace; font-size: 11px; color: #707070; line-height: 1.6;">
+              <span style="color: #22c55e;">➜</span> <span style="color: #909090;">~/superagent</span> $ <span style="color: #c8c8c8;">_</span>
+            </div>
+            <div style="background: #0d0d0d; border-top: 1px solid #1a1a1a; padding: 3px 10px; font-size: 10px; color: #555;">
+              superagent │ main │ 1 pane
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Theme 4: Slate -->
+  <div class="option" data-choice="4-slate" onclick="toggleSelect(this)">
+    <div class="letter">4</div>
+    <div class="content">
+      <h3>Slate</h3>
+      <p style="color: #94a3b8; margin-bottom: 12px;">Cool grey with teal/cyan accents. Modern SaaS tool aesthetic.</p>
+      <div style="border-radius: 8px; overflow: hidden; border: 1px solid #334155;">
+        <div style="display: flex; height: 260px;">
+          <div style="width: 180px; background: #1e293b; border-right: 1px solid #334155; display: flex; flex-direction: column; flex-shrink: 0;">
+            <div style="padding: 10px 12px; border-bottom: 1px solid #334155; color: #e2e8f0; font-size: 12px; font-weight: 600;">Superagent</div>
+            <div style="padding: 8px; flex: 1;">
+              <div style="display: flex; align-items: center; padding: 5px 8px; color: #94a3b8; font-size: 11px; margin-bottom: 2px;">
+                <span style="color: #475569; margin-right: 6px; font-size: 9px;">▼</span>superagent
+              </div>
+              <div style="padding-left: 22px;">
+                <div style="display: flex; align-items: center; padding: 4px 8px; border-radius: 4px; background: #334155; color: #e2e8f0; font-size: 11px; margin-bottom: 2px;">
+                  <span style="color: #2dd4bf; margin-right: 6px; font-size: 7px;">●</span>main
+                </div>
+                <div style="display: flex; align-items: center; padding: 4px 8px; color: #64748b; font-size: 11px;">
+                  <span style="color: #fbbf24; margin-right: 6px; font-size: 7px;">●</span>feat/ui
+                  <span style="margin-left: auto; background: #2dd4bf20; color: #2dd4bf; font-size: 8px; padding: 1px 4px; border-radius: 3px;">agent</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; background: #0f172a;">
+            <div style="display: flex; background: #1e293b; border-bottom: 1px solid #334155; padding: 0 8px; height: 32px; align-items: center;">
+              <div style="padding: 4px 12px; background: #0f172a; border-radius: 4px 4px 0 0; color: #e2e8f0; font-size: 11px; border: 1px solid #334155; border-bottom: 1px solid #0f172a; position: relative; top: 1px;">main</div>
+            </div>
+            <div style="flex: 1; padding: 10px; font-family: monospace; font-size: 11px; color: #64748b; line-height: 1.6;">
+              <span style="color: #2dd4bf;">➜</span> <span style="color: #94a3b8;">~/superagent</span> $ <span style="color: #e2e8f0;">_</span>
+            </div>
+            <div style="background: #1e293b; border-top: 1px solid #334155; padding: 3px 10px; font-size: 10px; color: #475569;">
+              superagent │ main │ 1 pane
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Theme 5: Midnight -->
+  <div class="option" data-choice="5-midnight" onclick="toggleSelect(this)">
+    <div class="letter">5</div>
+    <div class="content">
+      <h3>Midnight</h3>
+      <p style="color: #94a3b8; margin-bottom: 12px;">Deep navy blue-black with soft white text. Refined, calm. Like a luxury dev tool.</p>
+      <div style="border-radius: 8px; overflow: hidden; border: 1px solid #1e2433;">
+        <div style="display: flex; height: 260px;">
+          <div style="width: 180px; background: #131820; border-right: 1px solid #1e2433; display: flex; flex-direction: column; flex-shrink: 0;">
+            <div style="padding: 10px 12px; border-bottom: 1px solid #1e2433; color: #d1d5e0; font-size: 12px; font-weight: 600;">Superagent</div>
+            <div style="padding: 8px; flex: 1;">
+              <div style="display: flex; align-items: center; padding: 5px 8px; color: #8890a4; font-size: 11px; margin-bottom: 2px;">
+                <span style="color: #4a5068; margin-right: 6px; font-size: 9px;">▼</span>superagent
+              </div>
+              <div style="padding-left: 22px;">
+                <div style="display: flex; align-items: center; padding: 4px 8px; border-radius: 4px; background: #1e2433; color: #d1d5e0; font-size: 11px; margin-bottom: 2px;">
+                  <span style="color: #a78bfa; margin-right: 6px; font-size: 7px;">●</span>main
+                </div>
+                <div style="display: flex; align-items: center; padding: 4px 8px; color: #5a6380; font-size: 11px;">
+                  <span style="color: #fbbf24; margin-right: 6px; font-size: 7px;">●</span>feat/ui
+                  <span style="margin-left: auto; background: #a78bfa20; color: #a78bfa; font-size: 8px; padding: 1px 4px; border-radius: 3px;">agent</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; background: #0c1018;">
+            <div style="display: flex; background: #131820; border-bottom: 1px solid #1e2433; padding: 0 8px; height: 32px; align-items: center;">
+              <div style="padding: 4px 12px; background: #0c1018; border-radius: 4px 4px 0 0; color: #d1d5e0; font-size: 11px; border: 1px solid #1e2433; border-bottom: 1px solid #0c1018; position: relative; top: 1px;">main</div>
+            </div>
+            <div style="flex: 1; padding: 10px; font-family: monospace; font-size: 11px; color: #5a6380; line-height: 1.6;">
+              <span style="color: #a78bfa;">➜</span> <span style="color: #8890a4;">~/superagent</span> $ <span style="color: #d1d5e0;">_</span>
+            </div>
+            <div style="background: #131820; border-top: 1px solid #1e2433; padding: 3px 10px; font-size: 10px; color: #4a5068;">
+              superagent │ main │ 1 pane
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Theme 6: Void -->
+  <div class="option" data-choice="6-void" onclick="toggleSelect(this)">
+    <div class="letter">6</div>
+    <div class="content">
+      <h3>Void</h3>
+      <p style="color: #94a3b8; margin-bottom: 12px;">True black (#000) background with high-contrast white text. Maximum OLED efficiency. Minimal borders.</p>
+      <div style="border-radius: 8px; overflow: hidden; border: 1px solid #222;">
+        <div style="display: flex; height: 260px;">
+          <div style="width: 180px; background: #000000; border-right: 1px solid #1a1a1a; display: flex; flex-direction: column; flex-shrink: 0;">
+            <div style="padding: 10px 12px; border-bottom: 1px solid #1a1a1a; color: #ffffff; font-size: 12px; font-weight: 600;">Superagent</div>
+            <div style="padding: 8px; flex: 1;">
+              <div style="display: flex; align-items: center; padding: 5px 8px; color: #aaa; font-size: 11px; margin-bottom: 2px;">
+                <span style="color: #555; margin-right: 6px; font-size: 9px;">▼</span>superagent
+              </div>
+              <div style="padding-left: 22px;">
+                <div style="display: flex; align-items: center; padding: 4px 8px; border-radius: 4px; background: #1a1a1a; color: #fff; font-size: 11px; margin-bottom: 2px;">
+                  <span style="color: #fff; margin-right: 6px; font-size: 7px;">●</span>main
+                </div>
+                <div style="display: flex; align-items: center; padding: 4px 8px; color: #666; font-size: 11px;">
+                  <span style="color: #fbbf24; margin-right: 6px; font-size: 7px;">●</span>feat/ui
+                  <span style="margin-left: auto; background: #ffffff15; color: #fff; font-size: 8px; padding: 1px 4px; border-radius: 3px;">agent</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; background: #000000;">
+            <div style="display: flex; background: #000000; border-bottom: 1px solid #1a1a1a; padding: 0 8px; height: 32px; align-items: center;">
+              <div style="padding: 4px 12px; background: #111; border-radius: 4px 4px 0 0; color: #fff; font-size: 11px; border: 1px solid #1a1a1a;">main</div>
+            </div>
+            <div style="flex: 1; padding: 10px; font-family: monospace; font-size: 11px; color: #666; line-height: 1.6;">
+              <span style="color: #fff;">➜</span> <span style="color: #aaa;">~/superagent</span> $ <span style="color: #fff;">_</span>
+            </div>
+            <div style="background: #000; border-top: 1px solid #1a1a1a; padding: 3px 10px; font-size: 10px; color: #444;">
+              superagent │ main │ 1 pane
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Theme 7: Smoke -->
+  <div class="option" data-choice="7-smoke" onclick="toggleSelect(this)">
+    <div class="letter">7</div>
+    <div class="content">
+      <h3>Smoke</h3>
+      <p style="color: #94a3b8; margin-bottom: 12px;">Warm neutral grey with orange accents. Cozy, like a well-used IDE. Closest to Superset's warmth.</p>
+      <div style="border-radius: 8px; overflow: hidden; border: 1px solid #3a3632;">
+        <div style="display: flex; height: 260px;">
+          <div style="width: 180px; background: #1e1c1a; border-right: 1px solid #302c28; display: flex; flex-direction: column; flex-shrink: 0;">
+            <div style="padding: 10px 12px; border-bottom: 1px solid #302c28; color: #d4cfc8; font-size: 12px; font-weight: 600;">Superagent</div>
+            <div style="padding: 8px; flex: 1;">
+              <div style="display: flex; align-items: center; padding: 5px 8px; color: #a09888; font-size: 11px; margin-bottom: 2px;">
+                <span style="color: #665e52; margin-right: 6px; font-size: 9px;">▼</span>superagent
+              </div>
+              <div style="padding-left: 22px;">
+                <div style="display: flex; align-items: center; padding: 4px 8px; border-radius: 4px; background: #302c28; color: #d4cfc8; font-size: 11px; margin-bottom: 2px;">
+                  <span style="color: #f59e0b; margin-right: 6px; font-size: 7px;">●</span>main
+                </div>
+                <div style="display: flex; align-items: center; padding: 4px 8px; color: #7a7268; font-size: 11px;">
+                  <span style="color: #22c55e; margin-right: 6px; font-size: 7px;">●</span>feat/ui
+                  <span style="margin-left: auto; background: #f59e0b20; color: #f59e0b; font-size: 8px; padding: 1px 4px; border-radius: 3px;">agent</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; background: #151311;">
+            <div style="display: flex; background: #1e1c1a; border-bottom: 1px solid #302c28; padding: 0 8px; height: 32px; align-items: center;">
+              <div style="padding: 4px 12px; background: #151311; border-radius: 4px 4px 0 0; color: #d4cfc8; font-size: 11px; border: 1px solid #302c28; border-bottom: 1px solid #151311; position: relative; top: 1px;">main</div>
+            </div>
+            <div style="flex: 1; padding: 10px; font-family: monospace; font-size: 11px; color: #7a7268; line-height: 1.6;">
+              <span style="color: #f59e0b;">➜</span> <span style="color: #a09888;">~/superagent</span> $ <span style="color: #d4cfc8;">_</span>
+            </div>
+            <div style="background: #1e1c1a; border-top: 1px solid #302c28; padding: 3px 10px; font-size: 10px; color: #665e52;">
+              superagent │ main │ 1 pane
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Theme 8: Ash -->
+  <div class="option" data-choice="8-ash" onclick="toggleSelect(this)">
+    <div class="letter">8</div>
+    <div class="content">
+      <h3>Ash</h3>
+      <p style="color: #94a3b8; margin-bottom: 12px;">Cool neutral grey, no color tint. Clean, like Linear or Raycast dark mode. Subtle borders.</p>
+      <div style="border-radius: 8px; overflow: hidden; border: 1px solid #2d2d2d;">
+        <div style="display: flex; height: 260px;">
+          <div style="width: 180px; background: #1a1a1a; border-right: 1px solid #262626; display: flex; flex-direction: column; flex-shrink: 0;">
+            <div style="padding: 10px 12px; border-bottom: 1px solid #262626; color: #e5e5e5; font-size: 12px; font-weight: 600;">Superagent</div>
+            <div style="padding: 8px; flex: 1;">
+              <div style="display: flex; align-items: center; padding: 5px 8px; color: #a3a3a3; font-size: 11px; margin-bottom: 2px;">
+                <span style="color: #525252; margin-right: 6px; font-size: 9px;">▼</span>superagent
+              </div>
+              <div style="padding-left: 22px;">
+                <div style="display: flex; align-items: center; padding: 4px 8px; border-radius: 4px; background: #262626; color: #e5e5e5; font-size: 11px; margin-bottom: 2px;">
+                  <span style="color: #a3a3a3; margin-right: 6px; font-size: 7px;">●</span>main
+                </div>
+                <div style="display: flex; align-items: center; padding: 4px 8px; color: #737373; font-size: 11px;">
+                  <span style="color: #fbbf24; margin-right: 6px; font-size: 7px;">●</span>feat/ui
+                  <span style="margin-left: auto; background: #a3a3a318; color: #a3a3a3; font-size: 8px; padding: 1px 4px; border-radius: 3px;">agent</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; background: #121212;">
+            <div style="display: flex; background: #1a1a1a; border-bottom: 1px solid #262626; padding: 0 8px; height: 32px; align-items: center;">
+              <div style="padding: 4px 12px; background: #121212; border-radius: 4px 4px 0 0; color: #e5e5e5; font-size: 11px; border: 1px solid #262626; border-bottom: 1px solid #121212; position: relative; top: 1px;">main</div>
+            </div>
+            <div style="flex: 1; padding: 10px; font-family: monospace; font-size: 11px; color: #737373; line-height: 1.6;">
+              <span style="color: #a3a3a3;">➜</span> <span style="color: #a3a3a3;">~/superagent</span> $ <span style="color: #e5e5e5;">_</span>
+            </div>
+            <div style="background: #1a1a1a; border-top: 1px solid #262626; padding: 3px 10px; font-size: 10px; color: #525252;">
+              superagent │ main │ 1 pane
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p style="color: #64748b; margin-top: 16px; font-size: 13px;">All themes support customization. The default ships with the app — users can tweak colors in settings. Click one or more favorites.</p>

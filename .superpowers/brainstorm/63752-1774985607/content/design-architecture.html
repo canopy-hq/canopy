@@ -1,0 +1,74 @@
+<h2>Design — Section 1: Overall Architecture</h2>
+<p class="subtitle">Project structure and module boundaries</p>
+
+<div class="mockup">
+  <div class="mockup-header">Project Structure</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 13px; line-height: 1.8; color: #e2e8f0;">
+    <span style="color: #fbbf24;">superagent/</span><br/>
+    ├── <span style="color: #818cf8;">src-tauri/</span> <span style="color: #64748b;">── Rust backend</span><br/>
+    │   ├── src/<br/>
+    │   │   ├── main.rs <span style="color: #64748b;">── app entry, Tauri setup</span><br/>
+    │   │   ├── commands/ <span style="color: #64748b;">── Tauri IPC command handlers</span><br/>
+    │   │   │   ├── pty.rs <span style="color: #64748b;">── create/resize/write/kill PTY</span><br/>
+    │   │   │   ├── workspace.rs <span style="color: #64748b;">── import repo, list, remove</span><br/>
+    │   │   │   ├── git.rs <span style="color: #64748b;">── branches, worktrees, status</span><br/>
+    │   │   │   └── settings.rs <span style="color: #64748b;">── app preferences CRUD</span><br/>
+    │   │   ├── pty/ <span style="color: #64748b;">── PTY session management</span><br/>
+    │   │   │   ├── manager.rs <span style="color: #64748b;">── session lifecycle, multiplexing</span><br/>
+    │   │   │   └── process_detect.rs <span style="color: #64748b;">── agent running detection</span><br/>
+    │   │   ├── workspace/ <span style="color: #64748b;">── workspace/repo management</span><br/>
+    │   │   │   ├── manager.rs <span style="color: #64748b;">── repo registry, worktree ops</span><br/>
+    │   │   │   └── watcher.rs <span style="color: #64748b;">── fs watcher for git state changes</span><br/>
+    │   │   └── state.rs <span style="color: #64748b;">── shared app state (Tauri managed)</span><br/>
+    │   ├── Cargo.toml<br/>
+    │   └── tauri.conf.json<br/>
+    ├── <span style="color: #22c55e;">src/</span> <span style="color: #64748b;">── SolidJS frontend</span><br/>
+    │   ├── App.tsx <span style="color: #64748b;">── root layout</span><br/>
+    │   ├── components/<br/>
+    │   │   ├── sidebar/ <span style="color: #64748b;">── workspace list, repo tree</span><br/>
+    │   │   ├── terminal/ <span style="color: #64748b;">── xterm.js wrapper, PTY binding</span><br/>
+    │   │   ├── panes/ <span style="color: #64748b;">── split pane manager</span><br/>
+    │   │   └── settings/ <span style="color: #64748b;">── settings modal/page</span><br/>
+    │   ├── stores/ <span style="color: #64748b;">── SolidJS reactive stores</span><br/>
+    │   │   ├── workspace.ts <span style="color: #64748b;">── repos, branches, worktrees</span><br/>
+    │   │   ├── terminal.ts <span style="color: #64748b;">── PTY sessions, agent status</span><br/>
+    │   │   └── settings.ts <span style="color: #64748b;">── user preferences</span><br/>
+    │   ├── lib/<br/>
+    │   │   ├── tauri.ts <span style="color: #64748b;">── typed Tauri command wrappers</span><br/>
+    │   │   └── keybindings.ts <span style="color: #64748b;">── keyboard shortcut registry</span><br/>
+    │   └── styles/<br/>
+    │       └── tailwind.css<br/>
+    ├── package.json<br/>
+    └── tailwind.config.ts
+  </div>
+</div>
+
+<div style="margin-top: 24px;">
+  <h3>Key Rust Crates</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+    <div style="background: #1e1b4b; padding: 12px; border-radius: 8px;">
+      <span style="color: #818cf8; font-weight: 600;">portable-pty</span>
+      <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Cross-platform PTY creation & management</p>
+    </div>
+    <div style="background: #1e1b4b; padding: 12px; border-radius: 8px;">
+      <span style="color: #818cf8; font-weight: 600;">git2</span>
+      <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Git operations (branches, worktrees, status)</p>
+    </div>
+    <div style="background: #1e1b4b; padding: 12px; border-radius: 8px;">
+      <span style="color: #818cf8; font-weight: 600;">notify</span>
+      <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Filesystem watcher for git state changes</p>
+    </div>
+    <div style="background: #1e1b4b; padding: 12px; border-radius: 8px;">
+      <span style="color: #818cf8; font-weight: 600;">sysinfo</span>
+      <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Process tree inspection for agent detection</p>
+    </div>
+    <div style="background: #1e1b4b; padding: 12px; border-radius: 8px;">
+      <span style="color: #818cf8; font-weight: 600;">serde + serde_json</span>
+      <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Serialization for IPC and config persistence</p>
+    </div>
+    <div style="background: #1e1b4b; padding: 12px; border-radius: 8px;">
+      <span style="color: #818cf8; font-weight: 600;">tokio</span>
+      <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Async runtime for PTY I/O and fs watching</p>
+    </div>
+  </div>
+</div>

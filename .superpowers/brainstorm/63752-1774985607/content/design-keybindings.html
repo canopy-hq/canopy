@@ -1,0 +1,137 @@
+<h2>Design — Section 4: Keyboard Shortcuts & Pane Management</h2>
+<p class="subtitle">Terminal-native keybindings with full customization support</p>
+
+<!-- Pane tree model -->
+<div class="section">
+  <h3>Pane Tree Model</h3>
+  <p style="color: #94a3b8; font-size: 13px; margin-bottom: 12px;">Recursive binary tree — each node is either a split container or a terminal leaf. Supports arbitrary nesting.</p>
+  <div style="font-family: monospace; font-size: 12px; background: #0d0d14; padding: 20px; border-radius: 8px; line-height: 1.8; color: #94a3b8;">
+    <span style="color: #818cf8;">PaneNode</span> = <span style="color: #f59e0b;">Split</span> { direction, children: [PaneNode, PaneNode], ratio }<br/>
+    <span style="color: #64748b;">           │</span><br/>
+    <span style="color: #64748b;">           └─</span> <span style="color: #22c55e;">Leaf</span>  { pty_id, focused: bool }<br/>
+    <br/>
+    <span style="color: #64748b;">Example: ⌘D then ⌘⇧D on right pane</span><br/>
+    <br/>
+    <span style="color: #f59e0b;">Split(horizontal)</span><br/>
+    <span style="color: #64748b;"> ├─</span> <span style="color: #22c55e;">Leaf(pty_1)</span> <span style="color: #64748b;">← left terminal</span><br/>
+    <span style="color: #64748b;"> └─</span> <span style="color: #f59e0b;">Split(vertical)</span><br/>
+    <span style="color: #64748b;">     ├─</span> <span style="color: #22c55e;">Leaf(pty_2)</span> <span style="color: #64748b;">← top-right</span><br/>
+    <span style="color: #64748b;">     └─</span> <span style="color: #22c55e;">Leaf(pty_3)</span> <span style="color: #64748b;">← bottom-right (focused)</span>
+  </div>
+</div>
+
+<!-- Default keybindings -->
+<div class="section">
+  <h3>Default Keybindings</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px;">
+
+    <div style="background: #1a1a2e; padding: 14px; border-radius: 8px;">
+      <span style="color: #818cf8; font-weight: 600; font-size: 13px;">Pane Management</span>
+      <div style="margin-top: 10px; font-size: 12px; line-height: 2.2;">
+        <div style="display: flex; justify-content: space-between; color: #e2e8f0;">
+          <span><code style="background: #0d0d14; padding: 2px 6px; border-radius: 3px; color: #fbbf24;">⌘D</code></span>
+          <span style="color: #94a3b8;">Split horizontal</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; color: #e2e8f0;">
+          <span><code style="background: #0d0d14; padding: 2px 6px; border-radius: 3px; color: #fbbf24;">⌘⇧D</code></span>
+          <span style="color: #94a3b8;">Split vertical</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; color: #e2e8f0;">
+          <span><code style="background: #0d0d14; padding: 2px 6px; border-radius: 3px; color: #fbbf24;">⌘W</code></span>
+          <span style="color: #94a3b8;">Close focused pane</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; color: #e2e8f0;">
+          <span><code style="background: #0d0d14; padding: 2px 6px; border-radius: 3px; color: #fbbf24;">⌘⌥←→↑↓</code></span>
+          <span style="color: #94a3b8;">Navigate panes</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; color: #e2e8f0;">
+          <span><code style="background: #0d0d14; padding: 2px 6px; border-radius: 3px; color: #fbbf24;">⌘⌥⇧←→↑↓</code></span>
+          <span style="color: #94a3b8;">Resize pane</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="background: #1a1a2e; padding: 14px; border-radius: 8px;">
+      <span style="color: #22c55e; font-weight: 600; font-size: 13px;">Tabs & Navigation</span>
+      <div style="margin-top: 10px; font-size: 12px; line-height: 2.2;">
+        <div style="display: flex; justify-content: space-between; color: #e2e8f0;">
+          <span><code style="background: #0d0d14; padding: 2px 6px; border-radius: 3px; color: #fbbf24;">⌘T</code></span>
+          <span style="color: #94a3b8;">New tab (branch/worktree)</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; color: #e2e8f0;">
+          <span><code style="background: #0d0d14; padding: 2px 6px; border-radius: 3px; color: #fbbf24;">⌘1-9</code></span>
+          <span style="color: #94a3b8;">Switch to tab N</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; color: #e2e8f0;">
+          <span><code style="background: #0d0d14; padding: 2px 6px; border-radius: 3px; color: #fbbf24;">⌘⇧[  ⌘⇧]</code></span>
+          <span style="color: #94a3b8;">Prev / next tab</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; color: #e2e8f0;">
+          <span><code style="background: #0d0d14; padding: 2px 6px; border-radius: 3px; color: #fbbf24;">⌘B</code></span>
+          <span style="color: #94a3b8;">Toggle sidebar</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; color: #e2e8f0;">
+          <span><code style="background: #0d0d14; padding: 2px 6px; border-radius: 3px; color: #fbbf24;">⌘,</code></span>
+          <span style="color: #94a3b8;">Settings</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="background: #1a1a2e; padding: 14px; border-radius: 8px;">
+      <span style="color: #f59e0b; font-weight: 600; font-size: 13px;">Terminal</span>
+      <div style="margin-top: 10px; font-size: 12px; line-height: 2.2;">
+        <div style="display: flex; justify-content: space-between; color: #e2e8f0;">
+          <span><code style="background: #0d0d14; padding: 2px 6px; border-radius: 3px; color: #fbbf24;">⌘C</code></span>
+          <span style="color: #94a3b8;">Copy (when selection)</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; color: #e2e8f0;">
+          <span><code style="background: #0d0d14; padding: 2px 6px; border-radius: 3px; color: #fbbf24;">⌘V</code></span>
+          <span style="color: #94a3b8;">Paste</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; color: #e2e8f0;">
+          <span><code style="background: #0d0d14; padding: 2px 6px; border-radius: 3px; color: #fbbf24;">⌘K</code></span>
+          <span style="color: #94a3b8;">Clear terminal</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; color: #e2e8f0;">
+          <span><code style="background: #0d0d14; padding: 2px 6px; border-radius: 3px; color: #fbbf24;">⌘F</code></span>
+          <span style="color: #94a3b8;">Search in terminal</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="background: #1a1a2e; padding: 14px; border-radius: 8px;">
+      <span style="color: #f472b6; font-weight: 600; font-size: 13px;">Agent</span>
+      <div style="margin-top: 10px; font-size: 12px; line-height: 2.2;">
+        <div style="display: flex; justify-content: space-between; color: #e2e8f0;">
+          <span><code style="background: #0d0d14; padding: 2px 6px; border-radius: 3px; color: #fbbf24;">⌘⇧A</code></span>
+          <span style="color: #94a3b8;">Toggle agent indicator</span>
+        </div>
+      </div>
+      <div style="margin-top: 16px; padding: 10px; background: #0d0d14; border-radius: 6px; font-size: 11px; color: #64748b; line-height: 1.6;">
+        All shortcuts passthrough to terminal by default.<br/>
+        App intercepts only when modifier combos match registered shortcuts.<br/>
+        Unmatched keys → PTY stdin as-is.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Keybinding architecture -->
+<div class="section">
+  <h3>Keybinding Architecture</h3>
+  <div style="font-family: monospace; font-size: 12px; background: #0d0d14; padding: 20px; border-radius: 8px; line-height: 2; color: #94a3b8; margin-top: 12px;">
+    <span style="color: #e2e8f0;">Keydown event</span><br/>
+    <span style="color: #64748b;">  │</span><br/>
+    <span style="color: #64748b;">  ▼</span><br/>
+    <span style="color: #818cf8;">KeybindingRegistry</span>.match(event)<br/>
+    <span style="color: #64748b;">  │</span><br/>
+    <span style="color: #64748b;">  ├─</span> <span style="color: #22c55e;">matched</span> → preventDefault + execute action<br/>
+    <span style="color: #64748b;">  │</span><br/>
+    <span style="color: #64748b;">  └─</span> <span style="color: #f59e0b;">no match</span> → passthrough to focused xterm.js instance → PTY<br/>
+    <br/>
+    <span style="color: #64748b;">Registry loads from:</span><br/>
+    <span style="color: #64748b;">  1.</span> Built-in defaults (hardcoded)<br/>
+    <span style="color: #64748b;">  2.</span> User overrides from <code style="background: #1a1a2e; padding: 1px 4px; border-radius: 3px;">~/.superagent/keybindings.json</code><br/>
+    <span style="color: #64748b;">  ↳</span> User overrides win on conflict
+  </div>
+</div>

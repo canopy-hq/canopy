@@ -1,0 +1,97 @@
+<h2>Design — Section 3: Data Flow & PTY Architecture</h2>
+<p class="subtitle">How terminals, workspaces, and agent detection connect</p>
+
+<!-- PTY Lifecycle -->
+<div class="section">
+  <h3>Terminal / PTY Lifecycle</h3>
+  <div style="font-family: monospace; font-size: 12px; background: #0d0d14; padding: 20px; border-radius: 8px; line-height: 2; color: #94a3b8; margin-top: 12px;">
+    <span style="color: #e2e8f0;">User opens tab/splits pane</span><br/>
+    <span style="color: #64748b;">  │</span><br/>
+    <span style="color: #64748b;">  ▼</span><br/>
+    <span style="color: #818cf8;">Frontend</span> ──<span style="color: #fbbf24;"> invoke("pty_create", { cwd, shell }) </span>──▶ <span style="color: #818cf8;">Rust</span><br/>
+    <span style="color: #64748b;">  │</span> <span style="color: #64748b; margin-left: 250px;"></span><span style="color: #64748b;">  │</span><br/>
+    <span style="color: #64748b;">  │</span> <span style="color: #64748b;">                                              │ portable-pty spawns shell</span><br/>
+    <span style="color: #64748b;">  │</span> <span style="color: #64748b;">                                              │ returns pty_id</span><br/>
+    <span style="color: #64748b;">  │</span> <span style="color: #64748b;">                                              ▼</span><br/>
+    <span style="color: #64748b;">  │</span> <span style="color: #818cf8;">              Rust</span> ──<span style="color: #22c55e;"> emit("pty_output", { pty_id, data }) </span>──▶ <span style="color: #818cf8;">Frontend</span><br/>
+    <span style="color: #64748b;">  │</span> <span style="color: #64748b;">                        (continuous stream via Tauri events)</span><br/>
+    <span style="color: #64748b;">  ▼</span><br/>
+    <span style="color: #818cf8;">xterm.js</span> writes data to terminal canvas<br/>
+    <br/>
+    <span style="color: #e2e8f0;">User types in terminal</span><br/>
+    <span style="color: #64748b;">  │</span><br/>
+    <span style="color: #64748b;">  ▼</span><br/>
+    <span style="color: #818cf8;">Frontend</span> ──<span style="color: #fbbf24;"> invoke("pty_write", { pty_id, data }) </span>──▶ <span style="color: #818cf8;">Rust</span> ──▶ PTY stdin
+  </div>
+</div>
+
+<!-- IPC Commands -->
+<div class="section">
+  <h3>Tauri IPC Commands</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px;">
+    <div style="background: #1a1a2e; padding: 12px; border-radius: 8px; border-left: 3px solid #818cf8;">
+      <span style="color: #818cf8; font-weight: 600; font-size: 13px;">PTY</span>
+      <div style="font-family: monospace; font-size: 11px; color: #94a3b8; margin-top: 8px; line-height: 1.8;">
+        pty_create(cwd, shell) → pty_id<br/>
+        pty_write(pty_id, data)<br/>
+        pty_resize(pty_id, cols, rows)<br/>
+        pty_kill(pty_id)
+      </div>
+    </div>
+    <div style="background: #1a1a2e; padding: 12px; border-radius: 8px; border-left: 3px solid #22c55e;">
+      <span style="color: #22c55e; font-weight: 600; font-size: 13px;">Workspace</span>
+      <div style="font-family: monospace; font-size: 11px; color: #94a3b8; margin-top: 8px; line-height: 1.8;">
+        workspace_import(path) → workspace<br/>
+        workspace_list() → workspaces[]<br/>
+        workspace_remove(id)
+      </div>
+    </div>
+    <div style="background: #1a1a2e; padding: 12px; border-radius: 8px; border-left: 3px solid #f59e0b;">
+      <span style="color: #f59e0b; font-weight: 600; font-size: 13px;">Git</span>
+      <div style="font-family: monospace; font-size: 11px; color: #94a3b8; margin-top: 8px; line-height: 1.8;">
+        git_branches(workspace_id) → branches[]<br/>
+        git_create_branch(workspace_id, name, from)<br/>
+        git_worktree_create(workspace_id, branch, path)<br/>
+        git_worktree_list(workspace_id) → worktrees[]<br/>
+        git_worktree_remove(workspace_id, path)
+      </div>
+    </div>
+    <div style="background: #1a1a2e; padding: 12px; border-radius: 8px; border-left: 3px solid #f472b6;">
+      <span style="color: #f472b6; font-weight: 600; font-size: 13px;">Agent Detection</span>
+      <div style="font-family: monospace; font-size: 11px; color: #94a3b8; margin-top: 8px; line-height: 1.8;">
+        agent_status(pty_id) → AgentStatus<br/>
+        agent_toggle_manual(pty_id, running)<br/>
+        <br/>
+        <span style="color: #64748b;">// Events (Rust → Frontend)</span><br/>
+        agent_status_changed { pty_id, status }
+      </div>
+    </div>
+    <div style="background: #1a1a2e; padding: 12px; border-radius: 8px; border-left: 3px solid #a78bfa; grid-column: span 2;">
+      <span style="color: #a78bfa; font-weight: 600; font-size: 13px;">Settings</span>
+      <div style="font-family: monospace; font-size: 11px; color: #94a3b8; margin-top: 8px; line-height: 1.8;">
+        settings_get() → Settings &nbsp;&nbsp;│&nbsp;&nbsp; settings_update(partial) → Settings
+      </div>
+      <div style="font-size: 11px; color: #64748b; margin-top: 6px;">
+        Persisted to <code style="background: #0d0d14; padding: 1px 4px; border-radius: 3px;">~/.superagent/settings.json</code> — includes: default_shell, worktree_base_path, theme, keybindings, known_agents[]
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Agent Detection -->
+<div class="section">
+  <h3>Agent Detection Flow</h3>
+  <div style="font-family: monospace; font-size: 12px; background: #0d0d14; padding: 20px; border-radius: 8px; line-height: 2; color: #94a3b8; margin-top: 12px;">
+    <span style="color: #64748b;">Every 2s per active PTY:</span><br/>
+    <br/>
+    <span style="color: #818cf8;">Rust</span> → sysinfo: get child processes of PTY shell pid<br/>
+    <span style="color: #64748b;">  │</span><br/>
+    <span style="color: #64748b;">  ├─</span> match process name against known_agents <span style="color: #64748b;">(["claude", "codex", "aider", ...])</span><br/>
+    <span style="color: #64748b;">  │   ├─</span> <span style="color: #22c55e;">matched</span> → emit agent_status_changed { running: true, agent: "claude" }<br/>
+    <span style="color: #64748b;">  │   └─</span> <span style="color: #f59e0b;">no match</span> → check manual_override flag<br/>
+    <span style="color: #64748b;">  │       ├─</span> manual = true → keep showing indicator<br/>
+    <span style="color: #64748b;">  │       └─</span> manual = false → emit agent_status_changed { running: false }<br/>
+    <span style="color: #64748b;">  │</span><br/>
+    <span style="color: #64748b;">  └─</span> Frontend updates sidebar badge + tab pill
+  </div>
+</div>
