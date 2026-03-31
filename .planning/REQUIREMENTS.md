@@ -9,13 +9,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Terminal
 
-- [ ] **TERM-01**: User can open a real shell session in a terminal pane (PTY + xterm.js WebGL)
+- [x] **TERM-01**: User can open a real shell session in a terminal pane (PTY + xterm.js WebGL)
 - [ ] **TERM-02**: User can split panes horizontally (Cmd+D) and vertically (Cmd+Shift+D) with recursive nesting
 - [ ] **TERM-03**: User can resize split panes by dragging visible splitter handles
 - [ ] **TERM-04**: Each pane displays a floating header with CWD and agent status
 - [ ] **TERM-05**: User can navigate between panes with Cmd+Option+arrow keys
 - [ ] **TERM-06**: User can close the focused pane with Cmd+W
-- [ ] **TERM-07**: Terminal renders 256-color, mouse events, and alternate screen buffer correctly
+- [x] **TERM-07**: Terminal renders 256-color, mouse events, and alternate screen buffer correctly
 
 ### Tabs
 
@@ -90,7 +90,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### App Shell
 
-- [ ] **SHELL-01**: Tauri v2 app with Rust backend and React + TypeScript frontend
+- [x] **SHELL-01**: Tauri v2 app with Rust backend and React + TypeScript frontend
 - [ ] **SHELL-02**: macOS menu bar: Superagent (About, Settings, Quit), Edit (Undo/Redo/Cut/Copy/Paste/Select All), Window (Minimize/Zoom/Close)
 - [ ] **SHELL-03**: Error toast notifications (bottom-right, red accent, auto-dismiss 8s)
 
@@ -143,11 +143,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SHELL-01 | Phase 1 | Pending |
+| SHELL-01 | Phase 1 | Complete |
 | SHELL-02 | Phase 1 | Pending |
 | SHELL-03 | Phase 1 | Pending |
-| TERM-01 | Phase 1 | Pending |
-| TERM-07 | Phase 1 | Pending |
+| TERM-01 | Phase 1 | Complete |
+| TERM-07 | Phase 1 | Complete |
 | TERM-02 | Phase 2 | Pending |
 | TERM-03 | Phase 2 | Pending |
 | TERM-04 | Phase 2 | Pending |

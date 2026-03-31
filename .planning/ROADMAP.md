@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Scaffold Tauri v2 project and wire PTY terminal (SHELL-01, TERM-01, TERM-07)
+- [x] 01-01-PLAN.md — Scaffold Tauri v2 project and wire PTY terminal (SHELL-01, TERM-01, TERM-07)
 - [ ] 01-02-PLAN.md — Add macOS menu bar and error toast system (SHELL-02, SHELL-03)
 
 ### Phase 2: Split Panes + Keyboard
