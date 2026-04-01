@@ -31,8 +31,8 @@ Declared values (must be multiples of 4):
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| xs | 4px | Status dot gaps, icon padding, PaneHeader vertical padding |
-| sm | 8px | Pill badge padding, toast internal padding, compact gaps |
+| xs | 4px | Status dot gaps, icon padding, PaneHeader vertical padding, pill badge vertical padding |
+| sm | 8px | Pill badge horizontal padding, toast internal padding, compact gaps |
 | md | 16px | Overlay row padding, toast padding, section gaps |
 | lg | 24px | Overlay header/footer padding, toast region margin from edge |
 | xl | 32px | Overlay vertical padding from viewport edge |
@@ -53,6 +53,8 @@ Exceptions: none
 | Caption | 10px | 400 (regular) | 1.0 | Tab close button, overlay hint text |
 
 Font family: `Menlo, Monaco, "Courier New", monospace` everywhere (matches existing codebase -- terminal app aesthetic).
+
+**Type hierarchy note:** Weight (400 vs 600) is the primary differentiator between body and heading roles at this size range. Heading uses semibold (600) to establish hierarchy; all other roles use regular (400).
 
 ---
 
@@ -81,6 +83,19 @@ Font family: `Menlo, Monaco, "Courier New", monospace` everywhere (matches exist
 These tokens are IDENTICAL across all 8 themes (same pattern as `--branch-icon`, `--worktree-icon`, `--git-ahead`, `--git-behind` -- defined once in `:root`, not overridden per theme).
 
 Accent reserved for: active tab top border, focus rings, selected overlay row border. Agent status colors are NOT accent -- they are semantic (green = running, amber = waiting).
+
+---
+
+## Visual Hierarchy Priority
+
+When multiple agent status indicators are visible simultaneously, the visual priority order (most attention-grabbing to least) is:
+
+1. **Amber pane glow** -- full border + shadow, impossible to miss in active workspace
+2. **Tab badge** -- "input" pill badge with amber tint on tab background
+3. **Status dot** -- 8px animated dot in pane header, tab, sidebar
+4. **Status bar summary** -- passive count at bottom edge, lowest visual weight
+
+This ordering is intentional: the pane glow demands immediate attention for waiting agents, while status dots provide ambient awareness without interrupting flow.
 
 ---
 
@@ -166,7 +181,7 @@ When agent is `running` or `idle`: no border change, no shadow (revert to defaul
 |----------|-------|
 | StatusDot | 8px amber breathing dot, placed left of tab label with 8px gap |
 | Background tint | `var(--agent-waiting-glow)` as background overlay on tab |
-| Pill badge | "input" text, 10px font, 400 weight, `var(--agent-waiting)` background at 25% opacity, amber text, rounded-full, padding 2px 8px, placed right of tab label (before close button) |
+| Pill badge | "input" text, 10px font, 400 weight, `var(--agent-waiting)` background at 25% opacity, amber text, rounded-full, padding 4px 8px, placed right of tab label (before close button) |
 
 ---
 
@@ -300,7 +315,7 @@ Ticking: update every 1s via `setInterval` while overlay is open. Stop interval 
 | Workspace/branch | 11px regular, `var(--text-muted)`, right-aligned |
 | Event description | 11px regular, `var(--text-muted)` |
 | "Jump to pane" button | 11px semibold, `var(--accent)` text, no background, hover underline |
-| "Dismiss" button | 11px regular, `var(--text-muted)` text, no background, hover underline |
+| "Dismiss" button | 11px regular, `var(--text-muted)` text, no background, hover underline. `aria-label="Dismiss"` -- single-word label is acceptable in toast context where the action target is unambiguous |
 | Close (x) | 10px, `var(--text-muted)`, hover `var(--text-primary)`, `aria-label="Close notification"` |
 
 ### Toast Types
