@@ -12,13 +12,13 @@ Developers can run and monitor multiple AI coding agents across workspaces from 
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Tauri v2 app shell with Rust backend and React frontend — Validated in Phase 01: app-shell-single-terminal
+- [x] Real terminal via native PTY (portable-pty) + xterm.js (WebGL) — Validated in Phase 01: app-shell-single-terminal
+- [x] macOS menu bar (About, Settings, Quit, standard Edit/Window) — Validated in Phase 01: app-shell-single-terminal
 
 ### Active
 
-- [ ] Tauri v2 app shell with Rust backend and React frontend
 - [ ] Sidebar with workspace list, expand/collapse repos, branch/worktree icons (⎇/◆), agent status dots
-- [ ] Real terminal via native PTY (portable-pty) + xterm.js (WebGL)
 - [ ] Recursive split pane system (horizontal/vertical) with floating headers and drag handles
 - [ ] Tab bar with one tab per branch/worktree, agent status indicators
 - [ ] Create branch/worktree center modal with type cards and git command preview
@@ -30,7 +30,6 @@ Developers can run and monitor multiple AI coding agents across workspaces from 
 - [ ] 8 built-in dark themes via CSS custom properties
 - [ ] Session persistence (layout, tabs, focused pane restored on reopen)
 - [ ] iTerm2-compatible keyboard shortcuts with user overrides
-- [ ] macOS menu bar (About, Settings, Quit, standard Edit/Window)
 - [ ] Status bar with repo info, agent summary, shortcut hints
 
 ### Out of Scope
