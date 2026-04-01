@@ -3,13 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-04-PLAN.md
-last_updated: "2026-04-01T21:07:26.828Z"
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-04-01T22:58:46.478Z"
+last_activity: 2026-04-01
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 16
+  completed_plans: 13
 ---
 
 # Project State
@@ -19,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core value:** Developers can run and monitor multiple AI coding agents across workspaces from a single, fast native app with real terminals and git-native workflow support.
-**Current focus:** Phase 04 — git-integration-sidebar
+**Current focus:** Phase 05 — agent-detection-status-ui
 
 ## Current Position
 
-Phase: 5
-Plan: Not started
+Phase: 05 (agent-detection-status-ui) — EXECUTING
+Plan: 2 of 4
 
 ## Performance Metrics
 
@@ -58,6 +59,7 @@ Plan: Not started
 | Phase 04 P03 | 3min | 2 tasks | 3 files |
 | Phase 04 P02 | 4min | 2 tasks | 7 files |
 | Phase 04 P04 | 4min | 2 tasks | 6 files |
+| Phase 05 P01 | 7min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -90,6 +92,8 @@ Recent decisions affecting current work:
 - [Phase 04]: React ARIA Tree with controlled expandedKeys synced to workspace store expanded state
 - [Phase 04]: Lazy async import for Tauri plugins (dialog) to keep components testable
 - [Phase 04]: Cross-store call: workspace-store imports useTabsStore for findOrCreateTabForWorkspaceItem
+- [Phase 05]: Used poll_forever(None) for kqueue watcher loop to allow mutable access for dynamic child PID registration
+- [Phase 05]: Agent CSS tokens in :root only (not per-theme), matching established semantic color pattern
 
 ### Pending Todos
 
@@ -113,6 +117,6 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-04-01 - Completed quick task 260401-wj7: Refactor tabs to context-scoped
-Stopped at: Completed quick task 260401-wj7
+Last activity: 2026-04-01
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None

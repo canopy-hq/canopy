@@ -52,10 +52,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Agent
 
-- [ ] **AGNT-01**: Agent detection polls every 2s per active PTY, inspecting child process tree via sysinfo
-- [ ] **AGNT-02**: Detection matches process names against configurable known_agents list (claude, codex, aider, ...)
-- [ ] **AGNT-03**: Agent status changes emit events to frontend (running, waiting, idle)
-- [ ] **AGNT-04**: User can manually toggle agent indicator per PTY (Cmd+Shift+A)
+- [x] **AGNT-01**: Agent detection polls every 2s per active PTY, inspecting child process tree via sysinfo
+- [x] **AGNT-02**: Detection matches process names against configurable known_agents list (claude, codex, aider, ...)
+- [x] **AGNT-03**: Agent status changes emit events to frontend (running, waiting, idle)
+- [x] **AGNT-04**: User can manually toggle agent indicator per PTY (Cmd+Shift+A)
 - [ ] **AGNT-05**: Agent overview overlay (Cmd+Shift+O) shows all active agents across all workspaces with status, duration, workspace/branch
 - [ ] **AGNT-06**: User can click an agent row in overlay to jump to that worktree/tab
 - [ ] **AGNT-07**: Toast notifications appear when agent completes or needs input in a non-active worktree
@@ -174,10 +174,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SIDE-02 | Phase 4 | Complete |
 | SIDE-05 | Phase 4 | Complete |
 | SIDE-06 | Phase 4 | Complete |
-| AGNT-01 | Phase 5 | Pending |
-| AGNT-02 | Phase 5 | Pending |
-| AGNT-03 | Phase 5 | Pending |
-| AGNT-04 | Phase 5 | Pending |
+| AGNT-01 | Phase 5 | Complete |
+| AGNT-02 | Phase 5 | Complete |
+| AGNT-03 | Phase 5 | Complete |
+| AGNT-04 | Phase 5 | Complete |
 | AGNT-05 | Phase 5 | Pending |
 | AGNT-06 | Phase 5 | Pending |
 | AGNT-07 | Phase 5 | Pending |
