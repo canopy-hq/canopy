@@ -137,4 +137,24 @@ describe('workspace-store', () => {
     useWorkspaceStore.getState().toggleExpanded(id);
     expect(useWorkspaceStore.getState().workspaces[0].expanded).toBe(true);
   });
+
+  describe('selectWorkspaceItem', () => {
+    it('sets selectedItemId and creates workspace tab', () => {
+      useWorkspaceStore.getState().selectWorkspaceItem('item1', 'main');
+      expect(useWorkspaceStore.getState().selectedItemId).toBe('item1');
+      // Verify tabs-store was affected
+      const { useTabsStore } = require('../tabs-store');
+      const tabs = useTabsStore.getState().tabs;
+      const wsTab = tabs.find((t: { workspaceItemId?: string }) => t.workspaceItemId === 'item1');
+      expect(wsTab).toBeDefined();
+    });
+
+    it('selectWorkspaceItem(null) clears selection without tab change', () => {
+      const { useTabsStore } = require('../tabs-store');
+      const tabCountBefore = useTabsStore.getState().tabs.length;
+      useWorkspaceStore.getState().selectWorkspaceItem(null);
+      expect(useWorkspaceStore.getState().selectedItemId).toBeNull();
+      expect(useTabsStore.getState().tabs.length).toBe(tabCountBefore);
+    });
+  });
 });
