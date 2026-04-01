@@ -5,6 +5,8 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { writeToPty, resizePty, connectPtyOutput } from '../lib/pty';
 import { getCached, setCached } from '../lib/terminal-cache';
+import { useThemeStore } from '../stores/theme-store';
+import { xtermThemes } from '../lib/themes';
 
 /**
  * Hook to manage an xterm.js terminal instance connected to an existing PTY.
@@ -63,11 +65,7 @@ export function useTerminal(
         cursorBlink: true,
         fontSize: 14,
         fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-        theme: {
-          background: '#0a0a14',
-          foreground: '#e0e0e0',
-          cursor: '#e0e0e0',
-        },
+        theme: xtermThemes[useThemeStore.getState().currentTheme],
         allowProposedApi: true,
       });
 

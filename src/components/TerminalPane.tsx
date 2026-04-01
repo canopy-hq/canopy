@@ -95,7 +95,7 @@ function TerminalPaneInner({
     <div
       className="relative h-full w-full"
       style={{
-        border: isFocused ? '1px solid #3b82f6' : '1px solid transparent',
+        border: isFocused ? '1px solid var(--border-focus)' : '1px solid transparent',
         transition: 'border-color 150ms ease',
       }}
       onPointerDown={() => setFocus(paneId)}
