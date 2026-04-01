@@ -61,11 +61,12 @@ Plans:
   2. Active tab is visually distinct with raised border and matching background
   3. User can switch between 8 dark themes and the change applies instantly across all UI
   4. Status bar shows current repo name, branch info, and pane count
-**Plans**: 2 plans
+**Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Theme system, CSS custom properties, tabs store, hardcoded color replacement (TABS-01, TABS-02, THME-01, THME-02, THME-03)
-- [ ] 03-02-PLAN.md — Tab bar UI, status bar, App.tsx integration, keyboard shortcuts (TABS-01, TABS-02, TABS-03, STAT-01, STAT-02)
+- [ ] 03-01-PLAN.md — Theme definitions, CSS custom properties, tabs store, terminal-cache export (TABS-01, TABS-02, THME-01, THME-02)
+- [ ] 03-02-PLAN.md — Theme store, hardcoded color replacement, xterm live switching, tauri-plugin-store (THME-02, THME-03)
+- [ ] 03-03-PLAN.md — Tab bar UI, status bar, App.tsx integration, keyboard shortcuts (TABS-01, TABS-02, TABS-03, STAT-01, STAT-02)
 
 ### Phase 4: Git Integration + Sidebar
 **Goal**: User can manage git repositories, branches, and worktrees from an integrated sidebar
@@ -123,7 +124,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 |-------|----------------|--------|-----------|
 | 1. App Shell + Single Terminal | 0/2 | Planning complete | - |
 | 2. Split Panes + Keyboard | 0/3 | Planning complete | - |
-| 3. Tabs + Themes + Status Bar | 0/2 | Planning complete | - |
+| 3. Tabs + Themes + Status Bar | 0/3 | Planning complete | - |
 | 4. Git Integration + Sidebar | 0/0 | Not started | - |
 | 5. Agent Detection + Status UI | 0/0 | Not started | - |
 | 6. Session Persistence + Settings | 0/0 | Not started | - |
