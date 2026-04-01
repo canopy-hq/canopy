@@ -106,12 +106,17 @@ export function useTerminal(
       // Prevent xterm from swallowing app-level keyboard shortcuts
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         if (!e.metaKey) return true;
+        // Pane shortcuts
         if (e.key === 'd' && !e.shiftKey) return false;
         if (e.key === 'D' && e.shiftKey) return false;
         if (e.key === 'w') return false;
         if (e.altKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
           return false;
         }
+        // Tab shortcuts -- let bubble to keyboard registry
+        if (e.key === 't' && !e.shiftKey) return false; // Cmd+T
+        if (e.key >= '1' && e.key <= '9') return false; // Cmd+1-9
+        if ((e.key === '[' || e.key === ']') && e.shiftKey) return false; // Cmd+Shift+[/]
         return true;
       });
 
