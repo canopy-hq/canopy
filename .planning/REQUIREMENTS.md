@@ -12,7 +12,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **TERM-01**: User can open a real shell session in a terminal pane (PTY + xterm.js WebGL)
 - [x] **TERM-02**: User can split panes horizontally (Cmd+D) and vertically (Cmd+Shift+D) with recursive nesting
 - [x] **TERM-03**: User can resize split panes by dragging visible splitter handles
-- [ ] **TERM-04**: Each pane displays a floating header with CWD and agent status
+- [x] **TERM-04**: Each pane displays a floating header with CWD and agent status
 - [x] **TERM-05**: User can navigate between panes with Cmd+Option+arrow keys
 - [x] **TERM-06**: User can close the focused pane with Cmd+W
 - [x] **TERM-07**: Terminal renders 256-color, mouse events, and alternate screen buffer correctly
@@ -150,7 +150,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TERM-07 | Phase 1 | Complete |
 | TERM-02 | Phase 2 | Complete |
 | TERM-03 | Phase 2 | Complete |
-| TERM-04 | Phase 2 | Pending |
+| TERM-04 | Phase 2 | Complete |
 | TERM-05 | Phase 2 | Complete |
 | TERM-06 | Phase 2 | Complete |
 | KEYS-01 | Phase 2 | Complete |
