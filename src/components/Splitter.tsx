@@ -20,7 +20,11 @@ export function Splitter({ nodeId, splitIndex, direction }: SplitterProps) {
   const [isDragging, setIsDragging] = useState(false);
   const isHorizontal = direction === 'horizontal';
 
-  const lineColor = isDragging ? '#3b82f6' : isHovered ? '#3a3a5e' : '#2a2a3e';
+  const lineColor = isDragging
+    ? 'var(--accent)'
+    : isHovered
+      ? 'var(--splitter-hover)'
+      : 'var(--splitter-idle)';
 
   return (
     <div

@@ -5,6 +5,8 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { writeToPty, resizePty, connectPtyOutput } from '../lib/pty';
 import { getCached, setCached } from '../lib/terminal-cache';
+import { useThemeStore } from '../stores/theme-store';
+import { xtermThemes } from '../lib/themes';
 
 /**
  * Hook to manage an xterm.js terminal instance connected to an existing PTY.
@@ -63,11 +65,7 @@ export function useTerminal(
         cursorBlink: true,
         fontSize: 14,
         fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-        theme: {
-          background: '#0a0a14',
-          foreground: '#e0e0e0',
-          cursor: '#e0e0e0',
-        },
+        theme: xtermThemes[useThemeStore.getState().currentTheme],
         allowProposedApi: true,
       });
 
@@ -108,12 +106,17 @@ export function useTerminal(
       // Prevent xterm from swallowing app-level keyboard shortcuts
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         if (!e.metaKey) return true;
+        // Pane shortcuts
         if (e.key === 'd' && !e.shiftKey) return false;
         if (e.key === 'D' && e.shiftKey) return false;
         if (e.key === 'w') return false;
         if (e.altKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
           return false;
         }
+        // Tab shortcuts -- let bubble to keyboard registry
+        if (e.key === 't' && !e.shiftKey) return false; // Cmd+T
+        if (e.key >= '1' && e.key <= '9') return false; // Cmd+1-9
+        if ((e.key === '[' || e.key === ']') && e.shiftKey) return false; // Cmd+Shift+[/]
         return true;
       });
 
@@ -137,8 +140,11 @@ export function useTerminal(
     termRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    // Handle resize with debounced PTY resize
+    // Handle resize with debounced PTY resize.
+    // Guard: skip fit when container is hidden (display:none → 0x0),
+    // otherwise xterm caches corrupt geometry and renders oversized on reveal.
     const resizeObserver = new ResizeObserver(() => {
+      if (container.offsetWidth === 0 || container.offsetHeight === 0) return;
       fitAddon.fit();
 
       if (resizeTimerRef.current !== null) {

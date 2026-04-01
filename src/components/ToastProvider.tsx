@@ -16,7 +16,7 @@ export function ErrorToastRegion() {
       {({ toast }) => (
         <Toast
           toast={toast}
-          className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-[#1a1a2e] px-4 py-3 shadow-lg shadow-red-500/10"
+          className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-bg-tertiary px-4 py-3 shadow-lg shadow-red-500/10"
           style={{ minWidth: '320px', maxWidth: '420px' }}
         >
           <ToastContent className="flex-1">
