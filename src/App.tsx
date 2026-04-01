@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { TabBar } from './components/TabBar';
+import { Sidebar } from './components/Sidebar';
 import { StatusBar } from './components/StatusBar';
 import { PaneContainer } from './components/PaneContainer';
 import { ErrorToastRegion } from './components/ToastProvider';
 import { useKeyboardRegistry, type Keybinding } from './hooks/useKeyboardRegistry';
 import { useTabsStore } from './stores/tabs-store';
 import { useThemeStore } from './stores/theme-store';
+import { useWorkspaceStore } from './stores/workspace-store';
 import { closePty } from './lib/pty';
 import { disposeCached } from './lib/terminal-cache';
 import { findLeaf } from './lib/pane-tree-ops';
@@ -22,6 +24,7 @@ export default function App() {
   const switchTabByIndex = useTabsStore((s) => s.switchTabByIndex);
   const switchTabRelative = useTabsStore((s) => s.switchTabRelative);
   const initTheme = useThemeStore((s) => s.initTheme);
+  const toggleSidebar = useWorkspaceStore((s) => s.toggleSidebar);
 
   // Initialize theme from persisted settings on mount
   useEffect(() => {
@@ -100,8 +103,10 @@ export default function App() {
       // Cmd+Shift+[ and Cmd+Shift+]
       { key: '[', meta: true, shift: true, action: () => switchTabRelative('prev') },
       { key: ']', meta: true, shift: true, action: () => switchTabRelative('next') },
+      // Sidebar toggle (SIDE-01)
+      { key: 'b', meta: true, action: () => toggleSidebar() },
     ],
-    [handleSplit, handleClose, navigatePanes, addTab, switchTabByIndex, switchTabRelative],
+    [handleSplit, handleClose, navigatePanes, addTab, switchTabByIndex, switchTabRelative, toggleSidebar],
   );
 
   useKeyboardRegistry(bindings);
@@ -109,16 +114,19 @@ export default function App() {
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-bg-primary">
       <TabBar />
-      <div className="flex-1 min-h-0 relative">
-        {tabs.map((tab) => (
-          <div
-            key={tab.id}
-            className="absolute inset-0"
-            style={{ display: tab.id === activeTabId ? 'block' : 'none' }}
-          >
-            <PaneContainer root={tab.paneRoot} />
-          </div>
-        ))}
+      <div className="flex-1 min-h-0 flex flex-row">
+        <Sidebar />
+        <div className="flex-1 min-w-0 relative">
+          {tabs.map((tab) => (
+            <div
+              key={tab.id}
+              className="absolute inset-0"
+              style={{ display: tab.id === activeTabId ? 'block' : 'none' }}
+            >
+              <PaneContainer root={tab.paneRoot} />
+            </div>
+          ))}
+        </div>
       </div>
       <StatusBar />
       <ErrorToastRegion />
