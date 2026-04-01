@@ -53,12 +53,13 @@ Exceptions:
 
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
-| Body | 13px | 400 (regular) | 1.4 | Tree item labels, modal body text, ahead/behind counts |
-| Label | 11px | 400 (regular) | 1.0 | Status bar text, secondary info, git command preview |
+| Body | 13px | 400 (regular) | 1.4 | Tree item labels, modal body text, type card labels |
+| Small | 11px | 400 (regular) | 1.3 | Status bar text, ahead/behind badges, worktree path display, git command preview |
 | Heading | 16px | 600 (semibold) | 1.2 | Modal title ("Create Branch or Worktree"), sidebar section headers |
-| Caption | 11px | 400 (regular) | 1.3 | Ahead/behind badges, worktree path display |
 
 Font family for all: `Menlo, Monaco, "Courier New", monospace` (matches existing app convention -- StatusBar, PaneHeader already use this).
+
+Note: Phase 4 uses 3 type sizes (11px, 13px, 16px). The 2px gap between 11px and 13px is intentional -- 11px is reserved for secondary/metadata content (badges, paths, preview commands) while 13px is the primary reading size for tree item labels and modal body text. These roles never overlap, so the small numeric gap does not create visual ambiguity.
 
 ---
 
@@ -78,15 +79,25 @@ All colors use the existing CSS custom property system (`--bg-primary`, `--accen
 
 ### Phase 4-Specific Colors (New Semantic Tokens)
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| Branch icon color | `#60a5fa` (blue-400) | Branch icon (U+2387) in sidebar tree items |
-| Worktree icon color | `#c084fc` (purple-400) | Worktree diamond (U+25C6) in sidebar tree items |
-| Ahead badge | `#4ade80` (green-400) | Ahead count text (e.g., "+3") |
-| Behind badge | `#f87171` (red-400) | Behind count text (e.g., "-2") |
-| Destructive | `#ef4444` (red-500) | Delete branch/worktree button, error states |
+These must be declared as CSS custom properties in the theme layer so they adapt across all 8 themes.
 
-Accent reserved for: selected tree item left border indicator (2px), active type card border in modal, "Create" primary action button background, sidebar toggle keyboard hint.
+| Token | Default Value | CSS Custom Property | Usage |
+|-------|---------------|---------------------|-------|
+| Branch icon color | `#60a5fa` (blue-400) | `var(--branch-icon)` | Branch icon (U+2387) in sidebar tree items |
+| Worktree icon color | `#c084fc` (purple-400) | `var(--worktree-icon)` | Worktree diamond (U+25C6) in sidebar tree items |
+| Ahead badge | `#4ade80` (green-400) | `var(--git-ahead)` | Ahead count text (e.g., "+3") |
+| Behind badge | `#f87171` (red-400) | `var(--git-behind)` | Behind count text (e.g., "-2") |
+| Destructive | `#ef4444` (red-500) | `var(--destructive)` | Delete branch/worktree button, error states |
+
+Accent reserved for: selected tree item left border indicator (2px), active type card border in modal, "Create Branch"/"Create Worktree" primary action button background, sidebar toggle keyboard hint.
+
+---
+
+## Focal Point
+
+When the sidebar is visible, the **workspace tree** is the focal point of the sidebar panel. The tree occupies the largest area and contains the primary interactive elements. The user's eye should land on the expanded repository's branch list first, guided by the colored branch/worktree icons against the muted sidebar background. The "Import Repository" button at the bottom and the status bar updates are secondary; they support the tree but do not compete for attention.
+
+When the create modal is open, the **name input field** is the focal point. It receives autofocus on open and is the first action the user takes after selecting a type card.
 
 ---
 
@@ -111,9 +122,9 @@ Accent reserved for: selected tree item left border indicator (2px), active type
 |----------|---------------|
 | Component | React ARIA `Tree` with `selectionMode="single"` |
 | Repo item | 28px height, 8px left padding, semibold 13px, expand/collapse chevron (right-rotated when expanded) |
-| Branch item | 28px height, 16px indent, `#60a5fa` U+2387 icon, 4px icon-label gap, regular 13px |
-| Worktree item | 28px height, 16px indent, `#c084fc` U+25C6 icon, 4px icon-label gap, regular 13px |
-| Ahead/behind | Right-aligned, 11px caption, `#4ade80` for ahead, `#f87171` for behind, format: `+N -N` |
+| Branch item | 28px height, 16px indent, `var(--branch-icon)` U+2387 icon, 4px icon-label gap, regular 13px |
+| Worktree item | 28px height, 16px indent, `var(--worktree-icon)` U+25C6 icon, 4px icon-label gap, regular 13px |
+| Ahead/behind | Right-aligned, 11px small, `var(--git-ahead)` for ahead, `var(--git-behind)` for behind, format: `+N -N` |
 | Hover state | `var(--bg-tertiary)` background, full-width |
 | Selected state | `var(--accent)` 2px left border, `var(--bg-tertiary)` background |
 | HEAD indicator | Repo name shows current branch in muted text below: e.g., `main` in `var(--text-muted)` 11px |
@@ -134,7 +145,7 @@ Accent reserved for: selected tree item left border indicator (2px), active type
 | Property | Specification |
 |----------|---------------|
 | Position | Last child inside expanded repo section, 16px indent (same as branch items) |
-| Label | "+ New" |
+| Label | "+ New Branch" |
 | Style | 28px height, `var(--text-muted)` text, 13px, no background |
 | Hover | `var(--accent)` text color |
 | Action | Opens create modal (GIT-04) |
@@ -147,8 +158,8 @@ Accent reserved for: selected tree item left border indicator (2px), active type
 | Surface | 480px width, `var(--bg-secondary)` background, 1px `var(--border)` border, 8px border-radius, 24px padding |
 | Title | "Create Branch or Worktree", 16px semibold, `var(--text-primary)` |
 | Type cards | Two side-by-side cards, 50% width each, 8px gap |
-| Type card (Branch) | `var(--bg-tertiary)` background, 1px `var(--border)` border, 8px border-radius, 16px padding, icon U+2387 in `#60a5fa` 20px, label "Branch" 13px semibold |
-| Type card (Worktree) | Same layout, icon U+25C6 in `#c084fc` 20px, label "Worktree" 13px semibold |
+| Type card (Branch) | `var(--bg-tertiary)` background, 1px `var(--border)` border, 8px border-radius, 16px padding, icon U+2387 in `var(--branch-icon)` 20px, label "Branch" 13px semibold |
+| Type card (Worktree) | Same layout, icon U+25C6 in `var(--worktree-icon)` 20px, label "Worktree" 13px semibold |
 | Type card selected | 2px `var(--accent)` border, `var(--bg-tertiary)` background |
 | Type card unselected | 1px `var(--border)` border, hover: border becomes `var(--text-muted)` |
 | Name input | Full width, 36px height, `var(--bg-tertiary)` background, 1px `var(--border)` border, 8px border-radius, 13px text, 8px horizontal padding |
@@ -160,8 +171,8 @@ Accent reserved for: selected tree item left border indicator (2px), active type
 | Preview content (branch) | `git branch {name} {baseBranch}` |
 | Preview content (worktree) | `git worktree add {path} -b {name}` |
 | Actions | Right-aligned, 16px top margin, 8px gap |
-| Cancel button | "Cancel", `var(--bg-tertiary)` background, `var(--text-muted)` text, 32px height, 16px horizontal padding, 8px border-radius |
-| Create button | "Create", `var(--accent)` background, white text, 32px height, 16px horizontal padding, 8px border-radius |
+| Dismiss button | "Discard", `var(--bg-tertiary)` background, `var(--text-muted)` text, 32px height, 16px horizontal padding, 8px border-radius |
+| Create button | Dynamic label: "Create Branch" when Branch type selected, "Create Worktree" when Worktree type selected. `var(--accent)` background, white text, 32px height, 16px horizontal padding, 8px border-radius |
 | Create button disabled | 50% opacity when name is empty |
 | Dismiss | Esc key or click outside overlay |
 | Focus trap | Managed by React ARIA Modal |
@@ -217,20 +228,20 @@ Accent reserved for: selected tree item left border indicator (2px), active type
 
 | Step | Behavior |
 |------|----------|
-| Click "+ New" in expanded repo | Open modal with that repo as context |
-| Select type card | Toggle between Branch and Worktree, update preview |
+| Click "+ New Branch" in expanded repo | Open modal with that repo as context |
+| Select type card | Toggle between Branch and Worktree, update preview and button label |
 | Type name | Live-update git command preview |
 | Select base branch | Dropdown of local branches from that repo |
-| Click "Create" | IPC call to backend, on success: close modal, refresh tree, select new item |
+| Click "Create Branch" / "Create Worktree" | IPC call to backend, on success: close modal, refresh tree, select new item |
 | Backend error | Error toast with message (e.g., "Branch name already exists") |
-| Click "Cancel" or Esc | Close modal, no action |
+| Click "Discard" or Esc | Close modal, no action |
 
 ### Delete Branch/Worktree
 
 | Action | Behavior |
 |--------|----------|
 | Trigger | Not in Phase 4 requirements as a UI action -- GIT-02/GIT-03 specify backend CRUD. Add delete buttons only if time permits; otherwise defer to Phase 6 settings. |
-| If implemented | Hover reveals trash icon, click shows confirmation: "Delete branch {name}? This cannot be undone." with Cancel / Delete (red) buttons. |
+| If implemented | Hover reveals trash icon, click shows confirmation: "Delete branch {name}? This cannot be undone." with Discard / Delete (red) buttons. |
 
 ---
 
@@ -239,7 +250,10 @@ Accent reserved for: selected tree item left border indicator (2px), active type
 | Element | Copy |
 |---------|------|
 | Primary CTA (import) | "Import Repository" |
-| Primary CTA (create) | "Create" |
+| Primary CTA (create, branch selected) | "Create Branch" |
+| Primary CTA (create, worktree selected) | "Create Worktree" |
+| Modal dismiss button | "Discard" |
+| New item trigger | "+ New Branch" |
 | Empty state heading | "No workspaces" |
 | Empty state body | "Import a git repository to get started." |
 | Empty state action | "Import Repository" button (same style as bottom bar button) |
