@@ -113,6 +113,8 @@ export function useTerminal(
         if (e.altKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
           return false;
         }
+        // Sidebar toggle
+        if (e.key === 'b' && !e.shiftKey) return false; // Cmd+B
         // Tab shortcuts -- let bubble to keyboard registry
         if (e.key === 't' && !e.shiftKey) return false; // Cmd+T
         if (e.key >= '1' && e.key <= '9') return false; // Cmd+1-9
