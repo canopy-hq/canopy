@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, within } from '@testing-library/react';
 import { useTabsStore } from '../../stores/tabs-store';
+import { useWorkspaceStore } from '../../stores/workspace-store';
 import { StatusBar } from '../StatusBar';
 
 describe('StatusBar', () => {
@@ -18,6 +19,13 @@ describe('StatusBar', () => {
         },
       ],
       activeTabId: 'tab-1',
+    });
+    // No workspaces by default
+    useWorkspaceStore.setState({
+      workspaces: [],
+      sidebarVisible: false,
+      sidebarWidth: 230,
+      selectedItemId: null,
     });
   });
 
@@ -57,5 +65,37 @@ describe('StatusBar', () => {
     expect(within(container).getByText('Cmd+D Split')).toBeInTheDocument();
     expect(within(container).getByText('Cmd+T Tab')).toBeInTheDocument();
     expect(within(container).getByText('Cmd+Shift+O Overview')).toBeInTheDocument();
+  });
+
+  it('shows "Cmd+B Sidebar" hint text', () => {
+    const { container } = render(<StatusBar />);
+    expect(within(container).getByText('Cmd+B Sidebar')).toBeInTheDocument();
+  });
+
+  it('shows repo name and HEAD branch when workspace exists', () => {
+    useWorkspaceStore.setState({
+      workspaces: [
+        {
+          id: 'ws-1',
+          path: '/tmp/myrepo',
+          name: 'myrepo',
+          branches: [
+            { name: 'main', is_head: true, ahead: 0, behind: 0 },
+          ],
+          worktrees: [],
+          expanded: true,
+        },
+      ],
+    });
+    const { getByText } = render(<StatusBar />);
+    expect(getByText('myrepo')).toBeInTheDocument();
+    expect(getByText('main')).toBeInTheDocument();
+  });
+
+  it('shows only pane count when no workspaces', () => {
+    const { container, queryByText } = render(<StatusBar />);
+    expect(within(container).getByText('1 pane')).toBeInTheDocument();
+    // No repo name should be present
+    expect(queryByText('myrepo')).not.toBeInTheDocument();
   });
 });
