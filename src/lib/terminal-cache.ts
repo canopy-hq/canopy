@@ -1,7 +1,7 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 
-interface CachedEntry {
+export interface CachedEntry {
   term: Terminal;
   fitAddon: FitAddon;
 }
@@ -22,4 +22,8 @@ export function disposeCached(ptyId: number): void {
     entry.term.dispose();
     cache.delete(ptyId);
   }
+}
+
+export function getAllCached(): Map<number, CachedEntry> {
+  return cache;
 }
