@@ -6,12 +6,17 @@ import {
   TreeItemContent,
 } from 'react-aria-components';
 import { useWorkspaceStore } from '../stores/workspace-store';
+import { useAgentStore } from '../stores/agent-store';
+import { useTabsStore } from '../stores/tabs-store';
+import { StatusDot } from './StatusDot';
+import type { DotStatus } from './StatusDot';
 import type { Workspace } from '../stores/workspace-store';
 import type { BranchInfo, WorktreeInfo } from '../lib/git';
 import type { Selection, Key } from 'react-aria-components';
+import type { PaneNode } from '../lib/pane-tree-ops';
 import { CreateModal } from './CreateModal';
 
-function BranchRow({ branch }: { branch: BranchInfo }) {
+function BranchRow({ branch, agentStatus }: { branch: BranchInfo; agentStatus?: DotStatus }) {
   return (
     <div className="flex items-center h-7 pl-4 pr-2 gap-1">
       <span style={{ color: 'var(--branch-icon)' }}>&#x2387;</span>
@@ -21,6 +26,7 @@ function BranchRow({ branch }: { branch: BranchInfo }) {
       >
         {branch.name}
       </span>
+      {agentStatus && agentStatus !== 'idle' && <StatusDot status={agentStatus} size={8} />}
       <span className="flex gap-1" style={{ fontSize: '11px' }}>
         {branch.ahead > 0 && (
           <span style={{ color: 'var(--git-ahead)' }}>+{branch.ahead}</span>
@@ -33,7 +39,7 @@ function BranchRow({ branch }: { branch: BranchInfo }) {
   );
 }
 
-function WorktreeRow({ worktree }: { worktree: WorktreeInfo }) {
+function WorktreeRow({ worktree, agentStatus }: { worktree: WorktreeInfo; agentStatus?: DotStatus }) {
   return (
     <div className="flex items-center h-7 pl-4 pr-2 gap-1">
       <span style={{ color: 'var(--worktree-icon)' }}>&#x25C6;</span>
@@ -43,11 +49,12 @@ function WorktreeRow({ worktree }: { worktree: WorktreeInfo }) {
       >
         {worktree.name}
       </span>
+      {agentStatus && agentStatus !== 'idle' && <StatusDot status={agentStatus} size={8} />}
     </div>
   );
 }
 
-function RepoHeader({ workspace }: { workspace: Workspace }) {
+function RepoHeader({ workspace, agentSummary }: { workspace: Workspace; agentSummary?: Array<'running' | 'waiting'> }) {
   const headBranch = workspace.branches.find((b) => b.is_head);
   return (
     <div className="flex flex-col justify-center h-7 pl-2 pr-2">
@@ -65,6 +72,18 @@ function RepoHeader({ workspace }: { workspace: Workspace }) {
         >
           {workspace.name}
         </span>
+        {!workspace.expanded && agentSummary && agentSummary.length > 0 && (
+          <span className="flex items-center" style={{ gap: '4px', marginLeft: '4px' }}>
+            {agentSummary.slice(0, 3).map((status, i) => (
+              <StatusDot key={i} status={status} size={6} />
+            ))}
+            {agentSummary.length > 3 && (
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                +{agentSummary.length - 3}
+              </span>
+            )}
+          </span>
+        )}
       </div>
       {headBranch && (
         <span
@@ -78,12 +97,80 @@ function RepoHeader({ workspace }: { workspace: Workspace }) {
   );
 }
 
+function collectLeafPtyIds(node: PaneNode): number[] {
+  if (node.type === 'leaf') return node.ptyId > 0 ? [node.ptyId] : [];
+  return node.children.flatMap(collectLeafPtyIds);
+}
+
+/**
+ * Compute a map of workspaceItemId -> best agent status by cross-referencing
+ * tabs (which have workspaceItemId and pane trees with ptyIds) with the agent store.
+ */
+function useWorkspaceAgentMap(): Record<string, DotStatus> {
+  const agents = useAgentStore((s) => s.agents);
+  const tabs = useTabsStore((s) => s.tabs);
+
+  const result: Record<string, DotStatus> = {};
+  for (const tab of tabs) {
+    const ptyIds = collectLeafPtyIds(tab.paneRoot);
+    let best: DotStatus = 'idle';
+    for (const id of ptyIds) {
+      const agent = agents[id];
+      if (agent?.status === 'waiting') { best = 'waiting'; break; }
+      if (agent?.status === 'running') best = 'running';
+    }
+    const existing = result[tab.workspaceItemId];
+    if (best === 'waiting' || (best === 'running' && existing !== 'waiting')) {
+      result[tab.workspaceItemId] = best;
+    } else if (!existing) {
+      result[tab.workspaceItemId] = best;
+    }
+  }
+  return result;
+}
+
+/**
+ * Build summary dots for a collapsed repo: collect all non-idle agent statuses
+ * from workspace items that belong to this workspace, sorted waiting-first.
+ */
+function useRepoAgentSummary(ws: Workspace): Array<'running' | 'waiting'> {
+  const agents = useAgentStore((s) => s.agents);
+  const tabs = useTabsStore((s) => s.tabs);
+
+  const itemIds = new Set<string>();
+  itemIds.add(ws.id);
+  for (const b of ws.branches) itemIds.add(`${ws.id}-branch-${b.name}`);
+  for (const wt of ws.worktrees) itemIds.add(`${ws.id}-wt-${wt.name}`);
+
+  const statuses: Array<'running' | 'waiting'> = [];
+  for (const tab of tabs) {
+    if (!itemIds.has(tab.workspaceItemId)) continue;
+    const ptyIds = collectLeafPtyIds(tab.paneRoot);
+    for (const id of ptyIds) {
+      const agent = agents[id];
+      if (agent?.status === 'running' || agent?.status === 'waiting') {
+        statuses.push(agent.status);
+      }
+    }
+  }
+
+  // Sort: waiting first, then running
+  statuses.sort((a, b) => {
+    if (a === 'waiting' && b !== 'waiting') return -1;
+    if (a !== 'waiting' && b === 'waiting') return 1;
+    return 0;
+  });
+
+  return statuses;
+}
+
 export function WorkspaceTree() {
   const workspaces = useWorkspaceStore((s) => s.workspaces);
   const selectedItemId = useWorkspaceStore((s) => s.selectedItemId);
   const selectWorkspaceItem = useWorkspaceStore((s) => s.selectWorkspaceItem);
   const toggleExpanded = useWorkspaceStore((s) => s.toggleExpanded);
   const [modalWorkspace, setModalWorkspace] = useState<Workspace | null>(null);
+  const agentMap = useWorkspaceAgentMap();
 
   const expandedKeys = new Set<Key>(
     workspaces.filter((ws) => ws.expanded).map((ws) => ws.id),
@@ -139,70 +226,7 @@ export function WorkspaceTree() {
       onExpandedChange={handleExpandedChange}
     >
       {workspaces.map((ws) => (
-        <TreeItem
-          key={ws.id}
-          id={ws.id}
-          textValue={ws.name}
-          hasChildItems={
-            ws.branches.length > 0 || ws.worktrees.length > 0
-          }
-          className={({ isSelected }) =>
-            `outline-none cursor-pointer ${isSelected ? 'bg-bg-tertiary border-l-2 border-l-[var(--accent)]' : 'hover:bg-bg-tertiary'}`
-          }
-        >
-          <TreeItemContent>
-            <RepoHeader workspace={ws} />
-          </TreeItemContent>
-          {ws.branches.map((b) => (
-            <TreeItem
-              key={`${ws.id}-branch-${b.name}`}
-              id={`${ws.id}-branch-${b.name}`}
-              textValue={b.name}
-              className={({ isSelected }) =>
-                `outline-none cursor-pointer ${isSelected ? 'bg-bg-tertiary border-l-2 border-l-[var(--accent)]' : 'hover:bg-bg-tertiary'}`
-              }
-            >
-              <TreeItemContent>
-                <BranchRow branch={b} />
-              </TreeItemContent>
-            </TreeItem>
-          ))}
-          {ws.worktrees.map((wt) => (
-            <TreeItem
-              key={`${ws.id}-wt-${wt.name}`}
-              id={`${ws.id}-wt-${wt.name}`}
-              textValue={wt.name}
-              className={({ isSelected }) =>
-                `outline-none cursor-pointer ${isSelected ? 'bg-bg-tertiary border-l-2 border-l-[var(--accent)]' : 'hover:bg-bg-tertiary'}`
-              }
-            >
-              <TreeItemContent>
-                <WorktreeRow worktree={wt} />
-              </TreeItemContent>
-            </TreeItem>
-          ))}
-          <TreeItem
-            key={`${ws.id}-new-branch`}
-            id={`${ws.id}-new-branch`}
-            textValue="New Branch"
-            className="outline-none"
-          >
-            <TreeItemContent>
-              <div className="h-7 flex items-center pl-4">
-                <button
-                  className="text-text-muted hover:text-[var(--accent)] cursor-pointer"
-                  style={{ fontSize: '13px' }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setModalWorkspace(ws);
-                  }}
-                >
-                  + New Branch
-                </button>
-              </div>
-            </TreeItemContent>
-          </TreeItem>
-        </TreeItem>
+        <RepoTreeItem key={ws.id} ws={ws} agentMap={agentMap} setModalWorkspace={setModalWorkspace} />
       ))}
     </Tree>
     {modalWorkspace && (
@@ -213,5 +237,82 @@ export function WorkspaceTree() {
       />
     )}
     </>
+  );
+}
+
+function RepoTreeItem({
+  ws,
+  agentMap,
+  setModalWorkspace,
+}: {
+  ws: Workspace;
+  agentMap: Record<string, DotStatus>;
+  setModalWorkspace: (ws: Workspace) => void;
+}) {
+  const agentSummary = useRepoAgentSummary(ws);
+
+  return (
+    <TreeItem
+      key={ws.id}
+      id={ws.id}
+      textValue={ws.name}
+      hasChildItems={ws.branches.length > 0 || ws.worktrees.length > 0}
+      className={({ isSelected }) =>
+        `outline-none cursor-pointer ${isSelected ? 'bg-bg-tertiary border-l-2 border-l-[var(--accent)]' : 'hover:bg-bg-tertiary'}`
+      }
+    >
+      <TreeItemContent>
+        <RepoHeader workspace={ws} agentSummary={agentSummary} />
+      </TreeItemContent>
+      {ws.branches.map((b) => (
+        <TreeItem
+          key={`${ws.id}-branch-${b.name}`}
+          id={`${ws.id}-branch-${b.name}`}
+          textValue={b.name}
+          className={({ isSelected }) =>
+            `outline-none cursor-pointer ${isSelected ? 'bg-bg-tertiary border-l-2 border-l-[var(--accent)]' : 'hover:bg-bg-tertiary'}`
+          }
+        >
+          <TreeItemContent>
+            <BranchRow branch={b} agentStatus={agentMap[`${ws.id}-branch-${b.name}`]} />
+          </TreeItemContent>
+        </TreeItem>
+      ))}
+      {ws.worktrees.map((wt) => (
+        <TreeItem
+          key={`${ws.id}-wt-${wt.name}`}
+          id={`${ws.id}-wt-${wt.name}`}
+          textValue={wt.name}
+          className={({ isSelected }) =>
+            `outline-none cursor-pointer ${isSelected ? 'bg-bg-tertiary border-l-2 border-l-[var(--accent)]' : 'hover:bg-bg-tertiary'}`
+          }
+        >
+          <TreeItemContent>
+            <WorktreeRow worktree={wt} agentStatus={agentMap[`${ws.id}-wt-${wt.name}`]} />
+          </TreeItemContent>
+        </TreeItem>
+      ))}
+      <TreeItem
+        key={`${ws.id}-new-branch`}
+        id={`${ws.id}-new-branch`}
+        textValue="New Branch"
+        className="outline-none"
+      >
+        <TreeItemContent>
+          <div className="h-7 flex items-center pl-4">
+            <button
+              className="text-text-muted hover:text-[var(--accent)] cursor-pointer"
+              style={{ fontSize: '13px' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setModalWorkspace(ws);
+              }}
+            >
+              + New Branch
+            </button>
+          </div>
+        </TreeItemContent>
+      </TreeItem>
+    </TreeItem>
   );
 }
