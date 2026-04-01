@@ -158,15 +158,15 @@ When agent is `running` or `idle`: no border change, no shadow (revert to defaul
 
 | Property | Value |
 |----------|-------|
-| StatusDot | 8px green pulsing dot, placed left of tab label with 6px gap |
+| StatusDot | 8px green pulsing dot, placed left of tab label with 8px gap |
 
 ### Waiting Tab
 
 | Property | Value |
 |----------|-------|
-| StatusDot | 8px amber breathing dot, placed left of tab label with 6px gap |
+| StatusDot | 8px amber breathing dot, placed left of tab label with 8px gap |
 | Background tint | `var(--agent-waiting-glow)` as background overlay on tab |
-| Pill badge | "input" text, 10px font, 400 weight, `var(--agent-waiting)` background at 25% opacity, amber text, rounded-full, padding 1px 6px, placed right of tab label (before close button) |
+| Pill badge | "input" text, 10px font, 400 weight, `var(--agent-waiting)` background at 25% opacity, amber text, rounded-full, padding 2px 8px, placed right of tab label (before close button) |
 
 ---
 
@@ -176,7 +176,7 @@ When agent is `running` or `idle`: no border change, no shadow (revert to defaul
 
 | Property | Value |
 |----------|-------|
-| StatusDot | 8px dot, placed after the branch/worktree name text with 6px gap |
+| StatusDot | 8px dot, placed after the branch/worktree name text with 8px gap |
 | Running | Green pulsing dot |
 | Waiting | Amber breathing dot |
 | Idle | No dot rendered |
@@ -213,7 +213,7 @@ When agent is `running` or `idle`: no border change, no shadow (revert to defaul
 
 | Property | Value |
 |----------|-------|
-| Padding | 16px 16px 12px 16px |
+| Padding | 16px |
 | Title | "Agent Overview" at 14px semibold, `var(--text-primary)` |
 | Counter pill | Right of title, 11px regular, e.g. "2 running" in green + dot separator + "1 waiting" in amber |
 | Border bottom | 1px solid `var(--border)` |
@@ -282,7 +282,7 @@ Ticking: update every 1s via `setInterval` while overlay is open. Stop interval 
 | Border | 1px solid `var(--border)` |
 | Border radius | 8px |
 | Shadow | `0 4px 16px rgba(0, 0, 0, 0.4)` |
-| Padding | 12px 16px |
+| Padding | 16px |
 | Enter animation | slide-in from right + fade, 200ms ease-out |
 | Exit animation | fade-out + slide-right, 150ms ease-in |
 
@@ -291,7 +291,7 @@ Ticking: update every 1s via `setInterval` while overlay is open. Stop interval 
 ```
 [StatusDot] [Agent name]  [workspace/branch]     [x close]
             [event description]
-            [Jump]  [Dismiss]
+            [Jump to pane]  [Dismiss]
 ```
 
 | Element | Style |
@@ -299,15 +299,15 @@ Ticking: update every 1s via `setInterval` while overlay is open. Stop interval 
 | Agent name | 13px semibold, `var(--text-primary)` |
 | Workspace/branch | 11px regular, `var(--text-muted)`, right-aligned |
 | Event description | 11px regular, `var(--text-muted)` |
-| "Jump" button | 11px semibold, `var(--accent)` text, no background, hover underline |
+| "Jump to pane" button | 11px semibold, `var(--accent)` text, no background, hover underline |
 | "Dismiss" button | 11px regular, `var(--text-muted)` text, no background, hover underline |
-| Close (x) | 10px, `var(--text-muted)`, hover `var(--text-primary)` |
+| Close (x) | 10px, `var(--text-muted)`, hover `var(--text-primary)`, `aria-label="Close notification"` |
 
 ### Toast Types
 
 | Type | Status dot | Description copy | Timeout |
 |------|-----------|-----------------|---------|
-| agent-waiting | Amber breathing | "{agentName} is waiting for input" | Infinity (persists until dismissed or Jump) |
+| agent-waiting | Amber breathing | "{agentName} is waiting for input" | Infinity (persists until dismissed or Jump to pane) |
 | agent-complete | Green (static, no pulse) | "{agentName} finished" | 10000ms (auto-dismiss) |
 
 ### Toast De-duplication
@@ -341,7 +341,7 @@ Only show toasts for events in NON-ACTIVE workspaces (active workspace changes a
 | Tab waiting badge | "input" |
 | Toast waiting body | "{agentName} is waiting for input" |
 | Toast complete body | "{agentName} finished" |
-| Toast jump action | "Jump" |
+| Toast jump action | "Jump to pane" |
 | Toast dismiss action | "Dismiss" |
 | Status bar running | "{N} working" |
 | Status bar waiting | "{N} waiting" |
@@ -357,9 +357,9 @@ Current PaneHeader: floating CWD overlay, top-right corner.
 
 | Addition | Value |
 |----------|-------|
-| StatusDot position | Left of CWD text, 6px gap |
-| Agent name | After StatusDot, before CWD text, 12px, `var(--text-primary)`, only shown when agent is running or waiting |
-| Separator | " " (dot) between agent name and CWD, 12px, `var(--text-muted)` at 40% opacity |
+| StatusDot position | Left of CWD text, 8px gap |
+| Agent name | After StatusDot, before CWD text, 11px (Label), `var(--text-primary)`, only shown when agent is running or waiting |
+| Separator | " " (dot) between agent name and CWD, 11px (Label), `var(--text-muted)` at 40% opacity |
 | No agent | StatusDot hidden, agent name hidden, CWD renders as before (no layout shift) |
 
 ---
