@@ -120,7 +120,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       if (itemId !== null && itemLabel) {
         useTabsStore.getState().setActiveContext(itemId, itemLabel);
       } else if (itemId === null) {
-        useTabsStore.getState().setActiveContext('default');
+        useTabsStore.getState().setActiveContext('');
       }
     },
 

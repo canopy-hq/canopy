@@ -110,19 +110,41 @@ export default function App() {
 
   useKeyboardRegistry(bindings);
 
+  const hasContext = useTabsStore((s) => s.activeContextId !== '');
+
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-bg-primary">
       <div className="flex-1 min-h-0 flex flex-row">
         <Sidebar />
         <div className="flex-1 min-w-0 flex flex-col">
-          <TabBar />
-          <div className="flex-1 min-h-0 relative">
-            {activeTab && (
-              <div key={activeTab.id} className="absolute inset-0">
-                <PaneContainer root={activeTab.paneRoot} />
+          {hasContext ? (
+            <>
+              <TabBar />
+              <div className="flex-1 min-h-0 relative">
+                {activeTab && (
+                  <div key={activeTab.id} className="absolute inset-0">
+                    <PaneContainer root={activeTab.paneRoot} />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-text-muted">
+              <span className="text-lg font-semibold text-text-primary">No workspace selected</span>
+              <span className="text-sm text-center max-w-[280px]">
+                Import a git repository and select a branch or worktree to start working.
+              </span>
+              <button
+                className="mt-2 px-4 h-8 bg-bg-tertiary text-text-muted hover:text-[var(--accent)] cursor-pointer"
+                style={{ fontSize: '13px', borderRadius: '4px' }}
+                onClick={() => {
+                  useWorkspaceStore.getState().toggleSidebar();
+                }}
+              >
+                Open Sidebar (⌘B)
+              </button>
+            </div>
+          )}
         </div>
       </div>
       <StatusBar />

@@ -157,7 +157,7 @@ describe('workspace-store', () => {
       useWorkspaceStore.getState().selectWorkspaceItem('item1', 'main');
       useWorkspaceStore.getState().selectWorkspaceItem(null);
       expect(useWorkspaceStore.getState().selectedItemId).toBeNull();
-      expect(useTabsStore.getState().activeContextId).toBe('default');
+      expect(useTabsStore.getState().activeContextId).toBe('');
     });
   });
 });

@@ -6,7 +6,6 @@ import {
   findFirstLeaf,
   navigate as navFn,
   updateRatio,
-  findLeaf,
   type PaneNode,
   type PaneId,
   type SplitDirection,
@@ -59,17 +58,16 @@ function makeTab(opts?: { workspaceItemId?: string; label?: string }): Tab {
   };
 }
 
-const initialTab = makeTab({ workspaceItemId: 'default' });
-
 export const useTabsStore = create<TabsState>()(
   immer((set, get) => ({
-    tabs: [initialTab],
-    activeTabId: initialTab.id,
-    activeContextId: 'default',
+    tabs: [],
+    activeTabId: '',
+    activeContextId: '',
     contextActiveTabIds: {},
 
     addTab: () =>
       set((state) => {
+        if (!state.activeContextId) return;
         const tab = makeTab({ workspaceItemId: state.activeContextId });
         state.tabs.push(tab);
         state.activeTabId = tab.id;

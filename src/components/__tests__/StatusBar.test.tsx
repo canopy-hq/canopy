@@ -14,11 +14,13 @@ describe('StatusBar', () => {
         {
           id: 'tab-1',
           label: 'Terminal',
+          workspaceItemId: 'ws1',
           paneRoot: { type: 'leaf', id: 'pane-1', ptyId: -1 },
           focusedPaneId: 'pane-1',
         },
       ],
       activeTabId: 'tab-1',
+      activeContextId: 'ws1',
     });
     // No workspaces by default
     useWorkspaceStore.setState({
@@ -40,6 +42,7 @@ describe('StatusBar', () => {
         {
           id: 'tab-1',
           label: 'Terminal',
+          workspaceItemId: 'ws1',
           paneRoot: {
             type: 'branch',
             id: 'branch-1',
@@ -55,6 +58,7 @@ describe('StatusBar', () => {
         },
       ],
       activeTabId: 'tab-1',
+      activeContextId: 'ws1',
     });
     const { container } = render(<StatusBar />);
     expect(within(container).getByText('3 panes')).toBeInTheDocument();
