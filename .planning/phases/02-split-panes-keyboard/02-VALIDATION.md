@@ -2,8 +2,7 @@
 phase: 2
 slug: split-panes-keyboard
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
 created: 2026-04-01
 ---
 
@@ -34,25 +33,42 @@ created: 2026-04-01
 
 ---
 
-## Per-Task Verification Map
+## Test Strategy: TDD Within Tasks
 
-| Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
-|---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 02-01-01 | 01 | 0 | TERM-02, TERM-03, TERM-05, TERM-06 | unit | `bun run test -- pane-tree-ops` | ❌ W0 | ⬜ pending |
-| 02-01-02 | 01 | 0 | KEYS-01, KEYS-02, KEYS-03 | unit | `bun run test -- keybinding` | ❌ W0 | ⬜ pending |
-| 02-01-03 | 01 | 0 | TERM-04 | unit | `bun run test -- PaneHeader` | ❌ W0 | ⬜ pending |
-| 02-01-04 | 01 | 0 | TERM-06 | unit | `cargo test -p superagent --lib` | ❌ W0 | ⬜ pending |
+Tests are created TDD-style (RED then GREEN) within each task that has `tdd="true"`. There is no separate Wave 0 phase. Each TDD task creates its test file as the first step of the RED phase, then implements code to pass. Non-TDD tasks that create testable components include test creation as part of the task action.
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+This approach ensures:
+- Test files exist before implementation code (TDD tasks)
+- No orphaned test stubs that may drift from implementation
+- Each task is self-contained: creates tests + implementation in one commit cycle
 
 ---
 
-## Wave 0 Requirements
+## Per-Task Verification Map
 
-- [ ] `src/lib/__tests__/pane-tree-ops.test.ts` — stubs for TERM-02, TERM-03, TERM-05, TERM-06 (pure tree operations)
-- [ ] `src/hooks/__tests__/useKeyboardRegistry.test.ts` — stubs for KEYS-01, KEYS-02, KEYS-03
-- [ ] `src/components/__tests__/PaneHeader.test.tsx` — stubs for TERM-04
-- [ ] Rust: `close_pty` unit test in `pty.rs` mod tests
+| Task ID | Plan | Requirement | Test Type | Automated Command | TDD | Status |
+|---------|------|-------------|-----------|-------------------|-----|--------|
+| 02-01-01 | 01 | TERM-02, TERM-03, TERM-05, TERM-06 | unit | `bun run test -- pane-tree-ops` | yes (RED/GREEN within task) | pending |
+| 02-01-02 | 01 | KEYS-01, KEYS-02, KEYS-03 | unit | `bun run test -- useKeyboardRegistry` | yes (RED/GREEN within task) | pending |
+| 02-01-03 | 01 | TERM-06 | unit | `cargo test -p superagent --lib` | no (inline test in pty.rs) | pending |
+| 02-02-01 | 02 | TERM-04 | unit | `bun run test -- PaneHeader` | no (test created in task action) | pending |
+| 02-02-02 | 02 | TERM-02, TERM-03 | typecheck | `bun run typecheck` | no | pending |
+| 02-03-01 | 03 | KEYS-01, KEYS-02, KEYS-03, TERM-02, TERM-05, TERM-06 | integration | `bun run test && bun run typecheck` | no | pending |
+| 02-03-02 | 03 | cleanup | regression | `bun run test && cargo check` | no | pending |
+| 02-03-03 | 03 | all | manual | Human verify 11-point checklist | no | pending |
+
+*Status: pending / green / red / flaky*
+
+---
+
+## Test Files Created by Plans
+
+| Test File | Created In | Requirements Covered |
+|-----------|-----------|---------------------|
+| `src/lib/__tests__/pane-tree-ops.test.ts` | Plan 01, Task 1 (TDD RED phase) | TERM-02, TERM-03, TERM-05, TERM-06 |
+| `src/hooks/__tests__/useKeyboardRegistry.test.ts` | Plan 01, Task 2 (TDD RED phase) | KEYS-01, KEYS-02, KEYS-03 |
+| `src/components/__tests__/PaneHeader.test.tsx` | Plan 02, Task 1 | TERM-04 |
+| Rust `mod tests` in `pty.rs` | Plan 01, Task 3 | TERM-06 (close_pty) |
 
 ---
 
@@ -63,16 +79,17 @@ created: 2026-04-01
 | WebGL context budget under load | TERM-02 | Requires real WebGL contexts in browser | Open 9+ panes, verify no rendering crash |
 | Splitter drag feel | TERM-03 | Subjective UX interaction | Drag splitters, verify smooth resize |
 | OSC 7 CWD detection | TERM-04 | Depends on user shell config | cd to new dir, verify header updates |
+| Last pane close sentinel respawn | TERM-06 | End-to-end PTY lifecycle | Close all panes, verify new terminal spawns |
 
 ---
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 10s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify commands
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Tests created TDD-style within tasks (no separate Wave 0 needed)
+- [x] No watch-mode flags
+- [x] Feedback latency < 10s
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
