@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import '@xterm/xterm/css/xterm.css';
 import { useTerminal } from '../hooks/useTerminal';
 import { useTabsStore } from '../stores/tabs-store';
+import { useAgentStore, selectAgentForPty } from '../stores/agent-store';
 import { spawnTerminal } from '../lib/pty';
 import { PaneHeader } from './PaneHeader';
 
@@ -94,16 +95,33 @@ function TerminalPaneInner({
 }) {
   useTerminal(containerRef, ptyId, isFocused, onCwdChange);
 
+  const agent = useAgentStore(selectAgentForPty(ptyId));
+  const agentStatus = agent?.status ?? 'idle';
+  const isWaiting = agentStatus === 'waiting';
+
   return (
     <div
       className="relative h-full w-full"
+      data-testid="terminal-pane-wrapper"
       style={{
-        border: isFocused ? '1px solid var(--border-focus)' : '1px solid transparent',
-        transition: 'border-color 150ms ease',
+        border: isWaiting
+          ? '1px solid var(--agent-waiting-border)'
+          : isFocused
+            ? '1px solid var(--border-focus)'
+            : '1px solid transparent',
+        boxShadow: isWaiting
+          ? '0 0 12px var(--agent-waiting-glow), inset 0 0 24px var(--agent-waiting-inset)'
+          : 'none',
+        transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
       }}
       onPointerDown={() => setFocus(paneId)}
     >
-      <PaneHeader cwd={cwd} isFocused={isFocused} />
+      <PaneHeader
+        cwd={cwd}
+        isFocused={isFocused}
+        agentStatus={agentStatus}
+        agentName={agent?.agentName}
+      />
       <div ref={containerRef} className="h-full w-full" />
     </div>
   );

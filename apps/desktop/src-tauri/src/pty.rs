@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use tauri::ipc::Channel;
 use portable_pty::{native_pty_system, PtySize, CommandBuilder, MasterPty, Child};
+
+use crate::agent_watcher::{self, AgentWatcherState, now_millis};
 
 pub struct PtyManager {
     pub(crate) writers: HashMap<u32, Box<dyn Write + Send>>,
@@ -25,7 +28,9 @@ impl PtyManager {
 #[tauri::command]
 pub async fn spawn_terminal(
     on_output: Channel<Vec<u8>>,
+    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<PtyManager>>,
+    watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
 ) -> Result<u32, String> {
     let pty_system = native_pty_system();
     let pair = pty_system
@@ -41,12 +46,19 @@ pub async fn spawn_terminal(
     let cmd = CommandBuilder::new_default_prog();
     let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
 
+    // Extract child PID immediately after spawn (Pitfall 7: may return None)
+    let child_pid = child.process_id();
+
     // CRITICAL: Drop slave after spawn to prevent reader hang (Pitfall 1)
     drop(pair.slave);
 
     // Clone reader before taking writer -- master remains available for resize
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+
+    // Create atomic timestamp for output tracking (D-05)
+    let last_output = Arc::new(AtomicU64::new(now_millis()));
+    let last_output_clone = last_output.clone();
 
     let pty_id = {
         let mut manager = state.lock().map_err(|e| e.to_string())?;
@@ -58,6 +70,12 @@ pub async fn spawn_terminal(
         id
     };
 
+    // Store last_output Arc in watcher state
+    {
+        let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
+        ws.last_outputs.insert(pty_id, last_output.clone());
+    }
+
     // Spawn reader thread using std::thread (NOT tokio -- portable-pty reader is blocking I/O)
     std::thread::spawn(move || {
         let mut buf = [0u8; 4096];
@@ -65,6 +83,8 @@ pub async fn spawn_terminal(
             match reader.read(&mut buf) {
                 Ok(0) => break,
                 Ok(n) => {
+                    // Track last output timestamp (D-05: zero-cost, bytes already flow)
+                    last_output_clone.store(now_millis(), Ordering::Relaxed);
                     if on_output.send(buf[..n].to_vec()).is_err() {
                         break;
                     }
@@ -73,6 +93,16 @@ pub async fn spawn_terminal(
             }
         }
     });
+
+    // Start agent watcher if we have a child PID
+    if let Some(pid) = child_pid {
+        let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
+        {
+            let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
+            ws.cancel_senders.insert(pty_id, cancel_tx);
+        }
+        agent_watcher::start_watching(pid, pty_id, app, last_output, cancel_rx);
+    }
 
     Ok(pty_id)
 }
@@ -120,7 +150,17 @@ pub fn resize_pty(
 pub fn close_pty(
     pty_id: u32,
     state: tauri::State<'_, Mutex<PtyManager>>,
+    watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
 ) -> Result<(), String> {
+    // Stop agent watcher first
+    {
+        let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
+        if let Some(cancel) = ws.cancel_senders.remove(&pty_id) {
+            let _ = cancel.send(());
+        }
+        ws.last_outputs.remove(&pty_id);
+    }
+
     let mut manager = state.lock().map_err(|e| e.to_string())?;
     // Kill child process first
     if let Some(mut child) = manager.children.remove(&pty_id) {
