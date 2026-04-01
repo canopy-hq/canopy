@@ -18,10 +18,10 @@ Developers can run and monitor multiple AI coding agents across workspaces from 
 
 ### Active
 
-- [ ] Sidebar with workspace list, expand/collapse repos, branch/worktree icons (⎇/◆), agent status dots
+- [x] Sidebar with workspace list, expand/collapse repos, branch/worktree icons (⎇/◆) — Validated in Phase 04: git-integration-sidebar
 - [x] Recursive split pane system (horizontal/vertical) with floating headers and drag handles — Validated in Phase 02: split-panes-keyboard
 - [x] Tab bar with one tab per branch/worktree, agent status indicators — Validated in Phase 03: tabs-themes-statusbar
-- [ ] Create branch/worktree center modal with type cards and git command preview
+- [x] Create branch/worktree center modal with type cards and git command preview — Validated in Phase 04: git-integration-sidebar
 - [ ] Agent detection via process tree inspection (polling, configurable known_agents list)
 - [ ] Agent waiting state: amber glow on pane/tab/sidebar, breathing animation
 - [ ] Agent overview overlay (all agents across all workspaces)
@@ -30,7 +30,7 @@ Developers can run and monitor multiple AI coding agents across workspaces from 
 - [x] 8 built-in dark themes via CSS custom properties — Validated in Phase 03: tabs-themes-statusbar
 - [ ] Session persistence (layout, tabs, focused pane restored on reopen)
 - [x] iTerm2-compatible keyboard shortcuts with user overrides — Validated in Phase 02: split-panes-keyboard
-- [x] Status bar with repo info, agent summary, shortcut hints — Validated in Phase 03: tabs-themes-statusbar (pane count + hints; repo/agent info deferred to Phase 4/5)
+- [x] Status bar with repo info, agent summary, shortcut hints — Validated in Phase 03: tabs-themes-statusbar (pane count + hints); workspace name + HEAD branch added in Phase 04
 
 ### Out of Scope
 
