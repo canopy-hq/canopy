@@ -118,7 +118,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         state.selectedItemId = itemId;
       });
       if (itemId !== null && itemLabel) {
-        useTabsStore.getState().findOrCreateTabForWorkspaceItem(itemId, itemLabel);
+        useTabsStore.getState().setActiveContext(itemId, itemLabel);
+      } else if (itemId === null) {
+        useTabsStore.getState().setActiveContext('');
       }
     },
 
