@@ -125,6 +125,7 @@ impl OutputAgentDetector {
                             self.state = DetectionState::Running {
                                 agent_name: agent_name.to_string(),
                             };
+                            self.clear_ring();
                             return Some(AgentDetectionEvent::Started {
                                 agent_name: agent_name.to_string(),
                             });
@@ -139,12 +140,20 @@ impl OutputAgentDetector {
                     if contains_bytes(&window, pattern) {
                         let name = agent_name.clone();
                         self.state = DetectionState::Idle;
+                        self.clear_ring();
                         return Some(AgentDetectionEvent::Stopped { agent_name: name });
                     }
                 }
                 None
             }
         }
+    }
+
+    /// Clear the ring buffer after a state transition so stale patterns
+    /// don't cause false matches on the next scan.
+    fn clear_ring(&mut self) {
+        self.ring_buf.fill(0);
+        self.ring_pos = 0;
     }
 
     /// Return the current contents of the ring buffer in order.
@@ -554,5 +563,101 @@ mod tests {
         let state = AgentWatcherState::new();
         assert!(state.cancel_senders.is_empty());
         assert!(state.last_outputs.is_empty());
+    }
+
+    // ── OutputAgentDetector tests ─────────────────────────────────────
+
+    #[test]
+    fn test_output_detector_detects_claude() {
+        let mut det = OutputAgentDetector::new();
+        let result = det.feed(b"Welcome to Claude Code v4.0\n");
+        assert_eq!(
+            result,
+            Some(AgentDetectionEvent::Started {
+                agent_name: "claude".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn test_output_detector_detects_aider() {
+        let mut det = OutputAgentDetector::new();
+        let result = det.feed(b"aider> /help\n");
+        assert_eq!(
+            result,
+            Some(AgentDetectionEvent::Started {
+                agent_name: "aider".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn test_output_detector_detects_shell_return() {
+        let mut det = OutputAgentDetector::new();
+        // Start an agent first
+        det.feed(b"Claude Code v4.0");
+        assert_eq!(det.state, DetectionState::Running { agent_name: "claude".to_string() });
+
+        // Now simulate returning to shell prompt
+        let result = det.feed(b"user@host $ ");
+        assert_eq!(
+            result,
+            Some(AgentDetectionEvent::Stopped {
+                agent_name: "claude".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn test_output_detector_ignores_normal_output() {
+        let mut det = OutputAgentDetector::new();
+        let result = det.feed(b"ls\nfoo.txt\nbar.txt\n");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_output_detector_split_pattern() {
+        let mut det = OutputAgentDetector::new();
+        // First chunk: partial pattern
+        let result1 = det.feed(b"Welcome to Clau");
+        assert_eq!(result1, None);
+
+        // Second chunk: completes the pattern
+        let result2 = det.feed(b"de Code v1");
+        assert_eq!(
+            result2,
+            Some(AgentDetectionEvent::Started {
+                agent_name: "claude".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn test_output_detector_no_false_stop_in_idle() {
+        let mut det = OutputAgentDetector::new();
+        // Shell prompt in Idle state should NOT trigger a stop
+        let result = det.feed(b"user@host $ ");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_output_detector_full_cycle() {
+        let mut det = OutputAgentDetector::new();
+
+        // Start claude
+        let r1 = det.feed(b"Claude Code v4.0\n");
+        assert_eq!(r1, Some(AgentDetectionEvent::Started { agent_name: "claude".to_string() }));
+
+        // Stop claude (back to shell)
+        let r2 = det.feed(b"\nuser@host $ ");
+        assert_eq!(r2, Some(AgentDetectionEvent::Stopped { agent_name: "claude".to_string() }));
+
+        // Start aider
+        let r3 = det.feed(b"Aider v0.50.0\n");
+        assert_eq!(r3, Some(AgentDetectionEvent::Started { agent_name: "aider".to_string() }));
+
+        // Stop aider
+        let r4 = det.feed(b"\nuser@host % ");
+        assert_eq!(r4, Some(AgentDetectionEvent::Stopped { agent_name: "aider".to_string() }));
     }
 }
