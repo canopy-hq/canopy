@@ -77,12 +77,13 @@ Plans:
   2. User can create and remove branches and worktrees via a modal with type cards, name input, and git command preview
   3. Sidebar shows branch ahead/behind status and distinguishes branches (blue) from worktrees (purple)
   4. Sidebar is resizable, togglable with Cmd+B, and has buttons for importing repos and creating branches/worktrees
-**Plans**: 3 plans
+**Plans**: 4 plans
 
 Plans:
 - [x] 04-01-PLAN.md — Rust git.rs backend + IPC wrappers + workspace store + theme tokens (GIT-01, GIT-02, GIT-03, GIT-06)
 - [x] 04-02-PLAN.md — Sidebar UI + workspace tree + App.tsx layout + StatusBar update (SIDE-01, SIDE-02, SIDE-05, SIDE-06, GIT-06)
 - [x] 04-03-PLAN.md — Create branch/worktree modal + wiring to tree (GIT-04, GIT-05)
+- [ ] 04-04-PLAN.md — Gap closure: workspace-terminal association + pointer cursor fix (SIDE-01, SIDE-02)
 
 ### Phase 5: Agent Detection + Status UI
 **Goal**: User can see at a glance which AI agents are running, waiting, or idle across all workspaces
@@ -126,6 +127,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 1. App Shell + Single Terminal | 0/2 | Planning complete | - |
 | 2. Split Panes + Keyboard | 0/3 | Planning complete | - |
 | 3. Tabs + Themes + Status Bar | 0/3 | Planning complete | - |
-| 4. Git Integration + Sidebar | 0/3 | Planning complete | - |
+| 4. Git Integration + Sidebar | 0/4 | Planning complete | - |
 | 5. Agent Detection + Status UI | 0/0 | Not started | - |
 | 6. Session Persistence + Settings | 0/0 | Not started | - |
