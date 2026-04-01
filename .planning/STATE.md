@@ -103,8 +103,15 @@ None yet.
 - Phase 4: git2 worktree API edge cases — validate against locked worktrees, detached HEAD, bare repos
 - Phase 5: Agent binary name patterns may have shifted — verify before building known_agents list
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260401-w64 | Move TabBar inside main content area next to sidebar | 2026-04-01 | 8c3bcbb | [260401-w64](./quick/260401-w64-move-tabbar-inside-main-content-area-nex/) |
+| 260401-wei | Fix terminal isolation: only render active tab PaneContainer | 2026-04-01 | df7ba88 | [260401-wei](./quick/260401-wei-fix-terminal-isolation-only-render-activ/) |
+
 ## Session Continuity
 
-Last session: 2026-04-01T21:03:34.071Z
-Stopped at: Completed 04-04-PLAN.md
+Last activity: 2026-04-01 - Completed quick task 260401-wei: Fix terminal isolation
+Stopped at: Completed quick task 260401-wei
 Resume file: None
