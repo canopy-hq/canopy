@@ -94,4 +94,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-01 after Phase 03 completion*
+*Last updated: 2026-04-01 after Phase 04 completion (gap closure: workspace-terminal association + pointer cursor)*
