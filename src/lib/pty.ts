@@ -18,3 +18,7 @@ export async function writeToPty(ptyId: number, data: string): Promise<void> {
 export async function resizePty(ptyId: number, rows: number, cols: number): Promise<void> {
   return invoke('resize_pty', { ptyId, rows, cols });
 }
+
+export async function closePty(ptyId: number): Promise<void> {
+  return invoke('close_pty', { ptyId });
+}

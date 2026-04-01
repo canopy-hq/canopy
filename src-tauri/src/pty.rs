@@ -116,6 +116,24 @@ pub fn resize_pty(
     Ok(())
 }
 
+#[tauri::command]
+pub fn close_pty(
+    pty_id: u32,
+    state: tauri::State<'_, Mutex<PtyManager>>,
+) -> Result<(), String> {
+    let mut manager = state.lock().map_err(|e| e.to_string())?;
+    // Kill child process first
+    if let Some(mut child) = manager.children.remove(&pty_id) {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+    // Drop writer (closes write end of PTY)
+    manager.writers.remove(&pty_id);
+    // Drop master (closes PTY file descriptors, reader thread will exit)
+    manager.masters.remove(&pty_id);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -124,6 +142,15 @@ mod tests {
     fn test_pty_manager_new() {
         let manager = PtyManager::new();
         assert_eq!(manager.next_id, 1);
+    }
+
+    #[test]
+    fn test_close_pty_nonexistent_is_ok() {
+        let manager = PtyManager::new();
+        // Calling close on non-existent ID should not panic
+        assert!(manager.children.get(&999).is_none());
+        assert!(manager.writers.get(&999).is_none());
+        assert!(manager.masters.get(&999).is_none());
     }
 
     #[test]
