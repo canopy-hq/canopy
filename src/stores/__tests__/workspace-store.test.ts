@@ -18,6 +18,7 @@ vi.mock('../../lib/toast', () => ({
 
 // Must import after mocks
 import { useWorkspaceStore } from '../workspace-store';
+import { useTabsStore } from '../tabs-store';
 import * as gitApi from '../../lib/git';
 
 const mockImportRepo = vi.mocked(gitApi.importRepo);
@@ -139,18 +140,19 @@ describe('workspace-store', () => {
   });
 
   describe('selectWorkspaceItem', () => {
+    beforeEach(() => {
+      useTabsStore.setState(useTabsStore.getInitialState());
+    });
+
     it('sets selectedItemId and creates workspace tab', () => {
       useWorkspaceStore.getState().selectWorkspaceItem('item1', 'main');
       expect(useWorkspaceStore.getState().selectedItemId).toBe('item1');
-      // Verify tabs-store was affected
-      const { useTabsStore } = require('../tabs-store');
       const tabs = useTabsStore.getState().tabs;
-      const wsTab = tabs.find((t: { workspaceItemId?: string }) => t.workspaceItemId === 'item1');
+      const wsTab = tabs.find((t) => t.workspaceItemId === 'item1');
       expect(wsTab).toBeDefined();
     });
 
     it('selectWorkspaceItem(null) clears selection without tab change', () => {
-      const { useTabsStore } = require('../tabs-store');
       const tabCountBefore = useTabsStore.getState().tabs.length;
       useWorkspaceStore.getState().selectWorkspaceItem(null);
       expect(useWorkspaceStore.getState().selectedItemId).toBeNull();
