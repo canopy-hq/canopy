@@ -45,11 +45,12 @@ Plans:
   2. User can drag splitter handles to resize panes, and each pane shows a floating header with CWD
   3. User can navigate between panes with Cmd+Option+arrows and close focused pane with Cmd+W
   4. iTerm2-compatible shortcuts work; unmatched keys pass through to the focused terminal
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md — Pane tree data layer, keyboard registry, close_pty backend (TERM-02, TERM-03, TERM-05, TERM-06, KEYS-01, KEYS-02, KEYS-03)
+- [ ] 02-02-PLAN.md — Split pane UI components: recursive renderer, splitter, terminal pane, header (TERM-02, TERM-03, TERM-04)
+- [ ] 02-03-PLAN.md — Integration wiring: App.tsx orchestration, shortcuts, end-to-end verification (TERM-02, TERM-05, TERM-06, KEYS-01, KEYS-02, KEYS-03)
 
 ### Phase 3: Tabs + Themes + Status Bar
 **Goal**: User can manage multiple terminal workspaces via tabs with visual theming
@@ -121,7 +122,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. App Shell + Single Terminal | 0/2 | Planning complete | - |
-| 2. Split Panes + Keyboard | 0/0 | Not started | - |
+| 2. Split Panes + Keyboard | 0/3 | Planning complete | - |
 | 3. Tabs + Themes + Status Bar | 0/0 | Not started | - |
 | 4. Git Integration + Sidebar | 0/0 | Not started | - |
 | 5. Agent Detection + Status UI | 0/0 | Not started | - |
