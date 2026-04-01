@@ -41,13 +41,13 @@ created: 2026-04-01
 | 04-01-01 | 01 | 1 | GIT-01 | unit | `cd src-tauri && cargo test git` | ❌ W0 | ⬜ pending |
 | 04-01-02 | 01 | 1 | GIT-02 | unit | `cd src-tauri && cargo test git` | ❌ W0 | ⬜ pending |
 | 04-01-03 | 01 | 1 | GIT-03 | unit | `cd src-tauri && cargo test git` | ❌ W0 | ⬜ pending |
-| 04-01-04 | 01 | 1 | GIT-04 | unit | `cd src-tauri && cargo test git` | ❌ W0 | ⬜ pending |
-| 04-01-05 | 01 | 1 | GIT-05 | unit | `cd src-tauri && cargo test git` | ❌ W0 | ⬜ pending |
-| 04-01-06 | 01 | 1 | GIT-06 | unit | `cd src-tauri && cargo test git` | ❌ W0 | ⬜ pending |
-| 04-02-01 | 02 | 2 | SIDE-01 | unit | `bun run test` | ❌ W0 | ⬜ pending |
-| 04-02-02 | 02 | 2 | SIDE-02 | unit | `bun run test` | ❌ W0 | ⬜ pending |
-| 04-02-03 | 02 | 2 | SIDE-05 | unit | `bun run test` | ❌ W0 | ⬜ pending |
-| 04-02-04 | 02 | 2 | SIDE-06 | unit | `bun run test` | ❌ W0 | ⬜ pending |
+| 04-01-04 | 01 | 1 | GIT-06 | unit | `cd src-tauri && cargo test git` | ❌ W0 | ⬜ pending |
+| 04-02-01 | 02 | 2 | SIDE-01 | unit | `bun run test -- Sidebar` | ❌ W0 | ⬜ pending |
+| 04-02-02 | 02 | 2 | SIDE-02 | unit | `bun run test -- Sidebar` | ❌ W0 | ⬜ pending |
+| 04-02-03 | 02 | 2 | SIDE-05 | unit | `bun run test -- Sidebar` | ❌ W0 | ⬜ pending |
+| 04-02-04 | 02 | 2 | SIDE-06 | unit | `bun run test -- WorkspaceTree` | ❌ W0 | ⬜ pending |
+| 04-03-01 | 03 | 2 | GIT-04 | unit | `bun run test -- CreateModal` | ❌ W0 | ⬜ pending |
+| 04-03-02 | 03 | 2 | GIT-05 | unit | `bun run test -- CreateModal` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -55,8 +55,9 @@ created: 2026-04-01
 
 ## Wave 0 Requirements
 
-- [ ] `src-tauri/src/git.rs` — test module stubs for GIT-01 through GIT-06
-- [ ] `src/components/sidebar/__tests__/` — test stubs for SIDE-01, SIDE-02, SIDE-05, SIDE-06
+- [ ] `src-tauri/src/git.rs` — test module stubs for GIT-01 through GIT-03, GIT-06
+- [ ] `src/components/__tests__/` — test stubs for SIDE-01, SIDE-02, SIDE-05, SIDE-06
+- [ ] `src/components/__tests__/CreateModal.test.tsx` — test stubs for GIT-04, GIT-05
 
 *Existing Vitest and cargo test infrastructure covers framework needs.*
 
