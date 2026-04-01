@@ -113,19 +113,21 @@ export default function App() {
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-bg-primary">
-      <TabBar />
       <div className="flex-1 min-h-0 flex flex-row">
         <Sidebar />
-        <div className="flex-1 min-w-0 relative">
-          {tabs.map((tab) => (
-            <div
-              key={tab.id}
-              className="absolute inset-0"
-              style={{ display: tab.id === activeTabId ? 'block' : 'none' }}
-            >
-              <PaneContainer root={tab.paneRoot} />
-            </div>
-          ))}
+        <div className="flex-1 min-w-0 flex flex-col">
+          <TabBar />
+          <div className="flex-1 min-h-0 relative">
+            {tabs.map((tab) => (
+              <div
+                key={tab.id}
+                className="absolute inset-0"
+                style={{ display: tab.id === activeTabId ? 'block' : 'none' }}
+              >
+                <PaneContainer root={tab.paneRoot} />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
       <StatusBar />
