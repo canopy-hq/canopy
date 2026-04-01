@@ -48,7 +48,9 @@ function TabItem({
 }
 
 export function TabBar() {
-  const tabs = useTabsStore((s) => s.tabs);
+  const allTabs = useTabsStore((s) => s.tabs);
+  const activeContextId = useTabsStore((s) => s.activeContextId);
+  const tabs = allTabs.filter((t) => t.workspaceItemId === activeContextId);
   const activeTabId = useTabsStore((s) => s.activeTabId);
   const addTab = useTabsStore((s) => s.addTab);
   const closeTab = useTabsStore((s) => s.closeTab);

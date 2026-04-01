@@ -144,19 +144,20 @@ describe('workspace-store', () => {
       useTabsStore.setState(useTabsStore.getInitialState());
     });
 
-    it('sets selectedItemId and creates workspace tab', () => {
+    it('sets selectedItemId and switches context via setActiveContext', () => {
       useWorkspaceStore.getState().selectWorkspaceItem('item1', 'main');
       expect(useWorkspaceStore.getState().selectedItemId).toBe('item1');
-      const tabs = useTabsStore.getState().tabs;
-      const wsTab = tabs.find((t) => t.workspaceItemId === 'item1');
-      expect(wsTab).toBeDefined();
+      expect(useTabsStore.getState().activeContextId).toBe('item1');
+      const contextTabs = useTabsStore.getState().getContextTabs();
+      expect(contextTabs).toHaveLength(1);
+      expect(contextTabs[0]!.workspaceItemId).toBe('item1');
     });
 
-    it('selectWorkspaceItem(null) clears selection without tab change', () => {
-      const tabCountBefore = useTabsStore.getState().tabs.length;
+    it('selectWorkspaceItem(null) clears selection and returns to default context', () => {
+      useWorkspaceStore.getState().selectWorkspaceItem('item1', 'main');
       useWorkspaceStore.getState().selectWorkspaceItem(null);
       expect(useWorkspaceStore.getState().selectedItemId).toBeNull();
-      expect(useTabsStore.getState().tabs.length).toBe(tabCountBefore);
+      expect(useTabsStore.getState().activeContextId).toBe('');
     });
   });
 });

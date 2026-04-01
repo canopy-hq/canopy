@@ -5,55 +5,66 @@ function resetStore() {
   useTabsStore.setState(useTabsStore.getInitialState());
 }
 
+/** Helper: set up a context with one tab so tests that need tabs can start from a known state */
+function setupContext(contextId = 'ws1', label = 'main') {
+  useTabsStore.getState().setActiveContext(contextId, label);
+}
+
 describe('tabs-store', () => {
   beforeEach(() => {
     resetStore();
   });
 
   describe('initial state', () => {
-    it('has 1 tab with label "Terminal"', () => {
+    it('starts with no tabs', () => {
       const { tabs } = useTabsStore.getState();
-      expect(tabs).toHaveLength(1);
-      expect(tabs[0]!.label).toBe('Terminal');
+      expect(tabs).toHaveLength(0);
     });
 
-    it('initial tab has a sentinel leaf pane with ptyId=-1', () => {
-      const { tabs } = useTabsStore.getState();
-      const root = tabs[0]!.paneRoot;
-      expect(root.type).toBe('leaf');
-      if (root.type === 'leaf') {
-        expect(root.ptyId).toBe(-1);
-      }
+    it('starts with empty activeContextId', () => {
+      const { activeContextId } = useTabsStore.getState();
+      expect(activeContextId).toBe('');
+    });
+
+    it('starts with empty activeTabId', () => {
+      const { activeTabId } = useTabsStore.getState();
+      expect(activeTabId).toBe('');
+    });
+
+    it('initial contextActiveTabIds is empty', () => {
+      const { contextActiveTabIds } = useTabsStore.getState();
+      expect(contextActiveTabIds).toEqual({});
     });
   });
 
   describe('addTab', () => {
-    it('creates new tab with label "Terminal"', () => {
+    it('does nothing when no context is active', () => {
+      useTabsStore.getState().addTab();
+      expect(useTabsStore.getState().tabs).toHaveLength(0);
+    });
+
+    it('creates new tab within active context', () => {
+      setupContext();
       useTabsStore.getState().addTab();
       const { tabs } = useTabsStore.getState();
-      expect(tabs).toHaveLength(2);
+      expect(tabs).toHaveLength(2); // setActiveContext created 1 + addTab created 1
       expect(tabs[1]!.label).toBe('Terminal');
+      expect(tabs[1]!.workspaceItemId).toBe('ws1');
     });
 
     it('sets new tab as activeTabId', () => {
+      setupContext();
       useTabsStore.getState().addTab();
       const { tabs, activeTabId } = useTabsStore.getState();
       expect(activeTabId).toBe(tabs[1]!.id);
-    });
-
-    it('all tabs have same label', () => {
-      useTabsStore.getState().addTab();
-      useTabsStore.getState().addTab();
-      const { tabs } = useTabsStore.getState();
-      expect(tabs[2]!.label).toBe('Terminal');
     });
   });
 
   describe('closeTab', () => {
     it('removes tab and switches to adjacent tab', () => {
-      const store = useTabsStore.getState();
-      store.addTab();
-      store.addTab();
+      setupContext();
+      useTabsStore.getState().addTab();
+      useTabsStore.getState().addTab();
       const { tabs } = useTabsStore.getState();
       const tabToClose = tabs[1]!.id;
       useTabsStore.getState().closeTab(tabToClose);
@@ -62,26 +73,35 @@ describe('tabs-store', () => {
       expect(after.tabs.find((t) => t.id === tabToClose)).toBeUndefined();
     });
 
-    it('on last tab spawns fresh "Terminal N+1" tab', () => {
+    it('closing last tab in context spawns fresh tab with same workspaceItemId', () => {
+      setupContext();
       const { tabs } = useTabsStore.getState();
       const onlyTabId = tabs[0]!.id;
       useTabsStore.getState().closeTab(onlyTabId);
       const after = useTabsStore.getState();
-      expect(after.tabs).toHaveLength(1);
-      expect(after.tabs[0]!.id).not.toBe(onlyTabId);
-      expect(after.tabs[0]!.label).toBe('Terminal');
+      const contextTabs = after.tabs.filter((t) => t.workspaceItemId === 'ws1');
+      expect(contextTabs).toHaveLength(1);
+      expect(contextTabs[0]!.id).not.toBe(onlyTabId);
+      expect(contextTabs[0]!.workspaceItemId).toBe('ws1');
     });
   });
 
   describe('switchTabByIndex', () => {
-    it('sets first tab active when index=0', () => {
+    it('switches within context tabs only', () => {
+      setupContext('ws1', 'main');
       useTabsStore.getState().addTab();
-      const firstTabId = useTabsStore.getState().tabs[0]!.id;
+      useTabsStore.getState().setActiveContext('ws2', 'dev');
+      useTabsStore.getState().addTab();
+      // Switch back to ws1
+      useTabsStore.getState().setActiveContext('ws1');
       useTabsStore.getState().switchTabByIndex(0);
-      expect(useTabsStore.getState().activeTabId).toBe(firstTabId);
+      const state = useTabsStore.getState();
+      const ws1Tabs = state.tabs.filter((t) => t.workspaceItemId === 'ws1');
+      expect(state.activeTabId).toBe(ws1Tabs[0]!.id);
     });
 
     it('does nothing when index is out of bounds', () => {
+      setupContext();
       const before = useTabsStore.getState().activeTabId;
       useTabsStore.getState().switchTabByIndex(99);
       expect(useTabsStore.getState().activeTabId).toBe(before);
@@ -89,50 +109,109 @@ describe('tabs-store', () => {
   });
 
   describe('switchTabRelative', () => {
-    it('next wraps from last to first', () => {
+    it('next wraps within context tabs', () => {
+      setupContext();
       useTabsStore.getState().addTab();
       useTabsStore.getState().addTab();
-      // activeTabId is on last tab (tab 3)
-      const { tabs } = useTabsStore.getState();
-      expect(useTabsStore.getState().activeTabId).toBe(tabs[2]!.id);
+      const contextTabs = useTabsStore.getState().tabs.filter((t) => t.workspaceItemId === 'ws1');
+      expect(useTabsStore.getState().activeTabId).toBe(contextTabs[2]!.id);
       useTabsStore.getState().switchTabRelative('next');
-      expect(useTabsStore.getState().activeTabId).toBe(tabs[0]!.id);
+      expect(useTabsStore.getState().activeTabId).toBe(contextTabs[0]!.id);
     });
 
-    it('prev wraps from first to last', () => {
+    it('prev wraps within context tabs', () => {
+      setupContext();
       useTabsStore.getState().addTab();
       useTabsStore.getState().addTab();
-      const { tabs } = useTabsStore.getState();
+      const contextTabs = useTabsStore.getState().tabs.filter((t) => t.workspaceItemId === 'ws1');
       useTabsStore.getState().switchTabByIndex(0);
       useTabsStore.getState().switchTabRelative('prev');
-      expect(useTabsStore.getState().activeTabId).toBe(tabs[2]!.id);
+      expect(useTabsStore.getState().activeTabId).toBe(contextTabs[2]!.id);
+    });
+  });
+
+  describe('setActiveContext', () => {
+    it('creates new tab group when switching to unknown context', () => {
+      useTabsStore.getState().setActiveContext('ws1', 'main');
+      const state = useTabsStore.getState();
+      expect(state.activeContextId).toBe('ws1');
+      const ws1Tabs = state.tabs.filter((t) => t.workspaceItemId === 'ws1');
+      expect(ws1Tabs).toHaveLength(1);
+      expect(ws1Tabs[0]!.label).toBe('main');
+      expect(state.activeTabId).toBe(ws1Tabs[0]!.id);
+    });
+
+    it('restores previous tab group when switching back', () => {
+      setupContext('ws1', 'main');
+      const ws1TabId = useTabsStore.getState().activeTabId;
+      useTabsStore.getState().setActiveContext('ws2', 'dev');
+      useTabsStore.getState().setActiveContext('ws1');
+      expect(useTabsStore.getState().activeTabId).toBe(ws1TabId);
+    });
+
+    it('remembers active tab per context', () => {
+      setupContext('ws1', 'main');
+      useTabsStore.getState().addTab();
+      const secondTabId = useTabsStore.getState().activeTabId;
+      useTabsStore.getState().setActiveContext('ws2', 'dev');
+      useTabsStore.getState().setActiveContext('ws1');
+      expect(useTabsStore.getState().activeTabId).toBe(secondTabId);
+    });
+
+    it('does not create duplicate tabs when switching to existing context', () => {
+      setupContext('ws1', 'main');
+      const tabCountAfterFirst = useTabsStore.getState().tabs.length;
+      useTabsStore.getState().setActiveContext('ws2', 'dev');
+      useTabsStore.getState().setActiveContext('ws1', 'main');
+      // Should not have grown beyond ws1 + ws2
+      const ws1Tabs = useTabsStore.getState().tabs.filter((t) => t.workspaceItemId === 'ws1');
+      expect(ws1Tabs).toHaveLength(1);
+    });
+
+    it('switching to empty context clears activeContextId', () => {
+      setupContext();
+      useTabsStore.getState().setActiveContext('');
+      expect(useTabsStore.getState().activeContextId).toBe('');
+    });
+  });
+
+  describe('getContextTabs', () => {
+    it('returns only tabs matching activeContextId', () => {
+      setupContext('ws1', 'main');
+      useTabsStore.getState().addTab();
+      useTabsStore.getState().setActiveContext('ws2', 'dev');
+      const contextTabs = useTabsStore.getState().getContextTabs();
+      expect(contextTabs).toHaveLength(1);
+      expect(contextTabs[0]!.workspaceItemId).toBe('ws2');
+    });
+
+    it('returns empty array when no context is active', () => {
+      const contextTabs = useTabsStore.getState().getContextTabs();
+      expect(contextTabs).toHaveLength(0);
     });
   });
 
   describe('pane operations scoped to active tab', () => {
     it('splitPane modifies only active tab paneRoot', () => {
+      setupContext();
       useTabsStore.getState().addTab();
       const { tabs } = useTabsStore.getState();
-      // Switch to first tab
       useTabsStore.getState().switchTab(tabs[0]!.id);
-      // Set up a real ptyId first
       useTabsStore.getState().setPtyId(tabs[0]!.focusedPaneId!, 1);
       useTabsStore.getState().splitPane(tabs[0]!.focusedPaneId!, 'horizontal', 2);
       const after = useTabsStore.getState();
       const activeTab = after.tabs.find((t) => t.id === after.activeTabId)!;
       const otherTab = after.tabs.find((t) => t.id !== after.activeTabId)!;
-      // Active tab should now have a branch root
       expect(activeTab.paneRoot.type).toBe('branch');
-      // Other tab should still have leaf root
       expect(otherTab.paneRoot.type).toBe('leaf');
     });
 
     it('closePane modifies only active tab paneRoot', () => {
+      setupContext();
       const { tabs } = useTabsStore.getState();
       const paneId = tabs[0]!.focusedPaneId!;
       useTabsStore.getState().setPtyId(paneId, 1);
       useTabsStore.getState().splitPane(paneId, 'horizontal', 2);
-      // Close the original pane
       useTabsStore.getState().closePane(paneId);
       const after = useTabsStore.getState();
       const activeTab = after.tabs.find((t) => t.id === after.activeTabId)!;
@@ -140,14 +219,13 @@ describe('tabs-store', () => {
     });
 
     it('closePane on last pane creates sentinel leaf, does NOT close tab', () => {
+      setupContext();
       const { tabs, activeTabId } = useTabsStore.getState();
       const paneId = tabs[0]!.focusedPaneId!;
       useTabsStore.getState().closePane(paneId);
       const after = useTabsStore.getState();
-      // Tab still exists
       expect(after.tabs).toHaveLength(1);
       expect(after.activeTabId).toBe(activeTabId);
-      // Root is a new sentinel leaf
       const root = after.tabs[0]!.paneRoot;
       expect(root.type).toBe('leaf');
       if (root.type === 'leaf') {
@@ -157,15 +235,11 @@ describe('tabs-store', () => {
     });
 
     it('setFocus updates active tab focusedPaneId', () => {
+      setupContext();
       const { tabs } = useTabsStore.getState();
       const paneId = tabs[0]!.focusedPaneId!;
       useTabsStore.getState().setPtyId(paneId, 1);
       useTabsStore.getState().splitPane(paneId, 'horizontal', 2);
-      const after = useTabsStore.getState();
-      const activeTab = after.tabs.find((t) => t.id === after.activeTabId)!;
-      // Focus should be on the new pane after split
-      expect(activeTab.focusedPaneId).not.toBe(paneId);
-      // Now set focus back to original
       useTabsStore.getState().setFocus(paneId);
       const final = useTabsStore.getState();
       const finalTab = final.tabs.find((t) => t.id === final.activeTabId)!;
@@ -173,11 +247,11 @@ describe('tabs-store', () => {
     });
 
     it('navigate updates active tab focusedPaneId', () => {
+      setupContext();
       const { tabs } = useTabsStore.getState();
       const paneId = tabs[0]!.focusedPaneId!;
       useTabsStore.getState().setPtyId(paneId, 1);
       useTabsStore.getState().splitPane(paneId, 'horizontal', 2);
-      // After split, focus is on new pane; navigate left should go back to original
       useTabsStore.getState().navigate('left');
       const after = useTabsStore.getState();
       const activeTab = after.tabs.find((t) => t.id === after.activeTabId)!;
@@ -186,45 +260,17 @@ describe('tabs-store', () => {
   });
 
   describe('getActiveTab', () => {
+    it('returns undefined when no tabs exist', () => {
+      const tab = useTabsStore.getState().getActiveTab();
+      expect(tab).toBeUndefined();
+    });
+
     it('returns the tab matching activeTabId', () => {
+      setupContext();
       const { activeTabId } = useTabsStore.getState();
       const tab = useTabsStore.getState().getActiveTab();
       expect(tab).toBeDefined();
       expect(tab!.id).toBe(activeTabId);
-    });
-  });
-
-  describe('findOrCreateTabForWorkspaceItem', () => {
-    it('creates new tab with workspaceItemId when no match exists', () => {
-      useTabsStore.getState().findOrCreateTabForWorkspaceItem('ws1-branch-main', 'main');
-      const { tabs, activeTabId } = useTabsStore.getState();
-      expect(tabs).toHaveLength(2); // initial + workspace tab
-      const wsTab = tabs.find((t) => t.workspaceItemId === 'ws1-branch-main');
-      expect(wsTab).toBeDefined();
-      expect(wsTab!.label).toBe('main');
-      expect(activeTabId).toBe(wsTab!.id);
-    });
-
-    it('switches to existing tab when match exists', () => {
-      useTabsStore.getState().findOrCreateTabForWorkspaceItem('ws1-branch-main', 'main');
-      // Switch back to first tab
-      useTabsStore.getState().switchTabByIndex(0);
-      // Call again with same id
-      useTabsStore.getState().findOrCreateTabForWorkspaceItem('ws1-branch-main', 'main');
-      const { tabs, activeTabId } = useTabsStore.getState();
-      expect(tabs).toHaveLength(2); // no new tab created
-      const wsTab = tabs.find((t) => t.workspaceItemId === 'ws1-branch-main');
-      expect(activeTabId).toBe(wsTab!.id);
-    });
-
-    it('new workspace tab has sentinel leaf pane', () => {
-      useTabsStore.getState().findOrCreateTabForWorkspaceItem('ws1-branch-dev', 'dev');
-      const { tabs } = useTabsStore.getState();
-      const wsTab = tabs.find((t) => t.workspaceItemId === 'ws1-branch-dev')!;
-      expect(wsTab.paneRoot.type).toBe('leaf');
-      if (wsTab.paneRoot.type === 'leaf') {
-        expect(wsTab.paneRoot.ptyId).toBe(-1);
-      }
     });
   });
 });
