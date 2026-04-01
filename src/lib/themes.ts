@@ -24,6 +24,11 @@ export interface CssThemeProperties {
   tabInactiveBg: string;
   splitterIdle: string;
   splitterHover: string;
+  branchIcon: string;
+  worktreeIcon: string;
+  gitAhead: string;
+  gitBehind: string;
+  destructive: string;
 }
 
 export interface XtermThemeColors {
@@ -70,6 +75,11 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
       tabInactiveBg: '#0a0a14',
       splitterIdle: '#2a2a3e',
       splitterHover: '#3a3a5e',
+      branchIcon: '#60a5fa',
+      worktreeIcon: '#c084fc',
+      gitAhead: '#4ade80',
+      gitBehind: '#f87171',
+      destructive: '#ef4444',
     },
     xterm: {
       background: '#0a0a14',
@@ -110,6 +120,11 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
       tabInactiveBg: '#0f0e0c',
       splitterIdle: '#3a3530',
       splitterHover: '#4a4540',
+      branchIcon: '#60a5fa',
+      worktreeIcon: '#c084fc',
+      gitAhead: '#4ade80',
+      gitBehind: '#f87171',
+      destructive: '#ef4444',
     },
     xterm: {
       background: '#0f0e0c',
@@ -150,6 +165,11 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
       tabInactiveBg: '#0e0e10',
       splitterIdle: '#333340',
       splitterHover: '#444450',
+      branchIcon: '#60a5fa',
+      worktreeIcon: '#c084fc',
+      gitAhead: '#4ade80',
+      gitBehind: '#f87171',
+      destructive: '#ef4444',
     },
     xterm: {
       background: '#0e0e10',
@@ -190,6 +210,11 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
       tabInactiveBg: '#0c0e14',
       splitterIdle: '#2e3448',
       splitterHover: '#3e4458',
+      branchIcon: '#60a5fa',
+      worktreeIcon: '#c084fc',
+      gitAhead: '#4ade80',
+      gitBehind: '#f87171',
+      destructive: '#ef4444',
     },
     xterm: {
       background: '#0c0e14',
@@ -230,6 +255,11 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
       tabInactiveBg: '#060a18',
       splitterIdle: '#1e2a4e',
       splitterHover: '#2e3a5e',
+      branchIcon: '#60a5fa',
+      worktreeIcon: '#c084fc',
+      gitAhead: '#4ade80',
+      gitBehind: '#f87171',
+      destructive: '#ef4444',
     },
     xterm: {
       background: '#060a18',
@@ -270,6 +300,11 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
       tabInactiveBg: '#050508',
       splitterIdle: '#222228',
       splitterHover: '#333338',
+      branchIcon: '#60a5fa',
+      worktreeIcon: '#c084fc',
+      gitAhead: '#4ade80',
+      gitBehind: '#f87171',
+      destructive: '#ef4444',
     },
     xterm: {
       background: '#050508',
@@ -310,6 +345,11 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
       tabInactiveBg: '#100e0c',
       splitterIdle: '#3c3632',
       splitterHover: '#4c4642',
+      branchIcon: '#60a5fa',
+      worktreeIcon: '#c084fc',
+      gitAhead: '#4ade80',
+      gitBehind: '#f87171',
+      destructive: '#ef4444',
     },
     xterm: {
       background: '#100e0c',
@@ -350,6 +390,11 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
       tabInactiveBg: '#0a0e0c',
       splitterIdle: '#2e3836',
       splitterHover: '#3e4846',
+      branchIcon: '#60a5fa',
+      worktreeIcon: '#c084fc',
+      gitAhead: '#4ade80',
+      gitBehind: '#f87171',
+      destructive: '#ef4444',
     },
     xterm: {
       background: '#0a0e0c',

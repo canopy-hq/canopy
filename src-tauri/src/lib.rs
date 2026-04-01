@@ -1,3 +1,4 @@
+mod git;
 mod menu;
 mod pty;
 
@@ -7,6 +8,7 @@ use std::sync::Mutex;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             menu::setup_menu(app)?;
             Ok(())
@@ -17,6 +19,12 @@ pub fn run() {
             pty::write_to_pty,
             pty::resize_pty,
             pty::close_pty,
+            git::import_repo,
+            git::list_branches,
+            git::create_branch,
+            git::delete_branch,
+            git::create_worktree,
+            git::remove_worktree,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
