@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Button,
   Tree,
@@ -8,6 +9,7 @@ import { useWorkspaceStore } from '../stores/workspace-store';
 import type { Workspace } from '../stores/workspace-store';
 import type { BranchInfo, WorktreeInfo } from '../lib/git';
 import type { Selection, Key } from 'react-aria-components';
+import { CreateModal } from './CreateModal';
 
 function BranchRow({ branch }: { branch: BranchInfo }) {
   return (
@@ -81,6 +83,7 @@ export function WorkspaceTree() {
   const selectedItemId = useWorkspaceStore((s) => s.selectedItemId);
   const setSelectedItem = useWorkspaceStore((s) => s.setSelectedItem);
   const toggleExpanded = useWorkspaceStore((s) => s.toggleExpanded);
+  const [modalWorkspace, setModalWorkspace] = useState<Workspace | null>(null);
 
   const expandedKeys = new Set<Key>(
     workspaces.filter((ws) => ws.expanded).map((ws) => ws.id),
@@ -107,6 +110,7 @@ export function WorkspaceTree() {
   }
 
   return (
+    <>
     <Tree
       aria-label="Workspaces"
       selectionMode="single"
@@ -171,7 +175,7 @@ export function WorkspaceTree() {
                   style={{ fontSize: '13px' }}
                   onClick={(e) => {
                     e.stopPropagation();
-                    /* Will trigger modal -- wired in Plan 03 */
+                    setModalWorkspace(ws);
                   }}
                 >
                   + New Branch
@@ -182,5 +186,13 @@ export function WorkspaceTree() {
         </TreeItem>
       ))}
     </Tree>
+    {modalWorkspace && (
+      <CreateModal
+        isOpen={!!modalWorkspace}
+        onClose={() => setModalWorkspace(null)}
+        workspace={modalWorkspace}
+      />
+    )}
+    </>
   );
 }
