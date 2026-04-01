@@ -22,8 +22,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **TABS-01**: User can open new tabs (Cmd+T), one tab per branch/worktree
 - [x] **TABS-02**: User can switch tabs with Cmd+1-9 and Cmd+Shift+[/]
 - [x] **TABS-03**: Active tab shows raised border and matching background
-- [ ] **TABS-04**: Tab shows agent status dot (green pulse = working, amber = waiting)
-- [ ] **TABS-05**: Waiting tab shows amber background tint + "input" pill badge
+- [x] **TABS-04**: Tab shows agent status dot (green pulse = working, amber = waiting)
+- [x] **TABS-05**: Waiting tab shows amber background tint + "input" pill badge
 
 ### Keyboard
 
@@ -36,8 +36,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **SIDE-01**: Sidebar (230px default, resizable, toggle with Cmd+B) shows workspace list
 - [x] **SIDE-02**: Workspaces expand/collapse to show branches (⎇ blue) and worktrees (purple) as children
-- [ ] **SIDE-03**: Each item shows agent status dot (green pulsing = working, amber breathing = waiting, none = idle)
-- [ ] **SIDE-04**: Collapsed repo shows agent summary dots + chevron
+- [x] **SIDE-03**: Each item shows agent status dot (green pulsing = working, amber breathing = waiting, none = idle)
+- [x] **SIDE-04**: Collapsed repo shows agent summary dots + chevron
 - [x] **SIDE-05**: "Import Repository" button at bottom of sidebar
 - [x] **SIDE-06**: "+ new branch/worktree" button at bottom of expanded repo
 
@@ -61,7 +61,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **AGNT-07**: Toast notifications appear when agent completes or needs input in a non-active worktree
 - [ ] **AGNT-08**: Toast shows event type, workspace/branch, summary with "Jump"/"Dismiss" actions
 - [ ] **AGNT-09**: Completion toasts auto-dismiss after 10s; waiting toasts persist
-- [ ] **AGNT-10**: Pane gets subtle amber border glow + inset shadow when agent is waiting
+- [x] **AGNT-10**: Pane gets subtle amber border glow + inset shadow when agent is waiting
 
 ### Theme
 
@@ -183,11 +183,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AGNT-07 | Phase 5 | Pending |
 | AGNT-08 | Phase 5 | Pending |
 | AGNT-09 | Phase 5 | Pending |
-| AGNT-10 | Phase 5 | Pending |
-| TABS-04 | Phase 5 | Pending |
-| TABS-05 | Phase 5 | Pending |
-| SIDE-03 | Phase 5 | Pending |
-| SIDE-04 | Phase 5 | Pending |
+| AGNT-10 | Phase 5 | Complete |
+| TABS-04 | Phase 5 | Complete |
+| TABS-05 | Phase 5 | Complete |
+| SIDE-03 | Phase 5 | Complete |
+| SIDE-04 | Phase 5 | Complete |
 | SESS-01 | Phase 6 | Pending |
 | SESS-02 | Phase 6 | Pending |
 | SESS-03 | Phase 6 | Pending |
