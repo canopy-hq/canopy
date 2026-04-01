@@ -39,6 +39,12 @@
   --git-ahead: #4ade80;
   --git-behind: #f87171;
   --destructive: #ef4444;
+  --agent-running: #4ade80;
+  --agent-waiting: #fbbf24;
+  --agent-running-pulse: #22c55e;
+  --agent-waiting-glow: rgba(251, 191, 36, 0.15);
+  --agent-waiting-border: rgba(251, 191, 36, 0.4);
+  --agent-waiting-inset: rgba(251, 191, 36, 0.06);
 }
 
 [data-theme="carbon"] {
@@ -153,4 +159,14 @@ html, body, #root {
   width: 100%;
   overflow: hidden;
   background: var(--bg-primary);
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.3); }
 }

@@ -1,3 +1,4 @@
+mod agent_watcher;
 mod git;
 mod menu;
 mod pty;
@@ -14,6 +15,7 @@ pub fn run() {
             Ok(())
         })
         .manage(Mutex::new(pty::PtyManager::new()))
+        .manage(Mutex::new(agent_watcher::AgentWatcherState::new()))
         .invoke_handler(tauri::generate_handler![
             pty::spawn_terminal,
             pty::write_to_pty,
@@ -25,6 +27,9 @@ pub fn run() {
             git::delete_branch,
             git::create_worktree,
             git::remove_worktree,
+            agent_watcher::start_agent_watching,
+            agent_watcher::stop_agent_watching,
+            agent_watcher::toggle_agent_manual,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

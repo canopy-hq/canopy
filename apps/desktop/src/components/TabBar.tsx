@@ -1,6 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTabsStore } from '../stores/tabs-store';
 import type { Tab } from '../stores/tabs-store';
+import { useAgentStore } from '../stores/agent-store';
+import { StatusDot } from './StatusDot';
+import type { PaneNode } from '../lib/pane-tree-ops';
+import type { DotStatus } from './StatusDot';
+
+function collectLeafPtyIds(node: PaneNode): number[] {
+  if (node.type === 'leaf') return node.ptyId > 0 ? [node.ptyId] : [];
+  return node.children.flatMap(collectLeafPtyIds);
+}
+
+function useTabAgentStatus(tab: Tab): DotStatus {
+  const ptyIds = collectLeafPtyIds(tab.paneRoot);
+  const agents = useAgentStore((s) => s.agents);
+  for (const id of ptyIds) {
+    const agent = agents[id];
+    if (agent?.status === 'waiting') return 'waiting';
+  }
+  for (const id of ptyIds) {
+    const agent = agents[id];
+    if (agent?.status === 'running') return 'running';
+  }
+  return 'idle';
+}
 
 function TabItem({
   tab,
@@ -13,6 +36,8 @@ function TabItem({
   onSwitch: () => void;
   onClose: () => void;
 }) {
+  const agentStatus = useTabAgentStatus(tab);
+
   return (
     <button
       className={`group relative flex items-center gap-1.5 min-w-[120px] max-w-[240px] flex-shrink px-3 h-full rounded-t-md border-t-2 transition-colors cursor-pointer ${
@@ -20,10 +45,29 @@ function TabItem({
           ? 'bg-tab-active-bg border-t-accent text-text-primary'
           : 'bg-tab-inactive-bg border-t-transparent text-text-muted hover:bg-bg-secondary'
       }`}
+      style={{
+        backgroundColor: agentStatus === 'waiting' ? 'var(--agent-waiting-glow)' : undefined,
+      }}
       onClick={onSwitch}
       title={tab.label}
     >
+      {agentStatus !== 'idle' && <StatusDot status={agentStatus} size={8} />}
       <span className="truncate text-xs flex-1 text-left">{tab.label}</span>
+      {agentStatus === 'waiting' && (
+        <span
+          style={{
+            fontSize: '10px',
+            fontWeight: 400,
+            backgroundColor: 'rgba(251, 191, 36, 0.25)',
+            color: 'var(--agent-waiting)',
+            borderRadius: '9999px',
+            padding: '4px 8px',
+            lineHeight: 1,
+          }}
+        >
+          input
+        </span>
+      )}
       <span
         role="button"
         tabIndex={-1}

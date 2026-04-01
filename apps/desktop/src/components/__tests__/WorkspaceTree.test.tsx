@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { useWorkspaceStore } from '../../stores/workspace-store';
+import { useAgentStore } from '../../stores/agent-store';
+import { useTabsStore } from '../../stores/tabs-store';
 import { WorkspaceTree } from '../WorkspaceTree';
 
 const testWorkspace = {
@@ -77,5 +79,116 @@ describe('WorkspaceTree', () => {
     const cursorElements = container.querySelectorAll('.cursor-pointer');
     // At least 3: repo header, branch items, worktree items
     expect(cursorElements.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('renders agent status dot on branch row when agent is running', () => {
+    // Set up tab with ptyId=1 mapped to ws-1-branch-main
+    useTabsStore.setState({
+      tabs: [
+        {
+          id: 'tab-1',
+          label: 'Terminal',
+          workspaceItemId: 'ws-1-branch-main',
+          paneRoot: { type: 'leaf', id: 'pane-1', ptyId: 1 },
+          focusedPaneId: 'pane-1',
+        },
+      ],
+      activeTabId: 'tab-1',
+      activeContextId: 'ws-1-branch-main',
+      contextActiveTabIds: {},
+    });
+    useAgentStore.getState().setAgent(1, {
+      ptyId: 1,
+      status: 'running',
+      agentName: 'claude',
+      pid: 42,
+      startedAt: Date.now(),
+    });
+
+    const { container } = render(<WorkspaceTree />);
+    const dot = container.querySelector('[aria-label="Agent running"]');
+    expect(dot).not.toBeNull();
+  });
+
+  it('renders summary dots on collapsed repo header', () => {
+    useWorkspaceStore.setState({
+      workspaces: [{ ...testWorkspace, expanded: false }],
+    });
+    useTabsStore.setState({
+      tabs: [
+        {
+          id: 'tab-1',
+          label: 'Terminal',
+          workspaceItemId: 'ws-1-branch-main',
+          paneRoot: { type: 'leaf', id: 'pane-1', ptyId: 1 },
+          focusedPaneId: 'pane-1',
+        },
+        {
+          id: 'tab-2',
+          label: 'Terminal',
+          workspaceItemId: 'ws-1-branch-feature/test',
+          paneRoot: { type: 'leaf', id: 'pane-2', ptyId: 2 },
+          focusedPaneId: 'pane-2',
+        },
+      ],
+      activeTabId: 'tab-1',
+      activeContextId: 'ws-1-branch-main',
+      contextActiveTabIds: {},
+    });
+    useAgentStore.getState().setAgent(1, {
+      ptyId: 1,
+      status: 'running',
+      agentName: 'claude',
+      pid: 42,
+      startedAt: Date.now(),
+    });
+    useAgentStore.getState().setAgent(2, {
+      ptyId: 2,
+      status: 'waiting',
+      agentName: 'aider',
+      pid: 43,
+      startedAt: Date.now(),
+    });
+
+    const { container } = render(<WorkspaceTree />);
+    // Should show both running and waiting dots as summary
+    const runningDots = container.querySelectorAll('[aria-label="Agent running"]');
+    const waitingDots = container.querySelectorAll('[aria-label="Agent waiting"]');
+    expect(runningDots.length + waitingDots.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('shows +N overflow text when more than 3 agents on collapsed repo', () => {
+    useWorkspaceStore.setState({
+      workspaces: [{ ...testWorkspace, expanded: false }],
+    });
+    // Create 5 tabs with agents
+    const tabs = [];
+    for (let i = 1; i <= 5; i++) {
+      tabs.push({
+        id: `tab-${i}`,
+        label: 'Terminal',
+        workspaceItemId: `ws-1-branch-main`,
+        paneRoot: { type: 'leaf', id: `pane-${i}`, ptyId: i },
+        focusedPaneId: `pane-${i}`,
+      });
+    }
+    useTabsStore.setState({
+      tabs,
+      activeTabId: 'tab-1',
+      activeContextId: 'ws-1-branch-main',
+      contextActiveTabIds: {},
+    });
+    for (let i = 1; i <= 5; i++) {
+      useAgentStore.getState().setAgent(i, {
+        ptyId: i,
+        status: 'running',
+        agentName: 'claude',
+        pid: 40 + i,
+        startedAt: Date.now(),
+      });
+    }
+
+    const { getByText } = render(<WorkspaceTree />);
+    expect(getByText('+2')).toBeInTheDocument();
   });
 });
