@@ -34,12 +34,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Sidebar
 
-- [ ] **SIDE-01**: Sidebar (230px default, resizable, toggle with Cmd+B) shows workspace list
-- [ ] **SIDE-02**: Workspaces expand/collapse to show branches (⎇ blue) and worktrees (purple) as children
+- [x] **SIDE-01**: Sidebar (230px default, resizable, toggle with Cmd+B) shows workspace list
+- [x] **SIDE-02**: Workspaces expand/collapse to show branches (⎇ blue) and worktrees (purple) as children
 - [ ] **SIDE-03**: Each item shows agent status dot (green pulsing = working, amber breathing = waiting, none = idle)
 - [ ] **SIDE-04**: Collapsed repo shows agent summary dots + chevron
-- [ ] **SIDE-05**: "Import Repository" button at bottom of sidebar
-- [ ] **SIDE-06**: "+ new branch/worktree" button at bottom of expanded repo
+- [x] **SIDE-05**: "Import Repository" button at bottom of sidebar
+- [x] **SIDE-06**: "+ new branch/worktree" button at bottom of expanded repo
 
 ### Git
 
@@ -170,10 +170,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GIT-04 | Phase 4 | Complete |
 | GIT-05 | Phase 4 | Complete |
 | GIT-06 | Phase 4 | Complete |
-| SIDE-01 | Phase 4 | Pending |
-| SIDE-02 | Phase 4 | Pending |
-| SIDE-05 | Phase 4 | Pending |
-| SIDE-06 | Phase 4 | Pending |
+| SIDE-01 | Phase 4 | Complete |
+| SIDE-02 | Phase 4 | Complete |
+| SIDE-05 | Phase 4 | Complete |
+| SIDE-06 | Phase 4 | Complete |
 | AGNT-01 | Phase 5 | Pending |
 | AGNT-02 | Phase 5 | Pending |
 | AGNT-03 | Phase 5 | Pending |
