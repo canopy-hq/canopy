@@ -17,7 +17,7 @@ pub enum AgentStatus {
 }
 
 impl AgentStatus {
-    fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             AgentStatus::Running => "running",
             AgentStatus::Waiting => "waiting",
@@ -51,11 +51,131 @@ pub fn is_known_agent(name: &str) -> Option<&'static str> {
     None
 }
 
+// ── Output-based agent detection ──────────────────────────────────────
+
+/// Agent output signatures: (agent_name, list of byte patterns to match).
+/// Any single pattern match triggers detection.
+const AGENT_OUTPUT_PATTERNS: &[(&str, &[&[u8]])] = &[
+    ("claude", &[b"claude>", b"\xe2\x80\xba", b"Claude Code"]),
+    ("aider", &[b"aider>", b"Aider v"]),
+    ("codex", &[b"codex>", b"Codex v"]),
+    ("gemini", &[b"gemini>", b"Gemini"]),
+];
+
+/// Shell prompt patterns that indicate an agent has exited and the user
+/// is back at a normal shell prompt.
+const SHELL_PROMPT_PATTERNS: &[&[u8]] = &[
+    b"$ ",
+    b"% ",
+    b"# ",
+    b"\n\xe2\x9d\xaf ",  // \n❯  (zsh starship etc.)
+];
+
+/// Events emitted by the output-based detector.
+#[derive(Debug, Clone, PartialEq)]
+pub enum AgentDetectionEvent {
+    Started { agent_name: String },
+    Stopped { agent_name: String },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum DetectionState {
+    Idle,
+    Running { agent_name: String },
+}
+
+/// Per-PTY detector that scans raw terminal output bytes for agent
+/// signatures and shell prompt returns.  Uses a small ring buffer so
+/// patterns split across two `read()` calls are still matched.
+pub struct OutputAgentDetector {
+    state: DetectionState,
+    ring_buf: Vec<u8>,
+    ring_pos: usize,
+    capacity: usize,
+}
+
+impl OutputAgentDetector {
+    pub fn new() -> Self {
+        let capacity = 512;
+        Self {
+            state: DetectionState::Idle,
+            ring_buf: vec![0u8; capacity],
+            ring_pos: 0,
+            capacity,
+        }
+    }
+
+    /// Feed raw bytes from the PTY reader.  Returns `Some(event)` on a
+    /// state transition, `None` otherwise.
+    pub fn feed(&mut self, bytes: &[u8]) -> Option<AgentDetectionEvent> {
+        // Append bytes to ring buffer (overwrite oldest when full)
+        for &b in bytes {
+            self.ring_buf[self.ring_pos % self.capacity] = b;
+            self.ring_pos += 1;
+        }
+
+        let window = self.window();
+
+        match &self.state {
+            DetectionState::Idle => {
+                // Scan for agent startup patterns
+                for &(agent_name, patterns) in AGENT_OUTPUT_PATTERNS {
+                    for &pattern in patterns {
+                        if contains_bytes(&window, pattern) {
+                            self.state = DetectionState::Running {
+                                agent_name: agent_name.to_string(),
+                            };
+                            return Some(AgentDetectionEvent::Started {
+                                agent_name: agent_name.to_string(),
+                            });
+                        }
+                    }
+                }
+                None
+            }
+            DetectionState::Running { agent_name } => {
+                // Scan for shell prompt return
+                for &pattern in SHELL_PROMPT_PATTERNS {
+                    if contains_bytes(&window, pattern) {
+                        let name = agent_name.clone();
+                        self.state = DetectionState::Idle;
+                        return Some(AgentDetectionEvent::Stopped { agent_name: name });
+                    }
+                }
+                None
+            }
+        }
+    }
+
+    /// Return the current contents of the ring buffer in order.
+    fn window(&self) -> Vec<u8> {
+        if self.ring_pos <= self.capacity {
+            // Haven't wrapped yet
+            self.ring_buf[..self.ring_pos].to_vec()
+        } else {
+            let start = self.ring_pos % self.capacity;
+            let mut out = Vec::with_capacity(self.capacity);
+            out.extend_from_slice(&self.ring_buf[start..]);
+            out.extend_from_slice(&self.ring_buf[..start]);
+            out
+        }
+    }
+}
+
+/// Simple byte-substring search (no regex overhead).
+fn contains_bytes(haystack: &[u8], needle: &[u8]) -> bool {
+    if needle.is_empty() || needle.len() > haystack.len() {
+        return false;
+    }
+    haystack.windows(needle.len()).any(|w| w == needle)
+}
+
 // ── Shared state ───────────────────────────────────────────────────────
 
 pub struct AgentWatcherState {
     pub cancel_senders: HashMap<u32, tokio::sync::oneshot::Sender<()>>,
     pub last_outputs: HashMap<u32, Arc<AtomicU64>>,
+    pub detectors: HashMap<u32, Arc<Mutex<OutputAgentDetector>>>,
 }
 
 impl AgentWatcherState {
@@ -63,6 +183,7 @@ impl AgentWatcherState {
         Self {
             cancel_senders: HashMap::new(),
             last_outputs: HashMap::new(),
+            detectors: HashMap::new(),
         }
     }
 }
