@@ -66,7 +66,7 @@ Plans:
 Plans:
 - [x] 03-01-PLAN.md — Theme definitions, CSS custom properties, tabs store, terminal-cache export (TABS-01, TABS-02, THME-01, THME-02)
 - [x] 03-02-PLAN.md — Theme store, hardcoded color replacement, xterm live switching, tauri-plugin-store (THME-02, THME-03)
-- [ ] 03-03-PLAN.md — Tab bar UI, status bar, App.tsx integration, keyboard shortcuts (TABS-01, TABS-02, TABS-03, STAT-01, STAT-02)
+- [x] 03-03-PLAN.md — Tab bar UI, status bar, App.tsx integration, keyboard shortcuts (TABS-01, TABS-02, TABS-03, STAT-01, STAT-02)
 
 ### Phase 4: Git Integration + Sidebar
 **Goal**: User can manage git repositories, branches, and worktrees from an integrated sidebar
