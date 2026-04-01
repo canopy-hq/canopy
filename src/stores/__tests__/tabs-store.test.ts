@@ -193,4 +193,38 @@ describe('tabs-store', () => {
       expect(tab!.id).toBe(activeTabId);
     });
   });
+
+  describe('findOrCreateTabForWorkspaceItem', () => {
+    it('creates new tab with workspaceItemId when no match exists', () => {
+      useTabsStore.getState().findOrCreateTabForWorkspaceItem('ws1-branch-main', 'main');
+      const { tabs, activeTabId } = useTabsStore.getState();
+      expect(tabs).toHaveLength(2); // initial + workspace tab
+      const wsTab = tabs.find((t) => t.workspaceItemId === 'ws1-branch-main');
+      expect(wsTab).toBeDefined();
+      expect(wsTab!.label).toBe('main');
+      expect(activeTabId).toBe(wsTab!.id);
+    });
+
+    it('switches to existing tab when match exists', () => {
+      useTabsStore.getState().findOrCreateTabForWorkspaceItem('ws1-branch-main', 'main');
+      // Switch back to first tab
+      useTabsStore.getState().switchTabByIndex(0);
+      // Call again with same id
+      useTabsStore.getState().findOrCreateTabForWorkspaceItem('ws1-branch-main', 'main');
+      const { tabs, activeTabId } = useTabsStore.getState();
+      expect(tabs).toHaveLength(2); // no new tab created
+      const wsTab = tabs.find((t) => t.workspaceItemId === 'ws1-branch-main');
+      expect(activeTabId).toBe(wsTab!.id);
+    });
+
+    it('new workspace tab has sentinel leaf pane', () => {
+      useTabsStore.getState().findOrCreateTabForWorkspaceItem('ws1-branch-dev', 'dev');
+      const { tabs } = useTabsStore.getState();
+      const wsTab = tabs.find((t) => t.workspaceItemId === 'ws1-branch-dev')!;
+      expect(wsTab.paneRoot.type).toBe('leaf');
+      if (wsTab.paneRoot.type === 'leaf') {
+        expect(wsTab.paneRoot.ptyId).toBe(-1);
+      }
+    });
+  });
 });
