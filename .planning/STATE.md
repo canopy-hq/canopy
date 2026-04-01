@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-04-01T08:07:13.317Z"
+stopped_at: Completed 02-03-PLAN.md (awaiting human-verify checkpoint)
+last_updated: "2026-04-01T08:12:08.847Z"
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -50,6 +50,7 @@ Plan: 3 of 3
 | Phase 01 P02 | 2min | 1 tasks | 6 files |
 | Phase 02 P01 | 4min | 3 tasks | 8 files |
 | Phase 02 P02 | 4min | 2 tasks | 9 files |
+| Phase 02 P03 | 3min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,7 @@ Recent decisions affecting current work:
 - [Phase 02]: closePane creates sentinel leaf (ptyId=-1) instead of null root
 - [Phase 02]: Keyboard registry uses capture phase to intercept before xterm.js
 - [Phase 02]: TerminalPane uses inner component pattern to keep hooks unconditional after early return
+- [Phase 02]: Split passes ptyId=-1 sentinel; TerminalPane spawns PTY on mount
 
 ### Pending Todos
 
@@ -82,6 +84,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T08:07:13.313Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-04-01T08:12:08.845Z
+Stopped at: Completed 02-03-PLAN.md (awaiting human-verify checkpoint)
 Resume file: None
