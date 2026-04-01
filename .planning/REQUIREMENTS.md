@@ -58,9 +58,9 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **AGNT-04**: User can manually toggle agent indicator per PTY (Cmd+Shift+A)
 - [x] **AGNT-05**: Agent overview overlay (Cmd+Shift+O) shows all active agents across all workspaces with status, duration, workspace/branch
 - [x] **AGNT-06**: User can click an agent row in overlay to jump to that worktree/tab
-- [ ] **AGNT-07**: Toast notifications appear when agent completes or needs input in a non-active worktree
-- [ ] **AGNT-08**: Toast shows event type, workspace/branch, summary with "Jump"/"Dismiss" actions
-- [ ] **AGNT-09**: Completion toasts auto-dismiss after 10s; waiting toasts persist
+- [x] **AGNT-07**: Toast notifications appear when agent completes or needs input in a non-active worktree
+- [x] **AGNT-08**: Toast shows event type, workspace/branch, summary with "Jump"/"Dismiss" actions
+- [x] **AGNT-09**: Completion toasts auto-dismiss after 10s; waiting toasts persist
 - [x] **AGNT-10**: Pane gets subtle amber border glow + inset shadow when agent is waiting
 
 ### Theme
@@ -180,9 +180,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AGNT-04 | Phase 5 | Complete |
 | AGNT-05 | Phase 5 | Complete |
 | AGNT-06 | Phase 5 | Complete |
-| AGNT-07 | Phase 5 | Pending |
-| AGNT-08 | Phase 5 | Pending |
-| AGNT-09 | Phase 5 | Pending |
+| AGNT-07 | Phase 5 | Complete |
+| AGNT-08 | Phase 5 | Complete |
+| AGNT-09 | Phase 5 | Complete |
 | AGNT-10 | Phase 5 | Complete |
 | TABS-04 | Phase 5 | Complete |
 | TABS-05 | Phase 5 | Complete |

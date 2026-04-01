@@ -101,7 +101,7 @@ Plans:
 - [x] 05-01-PLAN.md — Rust kqueue agent detection backend + frontend agent store + StatusDot + CSS tokens (AGNT-01, AGNT-02, AGNT-03, AGNT-04)
 - [x] 05-02-PLAN.md — Status indicators on PaneHeader, TerminalPane, TabBar, WorkspaceTree, StatusBar (AGNT-10, TABS-04, TABS-05, SIDE-03, SIDE-04)
 - [x] 05-03-PLAN.md — Agent overview overlay with keyboard navigation and jump-to-workspace (AGNT-05, AGNT-06)
-- [ ] 05-04-PLAN.md — Agent toast notifications + App.tsx wiring for all agent features (AGNT-07, AGNT-08, AGNT-09)
+- [x] 05-04-PLAN.md — Agent toast notifications + App.tsx wiring for all agent features (AGNT-07, AGNT-08, AGNT-09)
 
 ### Phase 6: Session Persistence + Settings
 **Goal**: User's workspace survives app restarts and all preferences are configurable

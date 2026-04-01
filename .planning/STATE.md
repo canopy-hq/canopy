@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-02-PLAN.md
-last_updated: "2026-04-01T23:06:06.516Z"
+stopped_at: Completed 05-04-PLAN.md
+last_updated: "2026-04-01T23:10:56.548Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 # Project State
@@ -62,6 +62,7 @@ Plan: 4 of 4
 | Phase 05 P01 | 7min | 2 tasks | 10 files |
 | Phase 05 P03 | 3min | 1 tasks | 2 files |
 | Phase 05 P02 | 5min | 2 tasks | 8 files |
+| Phase 05 P04 | 3min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,8 @@ Recent decisions affecting current work:
 - [Phase 05]: onKeyDown on panel wrapper div instead of Dialog for testability
 - [Phase 05]: Extracted RepoTreeItem as separate component for per-repo hook usage in WorkspaceTree
 - [Phase 05]: Agent status aggregation: waiting takes priority over running in multi-pane tabs
+- [Phase 05]: Agent toast deduplication via module-level lastToastTime record with 5s window per ptyId
+- [Phase 05]: Agent toasts only fire for non-active workspace tabs (active tab already visible)
 
 ### Pending Todos
 
@@ -123,5 +126,5 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-04-01
-Stopped at: Completed 05-02-PLAN.md
+Stopped at: Completed 05-04-PLAN.md
 Resume file: None
