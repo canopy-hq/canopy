@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import '@xterm/xterm/css/xterm.css';
 import { useTerminal } from '../hooks/useTerminal';
-import { usePaneTreeStore } from '../stores/pane-tree';
+import { useTabsStore } from '../stores/tabs-store';
 import { spawnTerminal } from '../lib/pty';
 import { PaneHeader } from './PaneHeader';
 
@@ -18,9 +18,12 @@ interface TerminalPaneProps {
  */
 export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const focusedPaneId = usePaneTreeStore((s) => s.focusedPaneId);
-  const setFocus = usePaneTreeStore((s) => s.setFocus);
-  const setPtyId = usePaneTreeStore((s) => s.setPtyId);
+  const focusedPaneId = useTabsStore((s) => {
+    const tab = s.tabs.find((t) => t.id === s.activeTabId);
+    return tab?.focusedPaneId ?? null;
+  });
+  const setFocus = useTabsStore((s) => s.setFocus);
+  const setPtyId = useTabsStore((s) => s.setPtyId);
   const isFocused = focusedPaneId === paneId;
   const [cwd, setCwd] = useState('');
   const [realPtyId, setRealPtyId] = useState<number | null>(ptyId > 0 ? ptyId : null);
@@ -95,7 +98,7 @@ function TerminalPaneInner({
     <div
       className="relative h-full w-full"
       style={{
-        border: isFocused ? '1px solid #3b82f6' : '1px solid transparent',
+        border: isFocused ? '1px solid var(--border-focus)' : '1px solid transparent',
         transition: 'border-color 150ms ease',
       }}
       onPointerDown={() => setFocus(paneId)}
