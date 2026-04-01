@@ -1,15 +1,17 @@
-import { useRef } from 'react';
 import '@xterm/xterm/css/xterm.css';
-import { useTerminal } from '../hooks/useTerminal';
+import { PaneContainer } from './PaneContainer';
 
+/**
+ * Top-level terminal view. Delegates to PaneContainer which
+ * recursively renders the pane tree from the Zustand store.
+ *
+ * Kept as a wrapper for App.tsx compatibility; the real logic
+ * lives in PaneContainer -> TerminalPane -> useTerminal.
+ */
 export function TerminalView() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  useTerminal(containerRef);
-
   return (
-    <div
-      ref={containerRef}
-      className="h-full w-full"
-    />
+    <div className="h-full w-full">
+      <PaneContainer />
+    </div>
   );
 }
