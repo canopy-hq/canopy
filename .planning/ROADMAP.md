@@ -95,12 +95,13 @@ Plans:
   3. Agent overview overlay (Cmd+Shift+O) lists all agents across workspaces with status and duration; clicking a row jumps to that workspace
   4. Toast notifications appear for agent events in non-active workspaces with "Jump" and "Dismiss" actions; waiting toasts persist, completion toasts auto-dismiss
   5. User can manually toggle agent indicator per pane (Cmd+Shift+A) and configure the known agents list
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
-- [ ] 05-03: TBD
+- [ ] 05-01-PLAN.md — Rust kqueue agent detection backend + frontend agent store + StatusDot + CSS tokens (AGNT-01, AGNT-02, AGNT-03, AGNT-04)
+- [ ] 05-02-PLAN.md — Status indicators on PaneHeader, TerminalPane, TabBar, WorkspaceTree, StatusBar (AGNT-10, TABS-04, TABS-05, SIDE-03, SIDE-04)
+- [ ] 05-03-PLAN.md — Agent overview overlay with keyboard navigation and jump-to-workspace (AGNT-05, AGNT-06)
+- [ ] 05-04-PLAN.md — Agent toast notifications + App.tsx wiring for all agent features (AGNT-07, AGNT-08, AGNT-09)
 
 ### Phase 6: Session Persistence + Settings
 **Goal**: User's workspace survives app restarts and all preferences are configurable
@@ -128,5 +129,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 2. Split Panes + Keyboard | 0/3 | Planning complete | - |
 | 3. Tabs + Themes + Status Bar | 0/3 | Planning complete | - |
 | 4. Git Integration + Sidebar | 0/4 | Planning complete | - |
-| 5. Agent Detection + Status UI | 0/0 | Not started | - |
+| 5. Agent Detection + Status UI | 0/4 | Planning complete | - |
 | 6. Session Persistence + Settings | 0/0 | Not started | - |
