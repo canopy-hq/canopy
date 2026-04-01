@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-04-01T22:58:46.478Z"
+stopped_at: Completed 05-03-PLAN.md
+last_updated: "2026-04-01T23:03:18.725Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 16
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 05 (agent-detection-status-ui) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Plan: 2 of 4
 | Phase 04 P02 | 4min | 2 tasks | 7 files |
 | Phase 04 P04 | 4min | 2 tasks | 6 files |
 | Phase 05 P01 | 7min | 2 tasks | 10 files |
+| Phase 05 P03 | 3min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,7 @@ Recent decisions affecting current work:
 - [Phase 04]: Cross-store call: workspace-store imports useTabsStore for findOrCreateTabForWorkspaceItem
 - [Phase 05]: Used poll_forever(None) for kqueue watcher loop to allow mutable access for dynamic child PID registration
 - [Phase 05]: Agent CSS tokens in :root only (not per-theme), matching established semantic color pattern
+- [Phase 05]: onKeyDown on panel wrapper div instead of Dialog for testability
 
 ### Pending Todos
 
@@ -118,5 +120,5 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-04-01
-Stopped at: Completed 05-01-PLAN.md
+Stopped at: Completed 05-03-PLAN.md
 Resume file: None
