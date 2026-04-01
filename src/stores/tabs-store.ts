@@ -15,7 +15,7 @@ import {
 export interface Tab {
   id: string;
   label: string;
-  workspaceItemId?: string;
+  workspaceItemId: string;
   paneRoot: PaneNode;
   focusedPaneId: PaneId | null;
 }
@@ -23,6 +23,9 @@ export interface Tab {
 interface TabsState {
   tabs: Tab[];
   activeTabId: string;
+  activeContextId: string;
+  contextActiveTabIds: Record<string, string>;
+
   // Tab operations
   addTab: () => void;
   closeTab: (tabId: string) => void;
@@ -30,9 +33,10 @@ interface TabsState {
   switchTabByIndex: (index: number) => void;
   switchTabRelative: (direction: 'prev' | 'next') => void;
   getActiveTab: () => Tab | undefined;
+  getContextTabs: () => Tab[];
 
-  // Workspace-tab association
-  findOrCreateTabForWorkspaceItem: (itemId: string, label: string) => void;
+  // Context switching
+  setActiveContext: (contextId: string, label?: string) => void;
 
   // Pane operations (scoped to active tab)
   splitPane: (paneId: PaneId, direction: SplitDirection, newPtyId: number) => void;
@@ -49,40 +53,55 @@ function makeTab(opts?: { workspaceItemId?: string; label?: string }): Tab {
   return {
     id,
     label: opts?.label ?? 'Terminal',
-    workspaceItemId: opts?.workspaceItemId,
+    workspaceItemId: opts?.workspaceItemId ?? 'default',
     paneRoot: { type: 'leaf', id: paneId, ptyId: -1 },
     focusedPaneId: paneId,
   };
 }
 
-const initialTab = makeTab();
+const initialTab = makeTab({ workspaceItemId: 'default' });
 
 export const useTabsStore = create<TabsState>()(
   immer((set, get) => ({
     tabs: [initialTab],
     activeTabId: initialTab.id,
+    activeContextId: 'default',
+    contextActiveTabIds: {},
+
     addTab: () =>
       set((state) => {
-        const tab = makeTab();
+        const tab = makeTab({ workspaceItemId: state.activeContextId });
         state.tabs.push(tab);
         state.activeTabId = tab.id;
       }),
 
     closeTab: (tabId) =>
       set((state) => {
-        if (state.tabs.length === 1) {
-          // Never zero tabs -- spawn fresh one first (D-07)
-          const fresh = makeTab();
+        const tab = state.tabs.find((t) => t.id === tabId);
+        if (!tab) return;
+        const contextId = tab.workspaceItemId;
+        const contextTabs = state.tabs.filter((t) => t.workspaceItemId === contextId);
+
+        if (contextTabs.length === 1) {
+          // Last tab in this context -- spawn fresh one with same context
+          const fresh = makeTab({ workspaceItemId: contextId });
           state.tabs.push(fresh);
           state.activeTabId = fresh.id;
         }
+
         const idx = state.tabs.findIndex((t) => t.id === tabId);
         if (idx === -1) return;
         state.tabs.splice(idx, 1);
-        // If we closed the active tab, pick adjacent
+
+        // If we closed the active tab, pick adjacent within context
         if (state.activeTabId === tabId) {
-          const newIdx = Math.min(idx, state.tabs.length - 1);
-          state.activeTabId = state.tabs[newIdx]!.id;
+          const remaining = state.tabs.filter((t) => t.workspaceItemId === contextId);
+          if (remaining.length > 0) {
+            state.activeTabId = remaining[0]!.id;
+          } else {
+            // Fallback to any tab
+            state.activeTabId = state.tabs[0]!.id;
+          }
         }
       }),
 
@@ -95,22 +114,28 @@ export const useTabsStore = create<TabsState>()(
 
     switchTabByIndex: (index) =>
       set((state) => {
-        if (index >= 0 && index < state.tabs.length) {
-          state.activeTabId = state.tabs[index]!.id;
+        const contextTabs = state.tabs.filter(
+          (t) => t.workspaceItemId === state.activeContextId,
+        );
+        if (index >= 0 && index < contextTabs.length) {
+          state.activeTabId = contextTabs[index]!.id;
         }
       }),
 
     switchTabRelative: (direction) =>
       set((state) => {
-        const idx = state.tabs.findIndex((t) => t.id === state.activeTabId);
+        const contextTabs = state.tabs.filter(
+          (t) => t.workspaceItemId === state.activeContextId,
+        );
+        const idx = contextTabs.findIndex((t) => t.id === state.activeTabId);
         if (idx === -1) return;
         let newIdx: number;
         if (direction === 'next') {
-          newIdx = (idx + 1) % state.tabs.length;
+          newIdx = (idx + 1) % contextTabs.length;
         } else {
-          newIdx = (idx - 1 + state.tabs.length) % state.tabs.length;
+          newIdx = (idx - 1 + contextTabs.length) % contextTabs.length;
         }
-        state.activeTabId = state.tabs[newIdx]!.id;
+        state.activeTabId = contextTabs[newIdx]!.id;
       }),
 
     getActiveTab: () => {
@@ -118,16 +143,36 @@ export const useTabsStore = create<TabsState>()(
       return tabs.find((t) => t.id === activeTabId);
     },
 
-    findOrCreateTabForWorkspaceItem: (itemId, label) =>
+    getContextTabs: () => {
+      const { tabs, activeContextId } = get();
+      return tabs.filter((t) => t.workspaceItemId === activeContextId);
+    },
+
+    setActiveContext: (contextId, label) =>
       set((state) => {
-        const existing = state.tabs.find((t) => t.workspaceItemId === itemId);
-        if (existing) {
-          state.activeTabId = existing.id;
-          return;
+        // Save current activeTabId for current context
+        state.contextActiveTabIds[state.activeContextId] = state.activeTabId;
+
+        // Switch context
+        state.activeContextId = contextId;
+
+        // Check if any tabs exist for this context
+        const contextTabs = state.tabs.filter((t) => t.workspaceItemId === contextId);
+
+        if (contextTabs.length > 0) {
+          // Restore saved active tab, or first matching tab
+          const savedTabId = state.contextActiveTabIds[contextId];
+          const savedTab = savedTabId
+            ? contextTabs.find((t) => t.id === savedTabId)
+            : null;
+          state.activeTabId = savedTab ? savedTab.id : contextTabs[0]!.id;
+        } else {
+          // Create new tab for this context
+          const tab = makeTab({ workspaceItemId: contextId, label: label ?? 'Terminal' });
+          state.tabs.push(tab);
+          state.activeTabId = tab.id;
+          state.contextActiveTabIds[contextId] = tab.id;
         }
-        const tab = makeTab({ workspaceItemId: itemId, label });
-        state.tabs.push(tab);
-        state.activeTabId = tab.id;
       }),
 
     // ── Pane operations (scoped to active tab) ──────────────────────
