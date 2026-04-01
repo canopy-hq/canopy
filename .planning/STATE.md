@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-04-01T18:28:59.261Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-04-01T19:11:45.105Z"
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 11
+  completed_plans: 9
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core value:** Developers can run and monitor multiple AI coding agents across workspaces from a single, fast native app with real terminals and git-native workflow support.
-**Current focus:** Phase 03 — tabs-themes-statusbar
+**Current focus:** Phase 04 — git-integration-sidebar
 
 ## Current Position
 
-Phase: 4
-Plan: Not started
+Phase: 04 (git-integration-sidebar) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Plan: Not started
 | Phase 03 P01 | 4min | 2 tasks | 10 files |
 | Phase 03 P02 | 3min | 1 tasks | 13 files |
 | Phase 03 P03 | 18min | 3 tasks | 16 files |
+| Phase 04 P01 | 6min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,9 @@ Recent decisions affecting current work:
 - [Phase 03]: Tab labels simplified to just Terminal (no counter) for cleaner UX
 - [Phase 03]: ResizeObserver 0x0 guard prevents xterm geometry corruption on hidden tabs
 - [Phase 03]: display:none tab preservation pattern for WebGL context reuse
+- [Phase 04]: git2::Repository opened fresh per command (not Send, cannot store in state)
+- [Phase 04]: WorktreePruneOptions with valid(true)+working_tree(true) to remove valid worktrees
+- [Phase 04]: Git theme tokens identical across all 8 themes, defined once in :root CSS
 
 ### Pending Todos
 
@@ -94,6 +98,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T18:22:57.211Z
-Stopped at: Completed 03-03-PLAN.md
+Last session: 2026-04-01T19:11:45.100Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None
