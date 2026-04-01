@@ -19,8 +19,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Tabs
 
-- [ ] **TABS-01**: User can open new tabs (Cmd+T), one tab per branch/worktree
-- [ ] **TABS-02**: User can switch tabs with Cmd+1-9 and Cmd+Shift+[/]
+- [x] **TABS-01**: User can open new tabs (Cmd+T), one tab per branch/worktree
+- [x] **TABS-02**: User can switch tabs with Cmd+1-9 and Cmd+Shift+[/]
 - [ ] **TABS-03**: Active tab shows raised border and matching background
 - [ ] **TABS-04**: Tab shows agent status dot (green pulse = working, amber = waiting)
 - [ ] **TABS-05**: Waiting tab shows amber background tint + "input" pill badge
@@ -65,8 +65,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Theme
 
-- [ ] **THME-01**: 8 built-in dark themes (Carbon, Graphite, Obsidian, Slate, Midnight, Void, Smoke, Ash)
-- [ ] **THME-02**: Themes applied via CSS custom properties for instant switching
+- [x] **THME-01**: 8 built-in dark themes (Carbon, Graphite, Obsidian, Slate, Midnight, Void, Smoke, Ash)
+- [x] **THME-02**: Themes applied via CSS custom properties for instant switching
 - [ ] **THME-03**: User selects theme in settings; stored in ~/.superagent/settings.json
 
 ### Settings
@@ -156,11 +156,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | KEYS-01 | Phase 2 | Complete |
 | KEYS-02 | Phase 2 | Complete |
 | KEYS-03 | Phase 2 | Complete |
-| TABS-01 | Phase 3 | Pending |
-| TABS-02 | Phase 3 | Pending |
+| TABS-01 | Phase 3 | Complete |
+| TABS-02 | Phase 3 | Complete |
 | TABS-03 | Phase 3 | Pending |
-| THME-01 | Phase 3 | Pending |
-| THME-02 | Phase 3 | Pending |
+| THME-01 | Phase 3 | Complete |
+| THME-02 | Phase 3 | Complete |
 | THME-03 | Phase 3 | Pending |
 | STAT-01 | Phase 3 | Pending |
 | STAT-02 | Phase 3 | Pending |
