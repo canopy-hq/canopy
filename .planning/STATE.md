@@ -109,9 +109,10 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 260401-w64 | Move TabBar inside main content area next to sidebar | 2026-04-01 | 8c3bcbb | [260401-w64](./quick/260401-w64-move-tabbar-inside-main-content-area-nex/) |
 | 260401-wei | Fix terminal isolation: only render active tab PaneContainer | 2026-04-01 | df7ba88 | [260401-wei](./quick/260401-wei-fix-terminal-isolation-only-render-activ/) |
+| 260401-wj7 | Refactor tabs to be context-scoped per workspace item | 2026-04-01 | a7e6571 | [260401-wj7](./quick/260401-wj7-refactor-tabs-to-be-context-scoped-per-w/) |
 
 ## Session Continuity
 
-Last activity: 2026-04-01 - Completed quick task 260401-wei: Fix terminal isolation
-Stopped at: Completed quick task 260401-wei
+Last activity: 2026-04-01 - Completed quick task 260401-wj7: Refactor tabs to context-scoped
+Stopped at: Completed quick task 260401-wj7
 Resume file: None
