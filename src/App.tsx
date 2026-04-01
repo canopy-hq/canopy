@@ -118,15 +118,13 @@ export default function App() {
         <div className="flex-1 min-w-0 flex flex-col">
           <TabBar />
           <div className="flex-1 min-h-0 relative">
-            {tabs.map((tab) => (
-              <div
-                key={tab.id}
-                className="absolute inset-0"
-                style={{ display: tab.id === activeTabId ? 'block' : 'none' }}
-              >
-                <PaneContainer root={tab.paneRoot} />
-              </div>
-            ))}
+            {tabs.map((tab) =>
+              tab.id === activeTabId ? (
+                <div key={tab.id} className="absolute inset-0">
+                  <PaneContainer root={tab.paneRoot} />
+                </div>
+              ) : null,
+            )}
           </div>
         </div>
       </div>
