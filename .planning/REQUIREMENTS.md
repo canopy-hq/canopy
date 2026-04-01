@@ -10,11 +10,11 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Terminal
 
 - [x] **TERM-01**: User can open a real shell session in a terminal pane (PTY + xterm.js WebGL)
-- [ ] **TERM-02**: User can split panes horizontally (Cmd+D) and vertically (Cmd+Shift+D) with recursive nesting
-- [ ] **TERM-03**: User can resize split panes by dragging visible splitter handles
+- [x] **TERM-02**: User can split panes horizontally (Cmd+D) and vertically (Cmd+Shift+D) with recursive nesting
+- [x] **TERM-03**: User can resize split panes by dragging visible splitter handles
 - [ ] **TERM-04**: Each pane displays a floating header with CWD and agent status
-- [ ] **TERM-05**: User can navigate between panes with Cmd+Option+arrow keys
-- [ ] **TERM-06**: User can close the focused pane with Cmd+W
+- [x] **TERM-05**: User can navigate between panes with Cmd+Option+arrow keys
+- [x] **TERM-06**: User can close the focused pane with Cmd+W
 - [x] **TERM-07**: Terminal renders 256-color, mouse events, and alternate screen buffer correctly
 
 ### Tabs
@@ -27,9 +27,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Keyboard
 
-- [ ] **KEYS-01**: iTerm2-compatible default shortcuts (split, navigate, tabs, copy/paste, clear, search)
-- [ ] **KEYS-02**: KeybindingRegistry intercepts keydown, matched shortcuts preventDefault + execute action
-- [ ] **KEYS-03**: Unmatched keys pass through to focused xterm.js terminal
+- [x] **KEYS-01**: iTerm2-compatible default shortcuts (split, navigate, tabs, copy/paste, clear, search)
+- [x] **KEYS-02**: KeybindingRegistry intercepts keydown, matched shortcuts preventDefault + execute action
+- [x] **KEYS-03**: Unmatched keys pass through to focused xterm.js terminal
 - [ ] **KEYS-04**: User can override keybindings via ~/.superagent/keybindings.json
 
 ### Sidebar
@@ -148,14 +148,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SHELL-03 | Phase 1 | Complete |
 | TERM-01 | Phase 1 | Complete |
 | TERM-07 | Phase 1 | Complete |
-| TERM-02 | Phase 2 | Pending |
-| TERM-03 | Phase 2 | Pending |
+| TERM-02 | Phase 2 | Complete |
+| TERM-03 | Phase 2 | Complete |
 | TERM-04 | Phase 2 | Pending |
-| TERM-05 | Phase 2 | Pending |
-| TERM-06 | Phase 2 | Pending |
-| KEYS-01 | Phase 2 | Pending |
-| KEYS-02 | Phase 2 | Pending |
-| KEYS-03 | Phase 2 | Pending |
+| TERM-05 | Phase 2 | Complete |
+| TERM-06 | Phase 2 | Complete |
+| KEYS-01 | Phase 2 | Complete |
+| KEYS-02 | Phase 2 | Complete |
+| KEYS-03 | Phase 2 | Complete |
 | TABS-01 | Phase 3 | Pending |
 | TABS-02 | Phase 3 | Pending |
 | TABS-03 | Phase 3 | Pending |

@@ -48,7 +48,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Pane tree data layer, keyboard registry, close_pty backend (TERM-02, TERM-03, TERM-05, TERM-06, KEYS-01, KEYS-02, KEYS-03)
+- [x] 02-01-PLAN.md — Pane tree data layer, keyboard registry, close_pty backend (TERM-02, TERM-03, TERM-05, TERM-06, KEYS-01, KEYS-02, KEYS-03)
 - [ ] 02-02-PLAN.md — Split pane UI components: recursive renderer, splitter, terminal pane, header (TERM-02, TERM-03, TERM-04)
 - [ ] 02-03-PLAN.md — Integration wiring: App.tsx orchestration, shortcuts, end-to-end verification (TERM-02, TERM-05, TERM-06, KEYS-01, KEYS-02, KEYS-03)
 

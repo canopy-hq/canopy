@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 2 UI-SPEC approved
-last_updated: "2026-04-01T07:31:44.511Z"
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-04-01T08:01:03.554Z"
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 5
+  completed_plans: 3
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core value:** Developers can run and monitor multiple AI coding agents across workspaces from a single, fast native app with real terminals and git-native workflow support.
-**Current focus:** Phase 01 — app-shell-single-terminal
+**Current focus:** Phase 02 — split-panes-keyboard
 
 ## Current Position
 
-Phase: 2
-Plan: Not started
+Phase: 02 (split-panes-keyboard) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Plan: Not started
 *Updated after each plan completion*
 | Phase 01 P01 | 10min | 3 tasks | 27 files |
 | Phase 01 P02 | 2min | 1 tasks | 6 files |
+| Phase 02 P01 | 4min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -61,6 +62,9 @@ Recent decisions affecting current work:
 - [Phase 01]: Used std::thread::spawn for PTY reader (blocking I/O, not tokio)
 - [Phase 01]: Added esbuild as separate devDep for Vite 8 production minification
 - [Phase 01]: Used PredefinedMenuItem::fullscreen for Window menu (Tauri v2 has no .zoom())
+- [Phase 02]: splitNode returns [PaneNode, PaneId] tuple for unambiguous focus tracking
+- [Phase 02]: closePane creates sentinel leaf (ptyId=-1) instead of null root
+- [Phase 02]: Keyboard registry uses capture phase to intercept before xterm.js
 
 ### Pending Todos
 
@@ -76,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T07:31:44.507Z
-Stopped at: Phase 2 UI-SPEC approved
-Resume file: .planning/phases/02-split-panes-keyboard/02-UI-SPEC.md
+Last session: 2026-04-01T08:01:03.551Z
+Stopped at: Completed 02-01-PLAN.md
+Resume file: None
