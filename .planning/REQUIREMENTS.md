@@ -46,8 +46,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **GIT-01**: User can import a local git repository as a workspace
 - [x] **GIT-02**: User can list, create, and remove branches via git2 (no shell exec)
 - [x] **GIT-03**: User can create and remove worktrees via git2
-- [ ] **GIT-04**: Create branch/worktree center modal with type cards (⎇ Branch vs ◆ Worktree), name input, base branch dropdown, worktree path auto-generated
-- [ ] **GIT-05**: Modal shows git command preview at bottom before execution
+- [x] **GIT-04**: Create branch/worktree center modal with type cards (⎇ Branch vs ◆ Worktree), name input, base branch dropdown, worktree path auto-generated
+- [x] **GIT-05**: Modal shows git command preview at bottom before execution
 - [x] **GIT-06**: Sidebar shows branch ahead/behind status inline
 
 ### Agent
@@ -167,8 +167,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GIT-01 | Phase 4 | Complete |
 | GIT-02 | Phase 4 | Complete |
 | GIT-03 | Phase 4 | Complete |
-| GIT-04 | Phase 4 | Pending |
-| GIT-05 | Phase 4 | Pending |
+| GIT-04 | Phase 4 | Complete |
+| GIT-05 | Phase 4 | Complete |
 | GIT-06 | Phase 4 | Complete |
 | SIDE-01 | Phase 4 | Pending |
 | SIDE-02 | Phase 4 | Pending |

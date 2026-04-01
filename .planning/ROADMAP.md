@@ -82,7 +82,7 @@ Plans:
 Plans:
 - [x] 04-01-PLAN.md — Rust git.rs backend + IPC wrappers + workspace store + theme tokens (GIT-01, GIT-02, GIT-03, GIT-06)
 - [ ] 04-02-PLAN.md — Sidebar UI + workspace tree + App.tsx layout + StatusBar update (SIDE-01, SIDE-02, SIDE-05, SIDE-06, GIT-06)
-- [ ] 04-03-PLAN.md — Create branch/worktree modal + wiring to tree (GIT-04, GIT-05)
+- [x] 04-03-PLAN.md — Create branch/worktree modal + wiring to tree (GIT-04, GIT-05)
 
 ### Phase 5: Agent Detection + Status UI
 **Goal**: User can see at a glance which AI agents are running, waiting, or idle across all workspaces
