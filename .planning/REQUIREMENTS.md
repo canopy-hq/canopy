@@ -67,7 +67,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **THME-01**: 8 built-in dark themes (Carbon, Graphite, Obsidian, Slate, Midnight, Void, Smoke, Ash)
 - [x] **THME-02**: Themes applied via CSS custom properties for instant switching
-- [ ] **THME-03**: User selects theme in settings; stored in ~/.superagent/settings.json
+- [x] **THME-03**: User selects theme in settings; stored in ~/.superagent/settings.json
 
 ### Settings
 
@@ -161,7 +161,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TABS-03 | Phase 3 | Pending |
 | THME-01 | Phase 3 | Complete |
 | THME-02 | Phase 3 | Complete |
-| THME-03 | Phase 3 | Pending |
+| THME-03 | Phase 3 | Complete |
 | STAT-01 | Phase 3 | Pending |
 | STAT-02 | Phase 3 | Pending |
 | GIT-01 | Phase 4 | Pending |
