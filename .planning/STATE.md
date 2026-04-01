@@ -122,9 +122,10 @@ None yet.
 | 260401-w64 | Move TabBar inside main content area next to sidebar | 2026-04-01 | 8c3bcbb | [260401-w64](./quick/260401-w64-move-tabbar-inside-main-content-area-nex/) |
 | 260401-wei | Fix terminal isolation: only render active tab PaneContainer | 2026-04-01 | df7ba88 | [260401-wei](./quick/260401-wei-fix-terminal-isolation-only-render-activ/) |
 | 260401-wj7 | Refactor tabs to be context-scoped per workspace item | 2026-04-01 | a7e6571 | [260401-wj7](./quick/260401-wj7-refactor-tabs-to-be-context-scoped-per-w/) |
+| 260402-1yj | Replace kqueue agent detection with PTY output pattern matching | 2026-04-02 | 246fee2 | [260402-1yj](./quick/260402-1yj-replace-unreliable-kqueue-agent-detectio/) |
 
 ## Session Continuity
 
-Last activity: 2026-04-01
-Stopped at: Completed 05-04-PLAN.md
+Last activity: 2026-04-02
+Stopped at: Completed 260402-1yj quick task
 Resume file: None
