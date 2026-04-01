@@ -4,6 +4,7 @@ import { ErrorToastRegion } from './components/ToastProvider';
 import { useKeyboardRegistry, type Keybinding } from './hooks/useKeyboardRegistry';
 import { usePaneTreeStore } from './stores/pane-tree';
 import { closePty } from './lib/pty';
+import { disposeCached } from './lib/terminal-cache';
 import { findLeaf } from './lib/pane-tree-ops';
 import { showErrorToast } from './lib/toast';
 
@@ -34,6 +35,7 @@ export default function App() {
     const store = usePaneTreeStore.getState();
     const leaf = findLeaf(store.root, focusedPaneId);
     if (leaf && leaf.ptyId > 0) {
+      disposeCached(leaf.ptyId);
       try {
         await closePty(leaf.ptyId);
       } catch {

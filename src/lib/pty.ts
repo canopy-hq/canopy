@@ -1,13 +1,42 @@
 import { invoke, Channel } from '@tauri-apps/api/core';
 
-export async function spawnTerminal(
-  onOutput: (data: Uint8Array) => void,
-): Promise<number> {
+// Global registry: PTY output channels keyed by ptyId.
+// Allows useTerminal to (re)connect to a PTY's output stream after remounts.
+const outputRegistry = new Map<number, {
+  setHandler: (h: (data: Uint8Array) => void) => void;
+}>();
+
+export async function spawnTerminal(): Promise<number> {
+  const buffer: Uint8Array[] = [];
+  let handler: ((data: Uint8Array) => void) | null = null;
+
   const channel = new Channel<number[]>();
   channel.onmessage = (data: number[]) => {
-    onOutput(new Uint8Array(data));
+    const bytes = new Uint8Array(data);
+    if (handler) {
+      handler(bytes);
+    } else {
+      buffer.push(bytes);
+    }
   };
-  return invoke<number>('spawn_terminal', { onOutput: channel });
+
+  const ptyId = await invoke<number>('spawn_terminal', { onOutput: channel });
+
+  outputRegistry.set(ptyId, {
+    setHandler: (h) => {
+      handler = h;
+      for (const b of buffer) h(b);
+      buffer.length = 0;
+    },
+  });
+
+  return ptyId;
+}
+
+/** Wire (or re-wire) a PTY's output to a handler. Flushes buffered data on first call. */
+export function connectPtyOutput(ptyId: number, handler: (data: Uint8Array) => void): void {
+  const entry = outputRegistry.get(ptyId);
+  if (entry) entry.setHandler(handler);
 }
 
 export async function writeToPty(ptyId: number, data: string): Promise<void> {
@@ -20,5 +49,6 @@ export async function resizePty(ptyId: number, rows: number, cols: number): Prom
 }
 
 export async function closePty(ptyId: number): Promise<void> {
+  outputRegistry.delete(ptyId);
   return invoke('close_pty', { ptyId });
 }

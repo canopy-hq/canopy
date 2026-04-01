@@ -1,0 +1,25 @@
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+
+interface CachedEntry {
+  term: Terminal;
+  fitAddon: FitAddon;
+}
+
+const cache = new Map<number, CachedEntry>();
+
+export function getCached(ptyId: number): CachedEntry | undefined {
+  return cache.get(ptyId);
+}
+
+export function setCached(ptyId: number, term: Terminal, fitAddon: FitAddon): void {
+  cache.set(ptyId, { term, fitAddon });
+}
+
+export function disposeCached(ptyId: number): void {
+  const entry = cache.get(ptyId);
+  if (entry) {
+    entry.term.dispose();
+    cache.delete(ptyId);
+  }
+}

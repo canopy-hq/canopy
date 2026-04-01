@@ -27,18 +27,12 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
 
   // Sentinel PTY spawn: if ptyId is -1, spawn a new PTY on mount
   useEffect(() => {
-    if (ptyId > 0) return; // Already has a real PTY
-    if (realPtyId !== null) return; // Already spawning/spawned
+    if (ptyId > 0) return;
+    if (realPtyId !== null) return;
 
     let cancelled = false;
 
-    // spawnTerminal requires an onOutput callback. Since we use Tauri's Channel-based
-    // approach, the data flows through the channel; the xterm binding in useTerminal
-    // will handle output via the same Channel. We pass a no-op here because the
-    // Channel registered during spawn will forward data to xterm once it mounts.
-    spawnTerminal(() => {
-      // Output handled by Channel in pty.ts
-    }).then((id) => {
+    spawnTerminal().then((id) => {
       if (cancelled) return;
       setRealPtyId(id);
       setPtyId(paneId, id);
@@ -53,7 +47,6 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
     setCwd(newCwd);
   }, []);
 
-  // Only render terminal when we have a real PTY ID
   if (realPtyId === null) {
     return (
       <div className="h-full w-full flex items-center justify-center text-gray-500 text-sm">
