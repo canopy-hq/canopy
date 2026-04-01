@@ -21,7 +21,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **TABS-01**: User can open new tabs (Cmd+T), one tab per branch/worktree
 - [x] **TABS-02**: User can switch tabs with Cmd+1-9 and Cmd+Shift+[/]
-- [ ] **TABS-03**: Active tab shows raised border and matching background
+- [x] **TABS-03**: Active tab shows raised border and matching background
 - [ ] **TABS-04**: Tab shows agent status dot (green pulse = working, amber = waiting)
 - [ ] **TABS-05**: Waiting tab shows amber background tint + "input" pill badge
 
@@ -85,8 +85,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Status Bar
 
-- [ ] **STAT-01**: Status bar left: repo name, branch type icon (⎇/◆), branch name, pane count
-- [ ] **STAT-02**: Status bar right: agent summary ("2 working", "1 waiting"), shortcut hints, Cmd+Shift+O hint
+- [x] **STAT-01**: Status bar left: repo name, branch type icon (⎇/◆), branch name, pane count
+- [x] **STAT-02**: Status bar right: agent summary ("2 working", "1 waiting"), shortcut hints, Cmd+Shift+O hint
 
 ### App Shell
 
@@ -158,12 +158,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | KEYS-03 | Phase 2 | Complete |
 | TABS-01 | Phase 3 | Complete |
 | TABS-02 | Phase 3 | Complete |
-| TABS-03 | Phase 3 | Pending |
+| TABS-03 | Phase 3 | Complete |
 | THME-01 | Phase 3 | Complete |
 | THME-02 | Phase 3 | Complete |
 | THME-03 | Phase 3 | Complete |
-| STAT-01 | Phase 3 | Pending |
-| STAT-02 | Phase 3 | Pending |
+| STAT-01 | Phase 3 | Complete |
+| STAT-02 | Phase 3 | Complete |
 | GIT-01 | Phase 4 | Pending |
 | GIT-02 | Phase 4 | Pending |
 | GIT-03 | Phase 4 | Pending |
