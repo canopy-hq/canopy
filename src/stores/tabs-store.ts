@@ -15,6 +15,7 @@ import {
 export interface Tab {
   id: string;
   label: string;
+  workspaceItemId?: string;
   paneRoot: PaneNode;
   focusedPaneId: PaneId | null;
 }
@@ -30,6 +31,9 @@ interface TabsState {
   switchTabRelative: (direction: 'prev' | 'next') => void;
   getActiveTab: () => Tab | undefined;
 
+  // Workspace-tab association
+  findOrCreateTabForWorkspaceItem: (itemId: string, label: string) => void;
+
   // Pane operations (scoped to active tab)
   splitPane: (paneId: PaneId, direction: SplitDirection, newPtyId: number) => void;
   closePane: (paneId: PaneId) => void;
@@ -39,12 +43,13 @@ interface TabsState {
   setPtyId: (paneId: PaneId, ptyId: number) => void;
 }
 
-function makeTab(): Tab {
+function makeTab(opts?: { workspaceItemId?: string; label?: string }): Tab {
   const id = crypto.randomUUID();
   const paneId = crypto.randomUUID();
   return {
     id,
-    label: 'Terminal',
+    label: opts?.label ?? 'Terminal',
+    workspaceItemId: opts?.workspaceItemId,
     paneRoot: { type: 'leaf', id: paneId, ptyId: -1 },
     focusedPaneId: paneId,
   };
@@ -112,6 +117,18 @@ export const useTabsStore = create<TabsState>()(
       const { tabs, activeTabId } = get();
       return tabs.find((t) => t.id === activeTabId);
     },
+
+    findOrCreateTabForWorkspaceItem: (itemId, label) =>
+      set((state) => {
+        const existing = state.tabs.find((t) => t.workspaceItemId === itemId);
+        if (existing) {
+          state.activeTabId = existing.id;
+          return;
+        }
+        const tab = makeTab({ workspaceItemId: itemId, label });
+        state.tabs.push(tab);
+        state.activeTabId = tab.id;
+      }),
 
     // ── Pane operations (scoped to active tab) ──────────────────────
 

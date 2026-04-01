@@ -3,6 +3,7 @@ import { immer } from 'zustand/middleware/immer';
 import type { BranchInfo, WorktreeInfo } from '../lib/git';
 import * as gitApi from '../lib/git';
 import { showErrorToast } from '../lib/toast';
+import { useTabsStore } from './tabs-store';
 
 export interface Workspace {
   id: string;
@@ -29,6 +30,7 @@ interface WorkspaceState {
   refreshRepo: (id: string) => Promise<void>;
   toggleExpanded: (id: string) => void;
   setSelectedItem: (id: string | null) => void;
+  selectWorkspaceItem: (itemId: string | null, itemLabel?: string) => void;
 
   // Git operations
   createBranch: (workspaceId: string, name: string, base: string) => Promise<void>;
@@ -110,6 +112,15 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       set((state) => {
         state.selectedItemId = id;
       }),
+
+    selectWorkspaceItem: (itemId: string | null, itemLabel?: string) => {
+      set((state) => {
+        state.selectedItemId = itemId;
+      });
+      if (itemId !== null && itemLabel) {
+        useTabsStore.getState().findOrCreateTabForWorkspaceItem(itemId, itemLabel);
+      }
+    },
 
     createBranch: async (workspaceId: string, name: string, base: string) => {
       const ws = get().workspaces.find((w) => w.id === workspaceId);
