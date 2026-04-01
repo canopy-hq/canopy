@@ -1,16 +1,18 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, afterEach } from 'vitest';
+import { render, cleanup, within } from '@testing-library/react';
 import { PaneHeader } from '../PaneHeader';
 
 describe('PaneHeader', () => {
+  afterEach(cleanup);
+
   it('renders last 2 path segments', () => {
-    render(<PaneHeader cwd="/Users/pierre/project/src" isFocused={false} />);
-    expect(screen.getByText('project/src')).toBeInTheDocument();
+    const { container } = render(<PaneHeader cwd="/Users/pierre/project/src" isFocused={false} />);
+    expect(within(container).getByText('project/src')).toBeInTheDocument();
   });
 
   it('renders ~ when cwd is empty string', () => {
-    render(<PaneHeader cwd="" isFocused={false} />);
-    expect(screen.getByText('~')).toBeInTheDocument();
+    const { container } = render(<PaneHeader cwd="" isFocused={false} />);
+    expect(within(container).getByText('~')).toBeInTheDocument();
   });
 
   it('applies focused text color when isFocused=true', () => {
@@ -26,12 +28,12 @@ describe('PaneHeader', () => {
   });
 
   it('handles single-segment path', () => {
-    render(<PaneHeader cwd="/home" isFocused={false} />);
-    expect(screen.getByText('home')).toBeInTheDocument();
+    const { container } = render(<PaneHeader cwd="/home" isFocused={false} />);
+    expect(within(container).getByText('home')).toBeInTheDocument();
   });
 
   it('handles deeply nested path showing only last 2 segments', () => {
-    render(<PaneHeader cwd="/a/b/c/d/e/f" isFocused={false} />);
-    expect(screen.getByText('e/f')).toBeInTheDocument();
+    const { container } = render(<PaneHeader cwd="/a/b/c/d/e/f" isFocused={false} />);
+    expect(within(container).getByText('e/f')).toBeInTheDocument();
   });
 });

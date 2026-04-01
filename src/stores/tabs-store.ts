@@ -22,8 +22,6 @@ export interface Tab {
 interface TabsState {
   tabs: Tab[];
   activeTabId: string;
-  tabCounter: number;
-
   // Tab operations
   addTab: () => void;
   closeTab: (tabId: string) => void;
@@ -41,29 +39,26 @@ interface TabsState {
   setPtyId: (paneId: PaneId, ptyId: number) => void;
 }
 
-function makeTab(counter: number): Tab {
+function makeTab(): Tab {
   const id = crypto.randomUUID();
   const paneId = crypto.randomUUID();
   return {
     id,
-    label: `Terminal ${counter}`,
+    label: 'Terminal',
     paneRoot: { type: 'leaf', id: paneId, ptyId: -1 },
     focusedPaneId: paneId,
   };
 }
 
-const initialTab = makeTab(1);
+const initialTab = makeTab();
 
 export const useTabsStore = create<TabsState>()(
   immer((set, get) => ({
     tabs: [initialTab],
     activeTabId: initialTab.id,
-    tabCounter: 1,
-
     addTab: () =>
       set((state) => {
-        state.tabCounter += 1;
-        const tab = makeTab(state.tabCounter);
+        const tab = makeTab();
         state.tabs.push(tab);
         state.activeTabId = tab.id;
       }),
@@ -72,8 +67,7 @@ export const useTabsStore = create<TabsState>()(
       set((state) => {
         if (state.tabs.length === 1) {
           // Never zero tabs -- spawn fresh one first (D-07)
-          state.tabCounter += 1;
-          const fresh = makeTab(state.tabCounter);
+          const fresh = makeTab();
           state.tabs.push(fresh);
           state.activeTabId = fresh.id;
         }

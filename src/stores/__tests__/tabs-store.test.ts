@@ -11,10 +11,10 @@ describe('tabs-store', () => {
   });
 
   describe('initial state', () => {
-    it('has 1 tab with label "Terminal 1"', () => {
+    it('has 1 tab with label "Terminal"', () => {
       const { tabs } = useTabsStore.getState();
       expect(tabs).toHaveLength(1);
-      expect(tabs[0]!.label).toBe('Terminal 1');
+      expect(tabs[0]!.label).toBe('Terminal');
     });
 
     it('initial tab has a sentinel leaf pane with ptyId=-1', () => {
@@ -28,11 +28,11 @@ describe('tabs-store', () => {
   });
 
   describe('addTab', () => {
-    it('creates new tab with label "Terminal 2"', () => {
+    it('creates new tab with label "Terminal"', () => {
       useTabsStore.getState().addTab();
       const { tabs } = useTabsStore.getState();
       expect(tabs).toHaveLength(2);
-      expect(tabs[1]!.label).toBe('Terminal 2');
+      expect(tabs[1]!.label).toBe('Terminal');
     });
 
     it('sets new tab as activeTabId', () => {
@@ -41,11 +41,11 @@ describe('tabs-store', () => {
       expect(activeTabId).toBe(tabs[1]!.id);
     });
 
-    it('increments counter for subsequent tabs', () => {
+    it('all tabs have same label', () => {
       useTabsStore.getState().addTab();
       useTabsStore.getState().addTab();
       const { tabs } = useTabsStore.getState();
-      expect(tabs[2]!.label).toBe('Terminal 3');
+      expect(tabs[2]!.label).toBe('Terminal');
     });
   });
 
@@ -69,7 +69,7 @@ describe('tabs-store', () => {
       const after = useTabsStore.getState();
       expect(after.tabs).toHaveLength(1);
       expect(after.tabs[0]!.id).not.toBe(onlyTabId);
-      expect(after.tabs[0]!.label).toBe('Terminal 2');
+      expect(after.tabs[0]!.label).toBe('Terminal');
     });
   });
 

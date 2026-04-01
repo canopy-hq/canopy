@@ -1,12 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-
-// Mock @tauri-apps/plugin-store before importing theme-store
-vi.mock('@tauri-apps/plugin-store', () => ({
-  load: vi.fn().mockRejectedValue(new Error('No Tauri runtime')),
-}));
-
-// Must import after mock setup
-const { useThemeStore } = await import('../theme-store');
+import { describe, it, expect, beforeEach } from 'vitest';
+import { useThemeStore } from '../theme-store';
 
 describe('theme-store', () => {
   beforeEach(() => {
@@ -40,6 +33,7 @@ describe('theme-store', () => {
   });
 
   it('initTheme falls back to obsidian when Tauri is unavailable', async () => {
+    // initTheme catches the Tauri import error internally and falls back to obsidian
     await useThemeStore.getState().initTheme();
     expect(useThemeStore.getState().currentTheme).toBe('obsidian');
     expect(document.documentElement.getAttribute('data-theme')).toBe('obsidian');

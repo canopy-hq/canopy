@@ -18,7 +18,10 @@ interface TerminalPaneProps {
  */
 export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const focusedPaneId = useTabsStore((s) => s.focusedPaneId);
+  const focusedPaneId = useTabsStore((s) => {
+    const tab = s.tabs.find((t) => t.id === s.activeTabId);
+    return tab?.focusedPaneId ?? null;
+  });
   const setFocus = useTabsStore((s) => s.setFocus);
   const setPtyId = useTabsStore((s) => s.setPtyId);
   const isFocused = focusedPaneId === paneId;

@@ -140,8 +140,11 @@ export function useTerminal(
     termRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    // Handle resize with debounced PTY resize
+    // Handle resize with debounced PTY resize.
+    // Guard: skip fit when container is hidden (display:none → 0x0),
+    // otherwise xterm caches corrupt geometry and renders oversized on reveal.
     const resizeObserver = new ResizeObserver(() => {
+      if (container.offsetWidth === 0 || container.offsetHeight === 0) return;
       fitAddon.fit();
 
       if (resizeTimerRef.current !== null) {
