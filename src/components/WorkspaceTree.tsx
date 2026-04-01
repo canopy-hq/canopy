@@ -81,7 +81,7 @@ function RepoHeader({ workspace }: { workspace: Workspace }) {
 export function WorkspaceTree() {
   const workspaces = useWorkspaceStore((s) => s.workspaces);
   const selectedItemId = useWorkspaceStore((s) => s.selectedItemId);
-  const setSelectedItem = useWorkspaceStore((s) => s.setSelectedItem);
+  const selectWorkspaceItem = useWorkspaceStore((s) => s.selectWorkspaceItem);
   const toggleExpanded = useWorkspaceStore((s) => s.toggleExpanded);
   const [modalWorkspace, setModalWorkspace] = useState<Workspace | null>(null);
 
@@ -93,10 +93,29 @@ export function WorkspaceTree() {
     ? new Set([selectedItemId])
     : new Set<Key>();
 
+  function findItemLabel(itemId: string): string {
+    for (const ws of workspaces) {
+      if (itemId === ws.id) return ws.name;
+      if (itemId.startsWith(ws.id + '-branch-')) {
+        return itemId.slice((ws.id + '-branch-').length);
+      }
+      if (itemId.startsWith(ws.id + '-wt-')) {
+        return itemId.slice((ws.id + '-wt-').length);
+      }
+    }
+    return 'Terminal';
+  }
+
   function handleSelectionChange(keys: Selection) {
     if (keys === 'all') return;
     const selected = [...keys][0];
-    setSelectedItem(selected ? String(selected) : null);
+    if (!selected) {
+      selectWorkspaceItem(null);
+      return;
+    }
+    const selectedStr = String(selected);
+    const label = findItemLabel(selectedStr);
+    selectWorkspaceItem(selectedStr, label);
   }
 
   function handleExpandedChange(keys: Set<Key>) {
@@ -128,7 +147,7 @@ export function WorkspaceTree() {
             ws.branches.length > 0 || ws.worktrees.length > 0
           }
           className={({ isSelected }) =>
-            `outline-none ${isSelected ? 'bg-bg-tertiary border-l-2 border-l-[var(--accent)]' : 'hover:bg-bg-tertiary'}`
+            `outline-none cursor-pointer ${isSelected ? 'bg-bg-tertiary border-l-2 border-l-[var(--accent)]' : 'hover:bg-bg-tertiary'}`
           }
         >
           <TreeItemContent>
@@ -140,7 +159,7 @@ export function WorkspaceTree() {
               id={`${ws.id}-branch-${b.name}`}
               textValue={b.name}
               className={({ isSelected }) =>
-                `outline-none ${isSelected ? 'bg-bg-tertiary border-l-2 border-l-[var(--accent)]' : 'hover:bg-bg-tertiary'}`
+                `outline-none cursor-pointer ${isSelected ? 'bg-bg-tertiary border-l-2 border-l-[var(--accent)]' : 'hover:bg-bg-tertiary'}`
               }
             >
               <TreeItemContent>
@@ -154,7 +173,7 @@ export function WorkspaceTree() {
               id={`${ws.id}-wt-${wt.name}`}
               textValue={wt.name}
               className={({ isSelected }) =>
-                `outline-none ${isSelected ? 'bg-bg-tertiary border-l-2 border-l-[var(--accent)]' : 'hover:bg-bg-tertiary'}`
+                `outline-none cursor-pointer ${isSelected ? 'bg-bg-tertiary border-l-2 border-l-[var(--accent)]' : 'hover:bg-bg-tertiary'}`
               }
             >
               <TreeItemContent>

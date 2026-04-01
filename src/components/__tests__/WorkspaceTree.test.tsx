@@ -70,4 +70,12 @@ describe('WorkspaceTree', () => {
     // The tree items are in the DOM but the tree hides them via aria-expanded=false
     // React ARIA Tree renders children but collapses them visually
   });
+
+  it('shows pointer cursor on tree items', () => {
+    const { container } = render(<WorkspaceTree />);
+    // React ARIA Tree renders items with class names from className callback
+    const cursorElements = container.querySelectorAll('.cursor-pointer');
+    // At least 3: repo header, branch items, worktree items
+    expect(cursorElements.length).toBeGreaterThanOrEqual(3);
+  });
 });
