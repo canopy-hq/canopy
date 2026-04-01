@@ -14,8 +14,7 @@ import { findLeaf } from './lib/pane-tree-ops';
 import { showErrorToast } from './lib/toast';
 
 export default function App() {
-  const tabs = useTabsStore((s) => s.tabs);
-  const activeTabId = useTabsStore((s) => s.activeTabId);
+  const activeTab = useTabsStore((s) => s.getActiveTab());
   const addTab = useTabsStore((s) => s.addTab);
   const closeTab = useTabsStore((s) => s.closeTab);
   const splitPane = useTabsStore((s) => s.splitPane);
@@ -118,12 +117,10 @@ export default function App() {
         <div className="flex-1 min-w-0 flex flex-col">
           <TabBar />
           <div className="flex-1 min-h-0 relative">
-            {tabs.map((tab) =>
-              tab.id === activeTabId ? (
-                <div key={tab.id} className="absolute inset-0">
-                  <PaneContainer root={tab.paneRoot} />
-                </div>
-              ) : null,
+            {activeTab && (
+              <div key={activeTab.id} className="absolute inset-0">
+                <PaneContainer root={activeTab.paneRoot} />
+              </div>
             )}
           </div>
         </div>
