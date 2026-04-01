@@ -41,10 +41,10 @@ describe('splitNode', () => {
     expect(branch.children).toHaveLength(2);
     expect(branch.ratios).toEqual([0.5, 0.5]);
     // Original leaf is first child
-    expect(branch.children[0].type).toBe('leaf');
+    expect(branch.children[0]!.type).toBe('leaf');
     expect((branch.children[0] as LeafNode).id).toBe('leaf-1');
     // New leaf is second child
-    expect(branch.children[1].type).toBe('leaf');
+    expect(branch.children[1]!.type).toBe('leaf');
     expect((branch.children[1] as LeafNode).ptyId).toBe(99);
     expect(typeof newLeafId).toBe('string');
     expect((branch.children[1] as LeafNode).id).toBe(newLeafId);
@@ -75,7 +75,7 @@ describe('splitNode', () => {
     const [newTree, newLeafId] = splitNode(root, 'leaf-1', 'horizontal', 99);
     const branch = newTree as BranchNode;
     expect(branch.children).toHaveLength(2); // Still 2 children at top level
-    expect(branch.children[0].type).toBe('branch'); // First child is now a sub-branch
+    expect(branch.children[0]!.type).toBe('branch'); // First child is now a sub-branch
     const subBranch = branch.children[0] as BranchNode;
     expect(subBranch.direction).toBe('horizontal');
     expect(subBranch.children).toHaveLength(2);
@@ -227,8 +227,8 @@ describe('updateRatio', () => {
     // Trying to shrink left by 0.1 would push it to 0.05, should clamp to 0.1
     const result = updateRatio(root, 'b1', 1, -0.1);
     const branch = result as BranchNode;
-    expect(branch.ratios[0]).toBeGreaterThanOrEqual(0.1);
-    expect(branch.ratios[1]).toBeLessThanOrEqual(0.9);
-    expect(branch.ratios[0] + branch.ratios[1]).toBeCloseTo(1.0, 10);
+    expect(branch.ratios[0]!).toBeGreaterThanOrEqual(0.1);
+    expect(branch.ratios[1]!).toBeLessThanOrEqual(0.9);
+    expect(branch.ratios[0]! + branch.ratios[1]!).toBeCloseTo(1.0, 10);
   });
 });

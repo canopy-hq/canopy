@@ -87,7 +87,7 @@ export function splitNode(
     parent.ratios = evenRatios(parent.children.length);
   } else {
     // Different direction: wrap target in new sub-branch
-    const target = parent.children[childIndex];
+    const target = parent.children[childIndex]!;
     const subBranch: BranchNode = {
       type: 'branch',
       id: crypto.randomUUID(),
@@ -132,21 +132,21 @@ function removeNodeInPlace(
   if (idx !== -1) {
     branch.children.splice(idx, 1);
     if (branch.children.length === 0) return null;
-    if (branch.children.length === 1) return branch.children[0];
+    if (branch.children.length === 1) return branch.children[0]!;
     branch.ratios = evenRatios(branch.children.length);
     return branch;
   }
 
   // Recurse into child branches
   for (let i = 0; i < branch.children.length; i++) {
-    const child = branch.children[i];
+    const child = branch.children[i]!;
     if (child.type === 'branch') {
       const result = removeNodeInPlace(child, targetId);
       if (result === null) {
         // Child branch became empty
         branch.children.splice(i, 1);
         if (branch.children.length === 0) return null;
-        if (branch.children.length === 1) return branch.children[0];
+        if (branch.children.length === 1) return branch.children[0]!;
         branch.ratios = evenRatios(branch.children.length);
         return branch;
       }
@@ -211,20 +211,20 @@ export function navigate(
 
   // Walk up the path looking for a matching-axis branch where we can move
   for (let i = path.length - 1; i >= 0; i--) {
-    const node = path[i];
+    const node = path[i]!;
     if (node.type !== 'branch' || node.direction !== axis) continue;
 
     // Find which child the next path element is in
     const childNode = path[i + 1];
     if (!childNode) continue;
-    const childIdx = node.children.findIndex((c) => c.id === childNode.id);
+    const childIdx = node.children.findIndex((c: PaneNode) => c.id === childNode.id);
     if (childIdx === -1) continue;
 
     const nextIdx = forward ? childIdx + 1 : childIdx - 1;
     if (nextIdx < 0 || nextIdx >= node.children.length) continue;
 
     // Descend into the adjacent child to find the nearest leaf
-    const targetChild = node.children[nextIdx];
+    const targetChild = node.children[nextIdx]!;
     const leaf = findFirstLeaf(targetChild);
     return leaf?.id ?? null;
   }
@@ -232,10 +232,11 @@ export function navigate(
   return null;
 }
 
-function findLastLeaf(tree: PaneNode): LeafNode | null {
+// Reserved for future use (e.g., navigate backward into last leaf)
+export function findLastLeaf(tree: PaneNode): LeafNode | null {
   if (tree.type === 'leaf') return tree;
   for (let i = tree.children.length - 1; i >= 0; i--) {
-    const found = findLastLeaf(tree.children[i]);
+    const found = findLastLeaf(tree.children[i]!);
     if (found) return found;
   }
   return null;
@@ -278,8 +279,8 @@ function applyRatioUpdate(
     const leftIdx = splitIndex - 1;
     const rightIdx = splitIndex;
 
-    let newLeft = node.ratios[leftIdx] + delta;
-    let newRight = node.ratios[rightIdx] - delta;
+    let newLeft = (node.ratios[leftIdx] ?? 0) + delta;
+    let newRight = (node.ratios[rightIdx] ?? 0) - delta;
 
     // Clamp
     if (newLeft < MIN_RATIO) {
