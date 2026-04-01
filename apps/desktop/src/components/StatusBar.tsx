@@ -1,5 +1,6 @@
 import { useTabsStore } from '../stores/tabs-store';
 import { useWorkspaceStore } from '../stores/workspace-store';
+import { useAgentStore, selectRunningCount, selectWaitingCount } from '../stores/agent-store';
 import type { PaneNode } from '../lib/pane-tree-ops';
 
 function countLeaves(node: PaneNode): number {
@@ -11,6 +12,9 @@ export function StatusBar() {
   const tabs = useTabsStore((s) => s.tabs);
   const activeTabId = useTabsStore((s) => s.activeTabId);
   const workspaces = useWorkspaceStore((s) => s.workspaces);
+
+  const runningCount = useAgentStore(selectRunningCount);
+  const waitingCount = useAgentStore(selectWaitingCount);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const paneCount = activeTab ? countLeaves(activeTab.paneRoot) : 0;
@@ -43,6 +47,19 @@ export function StatusBar() {
         </span>
       </div>
       <div className="flex items-center gap-3">
+        {(runningCount > 0 || waitingCount > 0) && (
+          <span className="flex items-center gap-1" style={{ fontSize: '11px' }}>
+            {runningCount > 0 && (
+              <span style={{ color: 'var(--agent-running)' }}>{runningCount} working</span>
+            )}
+            {runningCount > 0 && waitingCount > 0 && (
+              <span style={{ color: 'var(--text-muted)', opacity: 0.6 }}>&middot;</span>
+            )}
+            {waitingCount > 0 && (
+              <span style={{ color: 'var(--agent-waiting)' }}>{waitingCount} waiting</span>
+            )}
+          </span>
+        )}
         <span className="opacity-60">Cmd+B Sidebar</span>
         <span className="opacity-60">Cmd+D Split</span>
         <span className="opacity-60">Cmd+T Tab</span>
