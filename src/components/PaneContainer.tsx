@@ -1,14 +1,12 @@
-import { usePaneTreeStore } from '../stores/pane-tree';
 import type { PaneNode } from '../lib/pane-tree-ops';
 import { SplitContainer } from './SplitContainer';
 import { TerminalPane } from './TerminalPane';
 
 /**
- * Root component that reads the pane tree from the store
- * and recursively renders it into split containers and terminal panes.
+ * Renders a pane tree into split containers and terminal panes.
+ * Receives its root as a prop -- App.tsx renders one PaneContainer per tab.
  */
-export function PaneContainer() {
-  const root = usePaneTreeStore((s) => s.root);
+export function PaneContainer({ root }: { root: PaneNode }) {
   return <PaneNodeRenderer node={root} />;
 }
 
@@ -19,7 +17,7 @@ function PaneNodeRenderer({ node }: { node: PaneNode }) {
   return (
     <SplitContainer direction={node.direction} ratios={node.ratios} nodeId={node.id}>
       {node.children.map((child) => (
-        <PaneNodeRenderer key={child.type === 'leaf' ? child.id : child.id} node={child} />
+        <PaneNodeRenderer key={child.id} node={child} />
       ))}
     </SplitContainer>
   );

@@ -2,17 +2,22 @@ import { useCallback, useMemo } from 'react';
 import { PaneContainer } from './components/PaneContainer';
 import { ErrorToastRegion } from './components/ToastProvider';
 import { useKeyboardRegistry, type Keybinding } from './hooks/useKeyboardRegistry';
-import { usePaneTreeStore } from './stores/pane-tree';
+import { useTabsStore } from './stores/tabs-store';
 import { closePty } from './lib/pty';
 import { disposeCached } from './lib/terminal-cache';
 import { findLeaf } from './lib/pane-tree-ops';
 import { showErrorToast } from './lib/toast';
 
 export default function App() {
-  const focusedPaneId = usePaneTreeStore((s) => s.focusedPaneId);
-  const splitPane = usePaneTreeStore((s) => s.splitPane);
-  const closePane = usePaneTreeStore((s) => s.closePane);
-  const navigatePanes = usePaneTreeStore((s) => s.navigate);
+  const activeTab = useTabsStore((s) => {
+    const tab = s.tabs.find((t) => t.id === s.activeTabId);
+    return tab;
+  });
+  const focusedPaneId = activeTab?.focusedPaneId ?? null;
+  const root = activeTab?.paneRoot ?? { type: 'leaf' as const, id: 'empty', ptyId: -1 };
+  const splitPane = useTabsStore((s) => s.splitPane);
+  const closePane = useTabsStore((s) => s.closePane);
+  const navigatePanes = useTabsStore((s) => s.navigate);
 
   // Split handler: pass ptyId=-1 (sentinel). TerminalPane spawns PTY on mount.
   const handleSplit = useCallback(
@@ -32,8 +37,9 @@ export default function App() {
   // TerminalPane will detect sentinel and spawn fresh PTY.
   const handleClose = useCallback(async () => {
     if (!focusedPaneId) return;
-    const store = usePaneTreeStore.getState();
-    const leaf = findLeaf(store.root, focusedPaneId);
+    const tab = useTabsStore.getState().getActiveTab();
+    if (!tab) return;
+    const leaf = findLeaf(tab.paneRoot, focusedPaneId);
     if (leaf && leaf.ptyId > 0) {
       disposeCached(leaf.ptyId);
       try {
@@ -62,8 +68,8 @@ export default function App() {
   useKeyboardRegistry(bindings);
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#0a0a14]">
-      <PaneContainer />
+    <div className="h-screen w-screen overflow-hidden bg-bg-primary">
+      <PaneContainer root={root} />
       <ErrorToastRegion />
     </div>
   );
