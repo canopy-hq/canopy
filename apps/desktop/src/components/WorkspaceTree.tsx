@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Button,
   Tree,
@@ -6,7 +7,7 @@ import {
   TreeItemContent,
 } from 'react-aria-components';
 import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useCollections';
-import { toggleExpanded, selectWorkspaceItem } from '../lib/workspace-actions';
+import { toggleExpanded, selectWorkspaceItem, closeProject } from '../lib/workspace-actions';
 import { StatusDot } from './StatusDot';
 import type { DotStatus } from './StatusDot';
 import type { Workspace } from '@superagent/db';
@@ -14,6 +15,7 @@ import type { BranchInfo, WorktreeInfo } from '../lib/git';
 import type { Selection, Key } from 'react-aria-components';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import { CreateModal } from './CreateModal';
+import { CloseProjectModal } from './CloseProjectModal';
 
 function BranchRow({ branch, agentStatus }: { branch: BranchInfo; agentStatus?: DotStatus }) {
   return (
@@ -162,6 +164,7 @@ export function WorkspaceTree() {
   const workspaces = useWorkspaces();
   const { selectedItemId } = useUiState();
   const [modalWorkspace, setModalWorkspace] = useState<Workspace | null>(null);
+  const [closeTarget, setCloseTarget] = useState<Workspace | null>(null);
   const agentMap = useWorkspaceAgentMap();
 
   const expandedKeys = new Set<Key>(
@@ -218,7 +221,7 @@ export function WorkspaceTree() {
       onExpandedChange={handleExpandedChange}
     >
       {workspaces.map((ws) => (
-        <RepoTreeItem key={ws.id} ws={ws} agentMap={agentMap} setModalWorkspace={setModalWorkspace} />
+        <RepoTreeItem key={ws.id} ws={ws} agentMap={agentMap} setModalWorkspace={setModalWorkspace} onRequestClose={setCloseTarget} />
       ))}
     </Tree>
     {modalWorkspace && (
@@ -226,6 +229,17 @@ export function WorkspaceTree() {
         isOpen={!!modalWorkspace}
         onClose={() => setModalWorkspace(null)}
         workspace={modalWorkspace}
+      />
+    )}
+    {closeTarget && (
+      <CloseProjectModal
+        isOpen={!!closeTarget}
+        onClose={() => setCloseTarget(null)}
+        onConfirm={async () => {
+          await closeProject(closeTarget.id);
+          setCloseTarget(null);
+        }}
+        projectName={closeTarget.name}
       />
     )}
     </>
@@ -236,14 +250,26 @@ function RepoTreeItem({
   ws,
   agentMap,
   setModalWorkspace,
+  onRequestClose,
 }: {
   ws: Workspace;
   agentMap: Record<string, DotStatus>;
   setModalWorkspace: (ws: Workspace) => void;
+  onRequestClose: (ws: Workspace) => void;
 }) {
   const agentSummary = useRepoAgentSummary(ws);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
+
+  function handleContextMenu(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setMenuPos({ x: e.clientX, y: e.clientY });
+    setMenuOpen(true);
+  }
 
   return (
+    <>
     <TreeItem
       key={ws.id}
       id={ws.id}
@@ -254,7 +280,9 @@ function RepoTreeItem({
       }
     >
       <TreeItemContent>
-        <RepoHeader workspace={ws} agentSummary={agentSummary} />
+        <div onContextMenu={handleContextMenu}>
+          <RepoHeader workspace={ws} agentSummary={agentSummary} />
+        </div>
       </TreeItemContent>
       {ws.branches.map((b) => (
         <TreeItem
@@ -306,5 +334,31 @@ function RepoTreeItem({
         </TreeItemContent>
       </TreeItem>
     </TreeItem>
+    {menuOpen && createPortal(
+      <div
+        className="fixed inset-0 z-40"
+        onClick={() => setMenuOpen(false)}
+        onContextMenu={(e) => { e.preventDefault(); setMenuOpen(false); }}
+        role="presentation"
+      >
+        <div
+          className="fixed z-50 min-w-[180px] py-1 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg shadow-lg"
+          style={{ left: menuPos.x, top: menuPos.y }}
+        >
+          <button
+            className="w-full px-3 py-1.5 text-left text-[13px] text-[var(--destructive)] hover:bg-[var(--bg-tertiary)] cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen(false);
+              onRequestClose(ws);
+            }}
+          >
+            Close Project
+          </button>
+        </div>
+      </div>,
+      document.body,
+    )}
+    </>
   );
 }
