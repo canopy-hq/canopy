@@ -42,11 +42,14 @@ export function closeTab(tabId: string): void {
   const contextTabs = col.toArray.filter((t) => t.workspaceItemId === contextId);
 
   if (contextTabs.length === 1) {
-    const fresh = makeTab({ workspaceItemId: contextId });
-    col.insert(fresh);
+    col.delete(tabId);
     uiCollection.update('ui', (draft) => {
-      draft.activeTabId = fresh.id;
+      draft.activeTabId = '';
+      const { [contextId]: _, ...rest } = draft.contextActiveTabIds;
+      draft.contextActiveTabIds = rest;
     });
+    setSetting('activeTabId', '');
+    return;
   }
 
   col.delete(tabId);
@@ -126,15 +129,13 @@ export function setActiveContext(contextId: string, label?: string): void {
     setSetting('activeContextId', contextId);
     setSetting('activeTabId', newActiveTabId);
   } else {
-    const tab = makeTab({ workspaceItemId: contextId, label: label ?? 'Terminal' });
-    col.insert(tab);
     uiCollection.update('ui', (draft) => {
-      draft.contextActiveTabIds = { ...updatedContextActiveTabIds, [contextId]: tab.id };
+      draft.contextActiveTabIds = updatedContextActiveTabIds;
       draft.activeContextId = contextId;
-      draft.activeTabId = tab.id;
+      draft.activeTabId = '';
     });
     setSetting('activeContextId', contextId);
-    setSetting('activeTabId', tab.id);
+    setSetting('activeTabId', '');
   }
 }
 
