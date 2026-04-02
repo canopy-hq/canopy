@@ -37,7 +37,7 @@ export default function App() {
 
   const [overlayOpen, setOverlayOpen] = useState(false);
 
-  // Initialize theme from persisted settings on mount
+  // Initialize theme on mount
   useEffect(() => {
     initTheme();
   }, [initTheme]);

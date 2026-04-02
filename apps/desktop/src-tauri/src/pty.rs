@@ -11,6 +11,7 @@ pub struct PtyManager {
     pub(crate) writers: HashMap<u32, Box<dyn Write + Send>>,
     pub(crate) children: HashMap<u32, Box<dyn Child + Send>>,
     pub(crate) masters: HashMap<u32, Box<dyn MasterPty + Send>>,
+    pub(crate) child_pids: HashMap<u32, u32>,
     pub(crate) next_id: u32,
 }
 
@@ -20,6 +21,7 @@ impl PtyManager {
             writers: HashMap::new(),
             children: HashMap::new(),
             masters: HashMap::new(),
+            child_pids: HashMap::new(),
             next_id: 1,
         }
     }
@@ -67,6 +69,7 @@ pub async fn spawn_terminal(
         manager.writers.insert(id, writer);
         manager.children.insert(id, child);
         manager.masters.insert(id, pair.master);
+        manager.child_pids.insert(id, child_pid);
         id
     };
 
@@ -172,7 +175,25 @@ pub fn close_pty(
     manager.writers.remove(&pty_id);
     // Drop master (closes PTY file descriptors, reader thread will exit)
     manager.masters.remove(&pty_id);
+    manager.child_pids.remove(&pty_id);
     Ok(())
+}
+
+/// Get the CWD of the shell process for a given PTY.
+/// Uses libproc for a single direct syscall — most performant approach on macOS.
+#[tauri::command]
+pub fn get_pty_cwd(
+    pty_id: u32,
+    state: tauri::State<'_, Mutex<PtyManager>>,
+) -> Result<String, String> {
+    let manager = state.lock().map_err(|e| e.to_string())?;
+    let pid = *manager
+        .child_pids
+        .get(&pty_id)
+        .ok_or_else(|| format!("PTY {} not found", pty_id))?;
+
+    let path = libproc::proc_pid::pidcwd(pid as i32).map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().to_string())
 }
 
 #[cfg(test)]
