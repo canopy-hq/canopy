@@ -1,8 +1,9 @@
 import { useRef, useState, useEffect } from 'react';
 import { useTerminal } from '../hooks/useTerminal';
-import { useTabsStore } from '../stores/tabs-store';
-import { useAgentStore, selectAgentForPty } from '../stores/agent-store';
+import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
+import { setFocus, setPtyId } from '../lib/tab-actions';
 import { spawnTerminal, getPtyCwd } from '../lib/pty';
+import { getSettingCollection, getSetting, setSetting } from '@superagent/db';
 import { PaneHeader } from './PaneHeader';
 
 interface TerminalPaneProps {
@@ -13,29 +14,30 @@ interface TerminalPaneProps {
 /**
  * Single terminal pane with floating CWD header and focus indicator.
  *
- * Handles the ptyId=-1 sentinel case by spawning a new PTY on mount,
- * then updating the pane tree store via setPtyId.
+ * Handles the ptyId=-1 sentinel case by spawning (or reconnecting to) a daemon
+ * session keyed by paneId. On cold restart the daemon replays scrollback.
  */
 export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const focusedPaneId = useTabsStore((s) => {
-    const tab = s.tabs.find((t) => t.id === s.activeTabId);
-    return tab?.focusedPaneId ?? null;
-  });
-  const setFocus = useTabsStore((s) => s.setFocus);
-  const setPtyId = useTabsStore((s) => s.setPtyId);
+  const tabs = useTabs();
+  const ui = useUiState();
+  const activeTab = tabs.find((t) => t.id === ui.activeTabId);
+  const focusedPaneId = activeTab?.focusedPaneId ?? null;
   const isFocused = focusedPaneId === paneId;
   const [cwd, setCwd] = useState('');
   const [realPtyId, setRealPtyId] = useState<number | null>(ptyId > 0 ? ptyId : null);
 
-  // Sentinel PTY spawn: if ptyId is -1, spawn a new PTY on mount
+  // Sentinel PTY spawn: if ptyId is -1, spawn / reconnect on mount
   useEffect(() => {
     if (ptyId > 0) return;
     if (realPtyId !== null) return;
 
     let cancelled = false;
 
-    spawnTerminal().then((id) => {
+    const settings = getSettingCollection().toArray;
+    const savedCwd = getSetting(settings, `cwd:${paneId}`, '') as string;
+
+    spawnTerminal(paneId, savedCwd || undefined).then((id) => {
       if (cancelled) return;
       setRealPtyId(id);
       setPtyId(paneId, id);
@@ -44,9 +46,9 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
     return () => {
       cancelled = true;
     };
-  }, [ptyId, realPtyId, paneId, setPtyId]);
+  }, [ptyId, realPtyId, paneId]);
 
-  // Poll CWD from Rust side every 2 seconds
+  // Poll CWD from Rust side every 2 seconds and persist changes
   useEffect(() => {
     if (realPtyId === null) return;
 
@@ -55,9 +57,15 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
     const poll = async () => {
       try {
         const newCwd = await getPtyCwd(realPtyId);
-        if (!cancelled && newCwd) setCwd((prev) => prev === newCwd ? prev : newCwd);
+        if (!cancelled && newCwd) {
+          setCwd((prev) => {
+            if (prev === newCwd) return prev;
+            setSetting(`cwd:${paneId}`, newCwd);
+            return newCwd;
+          });
+        }
       } catch {
-        // PTY may be dead or command not available
+        // PTY may be dead
       }
     };
 
@@ -68,7 +76,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [realPtyId]);
+  }, [realPtyId, paneId]);
 
   if (realPtyId === null) {
     return (
@@ -84,7 +92,6 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
       ptyId={realPtyId}
       isFocused={isFocused}
       cwd={cwd}
-      setFocus={setFocus}
       containerRef={containerRef}
     />
   );
@@ -92,26 +99,25 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
 
 /**
  * Inner component that renders once we have a valid PTY ID.
- * Separated to keep the hook call unconditional (hooks can't be after early return).
+ * Separated to keep hook calls unconditional (hooks can't be after early return).
  */
 function TerminalPaneInner({
   paneId,
   ptyId,
   isFocused,
   cwd,
-  setFocus,
   containerRef,
 }: {
   paneId: string;
   ptyId: number;
   isFocused: boolean;
   cwd: string;
-  setFocus: (paneId: string) => void;
   containerRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const termRef = useTerminal(containerRef, ptyId, isFocused);
 
-  const agent = useAgentStore(selectAgentForPty(ptyId));
+  const agents = useAgents();
+  const agent = agents.find((a) => a.ptyId === ptyId);
   const agentStatus = agent?.status ?? 'idle';
   const isWaiting = agentStatus === 'waiting';
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useTabsStore } from '../stores/tabs-store';
-import type { Tab } from '../stores/tabs-store';
-import { useAgentStore } from '../stores/agent-store';
+import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
+import { addTab, closeTab, switchTab } from '../lib/tab-actions';
+import type { Tab } from '@superagent/db';
 import { StatusDot } from './StatusDot';
 import type { PaneNode } from '../lib/pane-tree-ops';
 import type { DotStatus } from './StatusDot';
@@ -13,13 +13,13 @@ function collectLeafPtyIds(node: PaneNode): number[] {
 
 function useTabAgentStatus(tab: Tab): DotStatus {
   const ptyIds = collectLeafPtyIds(tab.paneRoot);
-  const agents = useAgentStore((s) => s.agents);
+  const agents = useAgents();
   for (const id of ptyIds) {
-    const agent = agents[id];
+    const agent = agents.find((a) => a.ptyId === id);
     if (agent?.status === 'waiting') return 'waiting';
   }
   for (const id of ptyIds) {
-    const agent = agents[id];
+    const agent = agents.find((a) => a.ptyId === id);
     if (agent?.status === 'running') return 'running';
   }
   return 'idle';
@@ -92,13 +92,11 @@ function TabItem({
 }
 
 export function TabBar() {
-  const allTabs = useTabsStore((s) => s.tabs);
-  const activeContextId = useTabsStore((s) => s.activeContextId);
+  const allTabs = useTabs();
+  const ui = useUiState();
+  const activeContextId = ui.activeContextId;
   const tabs = allTabs.filter((t) => t.workspaceItemId === activeContextId);
-  const activeTabId = useTabsStore((s) => s.activeTabId);
-  const addTab = useTabsStore((s) => s.addTab);
-  const closeTab = useTabsStore((s) => s.closeTab);
-  const switchTab = useTabsStore((s) => s.switchTab);
+  const activeTabId = ui.activeTabId;
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollState, setScrollState] = useState<{ left: boolean; right: boolean }>({

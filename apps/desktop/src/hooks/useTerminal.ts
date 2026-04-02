@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Terminal, FitAddon } from 'ghostty-web';
 import { writeToPty, resizePty, connectPtyOutput } from '../lib/pty';
 import { getCached, setCached } from '../lib/terminal-cache';
-import { useThemeStore } from '../stores/theme-store';
-import { terminalThemes } from '../lib/themes';
+import { getSettingCollection, getSetting } from '@superagent/db';
+import { terminalThemes, type ThemeName } from '../lib/themes';
 import { ensureGhosttyInit } from '../lib/ghostty-init';
 
 /**
@@ -56,7 +56,7 @@ export function useTerminal(
         cursorBlink: true,
         fontSize: 14,
         fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-        theme: terminalThemes[useThemeStore.getState().currentTheme],
+        theme: terminalThemes[getSetting(getSettingCollection().toArray, 'theme', 'obsidian') as ThemeName],
       });
 
       fitAddon = new FitAddon();
@@ -137,7 +137,7 @@ export function useTerminal(
     termRef.current = term;
 
     // Debounced resize: background fills gap during macOS window animations
-    const themeBg = terminalThemes[useThemeStore.getState().currentTheme].background;
+    const themeBg = terminalThemes[getSetting(getSettingCollection().toArray, 'theme', 'obsidian') as ThemeName].background;
     if (term.element) term.element.style.background = themeBg;
 
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;

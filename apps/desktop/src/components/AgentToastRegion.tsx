@@ -8,7 +8,8 @@ import {
 import { agentToastQueue } from '../lib/toast';
 import type { AgentToastContent } from '../lib/toast';
 import { StatusDot } from './StatusDot';
-import { useTabsStore } from '../stores/tabs-store';
+import { getTabCollection } from '@superagent/db';
+import { setActiveContext, switchTab } from '../lib/tab-actions';
 import type { PaneNode } from '../lib/pane-tree-ops';
 
 /** Recursively check if a pane tree contains a leaf with the given ptyId */
@@ -18,8 +19,7 @@ function containsPtyId(node: PaneNode, ptyId: number): boolean {
 }
 
 function handleJump(ptyId: number, close: () => void) {
-  const { tabs, setActiveContext, switchTab } = useTabsStore.getState();
-  const tab = tabs.find((t) => containsPtyId(t.paneRoot, ptyId));
+  const tab = getTabCollection().toArray.find((t) => containsPtyId(t.paneRoot, ptyId));
   if (tab) {
     setActiveContext(tab.workspaceItemId, tab.label);
     switchTab(tab.id);
@@ -133,7 +133,7 @@ export function AgentToastRegion() {
               }}
             >
               <button
-                onClick={() => handleJump(toast.content.ptyId, () => toast.close())}
+                onClick={() => handleJump(toast.content.ptyId, () => toast.onClose?.())}
                 style={{
                   fontSize: '11px',
                   fontWeight: 600,
@@ -155,7 +155,7 @@ export function AgentToastRegion() {
               </button>
               <button
                 aria-label="Dismiss"
-                onClick={() => toast.close()}
+                onClick={() => toast.onClose?.()}
                 style={{
                   fontSize: '11px',
                   color: 'var(--text-muted)',

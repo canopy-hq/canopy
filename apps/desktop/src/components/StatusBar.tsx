@@ -1,7 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useTabsStore } from '../stores/tabs-store';
-import { useWorkspaceStore } from '../stores/workspace-store';
-import { useAgentStore, selectRunningCount, selectWaitingCount } from '../stores/agent-store';
+import { useTabs, useWorkspaces, useAgents, useUiState } from '../hooks/useCollections';
 import type { PaneNode } from '../lib/pane-tree-ops';
 
 function BranchLabel({ name }: { name: string }) {
@@ -35,14 +33,15 @@ function countLeaves(node: PaneNode): number {
 }
 
 export function StatusBar() {
-  const tabs = useTabsStore((s) => s.tabs);
-  const activeTabId = useTabsStore((s) => s.activeTabId);
-  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const tabs = useTabs();
+  const ui = useUiState();
+  const workspaces = useWorkspaces();
+  const agents = useAgents();
 
-  const runningCount = useAgentStore(selectRunningCount);
-  const waitingCount = useAgentStore(selectWaitingCount);
+  const runningCount = agents.filter((a) => a.status === 'running').length;
+  const waitingCount = agents.filter((a) => a.status === 'waiting').length;
 
-  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const activeTab = tabs.find((t) => t.id === ui.activeTabId);
   const paneCount = activeTab ? countLeaves(activeTab.paneRoot) : 0;
 
   const activeWorkspace = workspaces.length > 0 ? workspaces[0] : null;
