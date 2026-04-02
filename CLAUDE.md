@@ -13,7 +13,7 @@ A desktop application for managing AI coding agents across git workspaces. Built
 - **Tech stack**: Tauri v2 + React + TypeScript frontend, Rust backend — per design spec
 - **Styling**: Tailwind CSS with CSS custom properties for theming
 - **Components**: React ARIA (Adobe) headless primitives — accessibility-first
-- **Terminal**: xterm.js (WebGL addon) + portable-pty — battle-tested, GPU-accelerated
+- **Terminal**: ghostty-web (WASM-based Ghostty terminal) + portable-pty — battle-tested Zig parser, proper Unicode
 - **Git**: git2 Rust crate — no shell exec for git operations
 - **Testing**: Unit tests only (Vitest + React Testing Library for TS, Cargo test for Rust)
 <!-- GSD:project-end -->
@@ -31,10 +31,7 @@ A desktop application for managing AI coding agents across git workspaces. Built
 ### Terminal & PTY
 | Technology | Version | Purpose | Why | Confidence |
 |------------|---------|---------|-----|------------|
-| @xterm/xterm | 6.0.0 | Terminal rendering | Latest major. Canvas addon removed (we want WebGL anyway). New scrollbar impl. | HIGH |
-| @xterm/addon-webgl | 0.19.0 | GPU-accelerated rendering | Only renderer going forward (canvas deprecated in v6). Multi-texture atlas support. | HIGH |
-| @xterm/addon-fit | latest | Auto-resize terminal to container | Required for split pane resizing. | HIGH |
-| @xterm/addon-web-links | latest | Clickable URLs in terminal | Table stakes UX. | MEDIUM |
+| ghostty-web | 0.4.0 | Terminal rendering | WASM-compiled Ghostty parser (Zig). xterm.js-compatible API, proper Unicode/complex script support, zero transitive deps. Canvas2D renderer with dirty-row tracking. | HIGH |
 | portable-pty | 0.9.0 | Native PTY spawning (Rust) | Battle-tested (powers WezTerm). Direct control over shell lifecycle. | HIGH |
 ### Git Operations
 | Technology | Version | Purpose | Why | Confidence |

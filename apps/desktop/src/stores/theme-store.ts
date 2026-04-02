@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { type ThemeName, themeNames, xtermThemes } from '../lib/themes';
+import { type ThemeName, themeNames, terminalThemes } from '../lib/themes';
 import { getAllCached } from '../lib/terminal-cache';
 
 interface ThemeState {
@@ -17,10 +17,14 @@ export const useThemeStore = create<ThemeState>((set) => ({
     // Apply to DOM
     document.documentElement.setAttribute('data-theme', theme);
 
-    // Apply to all cached xterm terminals
-    const xtermColors = xtermThemes[theme];
+    // Apply to all cached terminals
+    const termColors = terminalThemes[theme];
     for (const [, entry] of getAllCached()) {
-      entry.term.options.theme = xtermColors;
+      entry.term.options.theme = termColors;
+      // Sync container background for smooth resize fill
+      if (entry.term.element) {
+        entry.term.element.style.background = termColors.background;
+      }
     }
 
     // Persist via tauri-plugin-store (lazy import, fail-safe)
