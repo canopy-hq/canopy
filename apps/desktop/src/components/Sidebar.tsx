@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
-import { useWorkspaceStore } from '../stores/workspace-store';
+import { useUiState, useWorkspaces } from '../hooks/useCollections';
+import { importRepo, setSidebarWidth } from '../lib/workspace-actions';
 import { WorkspaceTree } from './WorkspaceTree';
 
 function EmptyState({ onImport }: { onImport: () => void }) {
@@ -29,11 +30,10 @@ function EmptyState({ onImport }: { onImport: () => void }) {
 }
 
 export function Sidebar() {
-  const visible = useWorkspaceStore((s) => s.sidebarVisible);
-  const width = useWorkspaceStore((s) => s.sidebarWidth);
-  const setSidebarWidth = useWorkspaceStore((s) => s.setSidebarWidth);
-  const workspaces = useWorkspaceStore((s) => s.workspaces);
-  const importRepo = useWorkspaceStore((s) => s.importRepo);
+  const ui = useUiState();
+  const visible = ui.sidebarVisible;
+  const width = ui.sidebarWidth;
+  const workspaces = useWorkspaces();
 
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
@@ -51,7 +51,7 @@ export function Sidebar() {
     } catch {
       // Dialog not available in test/dev environments
     }
-  }, [importRepo]);
+  }, []);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -63,7 +63,7 @@ export function Sidebar() {
       const handleMouseMove = (ev: MouseEvent) => {
         if (!dragRef.current) return;
         const newWidth = dragRef.current.startWidth + (ev.clientX - dragRef.current.startX);
-        setSidebarWidth(Math.max(180, Math.min(400, newWidth)));
+        setSidebarWidth(newWidth);
       };
 
       const handleMouseUp = () => {
@@ -75,7 +75,7 @@ export function Sidebar() {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
     },
-    [width, setSidebarWidth],
+    [width],
   );
 
   if (!visible) return null;

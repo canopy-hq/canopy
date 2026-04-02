@@ -1,0 +1,35 @@
+import { createCollection, localOnlyCollectionOptions } from '@tanstack/db';
+
+export interface UiState {
+  id: 'ui';
+  // Sidebar
+  sidebarVisible: boolean;
+  sidebarWidth: number;
+  selectedItemId: string | null;
+  // Tab navigation
+  activeTabId: string;
+  activeContextId: string;
+  contextActiveTabIds: Record<string, string>;
+}
+
+const INITIAL_UI_STATE: UiState = {
+  id: 'ui',
+  sidebarVisible: false,
+  sidebarWidth: 230,
+  selectedItemId: null,
+  activeTabId: '',
+  activeContextId: '',
+  contextActiveTabIds: {},
+};
+
+// In-memory only — UI navigation state, not persisted
+export const uiCollection = createCollection(
+  localOnlyCollectionOptions<UiState, 'ui'>({
+    getKey: () => 'ui',
+    initialData: [INITIAL_UI_STATE],
+  }),
+);
+
+export function getUiState(): UiState {
+  return uiCollection.toArray[0] ?? INITIAL_UI_STATE;
+}

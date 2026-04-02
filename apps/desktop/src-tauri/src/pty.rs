@@ -1,162 +1,96 @@
 use std::collections::HashMap;
-use std::io::{Read, Write};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::AtomicU64;
+
 use tauri::ipc::Channel;
-use portable_pty::{native_pty_system, PtySize, CommandBuilder, MasterPty, Child};
 
 use crate::agent_watcher::{self, AgentWatcherState, now_millis};
+use crate::daemon_client::DaemonClient;
 
-pub struct PtyManager {
-    pub(crate) writers: HashMap<u32, Box<dyn Write + Send>>,
-    pub(crate) children: HashMap<u32, Box<dyn Child + Send>>,
-    pub(crate) masters: HashMap<u32, Box<dyn MasterPty + Send>>,
-    pub(crate) child_pids: HashMap<u32, u32>,
-    pub(crate) next_id: u32,
+/// Maps ptyId (child PID) → paneId for routing write/resize/close through the daemon.
+pub struct PtyProxy {
+    sessions: HashMap<u32, String>,
 }
 
-impl PtyManager {
+impl PtyProxy {
     pub fn new() -> Self {
-        Self {
-            writers: HashMap::new(),
-            children: HashMap::new(),
-            masters: HashMap::new(),
-            child_pids: HashMap::new(),
-            next_id: 1,
-        }
+        Self { sessions: HashMap::new() }
     }
 }
 
 #[tauri::command]
 pub async fn spawn_terminal(
+    pane_id: String,
+    cwd: Option<String>,
     on_output: Channel<Vec<u8>>,
     app: tauri::AppHandle,
-    state: tauri::State<'_, Mutex<PtyManager>>,
+    proxy: tauri::State<'_, Mutex<PtyProxy>>,
+    daemon: tauri::State<'_, DaemonClient>,
     watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
 ) -> Result<u32, String> {
-    let pty_system = native_pty_system();
-    let pair = pty_system
-        .openpty(PtySize {
-            rows: 24,
-            cols: 80,
-            pixel_width: 0,
-            pixel_height: 0,
-        })
-        .map_err(|e| e.to_string())?;
+    let pid = daemon.spawn(&pane_id, cwd.as_deref()).await?;
 
-    // Spawn user's default shell
-    let cmd = CommandBuilder::new_default_prog();
-    let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
+    {
+        let mut p = proxy.lock().map_err(|e| e.to_string())?;
+        p.sessions.insert(pid, pane_id.clone());
+    }
 
-    // Extract child PID immediately after spawn (Pitfall 7: may return None)
-    let child_pid = child.process_id();
-
-    // CRITICAL: Drop slave after spawn to prevent reader hang (Pitfall 1)
-    drop(pair.slave);
-
-    // Clone reader before taking writer -- master remains available for resize
-    let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
-    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
-
-    // Create atomic timestamp for output tracking
     let last_output = Arc::new(AtomicU64::new(now_millis()));
-    let last_output_clone = last_output.clone();
+    daemon.attach(pane_id.clone(), on_output, last_output.clone());
 
-    let pty_id = {
-        let mut manager = state.lock().map_err(|e| e.to_string())?;
-        let id = manager.next_id;
-        manager.next_id += 1;
-        manager.writers.insert(id, writer);
-        manager.children.insert(id, child);
-        manager.masters.insert(id, pair.master);
-        manager.child_pids.insert(id, child_pid);
-        id
-    };
-
-    // Store last_output Arc in watcher state
+    // Agent watcher uses child PID = ptyId for tracking
+    let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
     {
         let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
-        ws.last_outputs.insert(pty_id, last_output.clone());
+        ws.last_outputs.insert(pid, last_output.clone());
+        ws.cancel_senders.insert(pid, cancel_tx);
     }
+    agent_watcher::start_watching(pid, pid, app, last_output, cancel_rx);
 
-    // Spawn reader thread using std::thread (NOT tokio -- portable-pty reader is blocking I/O)
-    std::thread::spawn(move || {
-        let mut buf = [0u8; 4096];
-        loop {
-            match reader.read(&mut buf) {
-                Ok(0) => break,
-                Ok(n) => {
-                    // Track last output timestamp (used by agent watcher for silence detection)
-                    last_output_clone.store(now_millis(), Ordering::Relaxed);
-
-                    if on_output.send(buf[..n].to_vec()).is_err() {
-                        break;
-                    }
-                }
-                Err(_) => break,
-            }
-        }
-    });
-
-    // Start agent watcher if we have a child PID
-    if let Some(pid) = child_pid {
-        let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
-        {
-            let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
-            ws.cancel_senders.insert(pty_id, cancel_tx);
-        }
-        agent_watcher::start_watching(pid, pty_id, app, last_output, cancel_rx);
-    }
-
-    Ok(pty_id)
+    Ok(pid)
 }
 
 #[tauri::command]
-pub fn write_to_pty(
+pub async fn write_to_pty(
     pty_id: u32,
     data: Vec<u8>,
-    state: tauri::State<'_, Mutex<PtyManager>>,
+    proxy: tauri::State<'_, Mutex<PtyProxy>>,
+    daemon: tauri::State<'_, DaemonClient>,
 ) -> Result<(), String> {
-    let mut manager = state.lock().map_err(|e| e.to_string())?;
-    let writer = manager
-        .writers
-        .get_mut(&pty_id)
-        .ok_or_else(|| format!("PTY {} not found", pty_id))?;
-    writer.write_all(&data).map_err(|e| e.to_string())?;
-    writer.flush().map_err(|e| e.to_string())?;
-    Ok(())
+    let pane_id = {
+        let p = proxy.lock().map_err(|e| e.to_string())?;
+        p.sessions.get(&pty_id).cloned().ok_or_else(|| format!("PTY {pty_id} not found"))?
+    };
+    daemon.write(&pane_id, &data).await
 }
 
 #[tauri::command]
-pub fn resize_pty(
+pub async fn resize_pty(
     pty_id: u32,
     rows: u16,
     cols: u16,
-    state: tauri::State<'_, Mutex<PtyManager>>,
+    proxy: tauri::State<'_, Mutex<PtyProxy>>,
+    daemon: tauri::State<'_, DaemonClient>,
 ) -> Result<(), String> {
-    let manager = state.lock().map_err(|e| e.to_string())?;
-    let master = manager
-        .masters
-        .get(&pty_id)
-        .ok_or_else(|| format!("PTY {} not found", pty_id))?;
-    master
-        .resize(PtySize {
-            rows,
-            cols,
-            pixel_width: 0,
-            pixel_height: 0,
-        })
-        .map_err(|e| e.to_string())?;
-    Ok(())
+    let pane_id = {
+        let p = proxy.lock().map_err(|e| e.to_string())?;
+        p.sessions.get(&pty_id).cloned().ok_or_else(|| format!("PTY {pty_id} not found"))?
+    };
+    daemon.resize(&pane_id, rows, cols).await
 }
 
 #[tauri::command]
-pub fn close_pty(
+pub async fn close_pty(
     pty_id: u32,
-    state: tauri::State<'_, Mutex<PtyManager>>,
+    proxy: tauri::State<'_, Mutex<PtyProxy>>,
+    daemon: tauri::State<'_, DaemonClient>,
     watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
 ) -> Result<(), String> {
-    // Stop agent watcher first
+    let pane_id = {
+        let mut p = proxy.lock().map_err(|e| e.to_string())?;
+        p.sessions.remove(&pty_id).ok_or_else(|| format!("PTY {pty_id} not found"))?
+    };
+
     {
         let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
         if let Some(cancel) = ws.cancel_senders.remove(&pty_id) {
@@ -165,34 +99,13 @@ pub fn close_pty(
         ws.last_outputs.remove(&pty_id);
     }
 
-    let mut manager = state.lock().map_err(|e| e.to_string())?;
-    // Kill child process first
-    if let Some(mut child) = manager.children.remove(&pty_id) {
-        let _ = child.kill();
-        let _ = child.wait();
-    }
-    // Drop writer (closes write end of PTY)
-    manager.writers.remove(&pty_id);
-    // Drop master (closes PTY file descriptors, reader thread will exit)
-    manager.masters.remove(&pty_id);
-    manager.child_pids.remove(&pty_id);
-    Ok(())
+    daemon.close(&pane_id).await
 }
 
-/// Get the CWD of the shell process for a given PTY.
-/// Uses libproc for a single direct syscall — most performant approach on macOS.
+/// Get the CWD of the shell process. Since ptyId = child PID, we call libproc directly.
 #[tauri::command]
-pub fn get_pty_cwd(
-    pty_id: u32,
-    state: tauri::State<'_, Mutex<PtyManager>>,
-) -> Result<String, String> {
-    let manager = state.lock().map_err(|e| e.to_string())?;
-    let pid = *manager
-        .child_pids
-        .get(&pty_id)
-        .ok_or_else(|| format!("PTY {} not found", pty_id))?;
-
-    let path = libproc::proc_pid::pidcwd(pid as i32).map_err(|e| e.to_string())?;
+pub fn get_pty_cwd(pty_id: u32) -> Result<String, String> {
+    let path = libproc::proc_pid::pidcwd(pty_id as i32).map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().to_string())
 }
 
@@ -201,24 +114,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_pty_manager_new() {
-        let manager = PtyManager::new();
-        assert_eq!(manager.next_id, 1);
+    fn test_pty_proxy_new() {
+        let proxy = PtyProxy::new();
+        assert!(proxy.sessions.is_empty());
     }
 
     #[test]
-    fn test_close_pty_nonexistent_is_ok() {
-        let manager = PtyManager::new();
-        assert!(manager.children.get(&999).is_none());
-        assert!(manager.writers.get(&999).is_none());
-        assert!(manager.masters.get(&999).is_none());
+    fn test_pty_proxy_insert_lookup() {
+        let mut proxy = PtyProxy::new();
+        proxy.sessions.insert(1234, "pane-abc".to_string());
+        assert_eq!(proxy.sessions.get(&1234), Some(&"pane-abc".to_string()));
+        assert!(proxy.sessions.get(&9999).is_none());
     }
 
     #[test]
-    fn test_pty_manager_starts_empty() {
-        let manager = PtyManager::new();
-        assert!(manager.writers.is_empty());
-        assert!(manager.children.is_empty());
-        assert!(manager.masters.is_empty());
+    fn test_pty_proxy_remove() {
+        let mut proxy = PtyProxy::new();
+        proxy.sessions.insert(42, "pane-xyz".to_string());
+        let removed = proxy.sessions.remove(&42);
+        assert_eq!(removed, Some("pane-xyz".to_string()));
+        assert!(proxy.sessions.is_empty());
     }
 }

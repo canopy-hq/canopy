@@ -5,12 +5,11 @@ import {
   TreeItem,
   TreeItemContent,
 } from 'react-aria-components';
-import { useWorkspaceStore } from '../stores/workspace-store';
-import { useAgentStore } from '../stores/agent-store';
-import { useTabsStore } from '../stores/tabs-store';
+import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useCollections';
+import { toggleExpanded, selectWorkspaceItem } from '../lib/workspace-actions';
 import { StatusDot } from './StatusDot';
 import type { DotStatus } from './StatusDot';
-import type { Workspace } from '../stores/workspace-store';
+import type { Workspace } from '@superagent/db';
 import type { BranchInfo, WorktreeInfo } from '../lib/git';
 import type { Selection, Key } from 'react-aria-components';
 import type { PaneNode } from '../lib/pane-tree-ops';
@@ -107,15 +106,15 @@ function collectLeafPtyIds(node: PaneNode): number[] {
  * tabs (which have workspaceItemId and pane trees with ptyIds) with the agent store.
  */
 function useWorkspaceAgentMap(): Record<string, DotStatus> {
-  const agents = useAgentStore((s) => s.agents);
-  const tabs = useTabsStore((s) => s.tabs);
+  const agents = useAgents();
+  const tabs = useTabs();
 
   const result: Record<string, DotStatus> = {};
   for (const tab of tabs) {
     const ptyIds = collectLeafPtyIds(tab.paneRoot);
     let best: DotStatus = 'idle';
     for (const id of ptyIds) {
-      const agent = agents[id];
+      const agent = agents.find((a) => a.ptyId === id);
       if (agent?.status === 'waiting') { best = 'waiting'; break; }
       if (agent?.status === 'running') best = 'running';
     }
@@ -134,8 +133,8 @@ function useWorkspaceAgentMap(): Record<string, DotStatus> {
  * from workspace items that belong to this workspace, sorted waiting-first.
  */
 function useRepoAgentSummary(ws: Workspace): Array<'running' | 'waiting'> {
-  const agents = useAgentStore((s) => s.agents);
-  const tabs = useTabsStore((s) => s.tabs);
+  const agents = useAgents();
+  const tabs = useTabs();
 
   const itemIds = new Set<string>();
   itemIds.add(ws.id);
@@ -147,7 +146,7 @@ function useRepoAgentSummary(ws: Workspace): Array<'running' | 'waiting'> {
     if (!itemIds.has(tab.workspaceItemId)) continue;
     const ptyIds = collectLeafPtyIds(tab.paneRoot);
     for (const id of ptyIds) {
-      const agent = agents[id];
+      const agent = agents.find((a) => a.ptyId === id);
       if (agent?.status === 'running' || agent?.status === 'waiting') {
         statuses.push(agent.status);
       }
@@ -165,10 +164,8 @@ function useRepoAgentSummary(ws: Workspace): Array<'running' | 'waiting'> {
 }
 
 export function WorkspaceTree() {
-  const workspaces = useWorkspaceStore((s) => s.workspaces);
-  const selectedItemId = useWorkspaceStore((s) => s.selectedItemId);
-  const selectWorkspaceItem = useWorkspaceStore((s) => s.selectWorkspaceItem);
-  const toggleExpanded = useWorkspaceStore((s) => s.toggleExpanded);
+  const workspaces = useWorkspaces();
+  const { selectedItemId } = useUiState();
   const [modalWorkspace, setModalWorkspace] = useState<Workspace | null>(null);
   const agentMap = useWorkspaceAgentMap();
 
