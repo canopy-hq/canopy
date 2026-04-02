@@ -19,6 +19,5 @@ tokio = { version = "1", features = ["full"] }
 tauri-plugin-store = "2"
 tauri-plugin-dialog = "2"
 git2 = "0.20"
-kqueue = "1.1"
 libproc = "0.14"
 tempfile = "3"
