@@ -39,7 +39,7 @@ describe('themes', () => {
 
   it('each theme has a terminal theme object with 20 color keys', () => {
     for (const name of EXPECTED_THEMES) {
-      const terminal = themes[name].xterm;
+      const terminal = themes[name].terminal;
       for (const key of TERMINAL_KEYS) {
         expect(terminal).toHaveProperty(key);
         expect(typeof terminal[key]).toBe('string');
@@ -52,11 +52,11 @@ describe('themes', () => {
   });
 
   it('Obsidian terminal background matches #0a0a14', () => {
-    expect(themes.obsidian.xterm.background).toBe('#0a0a14');
+    expect(themes.obsidian.terminal.background).toBe('#0a0a14');
   });
 
   it('Obsidian terminal foreground matches #e0e0e0', () => {
-    expect(themes.obsidian.xterm.foreground).toBe('#e0e0e0');
+    expect(themes.obsidian.terminal.foreground).toBe('#e0e0e0');
   });
 });
 
@@ -75,9 +75,9 @@ describe('terminalThemes', () => {
     expect(Object.keys(terminalThemes)).toHaveLength(8);
   });
 
-  it('values match themes[name].xterm', () => {
+  it('values match themes[name].terminal', () => {
     for (const name of EXPECTED_THEMES) {
-      expect(terminalThemes[name]).toEqual(themes[name].xterm);
+      expect(terminalThemes[name]).toEqual(themes[name].terminal);
     }
   });
 });

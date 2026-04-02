@@ -1,5 +1,5 @@
 // Theme definitions for Superagent
-// 8 dark themes, each with CSS custom properties + xterm.js color scheme
+// 8 dark themes, each with CSS custom properties + terminal color scheme
 
 export type ThemeName =
   | 'carbon'
@@ -56,7 +56,7 @@ export interface TerminalThemeColors {
 
 export interface ThemeDefinition {
   css: CssThemeProperties;
-  xterm: TerminalThemeColors;
+  terminal: TerminalThemeColors;
 }
 
 export const themes: Record<ThemeName, ThemeDefinition> = {
@@ -81,7 +81,7 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
       gitBehind: '#f87171',
       destructive: '#ef4444',
     },
-    xterm: {
+    terminal: {
       background: '#0a0a14',
       foreground: '#e0e0e0',
       cursor: '#e0e0e0',
@@ -126,7 +126,7 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
       gitBehind: '#f87171',
       destructive: '#ef4444',
     },
-    xterm: {
+    terminal: {
       background: '#0f0e0c',
       foreground: '#e8e4de',
       cursor: '#e8e4de',
@@ -171,7 +171,7 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
       gitBehind: '#f87171',
       destructive: '#ef4444',
     },
-    xterm: {
+    terminal: {
       background: '#0e0e10',
       foreground: '#e4e4e8',
       cursor: '#e4e4e8',
@@ -216,7 +216,7 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
       gitBehind: '#f87171',
       destructive: '#ef4444',
     },
-    xterm: {
+    terminal: {
       background: '#0c0e14',
       foreground: '#e0e4ea',
       cursor: '#e0e4ea',
@@ -261,7 +261,7 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
       gitBehind: '#f87171',
       destructive: '#ef4444',
     },
-    xterm: {
+    terminal: {
       background: '#060a18',
       foreground: '#dce0f0',
       cursor: '#dce0f0',
@@ -306,7 +306,7 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
       gitBehind: '#f87171',
       destructive: '#ef4444',
     },
-    xterm: {
+    terminal: {
       background: '#050508',
       foreground: '#d8d8dc',
       cursor: '#d8d8dc',
@@ -351,7 +351,7 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
       gitBehind: '#f87171',
       destructive: '#ef4444',
     },
-    xterm: {
+    terminal: {
       background: '#100e0c',
       foreground: '#e8e2da',
       cursor: '#e8e2da',
@@ -396,7 +396,7 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
       gitBehind: '#f87171',
       destructive: '#ef4444',
     },
-    xterm: {
+    terminal: {
       background: '#0a0e0c',
       foreground: '#dce4e0',
       cursor: '#dce4e0',
@@ -424,7 +424,7 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
 export const themeNames: ThemeName[] = Object.keys(themes) as ThemeName[];
 
 export const terminalThemes: Record<ThemeName, TerminalThemeColors> = Object.fromEntries(
-  themeNames.map((name) => [name, themes[name].xterm]),
+  themeNames.map((name) => [name, themes[name].terminal]),
 ) as Record<ThemeName, TerminalThemeColors>;
 
 export const cssThemeProperties: Record<ThemeName, CssThemeProperties> = Object.fromEntries(
