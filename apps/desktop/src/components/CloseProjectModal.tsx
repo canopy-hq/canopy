@@ -41,13 +41,13 @@ export function CloseProjectModal({ isOpen, onClose, onConfirm, projectName }: C
           <div className="flex justify-end gap-2 mt-6">
             <button
               onClick={onClose}
-              className="h-8 px-4 rounded-lg bg-[var(--bg-tertiary)] text-[var(--text-muted)] text-[13px] hover:text-[var(--text-primary)]"
+              className="h-8 px-4 rounded-lg bg-[var(--bg-tertiary)] text-[var(--text-muted)] text-[13px] hover:text-[var(--text-primary)] cursor-pointer"
             >
               Cancel
             </button>
             <button
               onClick={onConfirm}
-              className="h-8 px-4 rounded-lg bg-[var(--destructive)] text-white text-[13px] font-medium hover:opacity-90"
+              className="h-8 px-4 rounded-lg bg-[var(--destructive)] text-white text-[13px] font-medium hover:opacity-90 cursor-pointer"
             >
               Close Project
             </button>
