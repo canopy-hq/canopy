@@ -7,7 +7,7 @@ import {
   TreeItemContent,
 } from 'react-aria-components';
 import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useCollections';
-import { toggleExpanded, selectWorkspaceItem, closeProject } from '../lib/workspace-actions';
+import { toggleExpanded, selectWorkspaceItem, closeProject, getWorkspaceItemIds } from '../lib/workspace-actions';
 import { StatusDot } from './StatusDot';
 import type { DotStatus } from './StatusDot';
 import type { Workspace } from '@superagent/db';
@@ -133,10 +133,7 @@ function useRepoAgentSummary(ws: Workspace): Array<'running' | 'waiting'> {
   const agents = useAgents();
   const tabs = useTabs();
 
-  const itemIds = new Set<string>();
-  itemIds.add(ws.id);
-  for (const b of ws.branches) itemIds.add(`${ws.id}-branch-${b.name}`);
-  for (const wt of ws.worktrees) itemIds.add(`${ws.id}-wt-${wt.name}`);
+  const itemIds = getWorkspaceItemIds(ws);
 
   const statuses: Array<'running' | 'waiting'> = [];
   for (const tab of tabs) {
@@ -301,12 +298,12 @@ function RepoTreeItem({
 }) {
   const agentSummary = useRepoAgentSummary(ws);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
+  const menuPos = useRef({ x: 0, y: 0 });
 
   function handleContextMenu(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    setMenuPos({ x: e.clientX, y: e.clientY });
+    menuPos.current = { x: e.clientX, y: e.clientY };
     setMenuOpen(true);
   }
 
@@ -377,8 +374,8 @@ function RepoTreeItem({
       </TreeItem>
     </TreeItem>
     {menuOpen && <ContextMenu
-      x={menuPos.x}
-      y={menuPos.y}
+      x={menuPos.current.x}
+      y={menuPos.current.y}
       onClose={() => setMenuOpen(false)}
       onCloseProject={() => {
         setMenuOpen(false);
