@@ -1,19 +1,30 @@
 export type DotStatus = 'running' | 'waiting' | 'idle';
 
+const STATUS_CONFIG: Record<DotStatus, { color: string; animation: string }> = {
+  running: {
+    color: 'var(--agent-running)',
+    animation: 'animate-[pulse-slow_2s_ease-in-out_infinite]',
+  },
+  waiting: {
+    color: 'var(--agent-waiting)',
+    animation: 'animate-[breathe_2.5s_ease-in-out_infinite]',
+  },
+  idle: {
+    color: 'var(--agent-idle)',
+    animation: '',
+  },
+};
+
 export function StatusDot({ status, size = 8 }: { status: DotStatus; size?: number }) {
-  if (status === 'idle') return null;
+  const config = STATUS_CONFIG[status];
 
   return (
     <span
-      className={
-        status === 'running'
-          ? 'inline-block rounded-full animate-[pulse-slow_2s_ease-in-out_infinite]'
-          : 'inline-block rounded-full animate-[breathe_2.5s_ease-in-out_infinite]'
-      }
+      className={`inline-block rounded-full ${config.animation}`}
       style={{
         width: size,
         height: size,
-        backgroundColor: status === 'running' ? 'var(--agent-running)' : 'var(--agent-waiting)',
+        backgroundColor: config.color,
         flexShrink: 0,
       }}
       role="img"

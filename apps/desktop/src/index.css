@@ -39,12 +39,13 @@
   --git-ahead: #4ade80;
   --git-behind: #f87171;
   --destructive: #ef4444;
-  --agent-running: #4ade80;
-  --agent-waiting: #fbbf24;
-  --agent-running-pulse: #22c55e;
-  --agent-waiting-glow: rgba(251, 191, 36, 0.15);
-  --agent-waiting-border: rgba(251, 191, 36, 0.4);
-  --agent-waiting-inset: rgba(251, 191, 36, 0.06);
+  --agent-running: #f59e0b;
+  --agent-waiting: #ef4444;
+  --agent-idle: #4ade80;
+  --agent-running-pulse: #d97706;
+  --agent-waiting-glow: rgba(239, 68, 68, 0.15);
+  --agent-waiting-border: rgba(239, 68, 68, 0.4);
+  --agent-waiting-inset: rgba(239, 68, 68, 0.06);
 }
 
 [data-theme="carbon"] {
