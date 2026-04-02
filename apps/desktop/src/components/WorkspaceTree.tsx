@@ -12,7 +12,7 @@ import type { DotStatus } from './StatusDot';
 import type { Workspace } from '@superagent/db';
 import type { BranchInfo, WorktreeInfo } from '../lib/git';
 import type { Selection, Key } from 'react-aria-components';
-import type { PaneNode } from '../lib/pane-tree-ops';
+import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import { CreateModal } from './CreateModal';
 
 function BranchRow({ branch, agentStatus }: { branch: BranchInfo; agentStatus?: DotStatus }) {
@@ -94,11 +94,6 @@ function RepoHeader({ workspace, agentSummary }: { workspace: Workspace; agentSu
       )}
     </div>
   );
-}
-
-function collectLeafPtyIds(node: PaneNode): number[] {
-  if (node.type === 'leaf') return node.ptyId > 0 ? [node.ptyId] : [];
-  return node.children.flatMap(collectLeafPtyIds);
 }
 
 /**
