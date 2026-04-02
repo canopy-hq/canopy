@@ -8,10 +8,13 @@ function BranchLabel({ name }: { name: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleClick = useCallback(() => {
-    navigator.clipboard.writeText(name).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
+    navigator.clipboard.writeText(name).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      },
+      () => {},
+    );
   }, [name]);
 
   return (

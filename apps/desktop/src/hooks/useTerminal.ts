@@ -112,6 +112,7 @@ export function useTerminal(
       // ghostty-web: return true = "handled, stop", false = "let terminal handle"
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         if (!e.metaKey) return false;
+        if (e.key === 'b') return true; // Sidebar toggle
         if (e.key === 'd' && !e.shiftKey) return true;
         if (e.key === 'D' && e.shiftKey) return true;
         if (e.key === 'w') return true;
