@@ -3,10 +3,9 @@ use std::io::{Read, Write};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::ipc::Channel;
-use tauri::Emitter;
 use portable_pty::{native_pty_system, PtySize, CommandBuilder, MasterPty, Child};
 
-use crate::agent_watcher::{self, AgentDetectionEvent, AgentWatcherState, OutputAgentDetector, AgentStatus, AgentStatusPayload, now_millis};
+use crate::agent_watcher::{self, AgentWatcherState, now_millis};
 
 pub struct PtyManager {
     pub(crate) writers: HashMap<u32, Box<dyn Write + Send>>,
@@ -57,7 +56,7 @@ pub async fn spawn_terminal(
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
 
-    // Create atomic timestamp for output tracking (D-05)
+    // Create atomic timestamp for output tracking
     let last_output = Arc::new(AtomicU64::new(now_millis()));
     let last_output_clone = last_output.clone();
 
@@ -71,16 +70,10 @@ pub async fn spawn_terminal(
         id
     };
 
-    // Create output-based agent detector for this PTY
-    let detector = Arc::new(Mutex::new(OutputAgentDetector::new()));
-    let detector_clone = detector.clone();
-    let app_clone = app.clone();
-
-    // Store last_output Arc and detector in watcher state
+    // Store last_output Arc in watcher state
     {
         let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
         ws.last_outputs.insert(pty_id, last_output.clone());
-        ws.detectors.insert(pty_id, detector);
     }
 
     // Spawn reader thread using std::thread (NOT tokio -- portable-pty reader is blocking I/O)
@@ -90,49 +83,8 @@ pub async fn spawn_terminal(
             match reader.read(&mut buf) {
                 Ok(0) => break,
                 Ok(n) => {
-                    // Track last output timestamp (D-05: zero-cost, bytes already flow)
+                    // Track last output timestamp (used by agent watcher for silence detection)
                     last_output_clone.store(now_millis(), Ordering::Relaxed);
-
-                    // Output-based agent detection (primary method)
-                    if let Ok(mut det) = detector_clone.lock() {
-                        if let Some(event) = det.feed(&buf[..n]) {
-                            match event {
-                                AgentDetectionEvent::Started { ref agent_name } => {
-                                    let _ = app_clone.emit(
-                                        "agent-status-changed",
-                                        AgentStatusPayload {
-                                            pty_id,
-                                            status: AgentStatus::Running.as_str().to_string(),
-                                            agent_name: agent_name.clone(),
-                                            pid: 0, // no real PID from output matching
-                                        },
-                                    );
-                                }
-                                AgentDetectionEvent::Stopped { ref agent_name } => {
-                                    let _ = app_clone.emit(
-                                        "agent-status-changed",
-                                        AgentStatusPayload {
-                                            pty_id,
-                                            status: AgentStatus::Idle.as_str().to_string(),
-                                            agent_name: agent_name.clone(),
-                                            pid: 0,
-                                        },
-                                    );
-                                }
-                                AgentDetectionEvent::Waiting { ref agent_name } => {
-                                    let _ = app_clone.emit(
-                                        "agent-status-changed",
-                                        AgentStatusPayload {
-                                            pty_id,
-                                            status: AgentStatus::Waiting.as_str().to_string(),
-                                            agent_name: agent_name.clone(),
-                                            pid: 0,
-                                        },
-                                    );
-                                }
-                            }
-                        }
-                    }
 
                     if on_output.send(buf[..n].to_vec()).is_err() {
                         break;
@@ -150,13 +102,7 @@ pub async fn spawn_terminal(
             let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
             ws.cancel_senders.insert(pty_id, cancel_tx);
         }
-        // Get the detector Arc for this PTY (already created above)
-        let det = {
-            let ws = watcher_state.lock().map_err(|e| e.to_string())?;
-            ws.detectors.get(&pty_id).cloned()
-                .ok_or_else(|| format!("No detector for PTY {}", pty_id))?
-        };
-        agent_watcher::start_watching(pid, pty_id, app, det, cancel_rx);
+        agent_watcher::start_watching(pid, pty_id, app, last_output, cancel_rx);
     }
 
     Ok(pty_id)
@@ -214,7 +160,6 @@ pub fn close_pty(
             let _ = cancel.send(());
         }
         ws.last_outputs.remove(&pty_id);
-        ws.detectors.remove(&pty_id);
     }
 
     let mut manager = state.lock().map_err(|e| e.to_string())?;
@@ -243,7 +188,6 @@ mod tests {
     #[test]
     fn test_close_pty_nonexistent_is_ok() {
         let manager = PtyManager::new();
-        // Calling close on non-existent ID should not panic
         assert!(manager.children.get(&999).is_none());
         assert!(manager.writers.get(&999).is_none());
         assert!(manager.masters.get(&999).is_none());
