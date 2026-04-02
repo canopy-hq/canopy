@@ -1,0 +1,19 @@
+{
+  "name": "@superagent/db",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@tanstack/db": "^0.6",
+    "@tanstack/query-core": "^5",
+    "@tauri-apps/plugin-sql": "^2",
+    "drizzle-orm": "^0.44"
+  },
+  "devDependencies": {
+    "@superagent/tsconfig": "workspace:*",
+    "drizzle-kit": "^0.31"
+  }
+}

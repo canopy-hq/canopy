@@ -1,12 +1,12 @@
 import { invoke, Channel } from '@tauri-apps/api/core';
 
-// Global registry: PTY output channels keyed by ptyId.
-// Allows useTerminal to (re)connect to a PTY's output stream after remounts.
+// Global registry: PTY output channels keyed by ptyId (child PID).
+// Allows useTerminal to wire the ghostty-web terminal to the daemon output stream.
 const outputRegistry = new Map<number, {
   setHandler: (h: (data: Uint8Array) => void) => void;
 }>();
 
-export async function spawnTerminal(): Promise<number> {
+export async function spawnTerminal(paneId: string, cwd?: string): Promise<number> {
   const buffer: Uint8Array[] = [];
   let handler: ((data: Uint8Array) => void) | null = null;
 
@@ -20,7 +20,7 @@ export async function spawnTerminal(): Promise<number> {
     }
   };
 
-  const ptyId = await invoke<number>('spawn_terminal', { onOutput: channel });
+  const ptyId = await invoke<number>('spawn_terminal', { paneId, cwd, onOutput: channel });
 
   outputRegistry.set(ptyId, {
     setHandler: (h) => {

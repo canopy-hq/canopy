@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
-import { useAgentStore, selectRunningCount, selectWaitingCount } from '../stores/agent-store';
-import type { AgentInfo } from '../stores/agent-store';
-import { useWorkspaceStore } from '../stores/workspace-store';
-import { useTabsStore } from '../stores/tabs-store';
+import { useAgents, useWorkspaces, useTabs } from '../hooks/useCollections';
+import { setActiveContext, switchTab } from '../lib/tab-actions';
+import type { AgentInfo } from '@superagent/db';
 import type { PaneNode } from '../lib/pane-tree-ops';
 import { StatusDot } from './StatusDot';
 
@@ -33,11 +32,11 @@ interface AgentRow {
 }
 
 export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
-  const agents = useAgentStore((s) => s.agents);
-  const runningCount = useAgentStore(selectRunningCount);
-  const waitingCount = useAgentStore(selectWaitingCount);
-  const workspaces = useWorkspaceStore((s) => s.workspaces);
-  const tabs = useTabsStore((s) => s.tabs);
+  const agentList = useAgents();
+  const runningCount = agentList.filter((a) => a.status === 'running').length;
+  const waitingCount = agentList.filter((a) => a.status === 'waiting').length;
+  const workspaces = useWorkspaces();
+  const tabs = useTabs();
 
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [, setTick] = useState(0);
@@ -57,7 +56,6 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
   // Build agent rows with workspace mapping
   const agentRows: AgentRow[] = useMemo(() => {
     const rows: AgentRow[] = [];
-    const agentList = Object.values(agents);
 
     for (const agent of agentList) {
       let workspaceName = 'Unknown';
@@ -88,7 +86,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
     }
 
     return rows;
-  }, [agents, tabs, workspaces]);
+  }, [agentList, tabs, workspaces]);
 
   // Group rows by workspace name
   const groupedRows: Record<string, AgentRow[]> = useMemo(() => {
@@ -112,8 +110,8 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
   const handleJump = useCallback(
     (row: AgentRow) => {
       if (row.tabId) {
-        useTabsStore.getState().setActiveContext(row.workspaceItemId);
-        useTabsStore.getState().switchTab(row.tabId);
+        setActiveContext(row.workspaceItemId);
+        switchTab(row.tabId);
       }
       onClose();
     },
