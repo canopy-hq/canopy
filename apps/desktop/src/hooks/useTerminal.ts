@@ -19,15 +19,12 @@ export function useTerminal(
   isFocused: boolean,
 ): React.MutableRefObject<Terminal | null> {
   const termRef = useRef<Terminal | null>(null);
-  const fitAddonRef = useRef<FitAddon | null>(null);
   const [wasmReady, setWasmReady] = useState(false);
 
-  // Wait for WASM to be initialized before creating terminals
   useEffect(() => {
     ensureGhosttyInit().then(() => setWasmReady(true));
   }, []);
 
-  // Focus terminal when isFocused becomes true
   useEffect(() => {
     if (isFocused && termRef.current) {
       termRef.current.focus();
@@ -40,25 +37,21 @@ export function useTerminal(
     const container = containerRef.current;
     if (!container) return;
 
-    // Check for cached terminal instance (survives React remounts)
     const cached = getCached(ptyId);
     let term: Terminal;
     let fitAddon: FitAddon;
 
     if (cached) {
-      // Reuse existing instance — reparent DOM into new container
       term = cached.term;
       fitAddon = cached.fitAddon;
       const el = term.element;
       if (el) {
         container.appendChild(el);
       }
-      // Re-wire output to this (same) instance and re-fit
       connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
       fitAddon.fit();
       resizePty(ptyId, term.rows, term.cols);
     } else {
-      // First mount — create new terminal
       term = new Terminal({
         cursorBlink: true,
         fontSize: 14,
@@ -71,7 +64,6 @@ export function useTerminal(
 
       term.open(container);
 
-      // Add padding so terminal content isn't flush against edges
       if (term.element) {
         term.element.style.padding = '8px 12px';
         term.element.style.boxSizing = 'border-box';
@@ -104,17 +96,13 @@ export function useTerminal(
 
       fitAddon.fit();
 
-      // Wire PTY output → terminal
       connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
 
-      // Sync PTY size on terminal resize events
       term.onResize(({ cols, rows }) => {
         resizePty(ptyId, rows, cols);
       });
 
-      // Intercept app-level keyboard shortcuts before the terminal processes them.
-      // ghostty-web convention: return true = "handled, stop processing", false = "let terminal handle"
-      // (opposite of xterm.js where true = "let terminal handle")
+      // ghostty-web: return true = "handled, stop", false = "let terminal handle"
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         if (!e.metaKey) return false;
         // Pane shortcuts
@@ -131,25 +119,17 @@ export function useTerminal(
         return false;
       });
 
-      // Wire user input to PTY
       term.onData((data: string) => {
         writeToPty(ptyId, data);
       });
 
-      // Sync initial size
       resizePty(ptyId, term.rows, term.cols);
-
-      // Cache for future remounts
       setCached(ptyId, term, fitAddon);
     }
 
     termRef.current = term;
-    fitAddonRef.current = fitAddon;
 
-    // Smooth resize: keep canvas at current size during macOS window
-    // animations — extra space is filled by the container background which
-    // matches the terminal theme. Once events settle (100ms), fit() snaps
-    // to the new size. Same strategy as iTerm2 / native terminals.
+    // Debounced resize: background fills gap during macOS window animations
     const themeBg = terminalThemes[useThemeStore.getState().currentTheme].background;
     if (term.element) term.element.style.background = themeBg;
 

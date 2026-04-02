@@ -55,7 +55,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
     const poll = async () => {
       try {
         const newCwd = await getPtyCwd(realPtyId);
-        if (!cancelled && newCwd) setCwd(newCwd);
+        if (!cancelled && newCwd) setCwd((prev) => prev === newCwd ? prev : newCwd);
       } catch {
         // PTY may be dead or command not available
       }
