@@ -3,12 +3,14 @@ import { render, screen } from '@testing-library/react';
 import { StatusDot } from '../StatusDot';
 
 describe('StatusDot', () => {
-  it('renders nothing when status is idle', () => {
-    const { container } = render(<StatusDot status="idle" />);
-    expect(container.firstChild).toBeNull();
+  it('renders green dot with no animation when idle', () => {
+    render(<StatusDot status="idle" />);
+    const dot = screen.getByRole('img', { name: 'Agent idle' });
+    expect(dot).toBeDefined();
+    expect(dot.style.backgroundColor).toBe('var(--agent-idle)');
   });
 
-  it('renders green dot with pulse-slow animation when running', () => {
+  it('renders orange dot with pulse-slow animation when running', () => {
     render(<StatusDot status="running" />);
     const dot = screen.getByRole('img', { name: 'Agent running' });
     expect(dot).toBeDefined();
@@ -16,7 +18,7 @@ describe('StatusDot', () => {
     expect(dot.style.backgroundColor).toBe('var(--agent-running)');
   });
 
-  it('renders amber dot with breathe animation when waiting', () => {
+  it('renders red dot with breathe animation when waiting', () => {
     render(<StatusDot status="waiting" />);
     const dot = screen.getByRole('img', { name: 'Agent waiting' });
     expect(dot).toBeDefined();
