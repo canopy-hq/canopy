@@ -52,3 +52,7 @@ export async function closePty(ptyId: number): Promise<void> {
   outputRegistry.delete(ptyId);
   return invoke('close_pty', { ptyId });
 }
+
+export async function getPtyCwd(ptyId: number): Promise<string> {
+  return invoke<string>('get_pty_cwd', { ptyId });
+}

@@ -21,6 +21,7 @@ pub fn run() {
             pty::write_to_pty,
             pty::resize_pty,
             pty::close_pty,
+            pty::get_pty_cwd,
             git::import_repo,
             git::list_branches,
             git::create_branch,

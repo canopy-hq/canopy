@@ -1,7 +1,33 @@
+import { useState, useCallback } from 'react';
 import { useTabsStore } from '../stores/tabs-store';
 import { useWorkspaceStore } from '../stores/workspace-store';
 import { useAgentStore, selectRunningCount, selectWaitingCount } from '../stores/agent-store';
 import type { PaneNode } from '../lib/pane-tree-ops';
+
+function BranchLabel({ name }: { name: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleClick = useCallback(() => {
+    navigator.clipboard.writeText(name).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      },
+      () => {},
+    );
+  }, [name]);
+
+  return (
+    <span
+      className="flex items-center gap-1 cursor-pointer hover:text-text-primary transition-colors"
+      onClick={handleClick}
+      title="Click to copy branch name"
+    >
+      <span style={{ color: 'var(--branch-icon)' }}>&#x2387;</span>
+      <span style={{ opacity: copied ? 0.5 : 1, transition: 'opacity 150ms' }}>{name}</span>
+    </span>
+  );
+}
 
 function countLeaves(node: PaneNode): number {
   if (node.type === 'leaf') return 1;
@@ -34,10 +60,7 @@ export function StatusBar() {
               {activeWorkspace.name}
             </span>
             {headBranch && (
-              <span className="flex items-center gap-1">
-                <span style={{ color: 'var(--branch-icon)' }}>&#x2387;</span>
-                <span className="text-text-muted">{headBranch.name}</span>
-              </span>
+              <BranchLabel name={headBranch.name} />
             )}
             <span className="text-text-muted">|</span>
           </>

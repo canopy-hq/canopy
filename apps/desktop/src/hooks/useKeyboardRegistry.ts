@@ -27,7 +27,7 @@ export function useKeyboardRegistry(bindings: Keybinding[]): void {
           return;
         }
       }
-      // No match -- let event propagate (xterm.js will handle it)
+      // No match -- let event propagate (terminal will handle it)
     };
 
     document.addEventListener('keydown', handler, { capture: true });
