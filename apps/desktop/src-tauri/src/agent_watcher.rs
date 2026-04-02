@@ -56,19 +56,22 @@ pub fn is_known_agent(name: &str) -> Option<&'static str> {
 /// Agent output signatures: (agent_name, list of byte patterns to match).
 /// Any single pattern match triggers detection.
 const AGENT_OUTPUT_PATTERNS: &[(&str, &[&[u8]])] = &[
-    ("claude", &[b"claude>", b"\xe2\x80\xba", b"Claude Code"]),
-    ("aider", &[b"aider>", b"Aider v"]),
-    ("codex", &[b"codex>", b"Codex v"]),
-    ("gemini", &[b"gemini>", b"Gemini"]),
+    ("claude", &[b"Claude Code", b"claude\xe2\x80\xba"]),
+    ("aider", &[b"Aider v", b"aider>"]),
+    ("codex", &[b"OpenAI Codex", b"codex>"]),
+    ("gemini", &[b"Gemini Code", b"gemini>"]),
 ];
 
 /// Shell prompt patterns that indicate an agent has exited and the user
 /// is back at a normal shell prompt.
+/// Shell prompt endings that indicate the user is back at a shell.
+/// These are matched ONLY after a newline boundary in the window
+/// (enforced by `contains_bytes_after_newline`).
 const SHELL_PROMPT_PATTERNS: &[&[u8]] = &[
     b"$ ",
     b"% ",
     b"# ",
-    b"\n\xe2\x9d\xaf ",  // \n❯  (zsh starship etc.)
+    b"\xe2\x9d\xaf ",  // ❯  (zsh starship etc.)
 ];
 
 /// Events emitted by the output-based detector.
@@ -96,7 +99,7 @@ pub struct OutputAgentDetector {
 
 impl OutputAgentDetector {
     pub fn new() -> Self {
-        let capacity = 512;
+        let capacity = 1024;
         Self {
             state: DetectionState::Idle,
             ring_buf: vec![0u8; capacity],
@@ -135,9 +138,9 @@ impl OutputAgentDetector {
                 None
             }
             DetectionState::Running { agent_name } => {
-                // Scan for shell prompt return
+                // Scan for shell prompt return (newline-anchored)
                 for &pattern in SHELL_PROMPT_PATTERNS {
-                    if contains_bytes(&window, pattern) {
+                    if contains_bytes_after_newline(&window, pattern) {
                         let name = agent_name.clone();
                         self.state = DetectionState::Idle;
                         self.clear_ring();
@@ -177,6 +180,25 @@ fn contains_bytes(haystack: &[u8], needle: &[u8]) -> bool {
         return false;
     }
     haystack.windows(needle.len()).any(|w| w == needle)
+}
+
+/// Check if needle appears in haystack, but only at positions that are
+/// on a new line (preceded by `\n` somewhere earlier in the haystack).
+/// This prevents matching `$ ` or `% ` that appear mid-line in agent output.
+fn contains_bytes_after_newline(haystack: &[u8], needle: &[u8]) -> bool {
+    if needle.is_empty() || needle.len() > haystack.len() {
+        return false;
+    }
+    // Find each occurrence of needle and check if a newline precedes it
+    for (i, w) in haystack.windows(needle.len()).enumerate() {
+        if w == needle {
+            // Check if there's a newline anywhere in haystack[..i]
+            if haystack[..i].contains(&b'\n') {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 // ── Shared state ───────────────────────────────────────────────────────
@@ -598,8 +620,8 @@ mod tests {
         det.feed(b"Claude Code v4.0");
         assert_eq!(det.state, DetectionState::Running { agent_name: "claude".to_string() });
 
-        // Now simulate returning to shell prompt
-        let result = det.feed(b"user@host $ ");
+        // Now simulate returning to shell prompt (newline-prefixed)
+        let result = det.feed(b"\nuser@host$ ");
         assert_eq!(
             result,
             Some(AgentDetectionEvent::Stopped {
@@ -657,7 +679,111 @@ mod tests {
         assert_eq!(r3, Some(AgentDetectionEvent::Started { agent_name: "aider".to_string() }));
 
         // Stop aider
-        let r4 = det.feed(b"\nuser@host % ");
+        let r4 = det.feed(b"\nuser@host% ");
         assert_eq!(r4, Some(AgentDetectionEvent::Stopped { agent_name: "aider".to_string() }));
+    }
+
+    // ── False positive resistance tests ──────────────────────────────
+
+    #[test]
+    fn test_no_false_stop_on_markdown_header() {
+        let mut det = OutputAgentDetector::new();
+        det.feed(b"Claude Code v4.0");
+        assert_eq!(det.state, DetectionState::Running { agent_name: "claude".to_string() });
+
+        // Markdown header with # should NOT trigger Stopped
+        let result = det.feed(b"# This is a markdown header");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_no_false_stop_on_dollar_midline() {
+        let mut det = OutputAgentDetector::new();
+        det.feed(b"Claude Code v4.0");
+        assert_eq!(det.state, DetectionState::Running { agent_name: "claude".to_string() });
+
+        // Mid-line dollar sign should NOT trigger Stopped
+        let result = det.feed(b"Run $ npm install to fix");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_no_false_stop_on_quoted_text() {
+        let mut det = OutputAgentDetector::new();
+        det.feed(b"Claude Code v4.0");
+        assert_eq!(det.state, DetectionState::Running { agent_name: "claude".to_string() });
+
+        // Quoted text with > should NOT trigger Stopped
+        let result = det.feed(b"> quoted text from agent");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_newline_dollar_prompt_triggers_stop() {
+        let mut det = OutputAgentDetector::new();
+        det.feed(b"Claude Code v4.0");
+        assert_eq!(det.state, DetectionState::Running { agent_name: "claude".to_string() });
+
+        let result = det.feed(b"\nuser@host$ ");
+        assert_eq!(
+            result,
+            Some(AgentDetectionEvent::Stopped { agent_name: "claude".to_string() })
+        );
+    }
+
+    #[test]
+    fn test_newline_percent_prompt_triggers_stop() {
+        let mut det = OutputAgentDetector::new();
+        det.feed(b"Claude Code v4.0");
+        assert_eq!(det.state, DetectionState::Running { agent_name: "claude".to_string() });
+
+        let result = det.feed(b"\nuser@host% ");
+        assert_eq!(
+            result,
+            Some(AgentDetectionEvent::Stopped { agent_name: "claude".to_string() })
+        );
+    }
+
+    #[test]
+    fn test_bare_gemini_does_not_trigger_start() {
+        let mut det = OutputAgentDetector::new();
+        // Bare "Gemini" should NOT trigger Started (too generic)
+        let result = det.feed(b"Gemini");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_gemini_code_triggers_start() {
+        let mut det = OutputAgentDetector::new();
+        let result = det.feed(b"Gemini Code Assist");
+        assert_eq!(
+            result,
+            Some(AgentDetectionEvent::Started { agent_name: "gemini".to_string() })
+        );
+    }
+
+    #[test]
+    fn test_standalone_chevron_does_not_trigger_start() {
+        let mut det = OutputAgentDetector::new();
+        // Standalone Unicode chevron should NOT trigger Started
+        let result = det.feed(b"\xe2\x80\xba");
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_split_pattern_with_1024_buffer() {
+        let mut det = OutputAgentDetector::new();
+        assert_eq!(det.capacity, 1024);
+
+        // Feed partial pattern
+        let r1 = det.feed(b"Welcome to Clau");
+        assert_eq!(r1, None);
+
+        // Complete pattern
+        let r2 = det.feed(b"de Code v1");
+        assert_eq!(
+            r2,
+            Some(AgentDetectionEvent::Started { agent_name: "claude".to_string() })
+        );
     }
 }
