@@ -12,17 +12,6 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             menu::setup_menu(app)?;
-
-            // Disable macOS press-and-hold accent picker so key repeat works in terminals.
-            // Without this, holding a key triggers composition mode instead of repeating.
-            #[cfg(target_os = "macos")]
-            {
-                use std::process::Command;
-                let _ = Command::new("defaults")
-                    .args(["write", "com.superagent.app", "ApplePressAndHoldEnabled", "-bool", "false"])
-                    .output();
-            }
-
             Ok(())
         })
         .manage(Mutex::new(pty::PtyManager::new()))
