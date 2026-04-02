@@ -1,7 +1,10 @@
-import { getWorkspaceCollection, uiCollection, getUiState, setSetting } from '@superagent/db';
+import { getWorkspaceCollection, getTabCollection, uiCollection, getUiState, setSetting } from '@superagent/db';
 import * as gitApi from './git';
 import { showErrorToast } from './toast';
 import { setActiveContext } from './tab-actions';
+import { collectLeafPtyIds } from './pane-tree-ops';
+import { closePty } from './pty';
+import { disposeCached } from './terminal-cache';
 
 export async function importRepo(path: string): Promise<void> {
   try {
@@ -25,7 +28,47 @@ export async function importRepo(path: string): Promise<void> {
   }
 }
 
-export function removeRepo(id: string): void {
+export async function closeProject(id: string): Promise<void> {
+  const ws = getWorkspaceCollection().toArray.find((w) => w.id === id);
+  if (!ws) return;
+
+  // Collect all workspace item IDs (repo + branches + worktrees)
+  const itemIds = new Set<string>();
+  itemIds.add(ws.id);
+  for (const b of ws.branches) itemIds.add(`${ws.id}-branch-${b.name}`);
+  for (const wt of ws.worktrees) itemIds.add(`${ws.id}-wt-${wt.name}`);
+
+  // Find all tabs belonging to this workspace
+  const tabCol = getTabCollection();
+  const tabs = tabCol.toArray.filter((t) => itemIds.has(t.workspaceItemId));
+
+  // Kill all PTYs and dispose terminal caches
+  const ptyIds = tabs.flatMap((t) => collectLeafPtyIds(t.paneRoot));
+  await Promise.allSettled(
+    ptyIds.map(async (ptyId) => {
+      disposeCached(ptyId);
+      await closePty(ptyId);
+    }),
+  );
+
+  // Delete all tabs for this workspace
+  for (const tab of tabs) {
+    tabCol.delete(tab.id);
+  }
+
+  // If active context belongs to this workspace, clear it
+  const ui = getUiState();
+  if (itemIds.has(ui.activeContextId)) {
+    uiCollection.update('ui', (draft) => {
+      draft.activeContextId = '';
+      draft.activeTabId = '';
+      draft.selectedItemId = null;
+    });
+    setSetting('activeContextId', '');
+    setSetting('activeTabId', '');
+  }
+
+  // Remove workspace from collection
   getWorkspaceCollection().delete(id);
 }
 
