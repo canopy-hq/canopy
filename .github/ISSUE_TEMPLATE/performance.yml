@@ -1,0 +1,84 @@
+name: Performance Issue
+description: Report slow rendering, high resource usage, or laggy behavior
+title: ""
+labels: ["performance"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected Area
+      description: Which part of the app is affected?
+      options:
+        - Terminal (ghostty-web / PTY)
+        - Git Operations (branches / worktrees)
+        - Agent Detection / Management
+        - UI / Layout (split panes, tabs)
+        - Settings / Preferences
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What performance issue are you experiencing?
+      placeholder: The terminal becomes laggy when ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Minimal steps to trigger the performance issue.
+      placeholder: |
+        1. Open 5+ terminal tabs
+        2. Run a long-running process in each
+        3. Switch between tabs rapidly
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Performance
+      description: What would acceptable performance look like?
+      placeholder: "Tab switching should be instant (<100ms)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Performance
+      description: What are you observing instead?
+      placeholder: "Tab switching takes 2-3 seconds, UI freezes briefly"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: App Version
+      description: "Found in Superagent > About (e.g. 1.0.0)"
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS Version
+      placeholder: "e.g. 15.4 (Sequoia)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: profiling
+    attributes:
+      label: Profiling Data
+      description: Activity Monitor stats, Instruments traces, or console output. Auto-formatted as code.
+      render: shell
+    validations:
+      required: false
