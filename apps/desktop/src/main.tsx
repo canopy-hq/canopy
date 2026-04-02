@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
+import { invoke } from '@tauri-apps/api/core';
 import { initDb, runMigrations, hydrateCollections } from '@superagent/db';
 import { routeTree } from './routeTree.gen';
 import './index.css';
@@ -14,7 +15,8 @@ declare module '@tanstack/react-router' {
 }
 
 async function boot() {
-  await initDb('sqlite:superagent.db');
+  const dbPath = await invoke<string>('get_db_path');
+  await initDb(`sqlite:${dbPath}`);
   await runMigrations();
   await hydrateCollections();
 

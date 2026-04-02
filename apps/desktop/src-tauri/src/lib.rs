@@ -9,6 +9,15 @@ use std::sync::Mutex;
 use daemon_client::DaemonClient;
 use tauri::Manager;
 
+/// Returns the absolute path to the SQLite DB, creating ~/.superagent/ if needed.
+#[tauri::command]
+fn get_db_path() -> Result<String, String> {
+    let home = std::env::var("HOME").map_err(|e| e.to_string())?;
+    let dir = std::path::Path::new(&home).join(".superagent");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("superagent.db").to_string_lossy().into_owned())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -37,6 +46,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            get_db_path,
             pty::spawn_terminal,
             pty::write_to_pty,
             pty::resize_pty,
