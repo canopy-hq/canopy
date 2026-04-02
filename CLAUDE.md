@@ -100,9 +100,47 @@ A desktop application for managing AI coding agents across git workspaces. Built
 - **Scrollbar reworked** -- viewport/scroll behavior changed; test thoroughly
 - **EventEmitter removed** -- uses `vs/base/common/event` Emitter pattern
 - **Package scope**: Use `@xterm/xterm` and `@xterm/addon-*` (not old `xterm` package)
+## Monorepo Structure
+
+Bun workspaces monorepo. The desktop app lives under `apps/desktop/`.
+
+```
+superagent/
+├── package.json          # root workspace config
+├── apps/
+│   └── desktop/          # Tauri + React app
+│       ├── package.json
+│       ├── src/           # React frontend
+│       ├── src-tauri/     # Rust backend
+│       ├── vite.config.ts
+│       └── vitest.config.ts
+└── packages/
+    └── tsconfig/         # shared TS config
+```
+
+## Development Commands
+
+All commands run from repo root unless noted.
+
+```bash
+# Install dependencies
+bun install
+
+# Dev server (from apps/desktop)
+cd apps/desktop && bun tauri dev
+
+# Frontend tests
+cd apps/desktop && bun run test
+
+# Rust tests
+cd apps/desktop/src-tauri && cargo test
+
+# Build production binary
+cd apps/desktop && bun tauri build
+```
+
 ## Installation
-# Frontend (via Bun)
-# Rust (in src-tauri/Cargo.toml)
+# Rust deps in apps/desktop/src-tauri/Cargo.toml
 # tauri = "2.10"
 # tauri-plugin-store = "2.4"
 # portable-pty = "0.9"
