@@ -105,6 +105,8 @@ export function useTerminal(
       // ghostty-web: return true = "handled, stop", false = "let terminal handle"
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         if (!e.metaKey) return false;
+        // macOS system shortcuts — must bubble to native menu
+        if ('qhm,'.includes(e.key)) return true;
         // Pane shortcuts
         if (e.key === 'd' && !e.shiftKey) return true;
         if (e.key === 'D' && e.shiftKey) return true;
@@ -112,10 +114,10 @@ export function useTerminal(
         if (e.altKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
           return true;
         }
-        // Tab shortcuts -- let bubble to keyboard registry
-        if (e.key === 't' && !e.shiftKey) return true; // Cmd+T
-        if (e.key >= '1' && e.key <= '9') return true; // Cmd+1-9
-        if ((e.key === '[' || e.key === ']') && e.shiftKey) return true; // Cmd+Shift+[/]
+        // Tab shortcuts
+        if (e.key === 't' && !e.shiftKey) return true;
+        if (e.key >= '1' && e.key <= '9') return true;
+        if ((e.key === '[' || e.key === ']') && e.shiftKey) return true;
         return false;
       });
 
