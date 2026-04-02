@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Button,
@@ -246,6 +246,48 @@ export function WorkspaceTree() {
   );
 }
 
+function ContextMenu({ x, y, onClose, onCloseProject }: {
+  x: number;
+  y: number;
+  onClose: () => void;
+  onCloseProject: () => void;
+}) {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    buttonRef.current?.focus();
+  }, []);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-40"
+      onClick={onClose}
+      onContextMenu={(e) => { e.preventDefault(); onClose(); }}
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+      role="presentation"
+    >
+      <div
+        className="fixed z-50 min-w-[180px] py-1 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg shadow-lg"
+        style={{ left: x, top: y }}
+        role="menu"
+      >
+        <button
+          ref={buttonRef}
+          role="menuitem"
+          className="w-full px-3 py-1.5 text-left text-[13px] text-[var(--destructive)] hover:bg-[var(--bg-tertiary)] cursor-pointer outline-none focus:bg-[var(--bg-tertiary)]"
+          onClick={(e) => {
+            e.stopPropagation();
+            onCloseProject();
+          }}
+        >
+          Close Project
+        </button>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function RepoTreeItem({
   ws,
   agentMap,
@@ -334,31 +376,15 @@ function RepoTreeItem({
         </TreeItemContent>
       </TreeItem>
     </TreeItem>
-    {menuOpen && createPortal(
-      <div
-        className="fixed inset-0 z-40"
-        onClick={() => setMenuOpen(false)}
-        onContextMenu={(e) => { e.preventDefault(); setMenuOpen(false); }}
-        role="presentation"
-      >
-        <div
-          className="fixed z-50 min-w-[180px] py-1 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg shadow-lg"
-          style={{ left: menuPos.x, top: menuPos.y }}
-        >
-          <button
-            className="w-full px-3 py-1.5 text-left text-[13px] text-[var(--destructive)] hover:bg-[var(--bg-tertiary)] cursor-pointer"
-            onClick={(e) => {
-              e.stopPropagation();
-              setMenuOpen(false);
-              onRequestClose(ws);
-            }}
-          >
-            Close Project
-          </button>
-        </div>
-      </div>,
-      document.body,
-    )}
+    {menuOpen && <ContextMenu
+      x={menuPos.x}
+      y={menuPos.y}
+      onClose={() => setMenuOpen(false)}
+      onCloseProject={() => {
+        setMenuOpen(false);
+        onRequestClose(ws);
+      }}
+    />}
     </>
   );
 }

@@ -6,6 +6,7 @@ import {
   findFirstLeaf,
   navigate,
   updateRatio,
+  collectLeafPtyIds,
   type PaneNode,
   type LeafNode,
   type BranchNode,
@@ -230,5 +231,36 @@ describe('updateRatio', () => {
     expect(branch.ratios[0]!).toBeGreaterThanOrEqual(0.1);
     expect(branch.ratios[1]!).toBeLessThanOrEqual(0.9);
     expect(branch.ratios[0]! + branch.ratios[1]!).toBeCloseTo(1.0, 10);
+  });
+});
+
+describe('collectLeafPtyIds', () => {
+  it('returns ptyId from a single leaf', () => {
+    expect(collectLeafPtyIds(makeLeaf('a', 42))).toEqual([42]);
+  });
+
+  it('skips leaves with ptyId <= 0', () => {
+    expect(collectLeafPtyIds(makeLeaf('a', -1))).toEqual([]);
+    expect(collectLeafPtyIds(makeLeaf('a', 0))).toEqual([]);
+  });
+
+  it('collects from nested branch tree', () => {
+    const tree = makeBranch('b1', 'horizontal', [
+      makeLeaf('l1', 10),
+      makeBranch('b2', 'vertical', [
+        makeLeaf('l2', 20),
+        makeLeaf('l3', 30),
+      ]),
+    ]);
+    expect(collectLeafPtyIds(tree)).toEqual([10, 20, 30]);
+  });
+
+  it('filters out uninitialized leaves in mixed tree', () => {
+    const tree = makeBranch('b1', 'horizontal', [
+      makeLeaf('l1', 5),
+      makeLeaf('l2', -1),
+      makeLeaf('l3', 15),
+    ]);
+    expect(collectLeafPtyIds(tree)).toEqual([5, 15]);
   });
 });
