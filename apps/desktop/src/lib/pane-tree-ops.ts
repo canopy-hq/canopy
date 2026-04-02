@@ -268,6 +268,12 @@ export function updateRatio(
   return cloned;
 }
 
+/** Collect all active ptyIds from a pane tree. */
+export function collectLeafPtyIds(node: PaneNode): number[] {
+  if (node.type === 'leaf') return node.ptyId > 0 ? [node.ptyId] : [];
+  return node.children.flatMap(collectLeafPtyIds);
+}
+
 function applyRatioUpdate(
   node: PaneNode,
   branchId: string,
