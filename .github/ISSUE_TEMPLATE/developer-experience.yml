@@ -1,0 +1,43 @@
+name: Developer Experience
+description: Report issues with build system, CI/CD, dev setup, or contributor workflow
+title: ""
+labels: ["dx"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the developer experience is affected?
+      options:
+        - Build System
+        - CI / CD
+        - Dev Setup
+        - Testing
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What is the issue or friction point?
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Current Workaround
+      description: How are you working around this today, if at all?
+    validations:
+      required: false
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: What would make this better?
+    validations:
+      required: true

@@ -1,0 +1,51 @@
+name: UX Improvement
+description: Suggest a workflow or ergonomics improvement to an existing feature
+title: ""
+labels: ["ux"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the app does this relate to?
+      options:
+        - Terminal (ghostty-web / PTY)
+        - Git Operations (branches / worktrees)
+        - Agent Detection / Management
+        - UI / Layout (split panes, tabs)
+        - Settings / Preferences
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current Behavior
+      description: How does the feature work today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: improvement
+    attributes:
+      label: Proposed Improvement
+      description: How should it work instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why This Matters
+      description: How does this improvement affect your workflow?
+    validations:
+      required: true
+
+  - type: textarea
+    id: mockups
+    attributes:
+      label: Mockups / Screenshots
+      description: Visual references for the proposed change, if applicable.
+    validations:
+      required: false
