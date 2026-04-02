@@ -124,9 +124,10 @@ None yet.
 | 260401-wj7 | Refactor tabs to be context-scoped per workspace item | 2026-04-01 | a7e6571 | [260401-wj7](./quick/260401-wj7-refactor-tabs-to-be-context-scoped-per-w/) |
 | 260402-1yj | Replace kqueue agent detection with PTY output pattern matching | 2026-04-02 | 246fee2 | [260402-1yj](./quick/260402-1yj-replace-unreliable-kqueue-agent-detectio/) |
 | 260402-dxs | Fix flaky agent output detection: specific patterns + debounce | 2026-04-02 | 9b6a569 | [260402-dxs](./quick/260402-dxs-fix-flaky-agent-output-detection-better-/) |
+| 260402-eef | Detect agent waiting state from output prompt patterns | 2026-04-02 | a66761b | [260402-eef](./quick/260402-eef-detect-agent-waiting-state-from-output-p/) |
 
 ## Session Continuity
 
 Last activity: 2026-04-02
-Stopped at: Completed 260402-dxs quick task
+Stopped at: Completed 260402-eef quick task
 Resume file: None
