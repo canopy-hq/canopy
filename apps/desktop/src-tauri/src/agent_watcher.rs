@@ -117,7 +117,9 @@ fn find_agent_in_children(root_pid: u32) -> Option<(String, u32)> {
 const SILENCE_THRESHOLD_MS: u64 = 3_000;
 
 /// Poll interval for process tree scanning.
-const POLL_INTERVAL_MS: u64 = 2_000;
+/// Each poll is ~50-100µs (direct libproc syscalls, no process spawning),
+/// so 250ms gives near-instant detection with negligible CPU cost.
+const POLL_INTERVAL_MS: u64 = 250;
 
 // ── Process-polling agent watcher ──────────────────────────────────────
 
@@ -353,6 +355,6 @@ mod tests {
 
     #[test]
     fn test_poll_interval() {
-        assert_eq!(POLL_INTERVAL_MS, 2_000);
+        assert_eq!(POLL_INTERVAL_MS, 250);
     }
 }
