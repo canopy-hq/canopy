@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
-import type { Workspace } from '../stores/workspace-store';
-import { useWorkspaceStore } from '../stores/workspace-store';
+import type { Workspace } from '@superagent/db';
+import { createBranch, createWorktree } from '../lib/workspace-actions';
 
 export interface CreateModalProps {
   isOpen: boolean;
@@ -41,9 +41,6 @@ export function CreateModal({ isOpen, onClose, workspace }: CreateModalProps) {
   const [type, setType] = useState<'branch' | 'worktree'>('branch');
   const [name, setName] = useState('');
   const [baseBranch, setBaseBranch] = useState('');
-
-  const createBranch = useWorkspaceStore((s) => s.createBranch);
-  const createWorktree = useWorkspaceStore((s) => s.createWorktree);
 
   // Initialize baseBranch to HEAD branch on open
   useEffect(() => {

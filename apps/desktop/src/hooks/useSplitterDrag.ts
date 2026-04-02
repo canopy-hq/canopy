@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { usePaneTreeStore } from '../stores/pane-tree';
+import { updateRatio } from '../lib/tab-actions';
 import type { SplitDirection } from '../lib/pane-tree-ops';
 
 /**
@@ -36,7 +36,7 @@ export function useSplitterDrag(
         const delta = (currentPos - startPosRef.current) / totalSize;
         startPosRef.current = currentPos;
 
-        usePaneTreeStore.getState().updateRatio(nodeId, splitIndex, delta);
+        updateRatio(nodeId, splitIndex, delta);
       };
 
       const onPointerUp = () => {
