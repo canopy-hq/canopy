@@ -119,6 +119,17 @@ pub async fn spawn_terminal(
                                         },
                                     );
                                 }
+                                AgentDetectionEvent::Waiting { ref agent_name } => {
+                                    let _ = app_clone.emit(
+                                        "agent-status-changed",
+                                        AgentStatusPayload {
+                                            pty_id,
+                                            status: AgentStatus::Waiting.as_str().to_string(),
+                                            agent_name: agent_name.clone(),
+                                            pid: 0,
+                                        },
+                                    );
+                                }
                             }
                         }
                     }
@@ -139,7 +150,13 @@ pub async fn spawn_terminal(
             let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
             ws.cancel_senders.insert(pty_id, cancel_tx);
         }
-        agent_watcher::start_watching(pid, pty_id, app, last_output, cancel_rx);
+        // Get the detector Arc for this PTY (already created above)
+        let det = {
+            let ws = watcher_state.lock().map_err(|e| e.to_string())?;
+            ws.detectors.get(&pty_id).cloned()
+                .ok_or_else(|| format!("No detector for PTY {}", pty_id))?
+        };
+        agent_watcher::start_watching(pid, pty_id, app, det, cancel_rx);
     }
 
     Ok(pty_id)
