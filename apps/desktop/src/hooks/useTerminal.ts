@@ -78,6 +78,13 @@ export function useTerminal(
         termElement.addEventListener(
           'keydown',
           (e: KeyboardEvent) => {
+            // macOS system shortcuts: stop ghostty-web from consuming them,
+            // but do NOT preventDefault so the native menu handler fires
+            if (e.metaKey && 'qhm,'.includes(e.key)) {
+              e.stopImmediatePropagation();
+              return;
+            }
+            // macOS press-and-hold fix: bypass ghostty-web's isComposing block
             if (
               e.repeat &&
               e.key.length === 1 &&
@@ -90,7 +97,7 @@ export function useTerminal(
               writeToPty(ptyId, e.key);
             }
           },
-          true, // capture phase — fires before ghostty-web's bubble listener
+          true,
         );
       }
 
@@ -105,9 +112,6 @@ export function useTerminal(
       // ghostty-web: return true = "handled, stop", false = "let terminal handle"
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         if (!e.metaKey) return false;
-        // macOS system shortcuts — must bubble to native menu
-        if ('qhm,'.includes(e.key)) return true;
-        // Pane shortcuts
         if (e.key === 'd' && !e.shiftKey) return true;
         if (e.key === 'D' && e.shiftKey) return true;
         if (e.key === 'w') return true;
