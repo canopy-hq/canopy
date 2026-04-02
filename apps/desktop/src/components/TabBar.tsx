@@ -132,6 +132,8 @@ export function TabBar() {
     updateScrollState();
   }, [tabs.length, updateScrollState]);
 
+  if (tabs.length === 0) return null;
+
   // Build CSS mask for scroll fade
   let maskImage = 'none';
   if (scrollState.left && scrollState.right) {
