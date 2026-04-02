@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Button,
   Tree,
@@ -6,14 +7,15 @@ import {
   TreeItemContent,
 } from 'react-aria-components';
 import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useCollections';
-import { toggleExpanded, selectWorkspaceItem } from '../lib/workspace-actions';
+import { toggleExpanded, selectWorkspaceItem, closeProject, getWorkspaceItemIds } from '../lib/workspace-actions';
 import { StatusDot } from './StatusDot';
 import type { DotStatus } from './StatusDot';
 import type { Workspace } from '@superagent/db';
 import type { BranchInfo, WorktreeInfo } from '../lib/git';
 import type { Selection, Key } from 'react-aria-components';
-import type { PaneNode } from '../lib/pane-tree-ops';
+import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import { CreateModal } from './CreateModal';
+import { CloseProjectModal } from './CloseProjectModal';
 
 function BranchRow({ branch, agentStatus }: { branch: BranchInfo; agentStatus?: DotStatus }) {
   return (
@@ -96,11 +98,6 @@ function RepoHeader({ workspace, agentSummary }: { workspace: Workspace; agentSu
   );
 }
 
-function collectLeafPtyIds(node: PaneNode): number[] {
-  if (node.type === 'leaf') return node.ptyId > 0 ? [node.ptyId] : [];
-  return node.children.flatMap(collectLeafPtyIds);
-}
-
 /**
  * Compute a map of workspaceItemId -> best agent status by cross-referencing
  * tabs (which have workspaceItemId and pane trees with ptyIds) with the agent store.
@@ -136,10 +133,7 @@ function useRepoAgentSummary(ws: Workspace): Array<'running' | 'waiting'> {
   const agents = useAgents();
   const tabs = useTabs();
 
-  const itemIds = new Set<string>();
-  itemIds.add(ws.id);
-  for (const b of ws.branches) itemIds.add(`${ws.id}-branch-${b.name}`);
-  for (const wt of ws.worktrees) itemIds.add(`${ws.id}-wt-${wt.name}`);
+  const itemIds = getWorkspaceItemIds(ws);
 
   const statuses: Array<'running' | 'waiting'> = [];
   for (const tab of tabs) {
@@ -167,6 +161,7 @@ export function WorkspaceTree() {
   const workspaces = useWorkspaces();
   const { selectedItemId } = useUiState();
   const [modalWorkspace, setModalWorkspace] = useState<Workspace | null>(null);
+  const [closeTarget, setCloseTarget] = useState<Workspace | null>(null);
   const agentMap = useWorkspaceAgentMap();
 
   const expandedKeys = new Set<Key>(
@@ -223,7 +218,7 @@ export function WorkspaceTree() {
       onExpandedChange={handleExpandedChange}
     >
       {workspaces.map((ws) => (
-        <RepoTreeItem key={ws.id} ws={ws} agentMap={agentMap} setModalWorkspace={setModalWorkspace} />
+        <RepoTreeItem key={ws.id} ws={ws} agentMap={agentMap} setModalWorkspace={setModalWorkspace} onRequestClose={setCloseTarget} />
       ))}
     </Tree>
     {modalWorkspace && (
@@ -233,7 +228,60 @@ export function WorkspaceTree() {
         workspace={modalWorkspace}
       />
     )}
+    {closeTarget && (
+      <CloseProjectModal
+        isOpen={!!closeTarget}
+        onClose={() => setCloseTarget(null)}
+        onConfirm={async () => {
+          await closeProject(closeTarget.id);
+          setCloseTarget(null);
+        }}
+        projectName={closeTarget.name}
+      />
+    )}
     </>
+  );
+}
+
+function ContextMenu({ x, y, onClose, onCloseProject }: {
+  x: number;
+  y: number;
+  onClose: () => void;
+  onCloseProject: () => void;
+}) {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    buttonRef.current?.focus();
+  }, []);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-40"
+      onClick={onClose}
+      onContextMenu={(e) => { e.preventDefault(); onClose(); }}
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+      role="presentation"
+    >
+      <div
+        className="fixed z-50 min-w-[180px] py-1 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg shadow-lg"
+        style={{ left: x, top: y }}
+        role="menu"
+      >
+        <button
+          ref={buttonRef}
+          role="menuitem"
+          className="w-full px-3 py-1.5 text-left text-[13px] text-[var(--destructive)] hover:bg-[var(--bg-tertiary)] cursor-pointer outline-none focus:bg-[var(--bg-tertiary)]"
+          onClick={(e) => {
+            e.stopPropagation();
+            onCloseProject();
+          }}
+        >
+          Close Project
+        </button>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -241,14 +289,26 @@ function RepoTreeItem({
   ws,
   agentMap,
   setModalWorkspace,
+  onRequestClose,
 }: {
   ws: Workspace;
   agentMap: Record<string, DotStatus>;
   setModalWorkspace: (ws: Workspace) => void;
+  onRequestClose: (ws: Workspace) => void;
 }) {
   const agentSummary = useRepoAgentSummary(ws);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuPos = useRef({ x: 0, y: 0 });
+
+  function handleContextMenu(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    menuPos.current = { x: e.clientX, y: e.clientY };
+    setMenuOpen(true);
+  }
 
   return (
+    <>
     <TreeItem
       key={ws.id}
       id={ws.id}
@@ -259,7 +319,9 @@ function RepoTreeItem({
       }
     >
       <TreeItemContent>
-        <RepoHeader workspace={ws} agentSummary={agentSummary} />
+        <div onContextMenu={handleContextMenu}>
+          <RepoHeader workspace={ws} agentSummary={agentSummary} />
+        </div>
       </TreeItemContent>
       {ws.branches.map((b) => (
         <TreeItem
@@ -311,5 +373,15 @@ function RepoTreeItem({
         </TreeItemContent>
       </TreeItem>
     </TreeItem>
+    {menuOpen && <ContextMenu
+      x={menuPos.current.x}
+      y={menuPos.current.y}
+      onClose={() => setMenuOpen(false)}
+      onCloseProject={() => {
+        setMenuOpen(false);
+        onRequestClose(ws);
+      }}
+    />}
+    </>
   );
 }

@@ -1,7 +1,20 @@
-import { getWorkspaceCollection, uiCollection, getUiState, setSetting } from '@superagent/db';
+import { getWorkspaceCollection, getTabCollection, uiCollection, getUiState, setSetting } from '@superagent/db';
+import type { Workspace } from '@superagent/db';
 import * as gitApi from './git';
 import { showErrorToast } from './toast';
 import { setActiveContext } from './tab-actions';
+import { collectLeafPtyIds } from './pane-tree-ops';
+import { closePty } from './pty';
+import { disposeCached } from './terminal-cache';
+
+/** All sidebar item IDs for a workspace (repo root + branches + worktrees). */
+export function getWorkspaceItemIds(ws: Workspace): Set<string> {
+  const ids = new Set<string>();
+  ids.add(ws.id);
+  for (const b of ws.branches) ids.add(`${ws.id}-branch-${b.name}`);
+  for (const wt of ws.worktrees) ids.add(`${ws.id}-wt-${wt.name}`);
+  return ids;
+}
 
 export async function importRepo(path: string): Promise<void> {
   try {
@@ -25,7 +38,38 @@ export async function importRepo(path: string): Promise<void> {
   }
 }
 
-export function removeRepo(id: string): void {
+export async function closeProject(id: string): Promise<void> {
+  const ws = getWorkspaceCollection().toArray.find((w) => w.id === id);
+  if (!ws) return;
+
+  const itemIds = getWorkspaceItemIds(ws);
+
+  const tabCol = getTabCollection();
+  const tabs = tabCol.toArray.filter((t) => itemIds.has(t.workspaceItemId));
+
+  const ptyIds = tabs.flatMap((t) => collectLeafPtyIds(t.paneRoot));
+  await Promise.allSettled(
+    ptyIds.map(async (ptyId) => {
+      disposeCached(ptyId);
+      await closePty(ptyId);
+    }),
+  );
+
+  for (const tab of tabs) {
+    tabCol.delete(tab.id);
+  }
+
+  const ui = getUiState();
+  if (itemIds.has(ui.activeContextId)) {
+    uiCollection.update('ui', (draft) => {
+      draft.activeContextId = '';
+      draft.activeTabId = '';
+      draft.selectedItemId = null;
+    });
+    setSetting('activeContextId', '');
+    setSetting('activeTabId', '');
+  }
+
   getWorkspaceCollection().delete(id);
 }
 
