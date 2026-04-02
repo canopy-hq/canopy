@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -74,10 +74,20 @@ const SHELL_PROMPT_PATTERNS: &[&[u8]] = &[
     b"\xe2\x9d\xaf ",  // ❯  (zsh starship etc.)
 ];
 
+/// Agent-specific input prompt patterns that indicate the agent is waiting
+/// for user input. Matched only when in Running state for the corresponding agent.
+const AGENT_PROMPT_PATTERNS: &[(&str, &[&[u8]])] = &[
+    ("claude", &[b"\xe2\x9d\xaf", b"? "]),  // ❯ chevron, question prompt
+    ("aider", &[b"aider> "]),
+    ("codex", &[b"codex> "]),
+    ("gemini", &[b"gemini> "]),
+];
+
 /// Events emitted by the output-based detector.
 #[derive(Debug, Clone, PartialEq)]
 pub enum AgentDetectionEvent {
     Started { agent_name: String },
+    Waiting { agent_name: String },
     Stopped { agent_name: String },
 }
 
@@ -85,6 +95,7 @@ pub enum AgentDetectionEvent {
 enum DetectionState {
     Idle,
     Running { agent_name: String },
+    PromptSeen { agent_name: String, seen_at: u64 },
 }
 
 /// Per-PTY detector that scans raw terminal output bytes for agent
@@ -177,15 +188,100 @@ impl OutputAgentDetector {
                         return Some(AgentDetectionEvent::Stopped { agent_name: name });
                     }
                 }
+
+                // Check for agent prompt patterns (waiting indicator)
+                let agent = agent_name.clone();
+                for &(pname, patterns) in AGENT_PROMPT_PATTERNS {
+                    if pname != agent {
+                        continue;
+                    }
+                    for &pattern in patterns {
+                        if contains_bytes(&window, pattern) {
+                            self.state = DetectionState::PromptSeen {
+                                agent_name: agent,
+                                seen_at: now,
+                            };
+                            self.clear_ring();
+                            return None;
+                        }
+                    }
+                }
+                None
+            }
+            DetectionState::PromptSeen { agent_name, .. } => {
+                let agent = agent_name.clone();
+                // Shell prompt -> Idle + Stopped
+                for &pattern in SHELL_PROMPT_PATTERNS {
+                    if contains_bytes_after_newline(&window, pattern) {
+                        // Respect started_cooldown from the original Running->PromptSeen transition
+                        if elapsed < self.started_cooldown_ms {
+                            return None;
+                        }
+                        self.state = DetectionState::Idle;
+                        self.last_transition_ms = now;
+                        self.clear_ring();
+                        return Some(AgentDetectionEvent::Stopped { agent_name: agent });
+                    }
+                }
+
+                // Another agent prompt -> reset seen_at
+                for &(pname, patterns) in AGENT_PROMPT_PATTERNS {
+                    if pname != agent {
+                        continue;
+                    }
+                    for &pattern in patterns {
+                        if contains_bytes(&window, pattern) {
+                            self.state = DetectionState::PromptSeen {
+                                agent_name: agent,
+                                seen_at: now,
+                            };
+                            self.clear_ring();
+                            return None;
+                        }
+                    }
+                }
+
+                // Any other output -> back to Running (agent resumed)
+                // Only if we actually received non-empty bytes
+                if !bytes.is_empty() {
+                    self.state = DetectionState::Running { agent_name: agent.clone() };
+                    self.clear_ring();
+                    return Some(AgentDetectionEvent::Started { agent_name: agent });
+                }
                 None
             }
         }
+    }
+
+    /// Check if the detector is in PromptSeen state and enough time has
+    /// elapsed (>= 2000ms) to consider the agent "waiting" for user input.
+    /// Returns `Some(Waiting)` if so, `None` otherwise.
+    /// Does NOT transition state -- stays in PromptSeen.
+    pub fn check_waiting(&self) -> Option<AgentDetectionEvent> {
+        if let DetectionState::PromptSeen { ref agent_name, seen_at } = self.state {
+            let elapsed = now_millis().saturating_sub(seen_at);
+            if elapsed >= 2000 {
+                return Some(AgentDetectionEvent::Waiting {
+                    agent_name: agent_name.clone(),
+                });
+            }
+        }
+        None
     }
 
     /// Set the last transition timestamp (test helper to simulate elapsed time).
     #[cfg(test)]
     fn set_last_transition(&mut self, ms: u64) {
         self.last_transition_ms = ms;
+    }
+
+    /// Force set the state to PromptSeen with a specific seen_at (test helper).
+    #[cfg(test)]
+    fn set_prompt_seen(&mut self, agent_name: &str, seen_at: u64) {
+        self.state = DetectionState::PromptSeen {
+            agent_name: agent_name.to_string(),
+            seen_at,
+        };
     }
 
     /// Clear the ring buffer after a state transition so stale patterns
@@ -276,50 +372,40 @@ fn ident_to_pid(ident: &Ident) -> Option<i32> {
     }
 }
 
-// ── Silence detection (tokio timer) ────────────────────────────────────
+// ── Prompt-based waiting detection (tokio timer) ──────────────────────
 
 fn start_silence_timer(
     pty_id: u32,
-    last_output: Arc<AtomicU64>,
-    agent_name: String,
-    agent_pid: u32,
+    detector: Arc<Mutex<OutputAgentDetector>>,
     app_handle: tauri::AppHandle,
     cancel: tokio::sync::oneshot::Receiver<()>,
 ) {
     tokio::spawn(async move {
         tokio::pin!(cancel);
         let mut was_waiting = false;
-        let silence_threshold_ms: u64 = 15_000;
 
         loop {
             tokio::select! {
                 _ = &mut cancel => break,
                 _ = tokio::time::sleep(std::time::Duration::from_secs(1)) => {
-                    let last = last_output.load(Ordering::Relaxed);
-                    let elapsed = now_millis().saturating_sub(last);
-
-                    if elapsed > silence_threshold_ms && !was_waiting {
-                        was_waiting = true;
-                        let _ = app_handle.emit(
-                            "agent-status-changed",
-                            AgentStatusPayload {
-                                pty_id,
-                                status: AgentStatus::Waiting.as_str().to_string(),
-                                agent_name: agent_name.clone(),
-                                pid: agent_pid,
-                            },
-                        );
-                    } else if elapsed <= silence_threshold_ms && was_waiting {
-                        was_waiting = false;
-                        let _ = app_handle.emit(
-                            "agent-status-changed",
-                            AgentStatusPayload {
-                                pty_id,
-                                status: AgentStatus::Running.as_str().to_string(),
-                                agent_name: agent_name.clone(),
-                                pid: agent_pid,
-                            },
-                        );
+                    if let Ok(det) = detector.lock() {
+                        if let Some(AgentDetectionEvent::Waiting { ref agent_name }) = det.check_waiting() {
+                            if !was_waiting {
+                                was_waiting = true;
+                                let _ = app_handle.emit(
+                                    "agent-status-changed",
+                                    AgentStatusPayload {
+                                        pty_id,
+                                        status: AgentStatus::Waiting.as_str().to_string(),
+                                        agent_name: agent_name.clone(),
+                                        pid: 0,
+                                    },
+                                );
+                            }
+                        } else {
+                            // State changed away from PromptSeen (or not yet 2s)
+                            was_waiting = false;
+                        }
                     }
                 }
             }
@@ -335,7 +421,7 @@ pub fn start_watching(
     shell_pid: u32,
     pty_id: u32,
     app_handle: tauri::AppHandle,
-    last_output: Arc<AtomicU64>,
+    detector: Arc<Mutex<OutputAgentDetector>>,
     mut cancel_rx: tokio::sync::oneshot::Receiver<()>,
 ) {
     std::thread::spawn(move || {
@@ -419,14 +505,12 @@ pub fn start_watching(
                                             },
                                         );
 
-                                        // Start silence detection timer
+                                        // Start prompt-based waiting detection timer
                                         let (tx, rx) = tokio::sync::oneshot::channel();
                                         silence_cancel = Some(tx);
                                         start_silence_timer(
                                             pty_id,
-                                            last_output.clone(),
-                                            agent_name.to_string(),
-                                            event_pid as u32,
+                                            detector.clone(),
                                             app_handle.clone(),
                                             rx,
                                         );
@@ -508,16 +592,16 @@ pub fn start_agent_watching(
 ) -> Result<(), String> {
     let mut watcher_state = state.lock().map_err(|e| e.to_string())?;
 
-    let last_output = watcher_state
-        .last_outputs
-        .get(&pty_id)
-        .cloned()
-        .unwrap_or_else(|| Arc::new(AtomicU64::new(now_millis())));
+    let detector = watcher_state
+        .detectors
+        .entry(pty_id)
+        .or_insert_with(|| Arc::new(Mutex::new(OutputAgentDetector::new())))
+        .clone();
 
     let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
     watcher_state.cancel_senders.insert(pty_id, cancel_tx);
 
-    start_watching(shell_pid, pty_id, app, last_output, cancel_rx);
+    start_watching(shell_pid, pty_id, app, detector, cancel_rx);
     Ok(())
 }
 
@@ -919,5 +1003,171 @@ mod tests {
         det.set_last_transition(now_millis() - 5000);
         let r3 = det.feed(b"Aider v0.50.0");
         assert_eq!(r3, Some(AgentDetectionEvent::Started { agent_name: "aider".to_string() }));
+    }
+
+    // ── PromptSeen / Waiting detection tests ─────────────────────────
+
+    #[test]
+    fn test_running_agent_prompt_transitions_to_prompt_seen() {
+        let mut det = OutputAgentDetector::with_cooldowns(0, 0);
+        det.feed(b"Claude Code v4.0");
+        assert!(matches!(det.state, DetectionState::Running { .. }));
+
+        // Feed claude's chevron prompt
+        let r = det.feed(b"\xe2\x9d\xaf");
+        assert_eq!(r, None); // No event emitted yet
+        assert!(matches!(det.state, DetectionState::PromptSeen { .. }));
+    }
+
+    #[test]
+    fn test_prompt_seen_non_prompt_output_returns_to_running() {
+        let mut det = OutputAgentDetector::with_cooldowns(0, 0);
+        det.feed(b"Claude Code v4.0");
+        det.feed(b"\xe2\x9d\xaf"); // -> PromptSeen
+        assert!(matches!(det.state, DetectionState::PromptSeen { .. }));
+
+        // Feed non-prompt output (agent resumed work)
+        let r = det.feed(b"some output from the agent\n");
+        assert_eq!(r, Some(AgentDetectionEvent::Started { agent_name: "claude".to_string() }));
+        assert!(matches!(det.state, DetectionState::Running { .. }));
+    }
+
+    #[test]
+    fn test_prompt_seen_shell_prompt_transitions_to_idle() {
+        let mut det = OutputAgentDetector::with_cooldowns(0, 0);
+        det.feed(b"Claude Code v4.0");
+        det.feed(b"\xe2\x9d\xaf"); // -> PromptSeen
+
+        // Feed shell prompt
+        let r = det.feed(b"\nuser@host$ ");
+        assert_eq!(r, Some(AgentDetectionEvent::Stopped { agent_name: "claude".to_string() }));
+        assert_eq!(det.state, DetectionState::Idle);
+    }
+
+    #[test]
+    fn test_prompt_seen_another_prompt_resets_seen_at() {
+        let mut det = OutputAgentDetector::with_cooldowns(0, 0);
+        det.feed(b"Claude Code v4.0");
+        det.feed(b"\xe2\x9d\xaf"); // -> PromptSeen
+
+        // Capture first seen_at
+        let first_seen_at = match &det.state {
+            DetectionState::PromptSeen { seen_at, .. } => *seen_at,
+            _ => panic!("expected PromptSeen"),
+        };
+
+        // Small delay, then feed another prompt
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        let r = det.feed(b"\xe2\x9d\xaf");
+        assert_eq!(r, None);
+
+        // seen_at should be updated
+        let second_seen_at = match &det.state {
+            DetectionState::PromptSeen { seen_at, .. } => *seen_at,
+            _ => panic!("expected PromptSeen"),
+        };
+        assert!(second_seen_at >= first_seen_at);
+    }
+
+    #[test]
+    fn test_check_waiting_returns_none_when_prompt_seen_age_under_2s() {
+        let mut det = OutputAgentDetector::with_cooldowns(0, 0);
+        // Set PromptSeen with seen_at = now
+        det.set_prompt_seen("claude", now_millis());
+
+        assert_eq!(det.check_waiting(), None);
+    }
+
+    #[test]
+    fn test_check_waiting_returns_waiting_when_prompt_seen_age_over_2s() {
+        let mut det = OutputAgentDetector::with_cooldowns(0, 0);
+        // Set PromptSeen with seen_at = 3s ago
+        det.set_prompt_seen("claude", now_millis() - 3000);
+
+        assert_eq!(
+            det.check_waiting(),
+            Some(AgentDetectionEvent::Waiting { agent_name: "claude".to_string() })
+        );
+    }
+
+    #[test]
+    fn test_check_waiting_returns_none_when_running() {
+        let mut det = OutputAgentDetector::with_cooldowns(0, 0);
+        det.feed(b"Claude Code v4.0");
+        assert!(matches!(det.state, DetectionState::Running { .. }));
+
+        assert_eq!(det.check_waiting(), None);
+    }
+
+    #[test]
+    fn test_check_waiting_returns_none_when_idle() {
+        let det = OutputAgentDetector::with_cooldowns(0, 0);
+        assert_eq!(det.state, DetectionState::Idle);
+
+        assert_eq!(det.check_waiting(), None);
+    }
+
+    #[test]
+    fn test_full_prompt_waiting_cycle() {
+        let mut det = OutputAgentDetector::with_cooldowns(0, 0);
+
+        // Start agent
+        let r1 = det.feed(b"Claude Code v4.0");
+        assert_eq!(r1, Some(AgentDetectionEvent::Started { agent_name: "claude".to_string() }));
+
+        // Agent shows prompt -> PromptSeen
+        let r2 = det.feed(b"\xe2\x9d\xaf");
+        assert_eq!(r2, None);
+        assert!(matches!(det.state, DetectionState::PromptSeen { .. }));
+
+        // Simulate 3s elapsed -> check_waiting returns Waiting
+        det.set_prompt_seen("claude", now_millis() - 3000);
+        assert_eq!(
+            det.check_waiting(),
+            Some(AgentDetectionEvent::Waiting { agent_name: "claude".to_string() })
+        );
+
+        // Agent resumes output -> back to Running
+        let r3 = det.feed(b"doing some work...\n");
+        assert_eq!(r3, Some(AgentDetectionEvent::Started { agent_name: "claude".to_string() }));
+        assert!(matches!(det.state, DetectionState::Running { .. }));
+
+        // Agent shows prompt again -> PromptSeen
+        let r4 = det.feed(b"\xe2\x9d\xaf");
+        assert_eq!(r4, None);
+
+        // Simulate 3s elapsed -> check_waiting returns Waiting again
+        det.set_prompt_seen("claude", now_millis() - 3000);
+        assert_eq!(
+            det.check_waiting(),
+            Some(AgentDetectionEvent::Waiting { agent_name: "claude".to_string() })
+        );
+
+        // Shell prompt -> Idle
+        let r5 = det.feed(b"\nuser@host$ ");
+        assert_eq!(r5, Some(AgentDetectionEvent::Stopped { agent_name: "claude".to_string() }));
+        assert_eq!(det.state, DetectionState::Idle);
+    }
+
+    #[test]
+    fn test_aider_prompt_pattern() {
+        let mut det = OutputAgentDetector::with_cooldowns(0, 0);
+        det.feed(b"Aider v0.50.0");
+        assert!(matches!(det.state, DetectionState::Running { .. }));
+
+        let r = det.feed(b"aider> ");
+        assert_eq!(r, None); // No event, but state changed
+        assert!(matches!(det.state, DetectionState::PromptSeen { .. }));
+    }
+
+    #[test]
+    fn test_question_prompt_pattern() {
+        let mut det = OutputAgentDetector::with_cooldowns(0, 0);
+        det.feed(b"Claude Code v4.0");
+        assert!(matches!(det.state, DetectionState::Running { .. }));
+
+        let r = det.feed(b"? ");
+        assert_eq!(r, None);
+        assert!(matches!(det.state, DetectionState::PromptSeen { .. }));
     }
 }
