@@ -12,6 +12,7 @@ import { useThemeStore } from './stores/theme-store';
 import { useWorkspaceStore } from './stores/workspace-store';
 import { useAgentStore, initAgentListener } from './stores/agent-store';
 import { closePty } from './lib/pty';
+import { ensureGhosttyInit } from './lib/ghostty-init';
 import { disposeCached } from './lib/terminal-cache';
 import { findLeaf } from './lib/pane-tree-ops';
 import type { PaneNode } from './lib/pane-tree-ops';
@@ -37,9 +38,9 @@ export default function App() {
 
   const [overlayOpen, setOverlayOpen] = useState(false);
 
-  // Initialize theme from persisted settings on mount
+  // Initialize ghostty-web WASM + theme on mount
   useEffect(() => {
-    initTheme();
+    ensureGhosttyInit().then(() => initTheme());
   }, [initTheme]);
 
   // Initialize agent event listener on mount

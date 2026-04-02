@@ -1,9 +1,8 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
-import '@xterm/xterm/css/xterm.css';
+import { useRef, useState, useEffect } from 'react';
 import { useTerminal } from '../hooks/useTerminal';
 import { useTabsStore } from '../stores/tabs-store';
 import { useAgentStore, selectAgentForPty } from '../stores/agent-store';
-import { spawnTerminal } from '../lib/pty';
+import { spawnTerminal, getPtyCwd } from '../lib/pty';
 import { PaneHeader } from './PaneHeader';
 
 interface TerminalPaneProps {
@@ -47,9 +46,29 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
     };
   }, [ptyId, realPtyId, paneId, setPtyId]);
 
-  const onCwdChange = useCallback((newCwd: string) => {
-    setCwd(newCwd);
-  }, []);
+  // Poll CWD from Rust side every 2 seconds
+  useEffect(() => {
+    if (realPtyId === null) return;
+
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        const newCwd = await getPtyCwd(realPtyId);
+        if (!cancelled && newCwd) setCwd(newCwd);
+      } catch {
+        // PTY may be dead or command not available
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, 2000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [realPtyId]);
 
   if (realPtyId === null) {
     return (
@@ -65,7 +84,6 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
       ptyId={realPtyId}
       isFocused={isFocused}
       cwd={cwd}
-      onCwdChange={onCwdChange}
       setFocus={setFocus}
       containerRef={containerRef}
     />
@@ -81,7 +99,6 @@ function TerminalPaneInner({
   ptyId,
   isFocused,
   cwd,
-  onCwdChange,
   setFocus,
   containerRef,
 }: {
@@ -89,11 +106,10 @@ function TerminalPaneInner({
   ptyId: number;
   isFocused: boolean;
   cwd: string;
-  onCwdChange: (cwd: string) => void;
   setFocus: (paneId: string) => void;
   containerRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  useTerminal(containerRef, ptyId, isFocused, onCwdChange);
+  const termRef = useTerminal(containerRef, ptyId, isFocused);
 
   const agent = useAgentStore(selectAgentForPty(ptyId));
   const agentStatus = agent?.status ?? 'idle';
@@ -114,7 +130,10 @@ function TerminalPaneInner({
           : 'none',
         transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
       }}
-      onPointerDown={() => setFocus(paneId)}
+      onPointerDown={() => {
+        setFocus(paneId);
+        termRef.current?.focus();
+      }}
     >
       <PaneHeader
         cwd={cwd}
@@ -122,7 +141,7 @@ function TerminalPaneInner({
         agentStatus={agentStatus}
         agentName={agent?.agentName}
       />
-      <div ref={containerRef} className="h-full w-full" />
+      <div ref={containerRef} className="h-full w-full overflow-hidden" />
     </div>
   );
 }

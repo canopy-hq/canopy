@@ -1,37 +1,33 @@
-import { useEffect, useRef } from 'react';
-import { Terminal } from '@xterm/xterm';
-import { WebglAddon } from '@xterm/addon-webgl';
-import { FitAddon } from '@xterm/addon-fit';
-import { WebLinksAddon } from '@xterm/addon-web-links';
+import { useEffect, useRef, useState } from 'react';
+import { Terminal, FitAddon } from 'ghostty-web';
 import { writeToPty, resizePty, connectPtyOutput } from '../lib/pty';
 import { getCached, setCached } from '../lib/terminal-cache';
 import { useThemeStore } from '../stores/theme-store';
-import { xtermThemes } from '../lib/themes';
+import { terminalThemes } from '../lib/themes';
+import { ensureGhosttyInit } from '../lib/ghostty-init';
 
 /**
- * Hook to manage an xterm.js terminal instance connected to an existing PTY.
+ * Hook to manage a ghostty-web terminal instance connected to an existing PTY.
  *
  * Terminal instances are cached globally so they survive React remounts
  * caused by pane tree restructuring (split/close). On remount, the existing
- * xterm DOM is reparented into the new container — preserving scrollback.
+ * terminal DOM is reparented into the new container — preserving scrollback.
  */
 export function useTerminal(
   containerRef: React.RefObject<HTMLDivElement | null>,
   ptyId: number,
   isFocused: boolean,
-  onCwdChange?: (cwd: string) => void,
 ): React.MutableRefObject<Terminal | null> {
   const termRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onCwdChangeRef = useRef(onCwdChange);
+  const [wasmReady, setWasmReady] = useState(false);
 
-  // Keep callback ref in sync without triggering effect re-runs
+  // Wait for WASM to be initialized before creating terminals
   useEffect(() => {
-    onCwdChangeRef.current = onCwdChange;
-  }, [onCwdChange]);
+    ensureGhosttyInit().then(() => setWasmReady(true));
+  }, []);
 
-  // Focus xterm when isFocused becomes true
+  // Focus terminal when isFocused becomes true
   useEffect(() => {
     if (isFocused && termRef.current) {
       termRef.current.focus();
@@ -39,6 +35,8 @@ export function useTerminal(
   }, [isFocused]);
 
   useEffect(() => {
+    if (!wasmReady) return;
+
     const container = containerRef.current;
     if (!container) return;
 
@@ -65,69 +63,77 @@ export function useTerminal(
         cursorBlink: true,
         fontSize: 14,
         fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-        theme: xtermThemes[useThemeStore.getState().currentTheme],
-        allowProposedApi: true,
+        theme: terminalThemes[useThemeStore.getState().currentTheme],
       });
 
       fitAddon = new FitAddon();
       term.loadAddon(fitAddon);
-      term.loadAddon(new WebLinksAddon());
 
       term.open(container);
 
-      // WebGL must load AFTER open()
-      const webglAddon = new WebglAddon();
-      webglAddon.onContextLoss(() => {
-        webglAddon.dispose();
-      });
-      term.loadAddon(webglAddon);
+      // Add padding so terminal content isn't flush against edges
+      if (term.element) {
+        term.element.style.padding = '8px 12px';
+        term.element.style.boxSizing = 'border-box';
+      }
+
+      // macOS press-and-hold fix: when a key is held, macOS triggers composition
+      // mode (accent picker) which causes ghostty-web to ignore repeated keydown
+      // events (isComposing check). We intercept repeated printable keys in capture
+      // phase and send them directly to PTY, bypassing ghostty-web's input handler.
+      const termElement = term.element;
+      if (termElement) {
+        termElement.addEventListener(
+          'keydown',
+          (e: KeyboardEvent) => {
+            if (
+              e.repeat &&
+              e.key.length === 1 &&
+              !e.metaKey &&
+              !e.ctrlKey &&
+              !e.altKey
+            ) {
+              e.stopImmediatePropagation();
+              e.preventDefault();
+              writeToPty(ptyId, e.key);
+            }
+          },
+          true, // capture phase — fires before ghostty-web's bubble listener
+        );
+      }
 
       fitAddon.fit();
 
-      // Wire PTY output → xterm
+      // Wire PTY output → terminal
       connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
 
-      // OSC 7 CWD detection: shells emit OSC 7 with file:// URI for cwd
-      term.parser.registerOscHandler(7, (data: string) => {
-        try {
-          const url = new URL(data);
-          const cwd = decodeURIComponent(url.pathname);
-          if (cwd && onCwdChangeRef.current) {
-            onCwdChangeRef.current(cwd);
-          }
-        } catch {
-          if (data && onCwdChangeRef.current) {
-            onCwdChangeRef.current(data);
-          }
-        }
-        return true;
+      // Sync PTY size on terminal resize events
+      term.onResize(({ cols, rows }) => {
+        resizePty(ptyId, rows, cols);
       });
 
-      // Prevent xterm from swallowing app-level keyboard shortcuts
+      // Intercept app-level keyboard shortcuts before the terminal processes them.
+      // ghostty-web convention: return true = "handled, stop processing", false = "let terminal handle"
+      // (opposite of xterm.js where true = "let terminal handle")
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
-        if (!e.metaKey) return true;
+        if (!e.metaKey) return false;
         // Pane shortcuts
-        if (e.key === 'd' && !e.shiftKey) return false;
-        if (e.key === 'D' && e.shiftKey) return false;
-        if (e.key === 'w') return false;
+        if (e.key === 'd' && !e.shiftKey) return true;
+        if (e.key === 'D' && e.shiftKey) return true;
+        if (e.key === 'w') return true;
         if (e.altKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
-          return false;
+          return true;
         }
         // Tab shortcuts -- let bubble to keyboard registry
-        if (e.key === 't' && !e.shiftKey) return false; // Cmd+T
-        if (e.key >= '1' && e.key <= '9') return false; // Cmd+1-9
-        if ((e.key === '[' || e.key === ']') && e.shiftKey) return false; // Cmd+Shift+[/]
-        return true;
+        if (e.key === 't' && !e.shiftKey) return true; // Cmd+T
+        if (e.key >= '1' && e.key <= '9') return true; // Cmd+1-9
+        if ((e.key === '[' || e.key === ']') && e.shiftKey) return true; // Cmd+Shift+[/]
+        return false;
       });
 
       // Wire user input to PTY
       term.onData((data: string) => {
         writeToPty(ptyId, data);
-      });
-
-      term.onBinary((data: string) => {
-        const bytes = Array.from(data, (c) => c.charCodeAt(0));
-        writeToPty(ptyId, String.fromCharCode(...bytes));
       });
 
       // Sync initial size
@@ -140,19 +146,20 @@ export function useTerminal(
     termRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    // Handle resize with debounced PTY resize.
-    // Guard: skip fit when container is hidden (display:none → 0x0),
-    // otherwise xterm caches corrupt geometry and renders oversized on reveal.
+    // Smooth resize: keep canvas at current size during macOS window
+    // animations — extra space is filled by the container background which
+    // matches the terminal theme. Once events settle (100ms), fit() snaps
+    // to the new size. Same strategy as iTerm2 / native terminals.
+    const themeBg = terminalThemes[useThemeStore.getState().currentTheme].background;
+    if (term.element) term.element.style.background = themeBg;
+
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const resizeObserver = new ResizeObserver(() => {
       if (container.offsetWidth === 0 || container.offsetHeight === 0) return;
-      fitAddon.fit();
-
-      if (resizeTimerRef.current !== null) {
-        clearTimeout(resizeTimerRef.current);
-      }
-      resizeTimerRef.current = setTimeout(() => {
-        resizePty(ptyId, term.rows, term.cols);
-        resizeTimerRef.current = null;
+      if (resizeTimer !== null) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        resizeTimer = null;
+        fitAddon.fit();
       }, 100);
     });
     resizeObserver.observe(container);
@@ -163,17 +170,15 @@ export function useTerminal(
 
     return () => {
       resizeObserver.disconnect();
-      if (resizeTimerRef.current !== null) {
-        clearTimeout(resizeTimerRef.current);
-      }
-      // DON'T dispose — just detach from container. Cache keeps it alive.
+      if (resizeTimer !== null) clearTimeout(resizeTimer);
+      // DON'T dispose term — just detach from container. Cache keeps it alive.
       const el = term.element;
       if (el && el.parentNode === container) {
         container.removeChild(el);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerRef, ptyId]);
+  }, [containerRef, ptyId, wasmReady]);
 
   return termRef;
 }

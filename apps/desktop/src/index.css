@@ -160,6 +160,8 @@ html, body, #root {
   width: 100%;
   overflow: hidden;
   background: var(--bg-primary);
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 @keyframes pulse-slow {

@@ -31,7 +31,7 @@ export interface CssThemeProperties {
   destructive: string;
 }
 
-export interface XtermThemeColors {
+export interface TerminalThemeColors {
   background: string;
   foreground: string;
   cursor: string;
@@ -56,7 +56,7 @@ export interface XtermThemeColors {
 
 export interface ThemeDefinition {
   css: CssThemeProperties;
-  xterm: XtermThemeColors;
+  xterm: TerminalThemeColors;
 }
 
 export const themes: Record<ThemeName, ThemeDefinition> = {
@@ -423,9 +423,9 @@ export const themes: Record<ThemeName, ThemeDefinition> = {
 
 export const themeNames: ThemeName[] = Object.keys(themes) as ThemeName[];
 
-export const xtermThemes: Record<ThemeName, XtermThemeColors> = Object.fromEntries(
+export const terminalThemes: Record<ThemeName, TerminalThemeColors> = Object.fromEntries(
   themeNames.map((name) => [name, themes[name].xterm]),
-) as Record<ThemeName, XtermThemeColors>;
+) as Record<ThemeName, TerminalThemeColors>;
 
 export const cssThemeProperties: Record<ThemeName, CssThemeProperties> = Object.fromEntries(
   themeNames.map((name) => [name, themes[name].css]),

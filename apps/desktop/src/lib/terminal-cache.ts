@@ -1,5 +1,4 @@
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
+import { Terminal, FitAddon } from 'ghostty-web';
 
 export interface CachedEntry {
   term: Terminal;
