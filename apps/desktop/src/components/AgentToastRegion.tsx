@@ -7,8 +7,9 @@ import {
 } from 'react-aria-components';
 
 import { getTabCollection } from '@superagent/db';
+import { useNavigate } from '@tanstack/react-router';
 
-import { setActiveContext, switchTab } from '../lib/tab-actions';
+import { switchTab } from '../lib/tab-actions';
 import { agentToastQueue } from '../lib/toast';
 import { StatusDot } from './StatusDot';
 
@@ -21,20 +22,22 @@ function containsPtyId(node: PaneNode, ptyId: number): boolean {
   return node.children.some((child) => containsPtyId(child, ptyId));
 }
 
-function handleJump(ptyId: number, close: () => void) {
-  const tab = getTabCollection().toArray.find((t) => containsPtyId(t.paneRoot, ptyId));
-  if (tab) {
-    setActiveContext(tab.workspaceItemId);
-    switchTab(tab.id);
-  }
-  close();
-}
-
 function eventDescription(type: AgentToastContent['type']): string {
   return type === 'agent-waiting' ? 'is waiting for input' : 'finished';
 }
 
 export function AgentToastRegion() {
+  const navigate = useNavigate();
+
+  function handleJump(ptyId: number, close: () => void) {
+    const tab = getTabCollection().toArray.find((t) => containsPtyId(t.paneRoot, ptyId));
+    if (tab) {
+      void navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: tab.workspaceItemId } });
+      switchTab(tab.id);
+    }
+    close();
+  }
+
   return (
     <ToastRegion
       queue={agentToastQueue}

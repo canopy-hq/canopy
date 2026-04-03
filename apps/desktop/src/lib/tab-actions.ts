@@ -59,7 +59,7 @@ export function closeTab(tabId: string): void {
   const ui = getUiState();
   if (ui.activeTabId === tabId) {
     const remaining = col.toArray.filter((t) => t.workspaceItemId === contextId);
-    const newTabId = remaining.length > 0 ? remaining[0]!.id : (col.toArray[0]?.id ?? '');
+    const newTabId = remaining.length > 0 ? remaining[0]!.id : '';
     uiCollection.update('ui', (draft) => {
       draft.activeTabId = newTabId;
     });

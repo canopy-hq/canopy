@@ -66,7 +66,9 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
         match op.as_str() {
             "spawn" => {
                 let cwd = cmd["cwd"].as_str().map(|s| s.to_string());
-                let result = do_spawn(state.clone(), pane_id, cwd);
+                let rows = cmd["rows"].as_u64().unwrap_or(24) as u16;
+                let cols = cmd["cols"].as_u64().unwrap_or(80) as u16;
+                let result = do_spawn(state.clone(), pane_id, cwd, rows, cols);
                 let resp = match result {
                     Ok(pid) => format!("{{\"ok\":true,\"pid\":{pid}}}\n"),
                     Err(e) => format!("{{\"ok\":false,\"error\":{}}}\n", serde_json::json!(e)),
@@ -90,6 +92,11 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                     if write_half.write_all(&len).await.is_err() { return; }
                     if write_half.write_all(&scrollback).await.is_err() { return; }
                 }
+
+                // Sentinel: zero-length frame marking end of scrollback replay.
+                // The TypeScript layer detects this as `rawData.length === 0` and
+                // uses it to distinguish replayed history from live PTY output.
+                if write_half.write_all(&[0u8; 4]).await.is_err() { return; }
 
                 // Stream live output
                 loop {
@@ -163,6 +170,8 @@ fn do_spawn(
     state: Arc<Mutex<DaemonState>>,
     pane_id: String,
     cwd: Option<String>,
+    rows: u16,
+    cols: u16,
 ) -> Result<u32, String> {
     // Return existing session pid if it already exists (reconnect case)
     {
@@ -174,10 +183,12 @@ fn do_spawn(
 
     let pty_system = native_pty_system();
     let pair = pty_system
-        .openpty(PtySize { rows: 24, cols: 80, pixel_width: 0, pixel_height: 0 })
+        .openpty(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
         .map_err(|e| e.to_string())?;
 
     let mut cmd = CommandBuilder::new_default_prog();
+    cmd.env("TERM", "xterm-256color");
+    cmd.env("COLORTERM", "truecolor");
     if let Some(ref dir) = cwd {
         cmd.cwd(dir);
     }
@@ -191,7 +202,6 @@ fn do_spawn(
 
     // broadcast::channel capacity: 256 chunks before lagging
     let (tx, _) = broadcast::channel::<Vec<u8>>(256);
-    let tx_reader = tx.clone();
 
     {
         let mut st = state.lock().unwrap();
@@ -208,7 +218,10 @@ fn do_spawn(
         );
     }
 
-    // Reader thread: blocking I/O — tee to scrollback + broadcast
+    // Reader thread: blocking I/O — tee to scrollback + broadcast.
+    // Both operations happen under the same lock to eliminate the race where
+    // an attach handler could clone the scrollback AND subscribe to the
+    // broadcast between the lock-drop and the send, receiving the same chunk twice.
     let state_clone = state.clone();
     std::thread::spawn(move || {
         let mut buf = [0u8; 4096];
@@ -217,17 +230,15 @@ fn do_spawn(
                 Ok(0) | Err(_) => break,
                 Ok(n) => {
                     let data = buf[..n].to_vec();
-                    {
-                        let mut st = state_clone.lock().unwrap();
-                        if let Some(sess) = st.sessions.get_mut(&pane_id) {
-                            let total = sess.scrollback.len() + data.len();
-                            if total > SCROLLBACK_CAP {
-                                sess.scrollback.drain(0..total - SCROLLBACK_CAP);
-                            }
-                            sess.scrollback.extend_from_slice(&data);
+                    let mut st = state_clone.lock().unwrap();
+                    if let Some(sess) = st.sessions.get_mut(&pane_id) {
+                        let total = sess.scrollback.len() + data.len();
+                        if total > SCROLLBACK_CAP {
+                            sess.scrollback.drain(0..total - SCROLLBACK_CAP);
                         }
+                        sess.scrollback.extend_from_slice(&data);
+                        let _ = sess.tx.send(data);
                     }
-                    let _ = tx_reader.send(data);
                 }
             }
         }
