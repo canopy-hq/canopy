@@ -32,7 +32,10 @@ export function AgentToastRegion() {
   function handleJump(ptyId: number, close: () => void) {
     const tab = getTabCollection().toArray.find((t) => containsPtyId(t.paneRoot, ptyId));
     if (tab) {
-      void navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: tab.workspaceItemId } });
+      void navigate({
+        to: '/workspaces/$workspaceId',
+        params: { workspaceId: tab.workspaceItemId },
+      });
       switchTab(tab.id);
     }
     close();

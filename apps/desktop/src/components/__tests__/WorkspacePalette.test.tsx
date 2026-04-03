@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import { WorkspacePalette, type WorkspacePaletteProps } from '../WorkspacePalette';
 
 vi.mock('../../lib/git', async (importOriginal) => {
@@ -13,16 +14,13 @@ vi.mock('../../lib/git', async (importOriginal) => {
       { name: 'feat/sidebar', is_head: false, is_local: true, is_in_worktree: true },
     ]),
     listBranches: vi.fn().mockResolvedValue([]),
-    listWorktrees: vi.fn().mockResolvedValue([
-      { name: 'wt-sidebar', path: '/tmp/wt-sidebar', branch: 'feat/sidebar' },
-    ]),
+    listWorktrees: vi
+      .fn()
+      .mockResolvedValue([{ name: 'wt-sidebar', path: '/tmp/wt-sidebar', branch: 'feat/sidebar' }]),
   };
 });
 
-vi.mock('../../lib/workspace-actions', () => ({
-  createWorktree: vi.fn(),
-  openWorktree: vi.fn(),
-}));
+vi.mock('../../lib/workspace-actions', () => ({ createWorktree: vi.fn(), openWorktree: vi.fn() }));
 
 const baseWorkspace = {
   id: 'ws-1',
@@ -38,11 +36,7 @@ describe('WorkspacePalette', () => {
   let props: WorkspacePaletteProps;
 
   beforeEach(() => {
-    props = {
-      isOpen: true,
-      onClose: vi.fn(),
-      workspace: baseWorkspace,
-    };
+    props = { isOpen: true, onClose: vi.fn(), workspace: baseWorkspace };
   });
 
   it('renders nothing when isOpen is false', () => {

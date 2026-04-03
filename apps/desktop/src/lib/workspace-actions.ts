@@ -201,7 +201,12 @@ export function hideWorktree(workspaceId: string, name: string): void {
   });
 }
 
-export function openWorktree(workspaceId: string, name: string, path: string, branch: string): void {
+export function openWorktree(
+  workspaceId: string,
+  name: string,
+  path: string,
+  branch: string,
+): void {
   const ws = getWorkspaceCollection().toArray.find((w) => w.id === workspaceId);
   if (!ws) return;
   // Don't add if already in the list

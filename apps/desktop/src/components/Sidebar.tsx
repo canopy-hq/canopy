@@ -14,11 +14,20 @@ function EmptyState({ onImport }: { onImport: () => void }) {
         Import a git repository to get started.
       </span>
       <button
-        className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 text-[var(--text-muted)] hover:text-[var(--accent)] cursor-pointer"
+        className="mt-2 flex w-full cursor-pointer items-center justify-center gap-1.5 py-1.5 text-[var(--text-muted)] hover:text-[var(--accent)]"
         style={{ fontSize: '12px', borderRadius: '6px', border: '1px dashed var(--border)' }}
         onClick={onImport}
       >
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 3v10M3 8h10"/></svg>
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        >
+          <path d="M8 3v10M3 8h10" />
+        </svg>
         Import Repository
       </button>
     </div>
@@ -87,11 +96,20 @@ export function Sidebar() {
         </div>
         <div className="flex-shrink-0 border-t border-border p-2">
           <button
-            className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[var(--text-muted)] cursor-pointer"
+            className="flex w-full cursor-pointer items-center justify-center gap-1.5 py-1.5 text-[var(--text-muted)]"
             style={{ fontSize: '12px', borderRadius: '6px', border: '1px dashed var(--border)' }}
             onClick={handleImport}
           >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 3v10M3 8h10"/></svg>
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
+              <path d="M8 3v10M3 8h10" />
+            </svg>
             Import
           </button>
         </div>

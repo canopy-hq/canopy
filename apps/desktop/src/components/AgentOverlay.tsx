@@ -115,7 +115,10 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
   const handleJump = useCallback(
     (row: AgentRow) => {
       if (row.tabId) {
-        void navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: row.workspaceItemId } });
+        void navigate({
+          to: '/workspaces/$workspaceId',
+          params: { workspaceId: row.workspaceItemId },
+        });
         switchTab(row.tabId);
       }
       onClose();

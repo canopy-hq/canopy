@@ -176,6 +176,12 @@ body,
   -webkit-user-select: none;
 }
 
+/* Suppress all transitions during window resize to avoid layout contention. */
+body.resizing,
+body.resizing * {
+  transition: none !important;
+}
+
 @keyframes pulse-slow {
   0%,
   100% {

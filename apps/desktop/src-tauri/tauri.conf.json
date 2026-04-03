@@ -10,9 +10,20 @@
   },
   "app": {
     "windows": [
-      { "title": "Superagent", "width": 1200, "height": 800, "minWidth": 640, "minHeight": 480 }
+      {
+        "title": "Superagent",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 640,
+        "minHeight": 480,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "backgroundColor": "#0a0a14",
+        "trafficLightPosition": { "x": 12, "y": 26 }
+      }
     ],
-    "security": { "csp": null }
+    "security": { "csp": null },
+    "macOSPrivateApi": true
   },
   "bundle": {}
 }
