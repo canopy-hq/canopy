@@ -93,13 +93,13 @@ pub fn import_repo(path: String) -> Result<RepoInfo, String> {
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| path.clone());
-    let branches = enumerate_branches(&repo)?;
-    let worktrees = enumerate_worktrees(&repo)?;
+    let all_branches = enumerate_branches(&repo)?;
+    let head_only: Vec<BranchInfo> = all_branches.into_iter().filter(|b| b.is_head).collect();
     Ok(RepoInfo {
         path,
         name,
-        branches,
-        worktrees,
+        branches: head_only,
+        worktrees: Vec::new(),
     })
 }
 
@@ -292,15 +292,21 @@ mod tests {
     #[test]
     fn test_import_repo() {
         let tmp = TempDir::new().unwrap();
-        let _repo = init_repo_with_commit(tmp.path());
-        let info = import_repo(tmp.path().to_string_lossy().to_string()).unwrap();
-        assert_eq!(
-            info.name,
-            tmp.path().file_name().unwrap().to_string_lossy()
-        );
-        assert!(!info.branches.is_empty());
-        // Should have a HEAD branch
-        assert!(info.branches.iter().any(|b| b.is_head));
+        let repo = init_repo_with_commit(tmp.path());
+        let path = tmp.path().to_string_lossy().to_string();
+
+        // Create extra branches that should NOT appear in import
+        let branches = list_branches(path.clone()).unwrap();
+        let default_branch = &branches[0].name;
+        create_branch(path.clone(), "extra-branch".to_string(), default_branch.clone()).unwrap();
+
+        let info = import_repo(path).unwrap();
+        assert_eq!(info.name, tmp.path().file_name().unwrap().to_string_lossy());
+        // Should only have the HEAD branch
+        assert_eq!(info.branches.len(), 1);
+        assert!(info.branches[0].is_head);
+        // Should have no worktrees
+        assert!(info.worktrees.is_empty());
     }
 
     #[test]
