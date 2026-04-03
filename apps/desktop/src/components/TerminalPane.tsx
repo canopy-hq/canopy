@@ -114,9 +114,7 @@ function TerminalPaneInner({
       style={{
         border: isWaiting
           ? '1px solid var(--agent-waiting-border)'
-          : isFocused
-            ? '1px solid var(--border-focus)'
-            : '1px solid transparent',
+          : '1px solid transparent',
         boxShadow: isWaiting
           ? '0 0 12px var(--agent-waiting-glow), inset 0 0 24px var(--agent-waiting-inset)'
           : 'none',
