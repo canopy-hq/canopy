@@ -215,40 +215,81 @@ pub fn delete_branch(repo_path: String, name: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Find a branch commit, trying local first then origin remote.
+fn find_branch_commit<'repo>(
+    repo: &'repo Repository,
+    branch_name: &str,
+) -> Result<git2::Commit<'repo>, String> {
+    if let Ok(branch) = repo.find_branch(branch_name, BranchType::Local) {
+        return branch.get().peel_to_commit().map_err(|e| e.to_string());
+    }
+    let remote_name = format!("origin/{}", branch_name);
+    let remote_branch = repo
+        .find_branch(&remote_name, BranchType::Remote)
+        .map_err(|_| {
+            format!(
+                "Branch \"{}\" not found locally or as origin/{}",
+                branch_name, branch_name
+            )
+        })?;
+    remote_branch
+        .get()
+        .peel_to_commit()
+        .map_err(|e| e.to_string())
+}
+
+/// Find a local branch, or create a local tracking branch from origin if not found.
+fn find_local_or_tracking_branch<'repo>(
+    repo: &'repo Repository,
+    branch_name: &str,
+) -> Result<git2::Branch<'repo>, String> {
+    match repo.find_branch(branch_name, BranchType::Local) {
+        Ok(b) => Ok(b),
+        Err(_) => {
+            let remote_name = format!("origin/{}", branch_name);
+            let remote_branch = repo
+                .find_branch(&remote_name, BranchType::Remote)
+                .map_err(|_| {
+                    format!(
+                        "Branch \"{}\" not found locally or as origin/{}",
+                        branch_name, branch_name
+                    )
+                })?;
+            let commit = remote_branch
+                .get()
+                .peel_to_commit()
+                .map_err(|e| e.to_string())?;
+            repo.branch(branch_name, &commit, false)
+                .map_err(|e| format!("Failed to create local branch from remote: {}", e))
+        }
+    }
+}
+
 #[tauri::command]
 pub fn create_worktree(
     repo_path: String,
     name: String,
     path: String,
     base_branch: Option<String>,
+    new_branch: Option<String>,
 ) -> Result<WorktreeInfo, String> {
     let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
     let mut opts = WorktreeAddOptions::new();
 
     // Hold the reference in scope so opts can borrow it
     let _ref_holder;
-    if let Some(ref branch_name) = base_branch {
-        // Try local first, then fall back to creating a local tracking branch from remote
-        let branch = match repo.find_branch(branch_name, BranchType::Local) {
-            Ok(b) => b,
-            Err(_) => {
-                let remote_name = format!("origin/{}", branch_name);
-                let remote_branch = repo
-                    .find_branch(&remote_name, BranchType::Remote)
-                    .map_err(|_| {
-                        format!(
-                            "Branch \"{}\" not found locally or as origin/{}",
-                            branch_name, branch_name
-                        )
-                    })?;
-                let commit = remote_branch
-                    .get()
-                    .peel_to_commit()
-                    .map_err(|e| e.to_string())?;
-                repo.branch(branch_name, &commit, false)
-                    .map_err(|e| format!("Failed to create local branch from remote: {}", e))?
-            }
-        };
+    if let Some(ref new_branch_name) = new_branch {
+        // Create a new branch from base_branch, then use it as reference
+        let base = base_branch.as_deref().unwrap_or("main");
+        let base_commit = find_branch_commit(&repo, base)?;
+        let branch = repo
+            .branch(new_branch_name, &base_commit, false)
+            .map_err(|e| format!("Failed to create branch \"{}\": {}", new_branch_name, e))?;
+        _ref_holder = branch.into_reference();
+        opts.reference(Some(&_ref_holder));
+    } else if let Some(ref branch_name) = base_branch {
+        // Use an existing branch as-is
+        let branch = find_local_or_tracking_branch(&repo, branch_name)?;
         _ref_holder = branch.into_reference();
         opts.reference(Some(&_ref_holder));
     }
@@ -405,6 +446,7 @@ mod tests {
             "test-wt".to_string(),
             wt_path.to_string_lossy().to_string(),
             None,
+            None,
         )
         .unwrap();
         assert_eq!(wt.name, "test-wt");
@@ -457,6 +499,7 @@ mod tests {
             "test-wt".to_string(),
             wt_path.to_string_lossy().to_string(),
             Some("wt-branch".to_string()),
+            None,
         ).unwrap();
 
         let details = list_all_branches(path).unwrap();

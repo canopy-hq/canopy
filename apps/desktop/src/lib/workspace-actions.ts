@@ -165,11 +165,12 @@ export async function createWorktree(
   name: string,
   path: string,
   baseBranch?: string,
+  newBranch?: string,
 ): Promise<void> {
   const ws = getWorkspaceCollection().toArray.find((w) => w.id === workspaceId);
   if (!ws) return;
   try {
-    const wt = await gitApi.createWorktree(ws.path, name, path, baseBranch);
+    const wt = await gitApi.createWorktree(ws.path, name, path, baseBranch, newBranch);
     // Add the new worktree to the sidebar
     getWorkspaceCollection().update(workspaceId, (draft) => {
       if (!draft.worktrees.some((w) => w.name === wt.name)) {

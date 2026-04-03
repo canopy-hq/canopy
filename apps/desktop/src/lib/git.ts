@@ -55,12 +55,14 @@ export function createWorktree(
   name: string,
   path: string,
   baseBranch?: string,
+  newBranch?: string,
 ): Promise<WorktreeInfo> {
   return invoke<WorktreeInfo>('create_worktree', {
     repoPath,
     name,
     path,
     baseBranch: baseBranch ?? null,
+    newBranch: newBranch ?? null,
   });
 }
 

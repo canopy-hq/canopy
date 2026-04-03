@@ -59,7 +59,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
     // Worktree name (git identifier) must not contain slashes
     const wtName = name.replaceAll('/', '-');
     const wtPath = `~/.superagent/worktrees/${workspace.name}-${wtName}`;
-    await createWorktree(workspace.id, wtName, wtPath, baseBranch);
+    await createWorktree(workspace.id, wtName, wtPath, baseBranch, wtName);
     onClose();
   }, [query, workspace, baseBranch, onClose]);
 
