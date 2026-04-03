@@ -39,7 +39,7 @@ export function Header() {
             <SidebarToggleIcon />
           </Button>
           <Tooltip
-            placement="bottom"
+            placement="right"
             className="rounded-md bg-bg-tertiary px-2 py-1 text-xs text-text-primary shadow-lg"
           >
             Toggle sidebar
