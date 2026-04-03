@@ -64,13 +64,13 @@ export function AgentToastRegion() {
               >
                 {toast.content.agentName}
               </Text>
-              <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-right text-[11px] text-text-muted">
+              <span className="min-w-0 flex-1 truncate text-right text-[11px] text-text-muted">
                 {toast.content.workspace}/{toast.content.branch}
               </span>
               <Button
                 slot="close"
                 aria-label="Close notification"
-                className="cursor-pointer bg-transparent p-[0_2px] text-[10px] leading-none text-text-muted outline-none"
+                className="cursor-pointer bg-transparent px-[2px] py-0 text-[10px] leading-none text-text-muted outline-none"
               >
                 x
               </Button>
