@@ -40,22 +40,7 @@ function WorkspaceRoute() {
 
 function KbdBadge({ children }: { children: string }) {
   return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minWidth: '22px',
-        height: '22px',
-        padding: '0 5px',
-        borderRadius: '5px',
-        fontSize: '12px',
-        lineHeight: 1,
-        backgroundColor: 'var(--bg-tertiary)',
-        color: 'var(--text-muted)',
-        border: '1px solid var(--border)',
-      }}
-    >
+    <span className="inline-flex min-w-[22px] items-center justify-center rounded-[5px] border border-border bg-bg-tertiary px-[5px] text-[12px] leading-[22px] text-text-muted">
       {children}
     </span>
   );
@@ -64,36 +49,13 @@ function KbdBadge({ children }: { children: string }) {
 function EmptyState() {
   return (
     <div className="flex h-full flex-1 flex-col items-center justify-center gap-1 select-none">
-      <div
-        style={{
-          fontFamily: 'monospace',
-          fontSize: '42px',
-          letterSpacing: '-2px',
-          color: 'var(--text-muted)',
-          opacity: 0.25,
-          marginBottom: '32px',
-          fontWeight: 600,
-        }}
-      >
+      <div className="mb-8 font-mono text-[42px] font-semibold tracking-[-2px] text-text-muted opacity-25">
         {'{ }'}
       </div>
 
       <button
         onClick={addTab}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          width: '320px',
-          gap: '12px',
-          padding: '10px 16px',
-          borderRadius: '8px',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          color: 'var(--text-muted)',
-          fontSize: '14px',
-        }}
-        className="transition-colors hover:bg-bg-secondary hover:text-text-primary"
+        className="flex w-80 cursor-pointer items-center gap-3 rounded-lg border-none bg-transparent px-4 py-2.5 text-sm text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary"
       >
         <svg
           width="16"
@@ -104,14 +66,14 @@ function EmptyState() {
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          style={{ flexShrink: 0 }}
+          className="shrink-0"
         >
           <rect x="1" y="2.5" width="14" height="11" rx="2" />
           <path d="M4.5 6l2.5 2-2.5 2" />
           <path d="M9 10h3" />
         </svg>
-        <span style={{ flex: 1, textAlign: 'left' }}>New Terminal</span>
-        <div style={{ display: 'flex', gap: '4px' }}>
+        <span className="flex-1 text-left">New Terminal</span>
+        <div className="flex gap-1">
           <KbdBadge>⌘</KbdBadge>
           <KbdBadge>T</KbdBadge>
         </div>
@@ -119,20 +81,7 @@ function EmptyState() {
 
       <button
         onClick={() => toggleSidebar()}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          width: '320px',
-          gap: '12px',
-          padding: '10px 16px',
-          borderRadius: '8px',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          color: 'var(--text-muted)',
-          fontSize: '14px',
-        }}
-        className="transition-colors hover:bg-bg-secondary hover:text-text-primary"
+        className="flex w-80 cursor-pointer items-center gap-3 rounded-lg border-none bg-transparent px-4 py-2.5 text-sm text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary"
       >
         <svg
           width="16"
@@ -143,13 +92,13 @@ function EmptyState() {
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          style={{ flexShrink: 0 }}
+          className="shrink-0"
         >
           <rect x="1" y="1" width="14" height="14" rx="2" />
           <path d="M6 1v14" />
         </svg>
-        <span style={{ flex: 1, textAlign: 'left' }}>Toggle Sidebar</span>
-        <div style={{ display: 'flex', gap: '4px' }}>
+        <span className="flex-1 text-left">Toggle Sidebar</span>
+        <div className="flex gap-1">
           <KbdBadge>⌘</KbdBadge>
           <KbdBadge>B</KbdBadge>
         </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
 
+import { tv } from 'tailwind-variants';
 import { useNavigate } from '@tanstack/react-router';
 
 import { useAgents, useWorkspaces, useTabs } from '../hooks/useCollections';
@@ -34,6 +35,20 @@ interface AgentRow {
   tabId: string;
   workspaceItemId: string;
 }
+
+const agentRowStyle = tv({
+  base: 'flex h-9 cursor-pointer items-center gap-2 rounded-md border-l-2 px-4',
+  variants: {
+    state: {
+      waiting: 'border-transparent bg-(--agent-waiting-glow)',
+      selected: 'border-accent bg-bg-tertiary',
+      idle: 'border-transparent bg-transparent',
+    },
+  },
+  defaultVariants: {
+    state: 'idle',
+  },
+});
 
 export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
   const navigate = useNavigate();
@@ -160,82 +175,48 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 50, backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+      className="fixed inset-0 z-50 bg-black/30"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
       role="presentation"
     >
       <div
+        className="fixed top-1/2 left-1/2 flex max-h-[60vh] w-[520px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-border font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-[12px]"
         style={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '520px',
-          maxHeight: '60vh',
           background: 'color-mix(in srgb, var(--bg-secondary) 85%, transparent)',
-          backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
-          border: '1px solid var(--border)',
-          borderRadius: '12px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          flexDirection: 'column' as const,
-          fontFamily: 'Menlo, Monaco, "Courier New", monospace',
         }}
         onKeyDown={handleKeyDown}
       >
         <Dialog className="outline-none" aria-label="Agent Overview">
           {/* Header */}
-          <div
-            style={{
-              padding: '16px',
-              borderBottom: '1px solid var(--border)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            <Heading
-              slot="title"
-              style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}
-            >
+          <div className="flex items-center gap-2 border-b border-border p-4">
+            <Heading slot="title" className="m-0 text-sm font-semibold text-text-primary">
               Agent Overview
             </Heading>
             {(runningCount > 0 || waitingCount > 0) && (
-              <span style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span className="flex items-center gap-1.5 text-[11px]">
                 {runningCount > 0 && (
-                  <span style={{ color: 'var(--agent-running)' }}>{runningCount} running</span>
+                  <span className="text-(--agent-running)">{runningCount} running</span>
                 )}
                 {runningCount > 0 && waitingCount > 0 && (
-                  <span style={{ color: 'var(--text-muted)', opacity: 0.6 }}>{'\u00B7'}</span>
+                  <span className="text-text-muted opacity-60">{'\u00B7'}</span>
                 )}
                 {waitingCount > 0 && (
-                  <span style={{ color: 'var(--agent-waiting)' }}>{waitingCount} waiting</span>
+                  <span className="text-(--agent-waiting)">{waitingCount} waiting</span>
                 )}
               </span>
             )}
           </div>
 
           {/* Body */}
-          <div style={{ overflowY: 'auto', scrollbarWidth: 'none', padding: '8px 0', flex: 1 }}>
+          <div className="flex-1 overflow-y-auto py-2" style={{ scrollbarWidth: 'none' }}>
             {!hasAgents ? (
               /* Empty state */
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '32px 16px',
-                  gap: '8px',
-                }}
-              >
-                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                  No agents running
-                </span>
-                <span style={{ fontSize: '13px', color: 'var(--text-muted)', opacity: 0.6 }}>
+              <div className="flex flex-col items-center justify-center gap-2 px-4 py-8">
+                <span className="text-sm font-semibold text-text-muted">No agents running</span>
+                <span className="text-[13px] text-text-muted opacity-60">
                   Start an AI agent in any terminal to see it here
                 </span>
               </div>
@@ -244,14 +225,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
               Object.entries(groupedRows).map(([wsName, rows]) => (
                 <div key={wsName}>
                   {/* Group header */}
-                  <div
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      color: 'var(--text-muted)',
-                      padding: '8px 16px 4px 16px',
-                    }}
-                  >
+                  <div className="px-4 pt-2 pb-1 text-[11px] font-semibold text-text-muted">
                     {wsName}
                   </div>
                   {/* Agent rows */}
@@ -259,58 +233,24 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                     const flatIndex = flatRows.indexOf(row);
                     const isSelected = flatIndex === selectedIndex;
                     const isWaiting = row.agent.status === 'waiting';
+                    const state = isWaiting ? 'waiting' as const : isSelected ? 'selected' as const : 'idle' as const;
 
                     return (
                       <div
                         key={row.agent.ptyId}
                         data-testid={`agent-row-${row.agent.ptyId}`}
                         onClick={() => handleJump(row)}
-                        style={{
-                          height: '36px',
-                          display: 'flex',
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '0 16px',
-                          cursor: 'pointer',
-                          borderRadius: '6px',
-                          background: isWaiting
-                            ? 'var(--agent-waiting-glow)'
-                            : isSelected
-                              ? 'var(--bg-tertiary)'
-                              : 'transparent',
-                          borderLeft: isSelected
-                            ? '2px solid var(--accent)'
-                            : '2px solid transparent',
-                        }}
+                        className={agentRowStyle({ state })}
                         data-selected={isSelected}
                       >
                         <StatusDot status={row.agent.status} size={8} />
-                        <span
-                          style={{ fontSize: '13px', color: 'var(--text-primary)', flexShrink: 0 }}
-                        >
+                        <span className="shrink-0 text-[13px] text-text-primary">
                           {row.agent.agentName}
                         </span>
-                        <span
-                          style={{
-                            fontSize: '13px',
-                            color: 'var(--text-muted)',
-                            flex: 1,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
+                        <span className="flex-1 truncate text-[13px] text-text-muted">
                           {row.workspaceName}
                         </span>
-                        <span
-                          style={{
-                            fontSize: '11px',
-                            color: 'var(--text-muted)',
-                            fontVariantNumeric: 'tabular-nums',
-                            flexShrink: 0,
-                          }}
-                        >
+                        <span className="shrink-0 text-[11px] tabular-nums text-text-muted">
                           {formatDuration(row.agent.startedAt)}
                         </span>
                       </div>

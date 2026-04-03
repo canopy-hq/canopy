@@ -26,7 +26,9 @@
     "ghostty-web": "catalog:",
     "react": "catalog:",
     "react-aria-components": "^1.16.0",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "tailwind-merge": "^3.5.0",
+    "tailwind-variants": "^3.2.2"
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "^20.8.9",
@@ -48,6 +50,7 @@
     "oxlint": "^1.58.0",
     "oxlint-tsgolint": "^0.19.0",
     "tailwindcss": "^4.2.2",
+    "tailwindcss-react-aria-components": "^2.0.1",
     "typescript": "catalog:",
     "vite": "^8.0.3",
     "vitest": "catalog:"

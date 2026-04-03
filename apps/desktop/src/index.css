@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@plugin 'tailwindcss-react-aria-components';
+
 @theme {
   --color-bg-primary: var(--bg-primary);
   --color-bg-secondary: var(--bg-secondary);
@@ -65,6 +67,18 @@
   --tab-inactive-bg: #0f0e0c;
   --splitter-idle: #3a3530;
   --splitter-hover: #4a4540;
+  --branch-icon: #d97706;
+  --worktree-icon: #c084fc;
+  --git-ahead: #4ade80;
+  --git-behind: #f87171;
+  --destructive: #ef4444;
+  --agent-running: #f59e0b;
+  --agent-waiting: #ef4444;
+  --agent-idle: #4ade80;
+  --agent-running-pulse: #d97706;
+  --agent-waiting-glow: rgba(239, 68, 68, 0.15);
+  --agent-waiting-border: rgba(239, 68, 68, 0.4);
+  --agent-waiting-inset: rgba(239, 68, 68, 0.06);
 }
 
 [data-theme='graphite'] {
@@ -81,6 +95,18 @@
   --tab-inactive-bg: #0e0e10;
   --splitter-idle: #333340;
   --splitter-hover: #444450;
+  --branch-icon: #a78bfa;
+  --worktree-icon: #c084fc;
+  --git-ahead: #4ade80;
+  --git-behind: #f87171;
+  --destructive: #ef4444;
+  --agent-running: #f59e0b;
+  --agent-waiting: #ef4444;
+  --agent-idle: #4ade80;
+  --agent-running-pulse: #d97706;
+  --agent-waiting-glow: rgba(239, 68, 68, 0.15);
+  --agent-waiting-border: rgba(239, 68, 68, 0.4);
+  --agent-waiting-inset: rgba(239, 68, 68, 0.06);
 }
 
 [data-theme='slate'] {
@@ -97,6 +123,18 @@
   --tab-inactive-bg: #0c0e14;
   --splitter-idle: #2e3448;
   --splitter-hover: #3e4458;
+  --branch-icon: #7dd3fc;
+  --worktree-icon: #c084fc;
+  --git-ahead: #4ade80;
+  --git-behind: #f87171;
+  --destructive: #ef4444;
+  --agent-running: #f59e0b;
+  --agent-waiting: #ef4444;
+  --agent-idle: #4ade80;
+  --agent-running-pulse: #d97706;
+  --agent-waiting-glow: rgba(239, 68, 68, 0.15);
+  --agent-waiting-border: rgba(239, 68, 68, 0.4);
+  --agent-waiting-inset: rgba(239, 68, 68, 0.06);
 }
 
 [data-theme='midnight'] {
@@ -113,6 +151,18 @@
   --tab-inactive-bg: #060a18;
   --splitter-idle: #1e2a4e;
   --splitter-hover: #2e3a5e;
+  --branch-icon: #818cf8;
+  --worktree-icon: #c084fc;
+  --git-ahead: #4ade80;
+  --git-behind: #f87171;
+  --destructive: #ef4444;
+  --agent-running: #f59e0b;
+  --agent-waiting: #ef4444;
+  --agent-idle: #4ade80;
+  --agent-running-pulse: #d97706;
+  --agent-waiting-glow: rgba(239, 68, 68, 0.15);
+  --agent-waiting-border: rgba(239, 68, 68, 0.4);
+  --agent-waiting-inset: rgba(239, 68, 68, 0.06);
 }
 
 [data-theme='void'] {
@@ -129,6 +179,18 @@
   --tab-inactive-bg: #050508;
   --splitter-idle: #222228;
   --splitter-hover: #333338;
+  --branch-icon: #c084fc;
+  --worktree-icon: #c084fc;
+  --git-ahead: #4ade80;
+  --git-behind: #f87171;
+  --destructive: #ef4444;
+  --agent-running: #f59e0b;
+  --agent-waiting: #ef4444;
+  --agent-idle: #4ade80;
+  --agent-running-pulse: #d97706;
+  --agent-waiting-glow: rgba(239, 68, 68, 0.15);
+  --agent-waiting-border: rgba(239, 68, 68, 0.4);
+  --agent-waiting-inset: rgba(239, 68, 68, 0.06);
 }
 
 [data-theme='smoke'] {
@@ -145,6 +207,18 @@
   --tab-inactive-bg: #100e0c;
   --splitter-idle: #3c3632;
   --splitter-hover: #4c4642;
+  --branch-icon: #fbbf24;
+  --worktree-icon: #c084fc;
+  --git-ahead: #4ade80;
+  --git-behind: #f87171;
+  --destructive: #ef4444;
+  --agent-running: #f59e0b;
+  --agent-waiting: #ef4444;
+  --agent-idle: #4ade80;
+  --agent-running-pulse: #d97706;
+  --agent-waiting-glow: rgba(239, 68, 68, 0.15);
+  --agent-waiting-border: rgba(239, 68, 68, 0.4);
+  --agent-waiting-inset: rgba(239, 68, 68, 0.06);
 }
 
 [data-theme='ash'] {
@@ -161,6 +235,18 @@
   --tab-inactive-bg: #0a0e0c;
   --splitter-idle: #2e3836;
   --splitter-hover: #3e4846;
+  --branch-icon: #34d399;
+  --worktree-icon: #c084fc;
+  --git-ahead: #4ade80;
+  --git-behind: #f87171;
+  --destructive: #ef4444;
+  --agent-running: #f59e0b;
+  --agent-waiting: #ef4444;
+  --agent-idle: #4ade80;
+  --agent-running-pulse: #d97706;
+  --agent-waiting-glow: rgba(239, 68, 68, 0.15);
+  --agent-waiting-border: rgba(239, 68, 68, 0.4);
+  --agent-waiting-inset: rgba(239, 68, 68, 0.06);
 }
 
 html,

@@ -175,7 +175,14 @@ cd apps/desktop && bun tauri build
 <!-- GSD:conventions-start source:CONVENTIONS.md -->
 ## Conventions
 
-Conventions not yet established. Will populate as patterns emerge during development.
+### Frontend Styling
+
+See [`apps/desktop/FRONTEND.md`](apps/desktop/FRONTEND.md) for full details.
+
+- **Tailwind-first**: utility classes by default, inline `style={{}}` only for truly dynamic runtime values
+- **`tv()` for variants**: use `tailwind-variants` for all conditional class logic — no manual template literal ternaries
+- **React ARIA data-attributes**: use `data-[selected]:`, `data-[focused]:`, etc. via the `tailwindcss-react-aria-components` plugin — no render-prop `className` functions
+- **CSS custom properties**: theming tokens only, defined in `@theme {}` block — use Tailwind classes (`bg-bg-primary`) not `var(--bg-primary)` in styles
 <!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->

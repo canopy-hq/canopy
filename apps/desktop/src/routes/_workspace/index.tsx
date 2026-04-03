@@ -10,8 +10,7 @@ function IndexRoute() {
         Import a git repository and select a branch or worktree to start working.
       </span>
       <button
-        className="mt-2 h-8 cursor-pointer bg-bg-tertiary px-4 text-text-muted hover:text-[var(--accent)]"
-        style={{ fontSize: '13px', borderRadius: '4px' }}
+        className="mt-2 h-8 cursor-pointer rounded bg-bg-tertiary px-4 text-[13px] text-text-muted hover:text-accent"
         onClick={() => toggleSidebar()}
       >
         Open Sidebar (⌘B)

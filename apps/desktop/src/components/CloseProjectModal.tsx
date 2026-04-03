@@ -32,13 +32,13 @@ export function CloseProjectModal({
       onKeyDown={handleKeyDown}
       role="presentation"
     >
-      <div className="w-[480px] rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-6">
+      <div className="w-[480px] rounded-lg border border-border bg-bg-secondary p-6">
         <Dialog className="outline-none" aria-label="Close Project">
-          <Heading slot="title" className="text-[16px] font-semibold text-[var(--text-primary)]">
+          <Heading slot="title" className="text-[16px] font-semibold text-text-primary">
             Close Project &ldquo;{projectName}&rdquo;
           </Heading>
 
-          <p className="mt-3 text-[13px] leading-relaxed text-[var(--text-muted)]">
+          <p className="mt-3 text-[13px] leading-relaxed text-text-muted">
             This will close all workspaces inside this project and kill all active terminals. Your
             files and git history will remain on disk.
           </p>
@@ -46,13 +46,13 @@ export function CloseProjectModal({
           <div className="mt-6 flex justify-end gap-2">
             <button
               onClick={onClose}
-              className="h-8 cursor-pointer rounded-lg bg-[var(--bg-tertiary)] px-4 text-[13px] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              className="h-8 cursor-pointer rounded-lg bg-bg-tertiary px-4 text-[13px] text-text-muted hover:text-text-primary"
             >
               Cancel
             </button>
             <button
               onClick={onConfirm}
-              className="h-8 cursor-pointer rounded-lg bg-[var(--destructive)] px-4 text-[13px] font-medium text-white hover:opacity-90"
+              className="h-8 cursor-pointer rounded-lg bg-destructive px-4 text-[13px] font-medium text-white hover:opacity-90"
             >
               Close Project
             </button>

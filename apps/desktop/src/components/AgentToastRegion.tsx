@@ -44,67 +44,33 @@ export function AgentToastRegion() {
   return (
     <ToastRegion
       queue={agentToastQueue}
-      style={{
-        position: 'fixed',
-        bottom: '24px',
-        right: '24px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
-        zIndex: 100,
-        width: '320px',
-      }}
+      className="fixed bottom-6 right-6 z-100 flex w-80 flex-col gap-2"
     >
       {({ toast }) => (
         <Toast
           toast={toast}
-          style={{
-            backgroundColor: 'var(--bg-tertiary)',
-            border: '1px solid var(--border)',
-            borderRadius: '8px',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
-            padding: '16px',
-            fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-          }}
+          className="rounded-lg border border-border bg-bg-tertiary p-4 font-mono shadow-[0_4px_16px_rgba(0,0,0,0.4)]"
         >
           <ToastContentSlot>
             {/* Row 1: StatusDot + Agent name + workspace/branch + close */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="flex items-center gap-2">
               <StatusDot
                 status={toast.content.type === 'agent-waiting' ? 'waiting' : 'idle'}
                 size={8}
               />
               <Text
                 slot="title"
-                style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}
+                className="text-[13px] font-semibold text-text-primary"
               >
                 {toast.content.agentName}
               </Text>
-              <span
-                style={{
-                  flex: 1,
-                  fontSize: '11px',
-                  color: 'var(--text-muted)',
-                  textAlign: 'right',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
+              <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-right text-[11px] text-text-muted">
                 {toast.content.workspace}/{toast.content.branch}
               </span>
               <Button
                 slot="close"
                 aria-label="Close notification"
-                style={{
-                  fontSize: '10px',
-                  color: 'var(--text-muted)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: '0 2px',
-                  lineHeight: 1,
-                }}
+                className="cursor-pointer bg-transparent p-[0_2px] text-[10px] leading-none text-text-muted outline-none"
               >
                 x
               </Button>
@@ -113,57 +79,23 @@ export function AgentToastRegion() {
             {/* Row 2: Event description */}
             <Text
               slot="description"
-              style={{
-                display: 'block',
-                fontSize: '11px',
-                color: 'var(--text-muted)',
-                marginTop: '4px',
-              }}
+              className="mt-1 block text-[11px] text-text-muted"
             >
               {eventDescription(toast.content.type)}
             </Text>
 
             {/* Row 3: Actions */}
-            <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+            <div className="mt-2 flex gap-3">
               <button
                 onClick={() => handleJump(toast.content.ptyId, () => toast.onClose?.())}
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  color: 'var(--accent)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: 0,
-                  textDecoration: 'none',
-                }}
-                onMouseEnter={(e) => {
-                  (e.target as HTMLButtonElement).style.textDecoration = 'underline';
-                }}
-                onMouseLeave={(e) => {
-                  (e.target as HTMLButtonElement).style.textDecoration = 'none';
-                }}
+                className="cursor-pointer border-none bg-transparent p-0 text-[11px] font-semibold text-accent hover:underline"
               >
                 Jump to pane
               </button>
               <button
                 aria-label="Dismiss"
                 onClick={() => toast.onClose?.()}
-                style={{
-                  fontSize: '11px',
-                  color: 'var(--text-muted)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: 0,
-                  textDecoration: 'none',
-                }}
-                onMouseEnter={(e) => {
-                  (e.target as HTMLButtonElement).style.textDecoration = 'underline';
-                }}
-                onMouseLeave={(e) => {
-                  (e.target as HTMLButtonElement).style.textDecoration = 'none';
-                }}
+                className="cursor-pointer border-none bg-transparent p-0 text-[11px] text-text-muted hover:underline"
               >
                 Dismiss
               </button>

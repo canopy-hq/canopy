@@ -1,3 +1,5 @@
+import { tv } from 'tailwind-variants';
+
 import { StatusDot } from './StatusDot';
 
 import type { DotStatus } from './StatusDot';
@@ -11,6 +13,17 @@ import type { DotStatus } from './StatusDot';
  * When an agent is running or waiting, shows a StatusDot and agent name
  * before the CWD text.
  */
+
+const wrapper = tv({
+  base: 'absolute top-0 right-0 z-10 rounded-bl-[6px] px-4 py-1 font-mono text-[12px] leading-none pointer-events-none flex items-center gap-1 backdrop-blur-[4px]',
+  variants: {
+    focused: {
+      true: 'text-text-primary',
+      false: 'text-text-muted',
+    },
+  },
+});
+
 export function PaneHeader({
   cwd,
   isFocused,
@@ -28,32 +41,14 @@ export function PaneHeader({
 
   return (
     <div
-      style={{
-        position: 'absolute',
-        top: 0,
-        right: 0,
-        zIndex: 10,
-        background: 'color-mix(in srgb, var(--bg-tertiary) 85%, transparent)',
-        backdropFilter: 'blur(4px)',
-        borderRadius: '0 0 0 6px',
-        padding: '4px 16px',
-        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-        fontSize: '12px',
-        lineHeight: 1,
-        color: isFocused ? 'var(--text-primary)' : 'var(--text-muted)',
-        pointerEvents: 'none',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '4px',
-      }}
+      className={wrapper({ focused: isFocused })}
+      style={{ background: 'color-mix(in srgb, var(--bg-tertiary) 85%, transparent)' }}
     >
       {showAgent && <StatusDot status={agentStatus} size={8} />}
       {showAgent && agentName && (
         <>
-          <span style={{ fontSize: '11px', color: 'var(--text-primary)' }}>{agentName}</span>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)', opacity: 0.4 }}>
-            &middot;
-          </span>
+          <span className="text-[11px] text-text-primary">{agentName}</span>
+          <span className="text-[11px] text-text-muted opacity-40">&middot;</span>
         </>
       )}
       {displayPath}

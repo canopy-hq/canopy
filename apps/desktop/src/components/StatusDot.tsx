@@ -1,24 +1,23 @@
-export type DotStatus = 'running' | 'waiting' | 'idle';
+import { tv, type VariantProps } from 'tailwind-variants';
 
-const STATUS_CONFIG: Record<DotStatus, { color: string; animation: string }> = {
-  running: {
-    color: 'var(--agent-running)',
-    animation: 'animate-[pulse-slow_2s_ease-in-out_infinite]',
+const statusDot = tv({
+  base: 'inline-block shrink-0 rounded-full',
+  variants: {
+    status: {
+      running: 'bg-(--agent-running) animate-[pulse-slow_2s_ease-in-out_infinite]',
+      waiting: 'bg-(--agent-waiting) animate-[breathe_2.5s_ease-in-out_infinite]',
+      idle: 'bg-(--agent-idle)',
+    },
   },
-  waiting: {
-    color: 'var(--agent-waiting)',
-    animation: 'animate-[breathe_2.5s_ease-in-out_infinite]',
-  },
-  idle: { color: 'var(--agent-idle)', animation: '' },
-};
+});
+
+export type DotStatus = NonNullable<VariantProps<typeof statusDot>['status']>;
 
 export function StatusDot({ status, size = 8 }: { status: DotStatus; size?: number }) {
-  const config = STATUS_CONFIG[status];
-
   return (
     <span
-      className={`inline-block rounded-full ${config.animation}`}
-      style={{ width: size, height: size, backgroundColor: config.color, flexShrink: 0 }}
+      className={statusDot({ status })}
+      style={{ width: size, height: size }}
       role="img"
       aria-label={`Agent ${status}`}
     />
