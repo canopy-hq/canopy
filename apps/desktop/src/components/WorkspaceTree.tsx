@@ -1,35 +1,35 @@
-import { useState, useRef, useEffect } from "react";
-import { Button, Tree, TreeItem, TreeItemContent } from "react-aria-components";
-import type { Selection, Key } from "react-aria-components";
-import { createPortal } from "react-dom";
+import { useState, useRef, useEffect } from 'react';
+import { Button, Tree, TreeItem, TreeItemContent } from 'react-aria-components';
+import type { Selection, Key } from 'react-aria-components';
+import { createPortal } from 'react-dom';
 
-import { useWorkspaces, useAgents, useTabs, useUiState } from "../hooks/useCollections";
-import { collectLeafPtyIds } from "../lib/pane-tree-ops";
+import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useCollections';
+import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import {
   toggleExpanded,
   selectWorkspaceItem,
   closeProject,
   getWorkspaceItemIds,
-} from "../lib/workspace-actions";
-import { CloseProjectModal } from "./CloseProjectModal";
-import { CreateModal } from "./CreateModal";
-import { StatusDot } from "./StatusDot";
+} from '../lib/workspace-actions';
+import { CloseProjectModal } from './CloseProjectModal';
+import { CreateModal } from './CreateModal';
+import { StatusDot } from './StatusDot';
 
-import type { BranchInfo, WorktreeInfo } from "../lib/git";
-import type { DotStatus } from "./StatusDot";
-import type { Workspace } from "@superagent/db";
+import type { BranchInfo, WorktreeInfo } from '../lib/git';
+import type { DotStatus } from './StatusDot';
+import type { Workspace } from '@superagent/db';
 
 function BranchRow({ branch, agentStatus }: { branch: BranchInfo; agentStatus?: DotStatus }) {
   return (
     <div className="flex h-7 items-center gap-1 pr-2 pl-4">
-      <span style={{ color: "var(--branch-icon)" }}>&#x2387;</span>
-      <span className="flex-1 truncate text-text-primary" style={{ fontSize: "13px" }}>
+      <span style={{ color: 'var(--branch-icon)' }}>&#x2387;</span>
+      <span className="flex-1 truncate text-text-primary" style={{ fontSize: '13px' }}>
         {branch.name}
       </span>
-      {agentStatus && agentStatus !== "idle" && <StatusDot status={agentStatus} size={8} />}
-      <span className="flex gap-1" style={{ fontSize: "11px" }}>
-        {branch.ahead > 0 && <span style={{ color: "var(--git-ahead)" }}>+{branch.ahead}</span>}
-        {branch.behind > 0 && <span style={{ color: "var(--git-behind)" }}>-{branch.behind}</span>}
+      {agentStatus && agentStatus !== 'idle' && <StatusDot status={agentStatus} size={8} />}
+      <span className="flex gap-1" style={{ fontSize: '11px' }}>
+        {branch.ahead > 0 && <span style={{ color: 'var(--git-ahead)' }}>+{branch.ahead}</span>}
+        {branch.behind > 0 && <span style={{ color: 'var(--git-behind)' }}>-{branch.behind}</span>}
       </span>
     </div>
   );
@@ -44,11 +44,11 @@ function WorktreeRow({
 }) {
   return (
     <div className="flex h-7 items-center gap-1 pr-2 pl-4">
-      <span style={{ color: "var(--worktree-icon)" }}>&#x25C6;</span>
-      <span className="flex-1 truncate text-text-primary" style={{ fontSize: "13px" }}>
+      <span style={{ color: 'var(--worktree-icon)' }}>&#x25C6;</span>
+      <span className="flex-1 truncate text-text-primary" style={{ fontSize: '13px' }}>
         {worktree.name}
       </span>
-      {agentStatus && agentStatus !== "idle" && <StatusDot status={agentStatus} size={8} />}
+      {agentStatus && agentStatus !== 'idle' && <StatusDot status={agentStatus} size={8} />}
     </div>
   );
 }
@@ -58,7 +58,7 @@ function RepoHeader({
   agentSummary,
 }: {
   workspace: Workspace;
-  agentSummary?: Array<"running" | "waiting">;
+  agentSummary?: Array<'running' | 'waiting'>;
 }) {
   const headBranch = workspace.branches.find((b) => b.is_head);
   return (
@@ -67,20 +67,20 @@ function RepoHeader({
         <Button
           slot="chevron"
           className="cursor-pointer border-none bg-transparent p-0 text-text-muted outline-none"
-          style={{ fontSize: "11px", width: "12px", textAlign: "center" }}
+          style={{ fontSize: '11px', width: '12px', textAlign: 'center' }}
         >
-          {workspace.expanded ? "\u25BE" : "\u25B8"}
+          {workspace.expanded ? '\u25BE' : '\u25B8'}
         </Button>
-        <span className="truncate font-semibold text-text-primary" style={{ fontSize: "13px" }}>
+        <span className="truncate font-semibold text-text-primary" style={{ fontSize: '13px' }}>
           {workspace.name}
         </span>
         {!workspace.expanded && agentSummary && agentSummary.length > 0 && (
-          <span className="flex items-center" style={{ gap: "4px", marginLeft: "4px" }}>
+          <span className="flex items-center" style={{ gap: '4px', marginLeft: '4px' }}>
             {agentSummary.slice(0, 3).map((status, i) => (
               <StatusDot key={i} status={status} size={6} />
             ))}
             {agentSummary.length > 3 && (
-              <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
                 +{agentSummary.length - 3}
               </span>
             )}
@@ -90,7 +90,7 @@ function RepoHeader({
       {headBranch && (
         <span
           className="truncate pl-5 text-text-muted"
-          style={{ fontSize: "11px", lineHeight: "1.3" }}
+          style={{ fontSize: '11px', lineHeight: '1.3' }}
         >
           {headBranch.name}
         </span>
@@ -110,17 +110,17 @@ function useWorkspaceAgentMap(): Record<string, DotStatus> {
   const result: Record<string, DotStatus> = {};
   for (const tab of tabs) {
     const ptyIds = collectLeafPtyIds(tab.paneRoot);
-    let best: DotStatus = "idle";
+    let best: DotStatus = 'idle';
     for (const id of ptyIds) {
       const agent = agents.find((a) => a.ptyId === id);
-      if (agent?.status === "waiting") {
-        best = "waiting";
+      if (agent?.status === 'waiting') {
+        best = 'waiting';
         break;
       }
-      if (agent?.status === "running") best = "running";
+      if (agent?.status === 'running') best = 'running';
     }
     const existing = result[tab.workspaceItemId];
-    if (best === "waiting" || (best === "running" && existing !== "waiting")) {
+    if (best === 'waiting' || (best === 'running' && existing !== 'waiting')) {
       result[tab.workspaceItemId] = best;
     } else if (!existing) {
       result[tab.workspaceItemId] = best;
@@ -133,19 +133,19 @@ function useWorkspaceAgentMap(): Record<string, DotStatus> {
  * Build summary dots for a collapsed repo: collect all non-idle agent statuses
  * from workspace items that belong to this workspace, sorted waiting-first.
  */
-function useRepoAgentSummary(ws: Workspace): Array<"running" | "waiting"> {
+function useRepoAgentSummary(ws: Workspace): Array<'running' | 'waiting'> {
   const agents = useAgents();
   const tabs = useTabs();
 
   const itemIds = getWorkspaceItemIds(ws);
 
-  const statuses: Array<"running" | "waiting"> = [];
+  const statuses: Array<'running' | 'waiting'> = [];
   for (const tab of tabs) {
     if (!itemIds.has(tab.workspaceItemId)) continue;
     const ptyIds = collectLeafPtyIds(tab.paneRoot);
     for (const id of ptyIds) {
       const agent = agents.find((a) => a.ptyId === id);
-      if (agent?.status === "running" || agent?.status === "waiting") {
+      if (agent?.status === 'running' || agent?.status === 'waiting') {
         statuses.push(agent.status);
       }
     }
@@ -153,8 +153,8 @@ function useRepoAgentSummary(ws: Workspace): Array<"running" | "waiting"> {
 
   // Sort: waiting first, then running
   statuses.sort((a, b) => {
-    if (a === "waiting" && b !== "waiting") return -1;
-    if (a !== "waiting" && b === "waiting") return 1;
+    if (a === 'waiting' && b !== 'waiting') return -1;
+    if (a !== 'waiting' && b === 'waiting') return 1;
     return 0;
   });
 
@@ -175,18 +175,18 @@ export function WorkspaceTree() {
   function findItemLabel(itemId: string): string {
     for (const ws of workspaces) {
       if (itemId === ws.id) return ws.name;
-      if (itemId.startsWith(ws.id + "-branch-")) {
-        return itemId.slice((ws.id + "-branch-").length);
+      if (itemId.startsWith(ws.id + '-branch-')) {
+        return itemId.slice((ws.id + '-branch-').length);
       }
-      if (itemId.startsWith(ws.id + "-wt-")) {
-        return itemId.slice((ws.id + "-wt-").length);
+      if (itemId.startsWith(ws.id + '-wt-')) {
+        return itemId.slice((ws.id + '-wt-').length);
       }
     }
-    return "Terminal";
+    return 'Terminal';
   }
 
   function handleSelectionChange(keys: Selection) {
-    if (keys === "all") return;
+    if (keys === 'all') return;
     const selected = [...keys][0];
     if (!selected) {
       selectWorkspaceItem(null);
@@ -275,7 +275,7 @@ function ContextMenu({
         onClose();
       }}
       onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
+        if (e.key === 'Escape') onClose();
       }}
       role="presentation"
     >
@@ -331,7 +331,7 @@ function RepoTreeItem({
         textValue={ws.name}
         hasChildItems={ws.branches.length > 0 || ws.worktrees.length > 0}
         className={({ isSelected }) =>
-          `cursor-pointer outline-none ${isSelected ? "border-l-2 border-l-[var(--accent)] bg-bg-tertiary" : "hover:bg-bg-tertiary"}`
+          `cursor-pointer outline-none ${isSelected ? 'border-l-2 border-l-[var(--accent)] bg-bg-tertiary' : 'hover:bg-bg-tertiary'}`
         }
       >
         <TreeItemContent>
@@ -345,7 +345,7 @@ function RepoTreeItem({
             id={`${ws.id}-branch-${b.name}`}
             textValue={b.name}
             className={({ isSelected }) =>
-              `cursor-pointer outline-none ${isSelected ? "border-l-2 border-l-[var(--accent)] bg-bg-tertiary" : "hover:bg-bg-tertiary"}`
+              `cursor-pointer outline-none ${isSelected ? 'border-l-2 border-l-[var(--accent)] bg-bg-tertiary' : 'hover:bg-bg-tertiary'}`
             }
           >
             <TreeItemContent>
@@ -359,7 +359,7 @@ function RepoTreeItem({
             id={`${ws.id}-wt-${wt.name}`}
             textValue={wt.name}
             className={({ isSelected }) =>
-              `cursor-pointer outline-none ${isSelected ? "border-l-2 border-l-[var(--accent)] bg-bg-tertiary" : "hover:bg-bg-tertiary"}`
+              `cursor-pointer outline-none ${isSelected ? 'border-l-2 border-l-[var(--accent)] bg-bg-tertiary' : 'hover:bg-bg-tertiary'}`
             }
           >
             <TreeItemContent>
@@ -377,7 +377,7 @@ function RepoTreeItem({
             <div className="flex h-7 items-center pl-4">
               <button
                 className="cursor-pointer text-text-muted hover:text-[var(--accent)]"
-                style={{ fontSize: "13px" }}
+                style={{ fontSize: '13px' }}
                 onClick={(e) => {
                   e.stopPropagation();
                   setModalWorkspace(ws);

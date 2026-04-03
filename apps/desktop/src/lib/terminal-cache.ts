@@ -1,4 +1,4 @@
-import { Terminal, FitAddon } from "ghostty-web";
+import { Terminal, FitAddon } from 'ghostty-web';
 
 export interface CachedEntry {
   term: Terminal;

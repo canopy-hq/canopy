@@ -27,16 +27,16 @@ export interface Workspace {
 
 // ── Tab / Pane ───────────────────────────────────────────────────────────────
 
-export type SplitDirection = "horizontal" | "vertical";
+export type SplitDirection = 'horizontal' | 'vertical';
 
 export interface LeafNode {
-  type: "leaf";
+  type: 'leaf';
   id: string;
   ptyId: number;
 }
 
 export interface BranchNode {
-  type: "branch";
+  type: 'branch';
   id: string;
   direction: SplitDirection;
   ratios: number[];

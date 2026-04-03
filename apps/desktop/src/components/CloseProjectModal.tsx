@@ -1,5 +1,5 @@
-import { useCallback } from "react";
-import { Dialog, Heading } from "react-aria-components";
+import { useCallback } from 'react';
+import { Dialog, Heading } from 'react-aria-components';
 
 export interface CloseProjectModalProps {
   isOpen: boolean;
@@ -16,7 +16,7 @@ export function CloseProjectModal({
 }: CloseProjectModalProps) {
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === 'Escape') onClose();
     },
     [onClose],
   );

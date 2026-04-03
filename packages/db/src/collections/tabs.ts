@@ -1,15 +1,15 @@
-import { createCollection, localOnlyCollectionOptions } from "@tanstack/db";
-import { asc, eq } from "drizzle-orm";
+import { createCollection, localOnlyCollectionOptions } from '@tanstack/db';
+import { asc, eq } from 'drizzle-orm';
 
-import { getDb } from "../client";
-import { tabs as table } from "../schema";
+import { getDb } from '../client';
+import { tabs as table } from '../schema';
 
-import type { Tab, PaneNode } from "../types";
+import type { Tab, PaneNode } from '../types';
 
 function deserialize(row: typeof table.$inferSelect): Tab {
   return {
     ...row,
-    paneRoot: JSON.parse(row.paneRoot) as Tab["paneRoot"],
+    paneRoot: JSON.parse(row.paneRoot) as Tab['paneRoot'],
     focusedPaneId: row.focusedPaneId ?? null,
   };
 }
@@ -61,7 +61,7 @@ export function getTabCollection() {
 }
 
 function resetPtyIds(node: PaneNode): PaneNode {
-  if (node.type === "leaf") return { ...node, ptyId: -1 };
+  if (node.type === 'leaf') return { ...node, ptyId: -1 };
   return { ...node, children: node.children.map(resetPtyIds) };
 }
 

@@ -1,4 +1,1 @@
-{
-  "extends": "@superagent/tsconfig/node",
-  "include": ["vite.config.ts", "vitest.config.ts"]
-}
+{ "extends": "@superagent/tsconfig/node", "include": ["vite.config.ts", "vitest.config.ts"] }

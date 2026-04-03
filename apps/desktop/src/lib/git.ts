@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from '@tauri-apps/api/core';
 
 export interface BranchInfo {
   name: string;
@@ -20,19 +20,19 @@ export interface RepoInfo {
 }
 
 export function importRepo(path: string): Promise<RepoInfo> {
-  return invoke<RepoInfo>("import_repo", { path });
+  return invoke<RepoInfo>('import_repo', { path });
 }
 
 export function listBranches(repoPath: string): Promise<BranchInfo[]> {
-  return invoke<BranchInfo[]>("list_branches", { repoPath });
+  return invoke<BranchInfo[]>('list_branches', { repoPath });
 }
 
 export function createBranch(repoPath: string, name: string, base: string): Promise<BranchInfo> {
-  return invoke<BranchInfo>("create_branch", { repoPath, name, base });
+  return invoke<BranchInfo>('create_branch', { repoPath, name, base });
 }
 
 export function deleteBranch(repoPath: string, name: string): Promise<void> {
-  return invoke<void>("delete_branch", { repoPath, name });
+  return invoke<void>('delete_branch', { repoPath, name });
 }
 
 export function createWorktree(
@@ -41,7 +41,7 @@ export function createWorktree(
   path: string,
   baseBranch?: string,
 ): Promise<WorktreeInfo> {
-  return invoke<WorktreeInfo>("create_worktree", {
+  return invoke<WorktreeInfo>('create_worktree', {
     repoPath,
     name,
     path,
@@ -50,5 +50,5 @@ export function createWorktree(
 }
 
 export function removeWorktree(repoPath: string, name: string): Promise<void> {
-  return invoke<void>("remove_worktree", { repoPath, name });
+  return invoke<void>('remove_worktree', { repoPath, name });
 }

@@ -4,9 +4,9 @@ import {
   UNSTABLE_ToastContent as ToastContent,
   Text,
   Button,
-} from "react-aria-components";
+} from 'react-aria-components';
 
-import { toastQueue } from "../lib/toast";
+import { toastQueue } from '../lib/toast';
 
 export function ErrorToastRegion() {
   return (
@@ -15,7 +15,7 @@ export function ErrorToastRegion() {
         <Toast
           toast={toast}
           className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-bg-tertiary px-4 py-3 shadow-lg shadow-red-500/10"
-          style={{ minWidth: "320px", maxWidth: "420px" }}
+          style={{ minWidth: '320px', maxWidth: '420px' }}
         >
           <ToastContent className="flex-1">
             <Text slot="title" className="block text-sm font-medium text-red-400">

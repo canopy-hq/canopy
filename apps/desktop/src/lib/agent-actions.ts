@@ -1,15 +1,15 @@
-import { agentCollection } from "@superagent/db";
+import { agentCollection } from '@superagent/db';
 
 interface AgentStatusEvent {
   ptyId: number;
-  status: "running" | "waiting" | "idle";
+  status: 'running' | 'waiting' | 'idle';
   agentName: string;
   pid: number;
 }
 
 export function setAgent(
   ptyId: number,
-  info: Omit<AgentStatusEvent, "ptyId"> & { ptyId: number },
+  info: Omit<AgentStatusEvent, 'ptyId'> & { ptyId: number },
 ): void {
   const existing = agentCollection.toArray.find((a) => a.ptyId === ptyId);
   if (existing) {
@@ -46,8 +46,8 @@ export function toggleManualOverride(ptyId: number): void {
   } else {
     agentCollection.insert({
       ptyId,
-      status: "running",
-      agentName: "manual",
+      status: 'running',
+      agentName: 'manual',
       pid: 0,
       startedAt: Date.now(),
       manualOverride: true,
@@ -56,11 +56,11 @@ export function toggleManualOverride(ptyId: number): void {
 }
 
 export async function initAgentListener(): Promise<() => void> {
-  const { listen } = await import("@tauri-apps/api/event");
+  const { listen } = await import('@tauri-apps/api/event');
 
-  const unlisten = await listen<AgentStatusEvent>("agent-status-changed", (event) => {
+  const unlisten = await listen<AgentStatusEvent>('agent-status-changed', (event) => {
     const { ptyId, status, agentName, pid } = event.payload;
-    if (status === "idle") {
+    if (status === 'idle') {
       removeAgent(ptyId);
     } else {
       setAgent(ptyId, { ptyId, status, agentName, pid });

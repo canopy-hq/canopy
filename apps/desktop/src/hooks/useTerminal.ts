@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 
-import { getSettingCollection, getSetting } from "@superagent/db";
-import { Terminal, FitAddon } from "ghostty-web";
+import { getSettingCollection, getSetting } from '@superagent/db';
+import { Terminal, FitAddon } from 'ghostty-web';
 
-import { ensureGhosttyInit } from "../lib/ghostty-init";
-import { writeToPty, resizePty, connectPtyOutput } from "../lib/pty";
-import { getCached, setCached } from "../lib/terminal-cache";
-import { terminalThemes, type ThemeName } from "../lib/themes";
+import { ensureGhosttyInit } from '../lib/ghostty-init';
+import { writeToPty, resizePty, connectPtyOutput } from '../lib/pty';
+import { getCached, setCached } from '../lib/terminal-cache';
+import { terminalThemes, type ThemeName } from '../lib/themes';
 
 /**
  * Hook to manage a ghostty-web terminal instance connected to an existing PTY.
@@ -39,7 +39,7 @@ export function useTerminal(
     const container = containerRef.current;
     if (!container) return;
 
-    const theme = getSetting(getSettingCollection().toArray, "theme", "obsidian") as ThemeName;
+    const theme = getSetting(getSettingCollection().toArray, 'theme', 'obsidian') as ThemeName;
     const cached = getCached(ptyId);
     let term: Terminal;
     let fitAddon: FitAddon;
@@ -68,8 +68,8 @@ export function useTerminal(
       term.open(container);
 
       if (term.element) {
-        term.element.style.padding = "8px 12px";
-        term.element.style.boxSizing = "border-box";
+        term.element.style.padding = '8px 12px';
+        term.element.style.boxSizing = 'border-box';
       }
 
       // macOS press-and-hold fix: when a key is held, macOS triggers composition
@@ -79,11 +79,11 @@ export function useTerminal(
       const termElement = term.element;
       if (termElement) {
         termElement.addEventListener(
-          "keydown",
+          'keydown',
           (e: KeyboardEvent) => {
             // macOS system shortcuts: stop ghostty-web from consuming them,
             // but do NOT preventDefault so the native menu handler fires
-            if (e.metaKey && "qhm,".includes(e.key)) {
+            if (e.metaKey && 'qhm,'.includes(e.key)) {
               e.stopImmediatePropagation();
               return;
             }
@@ -109,17 +109,17 @@ export function useTerminal(
       // ghostty-web: return true = "handled, stop", false = "let terminal handle"
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         if (!e.metaKey) return false;
-        if (e.key === "b") return true; // Sidebar toggle
-        if (e.key === "d" && !e.shiftKey) return true;
-        if (e.key === "D" && e.shiftKey) return true;
-        if (e.key === "w") return true;
-        if (e.altKey && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+        if (e.key === 'b') return true; // Sidebar toggle
+        if (e.key === 'd' && !e.shiftKey) return true;
+        if (e.key === 'D' && e.shiftKey) return true;
+        if (e.key === 'w') return true;
+        if (e.altKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
           return true;
         }
         // Tab shortcuts
-        if (e.key === "t" && !e.shiftKey) return true;
-        if (e.key >= "1" && e.key <= "9") return true;
-        if ((e.key === "[" || e.key === "]") && e.shiftKey) return true;
+        if (e.key === 't' && !e.shiftKey) return true;
+        if (e.key >= '1' && e.key <= '9') return true;
+        if ((e.key === '[' || e.key === ']') && e.shiftKey) return true;
         return false;
       });
 

@@ -1,13 +1,8 @@
-import { invoke, Channel } from "@tauri-apps/api/core";
+import { invoke, Channel } from '@tauri-apps/api/core';
 
 // Global registry: PTY output channels keyed by ptyId (child PID).
 // Allows useTerminal to wire the ghostty-web terminal to the daemon output stream.
-const outputRegistry = new Map<
-  number,
-  {
-    setHandler: (h: (data: Uint8Array) => void) => void;
-  }
->();
+const outputRegistry = new Map<number, { setHandler: (h: (data: Uint8Array) => void) => void }>();
 
 export async function spawnTerminal(paneId: string, cwd?: string): Promise<number> {
   const buffer: Uint8Array[] = [];
@@ -23,7 +18,7 @@ export async function spawnTerminal(paneId: string, cwd?: string): Promise<numbe
     }
   };
 
-  const ptyId = await invoke<number>("spawn_terminal", { paneId, cwd, onOutput: channel });
+  const ptyId = await invoke<number>('spawn_terminal', { paneId, cwd, onOutput: channel });
 
   outputRegistry.set(ptyId, {
     setHandler: (h) => {
@@ -44,18 +39,18 @@ export function connectPtyOutput(ptyId: number, handler: (data: Uint8Array) => v
 
 export async function writeToPty(ptyId: number, data: string): Promise<void> {
   const bytes = Array.from(new TextEncoder().encode(data));
-  return invoke("write_to_pty", { ptyId, data: bytes });
+  return invoke('write_to_pty', { ptyId, data: bytes });
 }
 
 export async function resizePty(ptyId: number, rows: number, cols: number): Promise<void> {
-  return invoke("resize_pty", { ptyId, rows, cols });
+  return invoke('resize_pty', { ptyId, rows, cols });
 }
 
 export async function closePty(ptyId: number): Promise<void> {
   outputRegistry.delete(ptyId);
-  return invoke("close_pty", { ptyId });
+  return invoke('close_pty', { ptyId });
 }
 
 export async function getPtyCwd(ptyId: number): Promise<string> {
-  return invoke<string>("get_pty_cwd", { ptyId });
+  return invoke<string>('get_pty_cwd', { ptyId });
 }

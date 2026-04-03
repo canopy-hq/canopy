@@ -1,8 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback } from 'react';
 
-import { useTabs, useWorkspaces, useAgents, useUiState } from "../hooks/useCollections";
+import { useTabs, useWorkspaces, useAgents, useUiState } from '../hooks/useCollections';
 
-import type { PaneNode } from "../lib/pane-tree-ops";
+import type { PaneNode } from '../lib/pane-tree-ops';
 
 function BranchLabel({ name }: { name: string }) {
   const [copied, setCopied] = useState(false);
@@ -23,14 +23,14 @@ function BranchLabel({ name }: { name: string }) {
       onClick={handleClick}
       title="Click to copy branch name"
     >
-      <span style={{ color: "var(--branch-icon)" }}>&#x2387;</span>
-      <span style={{ opacity: copied ? 0.5 : 1, transition: "opacity 150ms" }}>{name}</span>
+      <span style={{ color: 'var(--branch-icon)' }}>&#x2387;</span>
+      <span style={{ opacity: copied ? 0.5 : 1, transition: 'opacity 150ms' }}>{name}</span>
     </span>
   );
 }
 
 function countLeaves(node: PaneNode): number {
-  if (node.type === "leaf") return 1;
+  if (node.type === 'leaf') return 1;
   return node.children.reduce((sum, child) => sum + countLeaves(child), 0);
 }
 
@@ -40,8 +40,8 @@ export function StatusBar() {
   const workspaces = useWorkspaces();
   const agents = useAgents();
 
-  const runningCount = agents.filter((a) => a.status === "running").length;
-  const waitingCount = agents.filter((a) => a.status === "waiting").length;
+  const runningCount = agents.filter((a) => a.status === 'running').length;
+  const waitingCount = agents.filter((a) => a.status === 'waiting').length;
 
   const activeTab = tabs.find((t) => t.id === ui.activeTabId);
   const paneCount = activeTab ? countLeaves(activeTab.paneRoot) : 0;
@@ -52,12 +52,12 @@ export function StatusBar() {
   return (
     <div
       className="flex h-6 flex-shrink-0 items-center justify-between border-t border-border bg-bg-primary px-3 text-text-muted"
-      style={{ fontSize: "11px", fontFamily: 'Menlo, Monaco, "Courier New", monospace' }}
+      style={{ fontSize: '11px', fontFamily: 'Menlo, Monaco, "Courier New", monospace' }}
     >
       <div className="flex items-center gap-3">
         {activeWorkspace && (
           <>
-            <span className="text-text-primary" style={{ fontSize: "13px" }}>
+            <span className="text-text-primary" style={{ fontSize: '13px' }}>
               {activeWorkspace.name}
             </span>
             {headBranch && <BranchLabel name={headBranch.name} />}
@@ -65,20 +65,20 @@ export function StatusBar() {
           </>
         )}
         <span>
-          {paneCount} {paneCount === 1 ? "pane" : "panes"}
+          {paneCount} {paneCount === 1 ? 'pane' : 'panes'}
         </span>
       </div>
       <div className="flex items-center gap-3">
         {(runningCount > 0 || waitingCount > 0) && (
-          <span className="flex items-center gap-1" style={{ fontSize: "11px" }}>
+          <span className="flex items-center gap-1" style={{ fontSize: '11px' }}>
             {runningCount > 0 && (
-              <span style={{ color: "var(--agent-running)" }}>{runningCount} working</span>
+              <span style={{ color: 'var(--agent-running)' }}>{runningCount} working</span>
             )}
             {runningCount > 0 && waitingCount > 0 && (
-              <span style={{ color: "var(--text-muted)", opacity: 0.6 }}>&middot;</span>
+              <span style={{ color: 'var(--text-muted)', opacity: 0.6 }}>&middot;</span>
             )}
             {waitingCount > 0 && (
-              <span style={{ color: "var(--agent-waiting)" }}>{waitingCount} waiting</span>
+              <span style={{ color: 'var(--agent-waiting)' }}>{waitingCount} waiting</span>
             )}
           </span>
         )}

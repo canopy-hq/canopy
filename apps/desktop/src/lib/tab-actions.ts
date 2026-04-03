@@ -1,4 +1,4 @@
-import { getTabCollection, uiCollection, getUiState, setSetting } from "@superagent/db";
+import { getTabCollection, uiCollection, getUiState, setSetting } from '@superagent/db';
 
 import {
   splitNode,
@@ -8,18 +8,18 @@ import {
   updateRatio as updateRatioFn,
   type PaneId,
   type SplitDirection,
-} from "./pane-tree-ops";
+} from './pane-tree-ops';
 
-import type { Tab } from "@superagent/db";
+import type { Tab } from '@superagent/db';
 
 function makeTab(opts?: { workspaceItemId?: string; label?: string }): Tab {
   const id = crypto.randomUUID();
   const paneId = crypto.randomUUID();
   return {
     id,
-    label: opts?.label ?? "Terminal",
-    workspaceItemId: opts?.workspaceItemId ?? "default",
-    paneRoot: { type: "leaf", id: paneId, ptyId: -1 },
+    label: opts?.label ?? 'Terminal',
+    workspaceItemId: opts?.workspaceItemId ?? 'default',
+    paneRoot: { type: 'leaf', id: paneId, ptyId: -1 },
     focusedPaneId: paneId,
     position: getTabCollection().toArray.length,
   };
@@ -30,10 +30,10 @@ export function addTab(): void {
   if (!ui.activeContextId) return;
   const tab = makeTab({ workspaceItemId: ui.activeContextId });
   getTabCollection().insert(tab);
-  uiCollection.update("ui", (draft) => {
+  uiCollection.update('ui', (draft) => {
     draft.activeTabId = tab.id;
   });
-  setSetting("activeTabId", tab.id);
+  setSetting('activeTabId', tab.id);
 }
 
 export function closeTab(tabId: string): void {
@@ -45,12 +45,12 @@ export function closeTab(tabId: string): void {
 
   if (contextTabs.length === 1) {
     col.delete(tabId);
-    uiCollection.update("ui", (draft) => {
-      draft.activeTabId = "";
+    uiCollection.update('ui', (draft) => {
+      draft.activeTabId = '';
       const { [contextId]: _, ...rest } = draft.contextActiveTabIds;
       draft.contextActiveTabIds = rest;
     });
-    setSetting("activeTabId", "");
+    setSetting('activeTabId', '');
     return;
   }
 
@@ -59,20 +59,20 @@ export function closeTab(tabId: string): void {
   const ui = getUiState();
   if (ui.activeTabId === tabId) {
     const remaining = col.toArray.filter((t) => t.workspaceItemId === contextId);
-    const newTabId = remaining.length > 0 ? remaining[0]!.id : (col.toArray[0]?.id ?? "");
-    uiCollection.update("ui", (draft) => {
+    const newTabId = remaining.length > 0 ? remaining[0]!.id : (col.toArray[0]?.id ?? '');
+    uiCollection.update('ui', (draft) => {
       draft.activeTabId = newTabId;
     });
-    setSetting("activeTabId", newTabId);
+    setSetting('activeTabId', newTabId);
   }
 }
 
 export function switchTab(tabId: string): void {
   if (getTabCollection().toArray.some((t) => t.id === tabId)) {
-    uiCollection.update("ui", (draft) => {
+    uiCollection.update('ui', (draft) => {
       draft.activeTabId = tabId;
     });
-    setSetting("activeTabId", tabId);
+    setSetting('activeTabId', tabId);
   }
 }
 
@@ -83,14 +83,14 @@ export function switchTabByIndex(index: number): void {
   );
   if (index >= 0 && index < contextTabs.length) {
     const tabId = contextTabs[index]!.id;
-    uiCollection.update("ui", (draft) => {
+    uiCollection.update('ui', (draft) => {
       draft.activeTabId = tabId;
     });
-    setSetting("activeTabId", tabId);
+    setSetting('activeTabId', tabId);
   }
 }
 
-export function switchTabRelative(direction: "prev" | "next"): void {
+export function switchTabRelative(direction: 'prev' | 'next'): void {
   const ui = getUiState();
   const contextTabs = getTabCollection().toArray.filter(
     (t) => t.workspaceItemId === ui.activeContextId,
@@ -98,14 +98,14 @@ export function switchTabRelative(direction: "prev" | "next"): void {
   const idx = contextTabs.findIndex((t) => t.id === ui.activeTabId);
   if (idx === -1) return;
   const newIdx =
-    direction === "next"
+    direction === 'next'
       ? (idx + 1) % contextTabs.length
       : (idx - 1 + contextTabs.length) % contextTabs.length;
   const tabId = contextTabs[newIdx]!.id;
-  uiCollection.update("ui", (draft) => {
+  uiCollection.update('ui', (draft) => {
     draft.activeTabId = tabId;
   });
-  setSetting("activeTabId", tabId);
+  setSetting('activeTabId', tabId);
 }
 
 export function setActiveContext(contextId: string): void {
@@ -123,21 +123,21 @@ export function setActiveContext(contextId: string): void {
     const savedTabId = updatedContextActiveTabIds[contextId];
     const savedTab = savedTabId ? contextTabs.find((t) => t.id === savedTabId) : null;
     const newActiveTabId = savedTab ? savedTab.id : contextTabs[0]!.id;
-    uiCollection.update("ui", (draft) => {
+    uiCollection.update('ui', (draft) => {
       draft.contextActiveTabIds = updatedContextActiveTabIds;
       draft.activeContextId = contextId;
       draft.activeTabId = newActiveTabId;
     });
-    setSetting("activeContextId", contextId);
-    setSetting("activeTabId", newActiveTabId);
+    setSetting('activeContextId', contextId);
+    setSetting('activeTabId', newActiveTabId);
   } else {
-    uiCollection.update("ui", (draft) => {
+    uiCollection.update('ui', (draft) => {
       draft.contextActiveTabIds = updatedContextActiveTabIds;
       draft.activeContextId = contextId;
-      draft.activeTabId = "";
+      draft.activeTabId = '';
     });
-    setSetting("activeContextId", contextId);
-    setSetting("activeTabId", "");
+    setSetting('activeContextId', contextId);
+    setSetting('activeTabId', '');
   }
 }
 
@@ -170,7 +170,7 @@ export function closePane(paneId: PaneId): void {
   getTabCollection().update(tab.id, (draft) => {
     if (result === null) {
       const newId = crypto.randomUUID();
-      draft.paneRoot = { type: "leaf", id: newId, ptyId: -1 };
+      draft.paneRoot = { type: 'leaf', id: newId, ptyId: -1 };
       draft.focusedPaneId = newId;
     } else {
       draft.paneRoot = result;
@@ -191,7 +191,7 @@ export function setFocus(paneId: PaneId): void {
   });
 }
 
-export function navigate(direction: "up" | "down" | "left" | "right"): void {
+export function navigate(direction: 'up' | 'down' | 'left' | 'right'): void {
   const ui = getUiState();
   const tab = getTabCollection().toArray.find((t) => t.id === ui.activeTabId);
   if (!tab || !tab.focusedPaneId) return;
@@ -218,8 +218,8 @@ export function setPtyId(paneId: PaneId, ptyId: number): void {
   const tab = getTabCollection().toArray.find((t) => t.id === ui.activeTabId);
   if (!tab) return;
   getTabCollection().update(tab.id, (draft) => {
-    function setInTree(node: Tab["paneRoot"]): void {
-      if (node.type === "leaf") {
+    function setInTree(node: Tab['paneRoot']): void {
+      if (node.type === 'leaf') {
         if (node.id === paneId) node.ptyId = ptyId;
         return;
       }

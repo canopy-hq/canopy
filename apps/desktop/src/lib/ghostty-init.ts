@@ -1,4 +1,4 @@
-import { init } from "ghostty-web";
+import { init } from 'ghostty-web';
 
 let ready: Promise<void> | null = null;
 

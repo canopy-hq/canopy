@@ -1,6 +1,6 @@
-import { StatusDot } from "./StatusDot";
+import { StatusDot } from './StatusDot';
 
-import type { DotStatus } from "./StatusDot";
+import type { DotStatus } from './StatusDot';
 
 /**
  * Floating CWD overlay for a terminal pane.
@@ -22,36 +22,36 @@ export function PaneHeader({
   agentStatus?: DotStatus;
   agentName?: string;
 }) {
-  const displayPath = cwd ? cwd.split("/").filter(Boolean).slice(-2).join("/") : "~";
+  const displayPath = cwd ? cwd.split('/').filter(Boolean).slice(-2).join('/') : '~';
 
-  const showAgent = agentStatus && agentStatus !== "idle";
+  const showAgent = agentStatus && agentStatus !== 'idle';
 
   return (
     <div
       style={{
-        position: "absolute",
+        position: 'absolute',
         top: 0,
         right: 0,
         zIndex: 10,
-        background: "color-mix(in srgb, var(--bg-tertiary) 85%, transparent)",
-        backdropFilter: "blur(4px)",
-        borderRadius: "0 0 0 6px",
-        padding: "4px 16px",
+        background: 'color-mix(in srgb, var(--bg-tertiary) 85%, transparent)',
+        backdropFilter: 'blur(4px)',
+        borderRadius: '0 0 0 6px',
+        padding: '4px 16px',
         fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-        fontSize: "12px",
+        fontSize: '12px',
         lineHeight: 1,
-        color: isFocused ? "var(--text-primary)" : "var(--text-muted)",
-        pointerEvents: "none",
-        display: "flex",
-        alignItems: "center",
-        gap: "4px",
+        color: isFocused ? 'var(--text-primary)' : 'var(--text-muted)',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
       }}
     >
       {showAgent && <StatusDot status={agentStatus} size={8} />}
       {showAgent && agentName && (
         <>
-          <span style={{ fontSize: "11px", color: "var(--text-primary)" }}>{agentName}</span>
-          <span style={{ fontSize: "11px", color: "var(--text-muted)", opacity: 0.4 }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-primary)' }}>{agentName}</span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', opacity: 0.4 }}>
             &middot;
           </span>
         </>

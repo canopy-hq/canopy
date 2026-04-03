@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState } from 'react';
 
-import { useSplitterDrag } from "../hooks/useSplitterDrag";
+import { useSplitterDrag } from '../hooks/useSplitterDrag';
 
-import type { SplitDirection } from "../lib/pane-tree-ops";
+import type { SplitDirection } from '../lib/pane-tree-ops';
 
 interface SplitterProps {
   nodeId: string;
@@ -20,31 +20,31 @@ export function Splitter({ nodeId, splitIndex, direction }: SplitterProps) {
   const { onPointerDown } = useSplitterDrag(nodeId, splitIndex, direction);
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const isHorizontal = direction === "horizontal";
+  const isHorizontal = direction === 'horizontal';
 
   const lineColor = isDragging
-    ? "var(--accent)"
+    ? 'var(--accent)'
     : isHovered
-      ? "var(--splitter-hover)"
-      : "var(--splitter-idle)";
+      ? 'var(--splitter-hover)'
+      : 'var(--splitter-idle)';
 
   return (
     <div
-      className={`flex-shrink-0 ${isHorizontal ? "cursor-col-resize" : "cursor-row-resize"}`}
+      className={`flex-shrink-0 ${isHorizontal ? 'cursor-col-resize' : 'cursor-row-resize'}`}
       style={{
-        width: isHorizontal ? "6px" : "100%",
-        height: isHorizontal ? "100%" : "6px",
-        display: "flex",
-        alignItems: isHorizontal ? "center" : undefined,
-        justifyContent: !isHorizontal ? "center" : undefined,
+        width: isHorizontal ? '6px' : '100%',
+        height: isHorizontal ? '100%' : '6px',
+        display: 'flex',
+        alignItems: isHorizontal ? 'center' : undefined,
+        justifyContent: !isHorizontal ? 'center' : undefined,
       }}
       onPointerDown={(e) => {
         setIsDragging(true);
         const handleUp = () => {
           setIsDragging(false);
-          document.removeEventListener("pointerup", handleUp);
+          document.removeEventListener('pointerup', handleUp);
         };
-        document.addEventListener("pointerup", handleUp);
+        document.addEventListener('pointerup', handleUp);
         onPointerDown(e);
       }}
       onPointerEnter={() => setIsHovered(true)}
@@ -52,10 +52,10 @@ export function Splitter({ nodeId, splitIndex, direction }: SplitterProps) {
     >
       <div
         style={{
-          width: isHorizontal ? "2px" : "100%",
-          height: isHorizontal ? "100%" : "2px",
+          width: isHorizontal ? '2px' : '100%',
+          height: isHorizontal ? '100%' : '2px',
           backgroundColor: lineColor,
-          transition: "background-color 150ms ease",
+          transition: 'background-color 150ms ease',
         }}
       />
     </div>

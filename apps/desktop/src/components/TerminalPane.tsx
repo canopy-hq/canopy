@@ -1,12 +1,12 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect } from 'react';
 
-import { getSettingCollection, getSetting, setSetting } from "@superagent/db";
+import { getSettingCollection, getSetting, setSetting } from '@superagent/db';
 
-import { useTabs, useAgents, useUiState } from "../hooks/useCollections";
-import { useTerminal } from "../hooks/useTerminal";
-import { spawnTerminal, getPtyCwd } from "../lib/pty";
-import { setFocus, setPtyId } from "../lib/tab-actions";
-import { PaneHeader } from "./PaneHeader";
+import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
+import { useTerminal } from '../hooks/useTerminal';
+import { spawnTerminal, getPtyCwd } from '../lib/pty';
+import { setFocus, setPtyId } from '../lib/tab-actions';
+import { PaneHeader } from './PaneHeader';
 
 interface TerminalPaneProps {
   paneId: string;
@@ -26,7 +26,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
   const activeTab = tabs.find((t) => t.id === ui.activeTabId);
   const focusedPaneId = activeTab?.focusedPaneId ?? null;
   const isFocused = focusedPaneId === paneId;
-  const [cwd, setCwd] = useState("");
+  const [cwd, setCwd] = useState('');
   const [realPtyId, setRealPtyId] = useState<number | null>(ptyId > 0 ? ptyId : null);
 
   // Sentinel PTY spawn: if ptyId is -1, spawn / reconnect on mount
@@ -37,7 +37,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
     let cancelled = false;
 
     const settings = getSettingCollection().toArray;
-    const savedCwd = getSetting(settings, `cwd:${paneId}`, "") as string;
+    const savedCwd = getSetting(settings, `cwd:${paneId}`, '') as string;
 
     void spawnTerminal(paneId, savedCwd || undefined).then((id) => {
       if (cancelled) return;
@@ -120,8 +120,8 @@ function TerminalPaneInner({
 
   const agents = useAgents();
   const agent = agents.find((a) => a.ptyId === ptyId);
-  const agentStatus = agent?.status ?? "idle";
-  const isWaiting = agentStatus === "waiting";
+  const agentStatus = agent?.status ?? 'idle';
+  const isWaiting = agentStatus === 'waiting';
 
   return (
     <div
@@ -129,14 +129,14 @@ function TerminalPaneInner({
       data-testid="terminal-pane-wrapper"
       style={{
         border: isWaiting
-          ? "1px solid var(--agent-waiting-border)"
+          ? '1px solid var(--agent-waiting-border)'
           : isFocused
-            ? "1px solid var(--border-focus)"
-            : "1px solid transparent",
+            ? '1px solid var(--border-focus)'
+            : '1px solid transparent',
         boxShadow: isWaiting
-          ? "0 0 12px var(--agent-waiting-glow), inset 0 0 24px var(--agent-waiting-inset)"
-          : "none",
-        transition: "border-color 0.3s ease, box-shadow 0.3s ease",
+          ? '0 0 12px var(--agent-waiting-glow), inset 0 0 24px var(--agent-waiting-inset)'
+          : 'none',
+        transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
       }}
       onPointerDown={() => {
         setFocus(paneId);

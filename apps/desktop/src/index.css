@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   --color-bg-primary: var(--bg-primary);
@@ -22,7 +22,7 @@
 
 /* Default theme: Obsidian (matches previous hardcoded values) */
 :root,
-[data-theme="obsidian"] {
+[data-theme='obsidian'] {
   --bg-primary: #0a0a14;
   --bg-secondary: #12121f;
   --bg-tertiary: #1a1a2e;
@@ -49,7 +49,7 @@
   --agent-waiting-inset: rgba(239, 68, 68, 0.06);
 }
 
-[data-theme="carbon"] {
+[data-theme='carbon'] {
   --bg-primary: #0f0e0c;
   --bg-secondary: #1a1816;
   --bg-tertiary: #252220;
@@ -64,7 +64,7 @@
   --splitter-hover: #4a4540;
 }
 
-[data-theme="graphite"] {
+[data-theme='graphite'] {
   --bg-primary: #0e0e10;
   --bg-secondary: #18181c;
   --bg-tertiary: #222228;
@@ -79,7 +79,7 @@
   --splitter-hover: #444450;
 }
 
-[data-theme="slate"] {
+[data-theme='slate'] {
   --bg-primary: #0c0e14;
   --bg-secondary: #141822;
   --bg-tertiary: #1e2230;
@@ -94,7 +94,7 @@
   --splitter-hover: #3e4458;
 }
 
-[data-theme="midnight"] {
+[data-theme='midnight'] {
   --bg-primary: #060a18;
   --bg-secondary: #0c1228;
   --bg-tertiary: #141c38;
@@ -109,7 +109,7 @@
   --splitter-hover: #2e3a5e;
 }
 
-[data-theme="void"] {
+[data-theme='void'] {
   --bg-primary: #050508;
   --bg-secondary: #0c0c10;
   --bg-tertiary: #141418;
@@ -124,7 +124,7 @@
   --splitter-hover: #333338;
 }
 
-[data-theme="smoke"] {
+[data-theme='smoke'] {
   --bg-primary: #100e0c;
   --bg-secondary: #1c1916;
   --bg-tertiary: #282420;
@@ -139,7 +139,7 @@
   --splitter-hover: #4c4642;
 }
 
-[data-theme="ash"] {
+[data-theme='ash'] {
   --bg-primary: #0a0e0c;
   --bg-secondary: #141a18;
   --bg-tertiary: #1e2624;

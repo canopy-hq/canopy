@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
-import { Dialog, Heading } from "react-aria-components";
+import { useState, useEffect, useCallback } from 'react';
+import { Dialog, Heading } from 'react-aria-components';
 
-import { createBranch, createWorktree } from "../lib/workspace-actions";
+import { createBranch, createWorktree } from '../lib/workspace-actions';
 
-import type { Workspace } from "@superagent/db";
+import type { Workspace } from '@superagent/db';
 
 export interface CreateModalProps {
   isOpen: boolean;
@@ -29,35 +29,35 @@ function TypeCard({
       onClick={onClick}
       className={`flex flex-1 flex-col items-center gap-1 rounded-lg p-4 ${
         selected
-          ? "border-2 border-[var(--accent)] bg-[var(--bg-tertiary)]"
-          : "border border-[var(--border)] bg-[var(--bg-tertiary)] hover:border-[var(--text-muted)]"
+          ? 'border-2 border-[var(--accent)] bg-[var(--bg-tertiary)]'
+          : 'border border-[var(--border)] bg-[var(--bg-tertiary)] hover:border-[var(--text-muted)]'
       }`}
     >
-      <span style={{ color: iconColor, fontSize: "20px" }}>{icon}</span>
+      <span style={{ color: iconColor, fontSize: '20px' }}>{icon}</span>
       <span className="text-[13px] font-semibold text-[var(--text-primary)]">{label}</span>
     </button>
   );
 }
 
 export function CreateModal({ isOpen, onClose, workspace }: CreateModalProps) {
-  const [type, setType] = useState<"branch" | "worktree">("branch");
-  const [name, setName] = useState("");
-  const [baseBranch, setBaseBranch] = useState("");
+  const [type, setType] = useState<'branch' | 'worktree'>('branch');
+  const [name, setName] = useState('');
+  const [baseBranch, setBaseBranch] = useState('');
 
   // Initialize baseBranch to HEAD branch on open
   useEffect(() => {
     if (isOpen) {
       const head = workspace.branches.find((b) => b.is_head);
-      setBaseBranch(head?.name ?? workspace.branches[0]?.name ?? "");
-      setName("");
-      setType("branch");
+      setBaseBranch(head?.name ?? workspace.branches[0]?.name ?? '');
+      setName('');
+      setType('branch');
     }
   }, [isOpen, workspace.branches]);
 
   // Close on Esc
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === 'Escape') onClose();
     },
     [onClose],
   );
@@ -66,7 +66,7 @@ export function CreateModal({ isOpen, onClose, workspace }: CreateModalProps) {
     const trimmedName = name.trim();
     if (!trimmedName) return;
     try {
-      if (type === "branch") {
+      if (type === 'branch') {
         await createBranch(workspace.id, trimmedName, baseBranch);
       } else {
         const wtPath = `~/.superagent/worktrees/${workspace.name}-${trimmedName}`;
@@ -98,16 +98,16 @@ export function CreateModal({ isOpen, onClose, workspace }: CreateModalProps) {
           {/* Type cards */}
           <div className="mt-4 flex gap-2">
             <TypeCard
-              selected={type === "branch"}
-              onClick={() => setType("branch")}
-              icon={"\u2387"}
+              selected={type === 'branch'}
+              onClick={() => setType('branch')}
+              icon={'\u2387'}
               iconColor="var(--branch-icon)"
               label="Branch"
             />
             <TypeCard
-              selected={type === "worktree"}
-              onClick={() => setType("worktree")}
-              icon={"\u25C6"}
+              selected={type === 'worktree'}
+              onClick={() => setType('worktree')}
+              icon={'\u25C6'}
               iconColor="var(--worktree-icon)"
               label="Worktree"
             />
@@ -136,18 +136,18 @@ export function CreateModal({ isOpen, onClose, workspace }: CreateModalProps) {
               {workspace.branches.map((b) => (
                 <option key={b.name} value={b.name}>
                   {b.name}
-                  {b.is_head ? " (HEAD)" : ""}
+                  {b.is_head ? ' (HEAD)' : ''}
                 </option>
               ))}
             </select>
           </label>
 
           {/* Worktree path (only when type=worktree) */}
-          {type === "worktree" && (
+          {type === 'worktree' && (
             <div className="mt-4">
               <span className="text-[13px] text-[var(--text-primary)]">Worktree path</span>
               <div className="mt-1 text-[11px] text-[var(--text-muted)]">
-                ~/.superagent/worktrees/{workspace.name}-{name || "..."}
+                ~/.superagent/worktrees/{workspace.name}-{name || '...'}
               </div>
             </div>
           )}
@@ -158,9 +158,9 @@ export function CreateModal({ isOpen, onClose, workspace }: CreateModalProps) {
               className="text-[11px] text-[var(--text-muted)]"
               style={{ fontFamily: 'Menlo, Monaco, "Courier New", monospace' }}
             >
-              {type === "branch"
-                ? `git branch ${name || "<name>"} ${baseBranch}`
-                : `git worktree add ~/.superagent/worktrees/${workspace.name}-${name || "<name>"} -b ${name || "<name>"}`}
+              {type === 'branch'
+                ? `git branch ${name || '<name>'} ${baseBranch}`
+                : `git worktree add ~/.superagent/worktrees/${workspace.name}-${name || '<name>'} -b ${name || '<name>'}`}
             </code>
           </div>
 
@@ -177,7 +177,7 @@ export function CreateModal({ isOpen, onClose, workspace }: CreateModalProps) {
               disabled={!name.trim()}
               className="h-8 rounded-lg bg-[var(--accent)] px-4 text-[13px] text-white disabled:opacity-50"
             >
-              {type === "branch" ? "Create Branch" : "Create Worktree"}
+              {type === 'branch' ? 'Create Branch' : 'Create Worktree'}
             </button>
           </div>
         </Dialog>

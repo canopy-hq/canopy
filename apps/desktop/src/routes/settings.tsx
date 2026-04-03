@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from '@tanstack/react-router';
 
 function SettingsRoute() {
   return (
@@ -9,6 +9,4 @@ function SettingsRoute() {
   );
 }
 
-export const Route = createFileRoute("/settings")({
-  component: SettingsRoute,
-});
+export const Route = createFileRoute('/settings')({ component: SettingsRoute });

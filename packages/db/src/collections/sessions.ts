@@ -1,10 +1,10 @@
-import { createCollection, localOnlyCollectionOptions } from "@tanstack/db";
-import { eq } from "drizzle-orm";
+import { createCollection, localOnlyCollectionOptions } from '@tanstack/db';
+import { eq } from 'drizzle-orm';
 
-import { getDb } from "../client";
-import { sessions as table } from "../schema";
+import { getDb } from '../client';
+import { sessions as table } from '../schema';
 
-import type { Session } from "../types";
+import type { Session } from '../types';
 
 let _collection!: ReturnType<typeof makeCollection>;
 

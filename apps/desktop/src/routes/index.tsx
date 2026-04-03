@@ -1,15 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from '@tanstack/react-router';
 
-import { PaneContainer } from "../components/PaneContainer";
-import { TabBar } from "../components/TabBar";
-import { useUiState, useTabs } from "../hooks/useCollections";
-import { toggleSidebar } from "../lib/workspace-actions";
+import { PaneContainer } from '../components/PaneContainer';
+import { TabBar } from '../components/TabBar';
+import { useUiState, useTabs } from '../hooks/useCollections';
+import { toggleSidebar } from '../lib/workspace-actions';
 
 function IndexRoute() {
   const ui = useUiState();
   const allTabs = useTabs();
   const activeTab = allTabs.find((t) => t.id === ui.activeTabId);
-  const hasContext = ui.activeContextId !== "";
+  const hasContext = ui.activeContextId !== '';
   const contextTabs = allTabs.filter((t) => t.workspaceItemId === ui.activeContextId);
   const hasTabs = contextTabs.length > 0;
 
@@ -22,7 +22,7 @@ function IndexRoute() {
         </span>
         <button
           className="mt-2 h-8 cursor-pointer bg-bg-tertiary px-4 text-text-muted hover:text-[var(--accent)]"
-          style={{ fontSize: "13px", borderRadius: "4px" }}
+          style={{ fontSize: '13px', borderRadius: '4px' }}
           onClick={() => toggleSidebar()}
         >
           Open Sidebar (⌘B)
@@ -35,7 +35,7 @@ function IndexRoute() {
     return (
       <div className="flex flex-1 items-center justify-center text-text-muted">
         <span className="text-sm">
-          Open a terminal{" "}
+          Open a terminal{' '}
           <kbd className="text-text-secondary rounded border border-border bg-bg-tertiary px-1.5 py-0.5 text-xs">
             ⌘T
           </kbd>
@@ -58,6 +58,4 @@ function IndexRoute() {
   );
 }
 
-export const Route = createFileRoute("/")({
-  component: IndexRoute,
-});
+export const Route = createFileRoute('/')({ component: IndexRoute });
