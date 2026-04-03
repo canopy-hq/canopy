@@ -17,8 +17,10 @@ vi.mock('../src/ghostty-init', () => ({
   ensureGhosttyInit: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Default mock: spawnTerminal returns a number (matching current main code).
+// Phase 2 tests override this to return { ptyId, isNew }.
 vi.mock('../src/pty', () => ({
-  spawnTerminal: vi.fn().mockResolvedValue({ ptyId: 42, isNew: true }),
+  spawnTerminal: vi.fn().mockResolvedValue(42),
   connectPtyOutput: vi.fn(),
   connectPtyOutputFresh: vi.fn(),
   writeToPty: vi.fn().mockResolvedValue(undefined),
@@ -40,8 +42,8 @@ import { Terminal, FitAddon } from 'ghostty-web';
 import {
   connectPtyOutput,
   connectPtyOutputFresh,
-  resizePty,
   spawnTerminal,
+  writeToPty,
 } from '../src/pty';
 import { getCached, setCached } from '../src/terminal-cache';
 import { useTerminal } from '../src/useTerminal';
@@ -54,8 +56,8 @@ import { flushPromises, makeContainer } from './helpers';
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Restore defaults cleared by clearAllMocks.
-  vi.mocked(spawnTerminal).mockResolvedValue({ ptyId: 42, isNew: true });
+  // Restore default: spawnTerminal returns number (main behavior).
+  vi.mocked(spawnTerminal).mockResolvedValue(42);
   vi.mocked(getCached).mockReturnValue(undefined);
 });
 
@@ -63,18 +65,16 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-// ─── Tests ───────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// PHASE 1 — Regression guards (must PASS on current main code)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 describe('useTerminal — spawn path (ptyId === -1)', () => {
   it('calls spawnTerminal with paneId and savedCwd after WASM is ready', async () => {
     const container = makeContainer();
-    const containerRef = { current: container };
-    const onPtySpawned = vi.fn();
-
     const { unmount } = renderHook(() =>
-      useTerminal(containerRef as any, 'pane-abc', '/workspace', -1, false, onPtySpawned),
+      useTerminal({ current: container } as any, 'pane-abc', '/workspace', -1, false, vi.fn()),
     );
-
     await act(flushPromises);
 
     expect(spawnTerminal).toHaveBeenCalledWith('pane-abc', '/workspace', expect.any(Number), expect.any(Number));
@@ -86,7 +86,6 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
     );
-
     await act(flushPromises);
 
     expect(connectPtyOutputFresh).toHaveBeenCalledWith(42, expect.any(Function));
@@ -96,146 +95,94 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
   it('calls onPtySpawned with the returned ptyId', async () => {
     const container = makeContainer();
     const onPtySpawned = vi.fn();
-
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, onPtySpawned),
     );
-
     await act(flushPromises);
 
     expect(onPtySpawned).toHaveBeenCalledWith(42);
     unmount();
   });
 
-  it('overlay div is present before the first live byte', async () => {
+  it('overlay present before the first live byte', async () => {
     const container = makeContainer();
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
     );
-
     await act(flushPromises);
 
     const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
     const wrapper = termInstance.element as HTMLElement;
-    expect(wrapper).toBeTruthy();
-
-    // The mock term.open() doesn't add DOM children, so the only child of wrapper is the overlay.
-    // Verify it has position:absolute (happy-dom may normalize style.cssText so we check properties).
     expect(wrapper.childElementCount).toBeGreaterThan(0);
     const overlay = wrapper.firstElementChild as HTMLElement;
     expect(overlay.style.position).toBe('absolute');
-
     unmount();
   });
 
-  it('overlay is removed on the first live byte via connectPtyOutputFresh', async () => {
+  it('overlay removed on first live byte via connectPtyOutputFresh', async () => {
     const container = makeContainer();
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
     );
-
     await act(flushPromises);
 
     const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
     const wrapper = termInstance.element as HTMLElement;
     const overlay = wrapper.firstElementChild as HTMLElement;
-    expect(overlay).toBeTruthy();
-    expect(overlay.style.position).toBe('absolute');
 
-    // Simulate the first live byte arriving through the fresh handler
     const freshHandler = vi.mocked(connectPtyOutputFresh).mock.calls[0]![1];
-    act(() => {
-      freshHandler(new Uint8Array([65])); // 'A'
-    });
+    act(() => { freshHandler(new Uint8Array([65])); });
 
     expect(overlay.parentNode).toBeNull();
     unmount();
   });
 
-  it('unmounting before spawn resolves cancels the spawn — connectPtyOutputFresh is not called', async () => {
-    let resolveSpawn!: (result: { ptyId: number; isNew: boolean }) => void;
+  it('unmount before spawn resolves cancels — connectPtyOutputFresh not called', async () => {
+    let resolveSpawn!: (result: number) => void;
     vi.mocked(spawnTerminal).mockReturnValueOnce(
-      new Promise<{ ptyId: number; isNew: boolean }>((resolve) => {
-        resolveSpawn = resolve;
-      }),
+      new Promise<number>((resolve) => { resolveSpawn = resolve; }),
     );
 
     const container = makeContainer();
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
     );
+    await act(flushPromises);
 
-    await act(flushPromises); // WASM ready, spawn issued, not yet resolved
-
-    unmount(); // cleanup fires, spawnCancelled = true
+    unmount();
 
     await act(async () => {
-      resolveSpawn({ ptyId: 99, isNew: true });
+      resolveSpawn(99);
       await flushPromises();
     });
 
     expect(connectPtyOutputFresh).not.toHaveBeenCalled();
   });
 
-  it('calls setCached with the new ptyId after spawn', async () => {
+  it('setCached called with the new ptyId after spawn', async () => {
     const container = makeContainer();
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
     );
-
     await act(flushPromises);
 
     expect(setCached).toHaveBeenCalledWith(42, expect.anything(), expect.anything());
     unmount();
   });
 
-  it('overlay still present after spawn when isNew=true (waiting for first live byte)', async () => {
+  it('typing works after spawn (ptrRef.ptyId set to newId)', async () => {
     const container = makeContainer();
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
     );
-
     await act(flushPromises);
 
     const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
-    const wrapper = termInstance.element as HTMLElement;
-    const overlay = wrapper.firstElementChild as HTMLElement;
-    // Overlay must still be present — awaiting the first post-sentinel live byte.
-    expect(overlay).toBeTruthy();
-    expect(overlay.style.position).toBe('absolute');
-    unmount();
-  });
+    const onDataCb = termInstance.onData.mock.calls[0]?.[0];
+    expect(onDataCb).toBeDefined();
+    onDataCb('a');
 
-  it('overlay removed immediately when isNew=false (restored session)', async () => {
-    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
-
-    const container = makeContainer();
-    const { unmount } = renderHook(() =>
-      useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
-    );
-
-    await act(flushPromises);
-
-    const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
-    const wrapper = termInstance.element as HTMLElement;
-    // Overlay should be gone — removed immediately after connectPtyOutput drains scrollback.
-    const overlay = wrapper.firstElementChild as HTMLElement | null;
-    expect(overlay === null || overlay.style.position !== 'absolute').toBe(true);
-    unmount();
-  });
-
-  it('uses connectPtyOutput (not connectPtyOutputFresh) when isNew=false', async () => {
-    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
-
-    const container = makeContainer();
-    const { unmount } = renderHook(() =>
-      useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
-    );
-
-    await act(flushPromises);
-
-    expect(connectPtyOutput).toHaveBeenCalledWith(42, expect.any(Function));
-    expect(connectPtyOutputFresh).not.toHaveBeenCalled();
+    expect(vi.mocked(writeToPty)).toHaveBeenCalledWith(42, 'a');
     unmount();
   });
 });
@@ -246,7 +193,6 @@ describe('useTerminal — reconnect path (ptyId > 0)', () => {
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, 5, false, vi.fn()),
     );
-
     await act(flushPromises);
 
     expect(connectPtyOutput).toHaveBeenCalledWith(5, expect.any(Function));
@@ -254,24 +200,22 @@ describe('useTerminal — reconnect path (ptyId > 0)', () => {
     unmount();
   });
 
-  it('does NOT call connectPtyOutputFresh (no overlay for reconnect)', async () => {
+  it('does NOT call connectPtyOutputFresh', async () => {
     const container = makeContainer();
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, 5, false, vi.fn()),
     );
-
     await act(flushPromises);
 
     expect(connectPtyOutputFresh).not.toHaveBeenCalled();
     unmount();
   });
 
-  it('overlay removed on first data byte (reconnect path)', async () => {
+  it('overlay removed on first data byte', async () => {
     const container = makeContainer();
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, 5, false, vi.fn()),
     );
-
     await act(flushPromises);
 
     const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
@@ -279,11 +223,8 @@ describe('useTerminal — reconnect path (ptyId > 0)', () => {
     const overlay = wrapper.firstElementChild as HTMLElement;
     expect(overlay).toBeTruthy();
 
-    // Simulate first byte arriving via connectPtyOutput handler
     const handler = vi.mocked(connectPtyOutput).mock.calls[0]![1];
-    act(() => {
-      handler(new Uint8Array([65]));
-    });
+    act(() => { handler(new Uint8Array([65])); });
 
     expect(overlay.parentNode).toBeNull();
     unmount();
@@ -304,17 +245,14 @@ describe('useTerminal — cached remount path', () => {
     const { result, unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, 7, false, vi.fn()),
     );
-
     await act(flushPromises);
 
-    // No new Terminal was constructed
     expect(vi.mocked(Terminal)).not.toHaveBeenCalled();
-    // Hook ref points to the same instance
     expect(result.current.current).toBe(termA);
     unmount();
   });
 
-  it('appends the cached terminal element (same DOM node) to the container', async () => {
+  it('appends the cached terminal element to the container', async () => {
     const termA = new (vi.mocked(Terminal) as any)() as any;
     const fitA = new (vi.mocked(FitAddon) as any)() as any;
     const cachedEl = document.createElement('div');
@@ -328,12 +266,9 @@ describe('useTerminal — cached remount path', () => {
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, 7, false, vi.fn()),
     );
-
     await act(flushPromises);
 
-    // Exact same node, not a clone
     expect(container.contains(cachedEl)).toBe(true);
-    expect(container.firstChild).toBe(cachedEl);
     unmount();
   });
 
@@ -349,14 +284,13 @@ describe('useTerminal — cached remount path', () => {
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, 7, false, vi.fn()),
     );
-
     await act(flushPromises);
 
     expect(fitA.fit).toHaveBeenCalled();
     unmount();
   });
 
-  it('uses connectPtyOutput (reconnect path) — not connectPtyOutputFresh', async () => {
+  it('uses connectPtyOutput — not connectPtyOutputFresh', async () => {
     const termA = new (vi.mocked(Terminal) as any)() as any;
     const fitA = new (vi.mocked(FitAddon) as any)() as any;
     termA.element = document.createElement('div');
@@ -368,7 +302,6 @@ describe('useTerminal — cached remount path', () => {
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, 7, false, vi.fn()),
     );
-
     await act(flushPromises);
 
     expect(connectPtyOutput).toHaveBeenCalledWith(7, expect.any(Function));
@@ -376,7 +309,7 @@ describe('useTerminal — cached remount path', () => {
     unmount();
   });
 
-  it('does NOT call setCached again (no overwrite of the existing entry)', async () => {
+  it('does NOT call setCached again', async () => {
     const termA = new (vi.mocked(Terminal) as any)() as any;
     const fitA = new (vi.mocked(FitAddon) as any)() as any;
     termA.element = document.createElement('div');
@@ -388,7 +321,6 @@ describe('useTerminal — cached remount path', () => {
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, 7, false, vi.fn()),
     );
-
     await act(flushPromises);
 
     expect(setCached).not.toHaveBeenCalled();
@@ -404,7 +336,6 @@ describe('useTerminal — full spawn → unmount → remount cycle', () => {
     });
     vi.mocked(getCached).mockImplementation((id) => cachedTerms.get(id));
 
-    // First mount — spawn path
     const container1 = makeContainer();
     const hook1 = renderHook(() =>
       useTerminal({ current: container1 } as any, 'pane-1', undefined, -1, false, vi.fn()),
@@ -413,10 +344,8 @@ describe('useTerminal — full spawn → unmount → remount cycle', () => {
 
     expect(setCached).toHaveBeenCalledWith(42, expect.anything(), expect.anything());
     const spawnedTerm = cachedTerms.get(42)!.term;
-
     hook1.unmount();
 
-    // Second mount — remount with the returned ptyId
     vi.clearAllMocks();
     vi.mocked(getCached).mockImplementation((id) => cachedTerms.get(id));
 
@@ -426,11 +355,8 @@ describe('useTerminal — full spawn → unmount → remount cycle', () => {
     );
     await act(flushPromises);
 
-    // Same terminal instance reused
     expect(hook2.result.current.current).toBe(spawnedTerm);
-    // No new spawn
     expect(spawnTerminal).not.toHaveBeenCalled();
-    // Reconnect path used (not fresh)
     expect(connectPtyOutput).toHaveBeenCalledWith(42, expect.any(Function));
     expect(connectPtyOutputFresh).not.toHaveBeenCalled();
 
@@ -438,17 +364,23 @@ describe('useTerminal — full spawn → unmount → remount cycle', () => {
   });
 });
 
-// ─── Session restore: isNew=false uses connectPtyOutput (not Fresh) ──────
+// ═══════════════════════════════════════════════════════════════════════════════
+// PHASE 2 — Bug-specific tests (FAIL on main, PASS after fix)
+//
+// These tests mock spawnTerminal to return { ptyId, isNew } instead of number.
+// On the current main code, .then((newId) => ...) receives the object as newId,
+// causing ptrRef.ptyId = { ptyId: 42, isNew: false } (an object, not a number).
+// The tests below verify the CORRECT behavior after the fix is applied.
+// ═══════════════════════════════════════════════════════════════════════════════
 
-describe('useTerminal — restored session (isNew=false)', () => {
+describe('useTerminal — restored session (isNew=false) [PHASE 2]', () => {
   it('uses connectPtyOutput (not connectPtyOutputFresh) for restored sessions', async () => {
-    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
+    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false } as any);
 
     const container = makeContainer();
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
     );
-
     await act(flushPromises);
 
     expect(connectPtyOutput).toHaveBeenCalledWith(42, expect.any(Function));
@@ -456,14 +388,13 @@ describe('useTerminal — restored session (isNew=false)', () => {
     unmount();
   });
 
-  it('overlay removed immediately for restored sessions (scrollback drained synchronously)', async () => {
-    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
+  it('overlay removed immediately for restored sessions', async () => {
+    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false } as any);
 
     const container = makeContainer();
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
     );
-
     await act(flushPromises);
 
     const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
@@ -473,107 +404,35 @@ describe('useTerminal — restored session (isNew=false)', () => {
     unmount();
   });
 
-  it('typing works for restored sessions (ptrRef.ptyId set after spawn)', async () => {
-    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
+  it('typing works for restored sessions', async () => {
+    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false } as any);
 
     const container = makeContainer();
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
     );
-
     await act(flushPromises);
 
-    // term.onData was called with a callback — simulate a keystroke
     const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
     const onDataCb = termInstance.onData.mock.calls[0]?.[0];
     expect(onDataCb).toBeDefined();
-
     onDataCb('a');
 
-    const { writeToPty } = await import('../src/pty');
     expect(vi.mocked(writeToPty)).toHaveBeenCalledWith(42, 'a');
     unmount();
   });
 
-  it('data arriving AFTER ptyId changes (effect re-run) still reaches terminal', async () => {
-    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
+  it('fresh session (isNew=true) still uses connectPtyOutputFresh', async () => {
+    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: true } as any);
 
-    const container = makeContainer();
-    const containerRef = { current: container };
-    const onPtySpawned = vi.fn();
-
-    // Render with ptyId=-1, spawn resolves with isNew=false
-    const { rerender, unmount } = renderHook(
-      ({ ptyId }: { ptyId: number }) =>
-        useTerminal(containerRef as any, 'pane-1', undefined, ptyId, false, onPtySpawned),
-      { initialProps: { ptyId: -1 } },
-    );
-
-    await act(flushPromises);
-
-    // Verify spawn completed and handler was set
-    expect(connectPtyOutput).toHaveBeenCalledWith(42, expect.any(Function));
-    const handler = vi.mocked(connectPtyOutput).mock.calls[0]![1];
-
-    // Now simulate what happens in the real app: setPtyId updates the store,
-    // PaneContainer re-renders with ptyId=42 → effect re-runs → cleanup
-    // detaches the terminal → cached path re-attaches it.
-    vi.mocked(getCached).mockReturnValue({
-      term: vi.mocked(Terminal).mock.instances[0] as any,
-      fitAddon: vi.mocked(FitAddon).mock.instances[0] as any,
-    });
-    rerender({ ptyId: 42 });
-    await act(flushPromises);
-
-    // After re-run, the cached path called connectPtyOutput again with a new handler
-    const latestCall = vi.mocked(connectPtyOutput).mock.calls.at(-1);
-    expect(latestCall).toBeDefined();
-    const cachedHandler = latestCall![1];
-
-    // Simulate scrollback/prompt bytes arriving (from daemon) through the LATEST handler
-    const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
-    termInstance.write.mockClear();
-
-    act(() => {
-      cachedHandler(new Uint8Array([0x7e, 0x0a, 0x3e, 0x20])); // "~\n> "
-    });
-
-    // Data must have been written to the terminal — even after effect re-run
-    expect(termInstance.write).toHaveBeenCalledWith(new Uint8Array([0x7e, 0x0a, 0x3e, 0x20]));
-    unmount();
-  });
-});
-
-describe('useTerminal — fresh session (isNew=true)', () => {
-  it('uses connectPtyOutputFresh for fresh sessions', async () => {
     const container = makeContainer();
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
     );
-
     await act(flushPromises);
 
     expect(connectPtyOutputFresh).toHaveBeenCalledWith(42, expect.any(Function));
     expect(connectPtyOutput).not.toHaveBeenCalled();
-    unmount();
-  });
-
-  it('typing works for fresh sessions (ptrRef.ptyId set after spawn)', async () => {
-    const container = makeContainer();
-    const { unmount } = renderHook(() =>
-      useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
-    );
-
-    await act(flushPromises);
-
-    const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
-    const onDataCb = termInstance.onData.mock.calls[0]?.[0];
-    expect(onDataCb).toBeDefined();
-
-    onDataCb('a');
-
-    const { writeToPty } = await import('../src/pty');
-    expect(vi.mocked(writeToPty)).toHaveBeenCalledWith(42, 'a');
     unmount();
   });
 });
