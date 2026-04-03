@@ -228,9 +228,27 @@ pub fn create_worktree(
     // Hold the reference in scope so opts can borrow it
     let _ref_holder;
     if let Some(ref branch_name) = base_branch {
-        let branch = repo
-            .find_branch(branch_name, BranchType::Local)
-            .map_err(|e| e.to_string())?;
+        // Try local first, then fall back to creating a local tracking branch from remote
+        let branch = match repo.find_branch(branch_name, BranchType::Local) {
+            Ok(b) => b,
+            Err(_) => {
+                let remote_name = format!("origin/{}", branch_name);
+                let remote_branch = repo
+                    .find_branch(&remote_name, BranchType::Remote)
+                    .map_err(|_| {
+                        format!(
+                            "Branch \"{}\" not found locally or as origin/{}",
+                            branch_name, branch_name
+                        )
+                    })?;
+                let commit = remote_branch
+                    .get()
+                    .peel_to_commit()
+                    .map_err(|e| e.to_string())?;
+                repo.branch(branch_name, &commit, false)
+                    .map_err(|e| format!("Failed to create local branch from remote: {}", e))?
+            }
+        };
         _ref_holder = branch.into_reference();
         opts.reference(Some(&_ref_holder));
     }
