@@ -5,6 +5,12 @@ import type { Workspace } from '@superagent/db';
 
 const DIFF_POLL_MS = 10_000;
 
+function getInterval(noChangeCount: number): number {
+  if (noChangeCount >= 6) return 30_000;
+  if (noChangeCount >= 3) return 20_000;
+  return DIFF_POLL_MS;
+}
+
 /** Fetch diff stats for all workspaces, keyed by workspace ID then branch name. */
 export function useDiffStatsMap(
   workspaces: Workspace[],
@@ -12,6 +18,7 @@ export function useDiffStatsMap(
 ): Record<string, Record<string, DiffStat>> {
   const [statsMap, setStatsMap] = useState<Record<string, Record<string, DiffStat>>>({});
   const workspacesRef = useRef(workspaces);
+  const noChangeCountRef = useRef(0);
   useEffect(() => {
     workspacesRef.current = workspaces;
   }, [workspaces]);
@@ -29,6 +36,7 @@ export function useDiffStatsMap(
 
   useEffect(() => {
     if (!enabled) return;
+    noChangeCountRef.current = 0;
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
@@ -39,7 +47,7 @@ export function useDiffStatsMap(
       const pathToId = new Map(expandedWs.map((ws) => [ws.path, ws.id]));
       const paths = expandedWs.map((ws) => ws.path);
       if (paths.length === 0) {
-        timer = setTimeout(fetchStats, DIFF_POLL_MS);
+        timer = setTimeout(fetchStats, getInterval(noChangeCountRef.current));
         return;
       }
 
@@ -53,6 +61,7 @@ export function useDiffStatsMap(
             const id = pathToId.get(path);
             if (id) next[id] = stats;
           }
+          let changed = false;
           setStatsMap((prev) => {
             // Start with carried-forward collapsed entries
             const merged: Record<string, Record<string, DiffStat>> = {};
@@ -64,28 +73,45 @@ export function useDiffStatsMap(
               merged[wsId] = next[wsId];
             }
             // Shallow equality — return prev reference if nothing changed
-            if (Object.keys(prev).length !== Object.keys(merged).length) return merged;
+            if (Object.keys(prev).length !== Object.keys(merged).length) {
+              changed = true;
+              return merged;
+            }
             for (const wsId in merged) {
               const prevWs = prev[wsId];
               const mergedWs = merged[wsId];
-              if (!prevWs) return merged;
+              if (!prevWs) {
+                changed = true;
+                return merged;
+              }
               const prevKeys = Object.keys(prevWs);
               const mergedKeys = Object.keys(mergedWs);
-              if (prevKeys.length !== mergedKeys.length) return merged;
+              if (prevKeys.length !== mergedKeys.length) {
+                changed = true;
+                return merged;
+              }
               for (const k of mergedKeys) {
                 if (
                   prevWs[k]?.additions !== mergedWs[k]?.additions ||
                   prevWs[k]?.deletions !== mergedWs[k]?.deletions
-                )
+                ) {
+                  changed = true;
                   return merged;
+                }
               }
             }
             return prev;
           });
-          timer = setTimeout(fetchStats, DIFF_POLL_MS);
+
+          if (changed) {
+            noChangeCountRef.current = 0;
+          } else {
+            noChangeCountRef.current += 1;
+          }
+          timer = setTimeout(fetchStats, getInterval(noChangeCountRef.current));
         })
         .catch(() => {
-          if (!cancelled) timer = setTimeout(fetchStats, DIFF_POLL_MS);
+          if (!cancelled) timer = setTimeout(fetchStats, getInterval(noChangeCountRef.current));
         });
     }
 
