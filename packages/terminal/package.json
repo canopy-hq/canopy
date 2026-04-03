@@ -1,0 +1,29 @@
+{
+  "name": "@superagent/terminal",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run --reporter=verbose"
+  },
+  "dependencies": {
+    "@superagent/db": "workspace:*",
+    "@tauri-apps/api": "catalog:",
+    "ghostty-web": "catalog:"
+  },
+  "devDependencies": {
+    "@superagent/tsconfig": "workspace:*",
+    "@testing-library/react": "catalog:",
+    "@types/react": "catalog:",
+    "happy-dom": "catalog:",
+    "react": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "catalog:"
+  }
+}

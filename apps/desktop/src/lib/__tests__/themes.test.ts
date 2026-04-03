@@ -1,6 +1,11 @@
+import {
+  themes,
+  themeNames,
+  terminalThemes,
+  cssThemeProperties,
+  type ThemeName,
+} from '@superagent/terminal';
 import { describe, it, expect } from 'vitest';
-
-import { themes, themeNames, terminalThemes, cssThemeProperties, type ThemeName } from '../themes';
 
 const EXPECTED_THEMES: ThemeName[] = [
   'carbon',

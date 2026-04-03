@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
 
+import { useNavigate } from '@tanstack/react-router';
+
 import { useAgents, useWorkspaces, useTabs } from '../hooks/useCollections';
-import { setActiveContext, switchTab } from '../lib/tab-actions';
+import { switchTab } from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
 
 import type { PaneNode } from '../lib/pane-tree-ops';
@@ -34,6 +36,7 @@ interface AgentRow {
 }
 
 export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
+  const navigate = useNavigate();
   const agentList = useAgents();
   const runningCount = agentList.filter((a) => a.status === 'running').length;
   const waitingCount = agentList.filter((a) => a.status === 'waiting').length;
@@ -112,12 +115,12 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
   const handleJump = useCallback(
     (row: AgentRow) => {
       if (row.tabId) {
-        setActiveContext(row.workspaceItemId);
+        void navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: row.workspaceItemId } });
         switchTab(row.tabId);
       }
       onClose();
     },
-    [onClose],
+    [navigate, onClose],
   );
 
   const handleKeyDown = useCallback(
