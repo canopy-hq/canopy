@@ -24,6 +24,14 @@ pub struct RepoInfo {
     pub worktrees: Vec<WorktreeInfo>,
 }
 
+#[derive(Serialize, Clone)]
+pub struct BranchDetail {
+    pub name: String,
+    pub is_head: bool,
+    pub is_local: bool,
+    pub is_in_worktree: bool,
+}
+
 fn enumerate_branches(repo: &Repository) -> Result<Vec<BranchInfo>, String> {
     let mut branches = Vec::new();
     for branch_result in repo
@@ -99,6 +107,68 @@ pub fn import_repo(path: String) -> Result<RepoInfo, String> {
 pub fn list_branches(repo_path: String) -> Result<Vec<BranchInfo>, String> {
     let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
     enumerate_branches(&repo)
+}
+
+#[tauri::command]
+pub fn list_all_branches(repo_path: String) -> Result<Vec<BranchDetail>, String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
+
+    // Collect worktree branch names for cross-reference
+    let wt_names = repo.worktrees().map_err(|e| e.to_string())?;
+    let mut wt_branch_names: Vec<String> = Vec::new();
+    for wt_name in wt_names.iter() {
+        let wt_name = wt_name.ok_or("invalid worktree name")?;
+        if let Ok(wt) = repo.find_worktree(wt_name) {
+            if wt.validate().is_ok() {
+                let wt_path = wt.path();
+                if let Ok(wt_repo) = Repository::open(wt_path) {
+                    if let Ok(head) = wt_repo.head() {
+                        if let Some(name) = head.shorthand() {
+                            wt_branch_names.push(name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let mut details = Vec::new();
+
+    // Local branches
+    for branch_result in repo.branches(Some(BranchType::Local)).map_err(|e| e.to_string())? {
+        let (branch, _) = branch_result.map_err(|e| e.to_string())?;
+        let name = branch.name().map_err(|e| e.to_string())?
+            .unwrap_or("(invalid utf8)").to_string();
+        let is_head = branch.is_head();
+        let is_in_worktree = wt_branch_names.contains(&name);
+
+        details.push(BranchDetail {
+            name,
+            is_head,
+            is_local: true,
+            is_in_worktree,
+        });
+    }
+
+    // Remote branches (origin only, skip if already local)
+    let local_names: Vec<String> = details.iter().map(|d| d.name.clone()).collect();
+    for branch_result in repo.branches(Some(BranchType::Remote)).map_err(|e| e.to_string())? {
+        let (branch, _) = branch_result.map_err(|e| e.to_string())?;
+        let full_name = branch.name().map_err(|e| e.to_string())?
+            .unwrap_or("(invalid utf8)").to_string();
+        let short_name = full_name.strip_prefix("origin/").unwrap_or(&full_name).to_string();
+        if short_name == "HEAD" || local_names.contains(&short_name) {
+            continue;
+        }
+        details.push(BranchDetail {
+            name: short_name,
+            is_head: false,
+            is_local: false,
+            is_in_worktree: false,
+        });
+    }
+
+    Ok(details)
 }
 
 #[tauri::command]
@@ -302,6 +372,53 @@ mod tests {
         // After prune, the worktree dir may still exist but git won't list it
         let info = import_repo(path).unwrap();
         assert!(!info.worktrees.iter().any(|w| w.name == "test-wt"));
+    }
+
+    #[test]
+    fn test_list_all_branches() {
+        let tmp = TempDir::new().unwrap();
+        let repo = init_repo_with_commit(tmp.path());
+        let path = tmp.path().to_string_lossy().to_string();
+
+        let branches_before = list_branches(path.clone()).unwrap();
+        let default_branch = &branches_before[0].name;
+        create_branch(path.clone(), "feature/test".to_string(), default_branch.clone()).unwrap();
+
+        let details = list_all_branches(path).unwrap();
+        assert!(details.len() >= 2);
+
+        let head = details.iter().find(|b| b.is_head).unwrap();
+        assert!(head.is_local);
+        assert!(!head.is_in_worktree);
+
+        let feat = details.iter().find(|b| b.name == "feature/test").unwrap();
+        assert!(!feat.is_head);
+        assert!(feat.is_local);
+        assert!(!feat.is_in_worktree);
+    }
+
+    #[test]
+    fn test_list_all_branches_detects_worktree() {
+        let tmp = TempDir::new().unwrap();
+        let _repo = init_repo_with_commit(tmp.path());
+        let path = tmp.path().to_string_lossy().to_string();
+
+        let branches = list_branches(path.clone()).unwrap();
+        let default_branch = &branches[0].name;
+
+        create_branch(path.clone(), "wt-branch".to_string(), default_branch.clone()).unwrap();
+        let wt_tmp = TempDir::new().unwrap();
+        let wt_path = wt_tmp.path().join("test-wt");
+        create_worktree(
+            path.clone(),
+            "test-wt".to_string(),
+            wt_path.to_string_lossy().to_string(),
+            Some("wt-branch".to_string()),
+        ).unwrap();
+
+        let details = list_all_branches(path).unwrap();
+        let wt_branch = details.iter().find(|b| b.name == "wt-branch").unwrap();
+        assert!(wt_branch.is_in_worktree);
     }
 
     #[test]

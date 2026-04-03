@@ -60,6 +60,7 @@ pub fn run() {
             pty::get_pty_cwd,
             git::import_repo,
             git::list_branches,
+            git::list_all_branches,
             git::create_branch,
             git::delete_branch,
             git::create_worktree,
