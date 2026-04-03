@@ -5,15 +5,13 @@ import {
   Text,
   Button,
 } from 'react-aria-components';
-
-import { getTabCollection } from '@superagent/db';
-
-import { setActiveContext, switchTab } from '../lib/tab-actions';
+import { useNavigate } from '@tanstack/react-router';
 import { agentToastQueue } from '../lib/toast';
-import { StatusDot } from './StatusDot';
-
-import type { PaneNode } from '../lib/pane-tree-ops';
 import type { AgentToastContent } from '../lib/toast';
+import { StatusDot } from './StatusDot';
+import { getTabCollection } from '@superagent/db';
+import { switchTab } from '../lib/tab-actions';
+import type { PaneNode } from '../lib/pane-tree-ops';
 
 /** Recursively check if a pane tree contains a leaf with the given ptyId */
 function containsPtyId(node: PaneNode, ptyId: number): boolean {
@@ -21,20 +19,22 @@ function containsPtyId(node: PaneNode, ptyId: number): boolean {
   return node.children.some((child) => containsPtyId(child, ptyId));
 }
 
-function handleJump(ptyId: number, close: () => void) {
-  const tab = getTabCollection().toArray.find((t) => containsPtyId(t.paneRoot, ptyId));
-  if (tab) {
-    setActiveContext(tab.workspaceItemId);
-    switchTab(tab.id);
-  }
-  close();
-}
-
 function eventDescription(type: AgentToastContent['type']): string {
   return type === 'agent-waiting' ? 'is waiting for input' : 'finished';
 }
 
 export function AgentToastRegion() {
+  const navigate = useNavigate();
+
+  function handleJump(ptyId: number, close: () => void) {
+    const tab = getTabCollection().toArray.find((t) => containsPtyId(t.paneRoot, ptyId));
+    if (tab) {
+      navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: tab.workspaceItemId } });
+      switchTab(tab.id);
+    }
+    close();
+  }
+
   return (
     <ToastRegion
       queue={agentToastQueue}

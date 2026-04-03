@@ -22,13 +22,15 @@ impl PtyProxy {
 pub async fn spawn_terminal(
     pane_id: String,
     cwd: Option<String>,
+    rows: Option<u16>,
+    cols: Option<u16>,
     on_output: Channel<Vec<u8>>,
     app: tauri::AppHandle,
     proxy: tauri::State<'_, Mutex<PtyProxy>>,
     daemon: tauri::State<'_, DaemonClient>,
     watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
 ) -> Result<u32, String> {
-    let pid = daemon.spawn(&pane_id, cwd.as_deref()).await?;
+    let pid = daemon.spawn(&pane_id, cwd.as_deref(), rows.unwrap_or(24), cols.unwrap_or(80)).await?;
 
     {
         let mut p = proxy.lock().map_err(|e| e.to_string())?;

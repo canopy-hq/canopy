@@ -88,16 +88,17 @@ impl DaemonClient {
 
     /// Spawn a PTY session for pane_id (no-op if already exists).
     /// Returns the child process PID used as ptyId on the Tauri side.
-    pub async fn spawn(&self, pane_id: &str, cwd: Option<&str>) -> Result<u32, String> {
-        let msg = if let Some(cwd) = cwd {
-            format!(
-                "{{\"op\":\"spawn\",\"paneId\":{},\"cwd\":{}}}\n",
-                serde_json::json!(pane_id),
-                serde_json::json!(cwd),
-            )
-        } else {
-            format!("{{\"op\":\"spawn\",\"paneId\":{}}}\n", serde_json::json!(pane_id))
-        };
+    pub async fn spawn(&self, pane_id: &str, cwd: Option<&str>, rows: u16, cols: u16) -> Result<u32, String> {
+        let mut obj = serde_json::json!({
+            "op": "spawn",
+            "paneId": pane_id,
+            "rows": rows,
+            "cols": cols,
+        });
+        if let Some(cwd) = cwd {
+            obj["cwd"] = serde_json::json!(cwd);
+        }
+        let msg = format!("{obj}\n");
 
         let resp = self.send_cmd(&msg).await?;
         if resp["ok"].as_bool() == Some(true) {
@@ -143,19 +144,6 @@ impl DaemonClient {
         }
     }
 
-    /// List all active pane IDs in the daemon.
-    pub async fn list(&self) -> Result<Vec<String>, String> {
-        let resp = self.send_cmd("{\"op\":\"list\"}\n").await?;
-        resp["paneIds"]
-            .as_array()
-            .ok_or_else(|| "no paneIds".to_string())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                    .collect()
-            })
-    }
-
     /// Attach to a PTY session: spawns a background task that reads frames
     /// from the daemon and sends them to `on_output`. Updates `last_output` timestamp
     /// on each chunk (used by the agent watcher for silence detection).
@@ -192,16 +180,17 @@ impl DaemonClient {
                     break;
                 }
                 let len = u32::from_be_bytes(len_buf) as usize;
-                if len == 0 {
-                    continue;
-                }
-
                 let mut data = vec![0u8; len];
-                if stream.read_exact(&mut data).await.is_err() {
-                    break;
+                if len > 0 {
+                    if stream.read_exact(&mut data).await.is_err() {
+                        break;
+                    }
+                    // Only update the activity timestamp for real output, not the
+                    // zero-length sentinel frame.
+                    last_output.store(now_millis(), Ordering::Relaxed);
                 }
-
-                last_output.store(now_millis(), Ordering::Relaxed);
+                // Forward the frame — including the empty sentinel — to TypeScript.
+                // An empty Vec<u8> arrives as `rawData.length === 0` in channel.onmessage.
                 if on_output.send(data).is_err() {
                     break;
                 }

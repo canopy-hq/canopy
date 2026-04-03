@@ -7,12 +7,10 @@ import {
 } from '@superagent/db';
 
 import * as gitApi from './git';
-import { collectLeafPtyIds } from './pane-tree-ops';
-import { closePty } from './pty';
-import { setActiveContext } from './tab-actions';
-import { disposeCached } from './terminal-cache';
 import { showErrorToast } from './toast';
-
+import { collectLeafPtyIds } from './pane-tree-ops';
+import { closePty, disposeCached } from '@superagent/terminal';
+import { router } from '../router';
 import type { Workspace } from '@superagent/db';
 
 /** All sidebar item IDs for a workspace (repo root + branches + worktrees). */
@@ -76,6 +74,7 @@ export async function closeProject(id: string): Promise<void> {
     });
     setSetting('activeContextId', '');
     setSetting('activeTabId', '');
+    router.navigate({ to: '/' });
   }
 
   getWorkspaceCollection().delete(id);
@@ -107,14 +106,14 @@ export function setSelectedItem(itemId: string | null): void {
   });
 }
 
-export function selectWorkspaceItem(itemId: string | null, itemLabel?: string): void {
+export function selectWorkspaceItem(itemId: string | null): void {
   uiCollection.update('ui', (draft) => {
     draft.selectedItemId = itemId;
   });
-  if (itemId !== null && itemLabel) {
-    setActiveContext(itemId);
-  } else if (itemId === null) {
-    setActiveContext('');
+  if (itemId !== null) {
+    router.navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: itemId } });
+  } else {
+    router.navigate({ to: '/' });
   }
 }
 

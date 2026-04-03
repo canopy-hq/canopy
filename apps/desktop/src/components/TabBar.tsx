@@ -3,15 +3,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
 import { addTab, closeTab, switchTab } from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
-
-import type { PaneNode } from '../lib/pane-tree-ops';
-import type { DotStatus } from './StatusDot';
+import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import type { Tab } from '@superagent/db';
-
-function collectLeafPtyIds(node: PaneNode): number[] {
-  if (node.type === 'leaf') return node.ptyId > 0 ? [node.ptyId] : [];
-  return node.children.flatMap(collectLeafPtyIds);
-}
+import type { DotStatus } from './StatusDot';
+import { closePty, disposeCached } from '@superagent/terminal';
 
 function useTabAgentStatus(tab: Tab): DotStatus {
   const ptyIds = collectLeafPtyIds(tab.paneRoot);
@@ -51,6 +46,7 @@ function TabItem({
         backgroundColor: agentStatus === 'waiting' ? 'var(--agent-waiting-glow)' : undefined,
       }}
       onClick={onSwitch}
+      onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); onClose(); } }}
       title={tab.label}
     >
       {agentStatus !== 'idle' && <StatusDot status={agentStatus} size={8} />}
@@ -101,6 +97,15 @@ export function TabBar() {
   const activeContextId = ui.activeContextId;
   const tabs = allTabs.filter((t) => t.workspaceItemId === activeContextId);
   const activeTabId = ui.activeTabId;
+
+  const handleClose = useCallback(async (tab: Tab) => {
+    const ptyIds = collectLeafPtyIds(tab.paneRoot);
+    for (const ptyId of ptyIds) {
+      disposeCached(ptyId);
+      try { await closePty(ptyId); } catch { /* PTY may be dead */ }
+    }
+    closeTab(tab.id);
+  }, []);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollState, setScrollState] = useState<{ left: boolean; right: boolean }>({
@@ -162,7 +167,7 @@ export function TabBar() {
             tab={tab}
             isActive={tab.id === activeTabId}
             onSwitch={() => switchTab(tab.id)}
-            onClose={() => closeTab(tab.id)}
+            onClose={() => handleClose(tab)}
           />
         ))}
       </div>

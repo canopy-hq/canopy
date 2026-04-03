@@ -1,38 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-
-import { agentCollection } from '@superagent/db';
+import { useEffect, useRef, useMemo, useState } from 'react';
+import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 import {
+  agentCollection,
+  getUiState,
   getTabCollection,
   getWorkspaceCollection,
   getSettingCollection,
   getSetting,
 } from '@superagent/db';
-import { createRootRoute, Outlet } from '@tanstack/react-router';
-
 import { AgentOverlay } from '../components/AgentOverlay';
 import { AgentToastRegion } from '../components/AgentToastRegion';
-import { Sidebar } from '../components/Sidebar';
-import { StatusBar } from '../components/StatusBar';
 import { ErrorToastRegion } from '../components/ToastProvider';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
-import { initAgentListener, toggleManualOverride } from '../lib/agent-actions';
-import { findLeaf } from '../lib/pane-tree-ops';
-import { closePty } from '../lib/pty';
-import {
-  addTab,
-  closeTab,
-  closePane,
-  splitPane,
-  navigate as navigatePanes,
-  switchTabByIndex,
-  switchTabRelative,
-  getActiveTab,
-} from '../lib/tab-actions';
-import { disposeCached } from '../lib/terminal-cache';
-import { showErrorToast, showAgentToastDeduped } from '../lib/toast';
+import { initAgentListener } from '../lib/agent-actions';
+import { getActiveTab } from '../lib/tab-actions';
 import { toggleSidebar } from '../lib/workspace-actions';
-
 import type { PaneNode } from '../lib/pane-tree-ops';
+import { showAgentToastDeduped } from '../lib/toast';
 
 function containsPtyId(node: PaneNode, ptyId: number): boolean {
   if (node.type === 'leaf') return node.ptyId === ptyId;
@@ -41,19 +25,37 @@ function containsPtyId(node: PaneNode, ptyId: number): boolean {
 
 function RootLayout() {
   const [overlayOpen, setOverlayOpen] = useState(false);
+  const navigate = useNavigate();
+  const booted = useRef(false);
 
-  // Initialize agent event listener on mount
+  // Boot: restore last active workspace from DB (routing is source of truth after this)
+  useEffect(() => {
+    if (booted.current) return;
+    booted.current = true;
+    const { activeContextId } = getUiState();
+    if (activeContextId) {
+      navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: activeContextId } });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-    void initAgentListener().then((fn) => {
-      unlisten = fn;
+    import('@tauri-apps/api/event').then(({ listen }) => {
+      listen('menu:settings', () => {
+        navigate({ to: '/settings' });
+      }).then((fn) => {
+        unlisten = fn;
+      });
     });
-    return () => {
-      unlisten?.();
-    };
+    return () => { unlisten?.(); };
+  }, [navigate]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    initAgentListener().then((fn) => { unlisten = fn; });
+    return () => { unlisten?.(); };
   }, []);
 
-  // Subscribe to agent collection changes for non-active workspace toasts
   useEffect(() => {
     const sub = agentCollection.subscribeChanges((changes) => {
       for (const change of changes) {
@@ -63,10 +65,8 @@ function RootLayout() {
         const activeTabId = getActiveTab()?.id;
         const agentTab = tabs.find((t) => containsPtyId(t.paneRoot, agent.ptyId));
         if (!agentTab || agentTab.id === activeTabId) continue;
-
         const workspaces = getWorkspaceCollection().toArray;
         const ws = workspaces.find((w) => agentTab.workspaceItemId.startsWith(w.id));
-
         if (agent.status === 'waiting') {
           showAgentToastDeduped({
             type: 'agent-waiting',
@@ -81,99 +81,25 @@ function RootLayout() {
     return () => sub.unsubscribe();
   }, []);
 
-  // Apply theme from settings on mount
   useEffect(() => {
     const settings = getSettingCollection().toArray;
     const theme = getSetting(settings, 'theme', 'obsidian') as string;
     document.documentElement.setAttribute('data-theme', theme);
   }, []);
 
-  const handleSplit = useCallback((direction: 'horizontal' | 'vertical') => {
-    const activeTab = getActiveTab();
-    if (!activeTab?.focusedPaneId) return;
-    try {
-      splitPane(activeTab.focusedPaneId, direction, -1);
-    } catch (err) {
-      showErrorToast('Failed to split pane', String(err));
-    }
-  }, []);
-
-  const handleClose = useCallback(async () => {
-    const activeTab = getActiveTab();
-    if (!activeTab?.focusedPaneId) return;
-
-    if (activeTab.paneRoot.type === 'leaf') {
-      const leaf = activeTab.paneRoot;
-      if (leaf.ptyId > 0) {
-        disposeCached(leaf.ptyId);
-        try {
-          await closePty(leaf.ptyId);
-        } catch {
-          /* PTY may be dead */
-        }
-      }
-      closeTab(activeTab.id);
-    } else {
-      const leaf = findLeaf(activeTab.paneRoot, activeTab.focusedPaneId);
-      if (leaf && leaf.ptyId > 0) {
-        disposeCached(leaf.ptyId);
-        try {
-          await closePty(leaf.ptyId);
-        } catch {
-          /* PTY may be dead */
-        }
-      }
-      closePane(activeTab.focusedPaneId);
-    }
-  }, []);
-
   const bindings: Keybinding[] = useMemo(
     () => [
-      { key: 'd', meta: true, action: () => handleSplit('horizontal') },
-      { key: 'd', meta: true, shift: true, action: () => handleSplit('vertical') },
-      { key: 'w', meta: true, action: () => handleClose() },
-      { key: 'ArrowLeft', meta: true, alt: true, action: () => navigatePanes('left') },
-      { key: 'ArrowRight', meta: true, alt: true, action: () => navigatePanes('right') },
-      { key: 'ArrowUp', meta: true, alt: true, action: () => navigatePanes('up') },
-      { key: 'ArrowDown', meta: true, alt: true, action: () => navigatePanes('down') },
-      { key: 't', meta: true, action: () => addTab() },
-      ...Array.from({ length: 9 }, (_, i) => ({
-        key: String(i + 1),
-        meta: true,
-        action: () => switchTabByIndex(i),
-      })),
-      { key: '[', meta: true, shift: true, action: () => switchTabRelative('prev') },
-      { key: ']', meta: true, shift: true, action: () => switchTabRelative('next') },
       { key: 'b', meta: true, action: () => toggleSidebar() },
       { key: 'o', meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
-      {
-        key: 'a',
-        meta: true,
-        shift: true,
-        action: () => {
-          const activeTab = getActiveTab();
-          if (!activeTab?.focusedPaneId) return;
-          const leaf = findLeaf(activeTab.paneRoot, activeTab.focusedPaneId);
-          if (leaf && leaf.ptyId > 0) {
-            toggleManualOverride(leaf.ptyId);
-          }
-        },
-      },
     ],
-    [handleSplit, handleClose],
+    [],
   );
 
   useKeyboardRegistry(bindings);
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-bg-primary">
-      <div className="flex min-h-0 flex-1 flex-row">
-        <Sidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <Outlet />
-        </div>
-      </div>
-      <StatusBar />
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-bg-primary">
+      <Outlet />
       <ErrorToastRegion />
       <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
       <AgentToastRegion />

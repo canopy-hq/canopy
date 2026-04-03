@@ -172,19 +172,6 @@ export function WorkspaceTree() {
 
   const selectedKeys: Selection = selectedItemId ? new Set([selectedItemId]) : new Set<Key>();
 
-  function findItemLabel(itemId: string): string {
-    for (const ws of workspaces) {
-      if (itemId === ws.id) return ws.name;
-      if (itemId.startsWith(ws.id + '-branch-')) {
-        return itemId.slice((ws.id + '-branch-').length);
-      }
-      if (itemId.startsWith(ws.id + '-wt-')) {
-        return itemId.slice((ws.id + '-wt-').length);
-      }
-    }
-    return 'Terminal';
-  }
-
   function handleSelectionChange(keys: Selection) {
     if (keys === 'all') return;
     const selected = [...keys][0];
@@ -193,8 +180,7 @@ export function WorkspaceTree() {
       return;
     }
     const selectedStr = String(selected);
-    const label = findItemLabel(selectedStr);
-    selectWorkspaceItem(selectedStr, label);
+    selectWorkspaceItem(selectedStr);
   }
 
   function handleExpandedChange(keys: Set<Key>) {

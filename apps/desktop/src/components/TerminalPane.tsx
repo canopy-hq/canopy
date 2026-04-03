@@ -1,11 +1,8 @@
-import { useRef, useState, useEffect } from 'react';
-
-import { getSettingCollection, getSetting, setSetting } from '@superagent/db';
-
+import { useRef, useState, useEffect, useMemo } from 'react';
+import { useTerminal, getPtyCwd } from '@superagent/terminal';
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
-import { useTerminal } from '../hooks/useTerminal';
-import { spawnTerminal, getPtyCwd } from '../lib/pty';
 import { setFocus, setPtyId } from '../lib/tab-actions';
+import { getSettingCollection, getSetting, setSetting } from '@superagent/db';
 import { PaneHeader } from './PaneHeader';
 
 interface TerminalPaneProps {
@@ -16,8 +13,8 @@ interface TerminalPaneProps {
 /**
  * Single terminal pane with floating CWD header and focus indicator.
  *
- * Handles the ptyId=-1 sentinel case by spawning (or reconnecting to) a daemon
- * session keyed by paneId. On cold restart the daemon replays scrollback.
+ * Delegates PTY spawn to useTerminal so that spawn dimensions are derived from
+ * the fitted terminal — eliminating dimension estimates and spurious SIGWINCHes.
  */
 export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -29,28 +26,13 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
   const [cwd, setCwd] = useState('');
   const [realPtyId, setRealPtyId] = useState<number | null>(ptyId > 0 ? ptyId : null);
 
-  // Sentinel PTY spawn: if ptyId is -1, spawn / reconnect on mount
-  useEffect(() => {
-    if (ptyId > 0) return;
-    if (realPtyId !== null) return;
+  // Read once; only used for the initial spawn inside useTerminal.
+  const savedCwd = useMemo(() => {
+    const v = getSetting(getSettingCollection().toArray, `cwd:${paneId}`, '') as string;
+    return v || undefined;
+  }, [paneId]);
 
-    let cancelled = false;
-
-    const settings = getSettingCollection().toArray;
-    const savedCwd = getSetting(settings, `cwd:${paneId}`, '') as string;
-
-    void spawnTerminal(paneId, savedCwd || undefined).then((id) => {
-      if (cancelled) return;
-      setRealPtyId(id);
-      setPtyId(paneId, id);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [ptyId, realPtyId, paneId]);
-
-  // Poll CWD from Rust side every 2 seconds and persist changes
+  // Poll CWD from Rust side every 2 seconds and persist changes.
   useEffect(() => {
     if (realPtyId === null) return;
 
@@ -80,43 +62,43 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
     };
   }, [realPtyId, paneId]);
 
-  if (realPtyId === null) {
-    return (
-      <div className="flex h-full w-full items-center justify-center text-sm text-gray-500">
-        Starting terminal...
-      </div>
-    );
-  }
-
   return (
     <TerminalPaneInner
       paneId={paneId}
-      ptyId={realPtyId}
+      ptyId={realPtyId ?? ptyId}
+      savedCwd={savedCwd}
       isFocused={isFocused}
       cwd={cwd}
       containerRef={containerRef}
+      onPtySpawned={(id) => {
+        setRealPtyId(id);
+        setPtyId(paneId, id);
+      }}
     />
   );
 }
 
 /**
- * Inner component that renders once we have a valid PTY ID.
- * Separated to keep hook calls unconditional (hooks can't be after early return).
+ * Inner component — separated so hook calls stay unconditional.
  */
 function TerminalPaneInner({
   paneId,
   ptyId,
+  savedCwd,
   isFocused,
   cwd,
   containerRef,
+  onPtySpawned,
 }: {
   paneId: string;
   ptyId: number;
+  savedCwd: string | undefined;
   isFocused: boolean;
   cwd: string;
   containerRef: React.RefObject<HTMLDivElement | null>;
+  onPtySpawned: (id: number) => void;
 }) {
-  const termRef = useTerminal(containerRef, ptyId, isFocused);
+  const termRef = useTerminal(containerRef, paneId, savedCwd, ptyId, isFocused, onPtySpawned);
 
   const agents = useAgents();
   const agent = agents.find((a) => a.ptyId === ptyId);

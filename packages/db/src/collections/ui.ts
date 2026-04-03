@@ -14,7 +14,7 @@ export interface UiState {
 
 const INITIAL_UI_STATE: UiState = {
   id: 'ui',
-  sidebarVisible: false,
+  sidebarVisible: true,
   sidebarWidth: 230,
   selectedItemId: null,
   activeTabId: '',
