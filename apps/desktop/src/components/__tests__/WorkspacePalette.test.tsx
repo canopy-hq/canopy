@@ -10,6 +10,9 @@ vi.mock('../../lib/git', () => ({
     { name: 'feat/sidebar', is_head: false, is_local: true, is_in_worktree: true },
   ]),
   listBranches: vi.fn().mockResolvedValue([]),
+  listWorktrees: vi.fn().mockResolvedValue([
+    { name: 'wt-sidebar', path: '/tmp/wt-sidebar' },
+  ]),
 }));
 
 vi.mock('../../lib/workspace-actions', () => ({

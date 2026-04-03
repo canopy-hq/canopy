@@ -169,7 +169,13 @@ export async function createWorktree(
   const ws = getWorkspaceCollection().toArray.find((w) => w.id === workspaceId);
   if (!ws) return;
   try {
-    await gitApi.createWorktree(ws.path, name, path, baseBranch);
+    const wt = await gitApi.createWorktree(ws.path, name, path, baseBranch);
+    // Add the new worktree to the sidebar
+    getWorkspaceCollection().update(workspaceId, (draft) => {
+      if (!draft.worktrees.some((w) => w.name === wt.name)) {
+        draft.worktrees.push({ name: wt.name, path: wt.path });
+      }
+    });
     await refreshRepo(workspaceId);
   } catch (err) {
     showErrorToast('Create worktree failed', String(err));

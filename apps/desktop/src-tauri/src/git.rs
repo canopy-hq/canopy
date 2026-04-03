@@ -110,6 +110,12 @@ pub fn list_branches(repo_path: String) -> Result<Vec<BranchInfo>, String> {
 }
 
 #[tauri::command]
+pub fn list_worktrees(repo_path: String) -> Result<Vec<WorktreeInfo>, String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
+    enumerate_worktrees(&repo)
+}
+
+#[tauri::command]
 pub fn list_all_branches(repo_path: String) -> Result<Vec<BranchDetail>, String> {
     let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
 
@@ -229,7 +235,20 @@ pub fn create_worktree(
         opts.reference(Some(&_ref_holder));
     }
 
-    let target = Path::new(&path);
+    // Expand ~ to home directory
+    let expanded_path = if path.starts_with("~/") {
+        let home = std::env::var("HOME").map_err(|_| "HOME not set".to_string())?;
+        format!("{}{}", home, &path[1..])
+    } else {
+        path.clone()
+    };
+    let target = Path::new(&expanded_path);
+
+    // Ensure parent directory exists
+    if let Some(parent) = target.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
+
     if target.exists() {
         return Err(format!(
             "Target path \"{}\" already exists. Choose a different location.",

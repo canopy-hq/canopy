@@ -61,6 +61,7 @@ pub fn run() {
             git::import_repo,
             git::list_branches,
             git::list_all_branches,
+            git::list_worktrees,
             git::create_branch,
             git::delete_branch,
             git::create_worktree,

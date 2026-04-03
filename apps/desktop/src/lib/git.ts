@@ -34,6 +34,10 @@ export function listBranches(repoPath: string): Promise<BranchInfo[]> {
   return invoke<BranchInfo[]>('list_branches', { repoPath });
 }
 
+export function listWorktrees(repoPath: string): Promise<WorktreeInfo[]> {
+  return invoke<WorktreeInfo[]>('list_worktrees', { repoPath });
+}
+
 export function listAllBranches(repoPath: string): Promise<BranchDetail[]> {
   return invoke<BranchDetail[]>('list_all_branches', { repoPath });
 }

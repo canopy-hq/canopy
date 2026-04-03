@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { Workspace } from '@superagent/db';
-import { listAllBranches, type BranchDetail } from '../lib/git';
+import { listAllBranches, listWorktrees, type BranchDetail, type WorktreeInfo } from '../lib/git';
 import { createWorktree, openWorktree } from '../lib/workspace-actions';
 
 export interface WorkspacePaletteProps {
@@ -16,6 +16,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<Tab>('all');
   const [branches, setBranches] = useState<BranchDetail[]>([]);
+  const [allWorktrees, setAllWorktrees] = useState<WorktreeInfo[]>([]);
   const [baseBranch, setBaseBranch] = useState('');
   const [pickingBase, setPickingBase] = useState(false);
   const [confirmBranch, setConfirmBranch] = useState<string | null>(null);
@@ -28,6 +29,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
     setConfirmBranch(null);
     setPickingBase(false);
     listAllBranches(workspace.path).then(setBranches).catch(() => {});
+    listWorktrees(workspace.path).then(setAllWorktrees).catch(() => {});
     const head = workspace.branches.find((b) => b.is_head);
     setBaseBranch(head?.name ?? 'main');
     requestAnimationFrame(() => inputRef.current?.focus());
@@ -41,7 +43,12 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
   );
   const isCreateMode = query.trim().length > 0 && !exactMatch;
 
-  const diskWorktrees = workspace.worktrees;
+  // Worktrees from disk — mark which are already in the sidebar
+  const sidebarNames = new Set(workspace.worktrees.map((wt) => wt.name));
+  const diskWorktrees = allWorktrees.map((wt) => ({
+    ...wt,
+    isInSidebar: sidebarNames.has(wt.name),
+  }));
   const filteredWorktrees = diskWorktrees.filter((wt) =>
     wt.name.toLowerCase().includes(query.toLowerCase()),
   );
@@ -49,14 +56,17 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
   const handleCreateNew = useCallback(async () => {
     const name = query.trim();
     if (!name) return;
-    const wtPath = `~/.superagent/worktrees/${workspace.name}-${name}`;
-    await createWorktree(workspace.id, name, wtPath, baseBranch);
+    // Worktree name (git identifier) must not contain slashes
+    const wtName = name.replaceAll('/', '-');
+    const wtPath = `~/.superagent/worktrees/${workspace.name}-${wtName}`;
+    await createWorktree(workspace.id, wtName, wtPath, baseBranch);
     onClose();
   }, [query, workspace, baseBranch, onClose]);
 
   async function handleCreateFromBranch(branchName: string) {
-    const wtPath = `~/.superagent/worktrees/${workspace.name}-${branchName}`;
-    await createWorktree(workspace.id, branchName, wtPath, branchName);
+    const wtName = branchName.replaceAll('/', '-');
+    const wtPath = `~/.superagent/worktrees/${workspace.name}-${wtName}`;
+    await createWorktree(workspace.id, wtName, wtPath, branchName);
     onClose();
   }
 
@@ -183,7 +193,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
                 <div style={{ padding: '12px 8px', textAlign: 'center', color: '#333', fontSize: '12px' }}>No worktrees</div>
               )}
               {filteredWorktrees.map((wt) => (
-                <WorktreeItem key={wt.name} worktree={wt} onOpen={() => handleOpenWorktree(wt.name, wt.path)} />
+                <WorktreeItem key={wt.name} worktree={wt} onOpen={() => handleOpenWorktree(wt.name, wt.path)} isInSidebar={wt.isInSidebar} />
               ))}
             </>
           )}
@@ -197,7 +207,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
                 </div>
               )}
               {filteredWorktrees.map((wt) => (
-                <WorktreeItem key={wt.name} worktree={wt} onOpen={() => handleOpenWorktree(wt.name, wt.path)} showPath />
+                <WorktreeItem key={wt.name} worktree={wt} onOpen={() => handleOpenWorktree(wt.name, wt.path)} showPath isInSidebar={wt.isInSidebar} />
               ))}
               {filteredWorktrees.length > 0 && (
                 <div style={{ padding: '8px', textAlign: 'center', color: '#333', fontSize: '12px', borderTop: '1px solid #1e1e2e', marginTop: '4px' }}>
@@ -322,9 +332,12 @@ function BranchItem({
   );
 }
 
-function WorktreeItem({ worktree, onOpen, showPath }: { worktree: { name: string; path: string }; onOpen: () => void; showPath?: boolean }) {
+function WorktreeItem({ worktree, onOpen, showPath, isInSidebar }: { worktree: { name: string; path: string }; onOpen: () => void; showPath?: boolean; isInSidebar?: boolean }) {
   return (
-    <div className="flex items-center gap-[7px] py-[6px] px-2 rounded-[5px] cursor-pointer hover:bg-[rgba(59,130,246,0.06)]">
+    <div
+      className="flex items-center gap-[7px] py-[6px] px-2 rounded-[5px] hover:bg-[rgba(59,130,246,0.06)]"
+      style={{ opacity: isInSidebar ? 0.5 : 1, cursor: isInSidebar ? 'default' : 'pointer' }}
+    >
       <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" strokeWidth="1.5">
         <rect x="3" y="3" width="10" height="10" rx="2"/>
       </svg>
@@ -334,12 +347,16 @@ function WorktreeItem({ worktree, onOpen, showPath }: { worktree: { name: string
           <div style={{ fontSize: '10px', color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{worktree.path}</div>
         )}
       </div>
-      <button
-        onClick={(e) => { e.stopPropagation(); onOpen(); }}
-        style={{ marginLeft: 'auto', fontSize: '11px', color: '#22c55e', background: 'rgba(34,197,94,0.08)', padding: '2px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
-      >
-        Open
-      </button>
+      {isInSidebar ? (
+        <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#444' }}>opened</span>
+      ) : (
+        <button
+          onClick={(e) => { e.stopPropagation(); onOpen(); }}
+          style={{ marginLeft: 'auto', fontSize: '11px', color: '#22c55e', background: 'rgba(34,197,94,0.08)', padding: '2px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+        >
+          Open
+        </button>
+      )}
     </div>
   );
 }
