@@ -138,11 +138,19 @@ export function TabBar() {
     const el = scrollRef.current;
     if (!el) return;
     el.addEventListener('scroll', updateScrollState, { passive: true });
-    const ro = new ResizeObserver(updateScrollState);
+    let rafId: number | null = null;
+    const ro = new ResizeObserver(() => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        updateScrollState();
+      });
+    });
     ro.observe(el);
     updateScrollState();
     return () => {
       el.removeEventListener('scroll', updateScrollState);
+      if (rafId !== null) cancelAnimationFrame(rafId);
       ro.disconnect();
     };
   }, [updateScrollState]);
