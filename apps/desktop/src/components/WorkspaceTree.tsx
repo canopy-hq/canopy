@@ -50,8 +50,8 @@ function BranchRow({ branch, agentStatus }: { branch: BranchInfo; agentStatus?: 
       )}
       {agentStatus && agentStatus !== 'idle' && <StatusDot status={agentStatus} size={6} />}
       <span className="flex gap-1 text-[11px]">
-        {branch.ahead > 0 && <span className="text-git-ahead">+{branch.ahead}</span>}
-        {branch.behind > 0 && <span className="text-git-behind">-{branch.behind}</span>}
+        {branch.ahead > 0 && <span className="font-mono tabular-nums text-git-ahead">+{branch.ahead}</span>}
+        {branch.behind > 0 && <span className="font-mono tabular-nums text-git-behind">-{branch.behind}</span>}
       </span>
     </div>
   );
@@ -203,7 +203,7 @@ function RepoHeader({
             </span>
           )}
           {childCount > 0 && (
-            <span className="text-[11px] text-text-muted bg-bg-tertiary px-[6px] py-px rounded-lg">
+            <span className="font-mono tabular-nums text-[11px] text-text-muted bg-bg-tertiary px-[6px] py-px rounded-lg">
               {childCount}
             </span>
           )}
