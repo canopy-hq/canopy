@@ -31,7 +31,7 @@ function DiffPill({ additions, deletions }: { additions: number; deletions: numb
   if (additions === 0 && deletions === 0) return null;
   return (
     <span
-      className="inline-flex flex-shrink-0 gap-1 whitespace-nowrap rounded"
+      className="inline-flex flex-shrink-0 gap-1 whitespace-nowrap"
       style={{
         fontSize: '11px',
         fontWeight: 500,
@@ -72,26 +72,33 @@ function useDiffStatsMap(
 ): Record<string, Record<string, DiffStat>> {
   const [statsMap, setStatsMap] = useState<Record<string, Record<string, DiffStat>>>({});
 
-  // Build a stable key from workspace IDs + branch counts to detect changes
   const workspaceKey = useMemo(
     () =>
       workspaces
-        .map((ws) => `${ws.id}:${ws.branches.length}:${ws.worktrees.length}`)
+        .map(
+          (ws) =>
+            `${ws.id}:${ws.branches.map((b) => `${b.name}:${b.ahead}:${b.behind}`).join('|')}:${ws.worktrees.map((w) => w.name).join('|')}`,
+        )
         .join(','),
     [workspaces],
   );
 
   useEffect(() => {
     let cancelled = false;
-    for (const ws of workspaces) {
-      getDiffStats(ws.path)
-        .then((stats) => {
-          if (!cancelled) {
-            setStatsMap((prev) => ({ ...prev, [ws.id]: stats }));
-          }
-        })
-        .catch(() => {});
-    }
+    Promise.all(
+      workspaces.map((ws) =>
+        getDiffStats(ws.path)
+          .then((stats) => [ws.id, stats] as const)
+          .catch(() => null),
+      ),
+    ).then((results) => {
+      if (cancelled) return;
+      const next: Record<string, Record<string, DiffStat>> = {};
+      for (const r of results) {
+        if (r) next[r[0]] = r[1];
+      }
+      setStatsMap((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+    });
     return () => {
       cancelled = true;
     };
@@ -102,7 +109,7 @@ function useDiffStatsMap(
 
 function BranchRow({ branch, agentStatus, diffStat }: { branch: BranchInfo; agentStatus?: DotStatus; diffStat?: DiffStat }) {
   return (
-    <div className="ml-[39px] mr-1.5 my-px flex items-center gap-[6px] rounded-[5px] px-[10px] py-[4px]">
+    <div className="ml-[39px] mr-1.5 my-px flex items-center gap-[6px] rounded-[5px] px-[10px] py-[3px]">
       <IconWithBadge agentStatus={agentStatus}>
         <Laptop
           size={14}
@@ -110,19 +117,23 @@ function BranchRow({ branch, agentStatus, diffStat }: { branch: BranchInfo; agen
           stroke={branch.is_head ? 'var(--accent)' : 'var(--text-muted)'}
         />
       </IconWithBadge>
-      <span
-        className={`truncate flex-1 text-[13px] ${branch.is_head ? 'font-medium text-text-primary' : 'font-normal text-text-secondary'}`}
-      >
-        {branch.name}
-      </span>
-      {branch.is_head && (
-        <span className="text-[9px] text-accent bg-[rgba(59,130,246,0.1)] px-[5px] py-px rounded-[3px]">
-          HEAD
-        </span>
-      )}
-      {!branch.is_head && diffStat && (
-        <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />
-      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-[6px]">
+          <span
+            className={`truncate flex-1 min-w-0 text-[13px] ${branch.is_head ? 'font-medium text-text-primary' : 'font-normal text-text-secondary'}`}
+          >
+            {branch.name}
+          </span>
+          {diffStat && (
+            <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />
+          )}
+        </div>
+        {branch.is_head && (
+          <span className="block truncate text-[11px] text-text-muted mt-0.5">
+            local
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -469,12 +480,12 @@ function ContextMenu({
   x,
   y,
   onClose,
-  onCloseProject,
+  items,
 }: {
   x: number;
   y: number;
   onClose: () => void;
-  onCloseProject: () => void;
+  items: Array<{ label: string; onSelect: () => void }>;
 }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -500,71 +511,20 @@ function ContextMenu({
         style={{ left: x, top: y }}
         role="menu"
       >
-        <button
-          ref={buttonRef}
-          role="menuitem"
-          className="w-full cursor-pointer px-3 py-1.5 text-left text-[13px] text-[var(--destructive)] outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)]"
-          onClick={(e) => {
-            e.stopPropagation();
-            onCloseProject();
-          }}
-        >
-          Close Project
-        </button>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-function WorktreeContextMenu({
-  x,
-  y,
-  worktreeName,
-  onClose,
-  onRemove,
-}: {
-  x: number;
-  y: number;
-  worktreeName: string;
-  onClose: () => void;
-  onRemove: () => void;
-}) {
-  const buttonRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    buttonRef.current?.focus();
-  }, []);
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-40"
-      onClick={onClose}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        onClose();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose();
-      }}
-      role="presentation"
-    >
-      <div
-        className="fixed z-50 min-w-[180px] rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] py-1 shadow-lg"
-        style={{ left: x, top: y }}
-        role="menu"
-      >
-        <button
-          ref={buttonRef}
-          role="menuitem"
-          className="w-full cursor-pointer px-3 py-1.5 text-left text-[13px] text-[var(--destructive)] outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)]"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-        >
-          Close Worktree
-        </button>
+        {items.map((item, i) => (
+          <button
+            key={item.label}
+            ref={i === 0 ? buttonRef : undefined}
+            role="menuitem"
+            className="w-full cursor-pointer px-3 py-1.5 text-left text-[13px] text-[var(--destructive)] outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)]"
+            onClick={(e) => {
+              e.stopPropagation();
+              item.onSelect();
+            }}
+          >
+            {item.label}
+          </button>
+        ))}
       </div>
     </div>,
     document.body,
@@ -671,23 +631,32 @@ function RepoTreeItem({
           x={menuPos.current.x}
           y={menuPos.current.y}
           onClose={() => setMenuOpen(false)}
-          onCloseProject={() => {
-            setMenuOpen(false);
-            onRequestClose(ws);
-          }}
+          items={[
+            {
+              label: 'Close Project',
+              onSelect: () => {
+                setMenuOpen(false);
+                onRequestClose(ws);
+              },
+            },
+          ]}
         />
       )}
       {wtMenuTarget && (
-        <WorktreeContextMenu
+        <ContextMenu
           x={wtMenuPos.current.x}
           y={wtMenuPos.current.y}
-          worktreeName={wtMenuTarget}
           onClose={() => setWtMenuTarget(null)}
-          onRemove={() => {
-            const name = wtMenuTarget;
-            setWtMenuTarget(null);
-            onRequestRemoveWt(name);
-          }}
+          items={[
+            {
+              label: 'Close Worktree',
+              onSelect: () => {
+                const name = wtMenuTarget;
+                setWtMenuTarget(null);
+                onRequestRemoveWt(name);
+              },
+            },
+          ]}
         />
       )}
     </>

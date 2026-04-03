@@ -368,11 +368,24 @@ pub fn remove_worktree(repo_path: String, name: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Compute diff stats between a base tree and a branch tip tree.
+fn diff_stat_for_tree(
+    repo: &Repository,
+    base_tree: &git2::Tree,
+    tip_tree: &git2::Tree,
+) -> Option<DiffStat> {
+    let diff = repo.diff_tree_to_tree(Some(base_tree), Some(tip_tree), None).ok()?;
+    let stats = diff.stats().ok()?;
+    Some(DiffStat {
+        additions: stats.insertions(),
+        deletions: stats.deletions(),
+    })
+}
+
 #[tauri::command]
 pub fn get_diff_stats(repo_path: String) -> Result<HashMap<String, DiffStat>, String> {
     let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
 
-    // Get the HEAD commit's tree as our base for comparison
     let head_ref = repo.head().map_err(|e| e.to_string())?;
     let head_commit = head_ref.peel_to_commit().map_err(|e| e.to_string())?;
     let base_tree = head_commit.tree().map_err(|e| e.to_string())?;
@@ -380,7 +393,17 @@ pub fn get_diff_stats(repo_path: String) -> Result<HashMap<String, DiffStat>, St
 
     let mut stats_map = HashMap::new();
 
-    // Diff each local branch against HEAD
+    // For HEAD branch: diff working tree (staged + unstaged) against HEAD tree
+    if let Ok(diff) = repo.diff_tree_to_workdir_with_index(Some(&base_tree), None) {
+        if let Ok(stats) = diff.stats() {
+            let additions = stats.insertions();
+            let deletions = stats.deletions();
+            if additions > 0 || deletions > 0 {
+                stats_map.insert(head_name.clone(), DiffStat { additions, deletions });
+            }
+        }
+    }
+
     for branch_result in repo
         .branches(Some(BranchType::Local))
         .map_err(|e| e.to_string())?
@@ -392,31 +415,21 @@ pub fn get_diff_stats(repo_path: String) -> Result<HashMap<String, DiffStat>, St
             .unwrap_or("(invalid utf8)")
             .to_string();
 
-        // Skip the HEAD branch — diffing it against itself would be zero
+        // HEAD is already handled above via working tree diff
         if name == head_name {
             continue;
         }
 
         if let Ok(commit) = branch.get().peel_to_commit() {
             if let Ok(branch_tree) = commit.tree() {
-                if let Ok(diff) =
-                    repo.diff_tree_to_tree(Some(&base_tree), Some(&branch_tree), None)
-                {
-                    if let Ok(diff_stats) = diff.stats() {
-                        stats_map.insert(
-                            name,
-                            DiffStat {
-                                additions: diff_stats.insertions(),
-                                deletions: diff_stats.deletions(),
-                            },
-                        );
-                    }
+                if let Some(stat) = diff_stat_for_tree(&repo, &base_tree, &branch_tree) {
+                    stats_map.insert(name, stat);
                 }
             }
         }
     }
 
-    // Also diff worktree HEADs that may not be in the local branch list
+    // Worktree HEADs that may not be in the local branch list
     let wt_names = repo.worktrees().map_err(|e| e.to_string())?;
     for wt_name in wt_names.iter() {
         let wt_name = match wt_name {
@@ -427,30 +440,16 @@ pub fn get_diff_stats(repo_path: String) -> Result<HashMap<String, DiffStat>, St
             Ok(wt) if wt.validate().is_ok() => wt,
             _ => continue,
         };
-        if let Some(branch) = resolve_worktree_branch(wt.path()) {
-            // Skip if we already computed stats for this branch
-            if stats_map.contains_key(&branch) {
+        if let Some(branch_name) = resolve_worktree_branch(wt.path()) {
+            if stats_map.contains_key(&branch_name) {
                 continue;
             }
-            if let Ok(wt_repo) = Repository::open(wt.path()) {
-                if let Ok(wt_head) = wt_repo.head() {
-                    if let Ok(wt_commit) = wt_head.peel_to_commit() {
-                        if let Ok(wt_tree) = wt_commit.tree() {
-                            if let Ok(diff) = repo.diff_tree_to_tree(
-                                Some(&base_tree),
-                                Some(&wt_tree),
-                                None,
-                            ) {
-                                if let Ok(diff_stats) = diff.stats() {
-                                    stats_map.insert(
-                                        branch,
-                                        DiffStat {
-                                            additions: diff_stats.insertions(),
-                                            deletions: diff_stats.deletions(),
-                                        },
-                                    );
-                                }
-                            }
+            // Resolve via main repo handle — no need to open a second Repository
+            if let Ok(branch) = repo.find_branch(&branch_name, BranchType::Local) {
+                if let Ok(commit) = branch.get().peel_to_commit() {
+                    if let Ok(wt_tree) = commit.tree() {
+                        if let Some(stat) = diff_stat_for_tree(&repo, &base_tree, &wt_tree) {
+                            stats_map.insert(branch_name, stat);
                         }
                     }
                 }
