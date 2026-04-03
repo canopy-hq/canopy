@@ -4,7 +4,8 @@
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "lint": "oxlint apps/ packages/",
-    "format": "oxfmt apps/ packages/"
+    "format": "oxfmt apps/ packages/",
+    "postinstall": "lefthook install"
   },
   "catalog": {
     "@tauri-apps/api": "^2.10.1",
