@@ -67,6 +67,13 @@ fn enumerate_branches(repo: &Repository) -> Result<Vec<BranchInfo>, String> {
     Ok(branches)
 }
 
+/// Open a worktree path and resolve which branch is checked out there.
+fn resolve_worktree_branch(wt_path: &Path) -> Option<String> {
+    let wt_repo = Repository::open(wt_path).ok()?;
+    let head = wt_repo.head().ok()?;
+    Some(head.shorthand()?.to_string())
+}
+
 fn enumerate_worktrees(repo: &Repository) -> Result<Vec<WorktreeInfo>, String> {
     let wt_names = repo.worktrees().map_err(|e| e.to_string())?;
     let mut worktrees = Vec::new();
@@ -76,17 +83,8 @@ fn enumerate_worktrees(repo: &Repository) -> Result<Vec<WorktreeInfo>, String> {
             Ok(wt) => {
                 if wt.validate().is_ok() {
                     let wt_path = wt.path().to_string_lossy().to_string();
-                    // Resolve the branch checked out in this worktree
-                    let branch = match Repository::open(&wt_path) {
-                        Ok(wt_repo) => match wt_repo.head() {
-                            Ok(head) => head
-                                .shorthand()
-                                .unwrap_or(name)
-                                .to_string(),
-                            Err(_) => name.to_string(),
-                        },
-                        Err(_) => name.to_string(),
-                    };
+                    let branch = resolve_worktree_branch(wt.path())
+                        .unwrap_or_else(|| name.to_string());
                     worktrees.push(WorktreeInfo {
                         name: name.to_string(),
                         path: wt_path,
@@ -135,18 +133,13 @@ pub fn list_all_branches(repo_path: String) -> Result<Vec<BranchDetail>, String>
 
     // Collect worktree branch names for cross-reference
     let wt_names = repo.worktrees().map_err(|e| e.to_string())?;
-    let mut wt_branch_names: Vec<String> = Vec::new();
+    let mut wt_branch_names: std::collections::HashSet<String> = std::collections::HashSet::new();
     for wt_name in wt_names.iter() {
         let wt_name = wt_name.ok_or("invalid worktree name")?;
         if let Ok(wt) = repo.find_worktree(wt_name) {
             if wt.validate().is_ok() {
-                let wt_path = wt.path();
-                if let Ok(wt_repo) = Repository::open(wt_path) {
-                    if let Ok(head) = wt_repo.head() {
-                        if let Some(name) = head.shorthand() {
-                            wt_branch_names.push(name.to_string());
-                        }
-                    }
+                if let Some(branch) = resolve_worktree_branch(wt.path()) {
+                    wt_branch_names.insert(branch);
                 }
             }
         }
@@ -485,7 +478,7 @@ mod tests {
     #[test]
     fn test_list_all_branches() {
         let tmp = TempDir::new().unwrap();
-        let repo = init_repo_with_commit(tmp.path());
+        let _repo = init_repo_with_commit(tmp.path());
         let path = tmp.path().to_string_lossy().to_string();
 
         let branches_before = list_branches(path.clone()).unwrap();

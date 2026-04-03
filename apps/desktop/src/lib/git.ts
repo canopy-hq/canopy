@@ -70,3 +70,13 @@ export function createWorktree(
 export function removeWorktree(repoPath: string, name: string): Promise<void> {
   return invoke<void>('remove_worktree', { repoPath, name });
 }
+
+/** Normalize a branch/worktree name to a safe identifier (spaces, underscores, slashes → dashes). */
+export function sanitizeWorktreeName(name: string): string {
+  return name.trim().replace(/[\s_/]+/g, '-');
+}
+
+/** Build the default worktree disk path for a given workspace + worktree name. */
+export function buildWorktreePath(workspaceName: string, wtName: string): string {
+  return `~/.superagent/worktrees/${workspaceName}-${wtName}`;
+}

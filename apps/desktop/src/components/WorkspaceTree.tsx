@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Button, Tree, TreeItem, TreeItemContent } from 'react-aria-components';
 import type { Selection, Key } from 'react-aria-components';
@@ -217,26 +217,26 @@ function useWorkspaceAgentMap(): Record<string, DotStatus> {
   const agents = useAgents();
   const tabs = useTabs();
 
-  const result: Record<string, DotStatus> = {};
-  for (const tab of tabs) {
-    const ptyIds = collectLeafPtyIds(tab.paneRoot);
-    let best: DotStatus = 'idle';
-    for (const id of ptyIds) {
-      const agent = agents.find((a) => a.ptyId === id);
-      if (agent?.status === 'waiting') {
-        best = 'waiting';
-        break;
+  return useMemo(() => {
+    const agentByPty = new Map(agents.map((a) => [a.ptyId, a]));
+    const result: Record<string, DotStatus> = {};
+    for (const tab of tabs) {
+      const ptyIds = collectLeafPtyIds(tab.paneRoot);
+      let best: DotStatus = 'idle';
+      for (const id of ptyIds) {
+        const agent = agentByPty.get(id);
+        if (agent?.status === 'waiting') { best = 'waiting'; break; }
+        if (agent?.status === 'running') best = 'running';
       }
-      if (agent?.status === 'running') best = 'running';
+      const existing = result[tab.workspaceItemId];
+      if (best === 'waiting' || (best === 'running' && existing !== 'waiting')) {
+        result[tab.workspaceItemId] = best;
+      } else if (!existing) {
+        result[tab.workspaceItemId] = best;
+      }
     }
-    const existing = result[tab.workspaceItemId];
-    if (best === 'waiting' || (best === 'running' && existing !== 'waiting')) {
-      result[tab.workspaceItemId] = best;
-    } else if (!existing) {
-      result[tab.workspaceItemId] = best;
-    }
-  }
-  return result;
+    return result;
+  }, [agents, tabs]);
 }
 
 /**

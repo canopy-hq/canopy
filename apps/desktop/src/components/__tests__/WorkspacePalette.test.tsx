@@ -2,18 +2,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { WorkspacePalette, type WorkspacePaletteProps } from '../WorkspacePalette';
 
-vi.mock('../../lib/git', () => ({
-  listAllBranches: vi.fn().mockResolvedValue([
-    { name: 'main', is_head: true, is_local: true, is_in_worktree: false },
-    { name: 'develop', is_head: false, is_local: false, is_in_worktree: false },
-    { name: 'feat/auth', is_head: false, is_local: true, is_in_worktree: false },
-    { name: 'feat/sidebar', is_head: false, is_local: true, is_in_worktree: true },
-  ]),
-  listBranches: vi.fn().mockResolvedValue([]),
-  listWorktrees: vi.fn().mockResolvedValue([
-    { name: 'wt-sidebar', path: '/tmp/wt-sidebar' },
-  ]),
-}));
+vi.mock('../../lib/git', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/git')>();
+  return {
+    ...actual,
+    listAllBranches: vi.fn().mockResolvedValue([
+      { name: 'main', is_head: true, is_local: true, is_in_worktree: false },
+      { name: 'develop', is_head: false, is_local: false, is_in_worktree: false },
+      { name: 'feat/auth', is_head: false, is_local: true, is_in_worktree: false },
+      { name: 'feat/sidebar', is_head: false, is_local: true, is_in_worktree: true },
+    ]),
+    listBranches: vi.fn().mockResolvedValue([]),
+    listWorktrees: vi.fn().mockResolvedValue([
+      { name: 'wt-sidebar', path: '/tmp/wt-sidebar', branch: 'feat/sidebar' },
+    ]),
+  };
+});
 
 vi.mock('../../lib/workspace-actions', () => ({
   createWorktree: vi.fn(),

@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { Workspace } from '@superagent/db';
-import { listAllBranches, listWorktrees, type BranchDetail, type WorktreeInfo } from '../lib/git';
+import { listAllBranches, listWorktrees, sanitizeWorktreeName, buildWorktreePath, type BranchDetail, type WorktreeInfo } from '../lib/git';
 import { createWorktree, openWorktree } from '../lib/workspace-actions';
 
 export interface WorkspacePaletteProps {
@@ -35,40 +35,41 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [isOpen, workspace]);
 
-  const filteredBranches = branches.filter((b) =>
-    b.name.toLowerCase().includes(query.toLowerCase()),
+  const lowerQuery = query.toLowerCase();
+
+  const filteredBranches = useMemo(
+    () => branches.filter((b) => b.name.toLowerCase().includes(lowerQuery)),
+    [branches, lowerQuery],
   );
-  const exactMatch = branches.find(
-    (b) => b.name.toLowerCase() === query.trim().toLowerCase(),
+  const exactMatch = useMemo(
+    () => branches.find((b) => b.name.toLowerCase() === lowerQuery.trim()),
+    [branches, lowerQuery],
   );
   const isCreateMode = query.trim().length > 0 && !exactMatch;
 
-  // Sanitize worktree name: whitespace, underscores, slashes → dashes
-  const sanitizedName = query.trim().replace(/[\s_/]+/g, '-');
+  const sanitizedName = sanitizeWorktreeName(query);
 
-  // Worktrees from disk — mark which are already in the sidebar
-  const sidebarNames = new Set(workspace.worktrees.map((wt) => wt.name));
-  const diskWorktrees = allWorktrees.map((wt) => ({
-    ...wt,
-    isInSidebar: sidebarNames.has(wt.name),
-  }));
-  const filteredWorktrees = diskWorktrees.filter((wt) =>
-    wt.name.toLowerCase().includes(query.toLowerCase()),
+  const sidebarNames = useMemo(
+    () => new Set(workspace.worktrees.map((wt) => wt.name)),
+    [workspace.worktrees],
+  );
+  const diskWorktrees = useMemo(
+    () => allWorktrees.map((wt) => ({ ...wt, isInSidebar: sidebarNames.has(wt.name) })),
+    [allWorktrees, sidebarNames],
+  );
+  const filteredWorktrees = useMemo(
+    () => diskWorktrees.filter((wt) => wt.name.toLowerCase().includes(lowerQuery)),
+    [diskWorktrees, lowerQuery],
   );
 
-  const handleCreateNew = useCallback(async () => {
-    if (!sanitizedName) return;
-    const wtPath = `~/.superagent/worktrees/${workspace.name}-${sanitizedName}`;
-    await createWorktree(workspace.id, sanitizedName, wtPath, baseBranch, sanitizedName);
+  const handleCreateWorktree = useCallback(async (branchName?: string) => {
+    const wtName = branchName ? sanitizeWorktreeName(branchName) : sanitizedName;
+    if (!wtName) return;
+    const wtPath = buildWorktreePath(workspace.name, wtName);
+    const newBranch = branchName ? undefined : wtName;
+    await createWorktree(workspace.id, wtName, wtPath, branchName ?? baseBranch, newBranch);
     onClose();
   }, [sanitizedName, workspace, baseBranch, onClose]);
-
-  async function handleCreateFromBranch(branchName: string) {
-    const wtName = branchName.replaceAll('/', '-');
-    const wtPath = `~/.superagent/worktrees/${workspace.name}-${wtName}`;
-    await createWorktree(workspace.id, wtName, wtPath, branchName);
-    onClose();
-  }
 
   function handleOpenWorktree(name: string, path: string, branch: string) {
     openWorktree(workspace.id, name, path, branch);
@@ -87,10 +88,10 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
         }
       }
       if (e.key === 'Enter' && e.metaKey && isCreateMode) {
-        handleCreateNew();
+        handleCreateWorktree();
       }
     },
-    [onClose, pickingBase, confirmBranch, isCreateMode, handleCreateNew],
+    [onClose, pickingBase, confirmBranch, isCreateMode, handleCreateWorktree],
   );
 
   if (!isOpen) return null;
@@ -184,7 +185,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
                     if (b.is_head || b.is_in_worktree) return;
                     setConfirmBranch(b.name);
                   }}
-                  onConfirmCreate={() => handleCreateFromBranch(b.name)}
+                  onConfirmCreate={() => handleCreateWorktree(b.name)}
                   onCancelConfirm={() => setConfirmBranch(null)}
                 />
               ))}
