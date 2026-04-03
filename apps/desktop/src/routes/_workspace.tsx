@@ -4,7 +4,6 @@ import { closePty, disposeCached } from '@superagent/terminal';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 
 import { Sidebar } from '../components/Sidebar';
-import { StatusBar } from '../components/StatusBar';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { toggleManualOverride } from '../lib/agent-actions';
 import { findLeaf } from '../lib/pane-tree-ops';
@@ -99,7 +98,6 @@ function WorkspaceLayout() {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Outlet />
-        <StatusBar />
       </div>
     </div>
   );
