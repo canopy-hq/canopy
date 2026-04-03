@@ -43,6 +43,12 @@ export function useTerminal(
 ): React.MutableRefObject<Terminal | null> {
   const termRef = useRef<Terminal | null>(null);
   const [wasmReady, setWasmReady] = useState(false);
+  // Ref so the effect reads the latest ptyId without re-running.
+  // setPtyId updates the reactive store → PaneContainer re-renders with ptyId=42.
+  // Without this ref, ptyId in deps would re-run the effect, detaching the terminal
+  // DOM element — ghostty-web loses rendering state during detach/reattach.
+  const ptyIdRef = useRef(ptyId);
+  ptyIdRef.current = ptyId;
 
   useEffect(() => {
     void ensureGhosttyInit().then(() => setWasmReady(true));
@@ -59,6 +65,9 @@ export function useTerminal(
 
     const container = containerRef.current;
     if (!container) return;
+
+    // Snapshot ptyId at effect-run time via ref.
+    const ptyId = ptyIdRef.current;
 
     let spawnCancelled = false;
     let sigwinchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -312,7 +321,7 @@ export function useTerminal(
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerRef, ptyId, wasmReady]);
+  }, [containerRef, wasmReady]);
 
   return termRef;
 }

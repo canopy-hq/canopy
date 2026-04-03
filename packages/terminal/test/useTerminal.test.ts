@@ -494,6 +494,54 @@ describe('useTerminal — restored session (isNew=false)', () => {
     expect(vi.mocked(writeToPty)).toHaveBeenCalledWith(42, 'a');
     unmount();
   });
+
+  it('data arriving AFTER ptyId changes (effect re-run) still reaches terminal', async () => {
+    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
+
+    const container = makeContainer();
+    const containerRef = { current: container };
+    const onPtySpawned = vi.fn();
+
+    // Render with ptyId=-1, spawn resolves with isNew=false
+    const { rerender, unmount } = renderHook(
+      ({ ptyId }: { ptyId: number }) =>
+        useTerminal(containerRef as any, 'pane-1', undefined, ptyId, false, onPtySpawned),
+      { initialProps: { ptyId: -1 } },
+    );
+
+    await act(flushPromises);
+
+    // Verify spawn completed and handler was set
+    expect(connectPtyOutput).toHaveBeenCalledWith(42, expect.any(Function));
+    const handler = vi.mocked(connectPtyOutput).mock.calls[0]![1];
+
+    // Now simulate what happens in the real app: setPtyId updates the store,
+    // PaneContainer re-renders with ptyId=42 → effect re-runs → cleanup
+    // detaches the terminal → cached path re-attaches it.
+    vi.mocked(getCached).mockReturnValue({
+      term: vi.mocked(Terminal).mock.instances[0] as any,
+      fitAddon: vi.mocked(FitAddon).mock.instances[0] as any,
+    });
+    rerender({ ptyId: 42 });
+    await act(flushPromises);
+
+    // After re-run, the cached path called connectPtyOutput again with a new handler
+    const latestCall = vi.mocked(connectPtyOutput).mock.calls.at(-1);
+    expect(latestCall).toBeDefined();
+    const cachedHandler = latestCall![1];
+
+    // Simulate scrollback/prompt bytes arriving (from daemon) through the LATEST handler
+    const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
+    termInstance.write.mockClear();
+
+    act(() => {
+      cachedHandler(new Uint8Array([0x7e, 0x0a, 0x3e, 0x20])); // "~\n> "
+    });
+
+    // Data must have been written to the terminal — even after effect re-run
+    expect(termInstance.write).toHaveBeenCalledWith(new Uint8Array([0x7e, 0x0a, 0x3e, 0x20]));
+    unmount();
+  });
 });
 
 describe('useTerminal — fresh session (isNew=true)', () => {
