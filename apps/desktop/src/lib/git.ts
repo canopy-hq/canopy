@@ -27,6 +27,11 @@ export interface BranchDetail {
   is_in_worktree: boolean;
 }
 
+export interface DiffStat {
+  additions: number;
+  deletions: number;
+}
+
 export function importRepo(path: string): Promise<RepoInfo> {
   return invoke<RepoInfo>('import_repo', { path });
 }
@@ -69,6 +74,10 @@ export function createWorktree(
 
 export function removeWorktree(repoPath: string, name: string): Promise<void> {
   return invoke<void>('remove_worktree', { repoPath, name });
+}
+
+export function getDiffStats(repoPath: string): Promise<Record<string, DiffStat>> {
+  return invoke<Record<string, DiffStat>>('get_diff_stats', { repoPath });
 }
 
 /** Normalize a branch/worktree name to a safe identifier (spaces, underscores, slashes → dashes). */

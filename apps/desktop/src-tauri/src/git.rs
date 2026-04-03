@@ -1,5 +1,6 @@
 use git2::{BranchType, Repository, WorktreeAddOptions, WorktreePruneOptions};
 use serde::Serialize;
+use std::collections::HashMap;
 use std::path::Path;
 
 #[derive(Serialize, Clone)]
@@ -23,6 +24,12 @@ pub struct RepoInfo {
     pub name: String,
     pub branches: Vec<BranchInfo>,
     pub worktrees: Vec<WorktreeInfo>,
+}
+
+#[derive(Serialize, Clone)]
+pub struct DiffStat {
+    pub additions: usize,
+    pub deletions: usize,
 }
 
 #[derive(Serialize, Clone)]
@@ -361,6 +368,99 @@ pub fn remove_worktree(repo_path: String, name: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+pub fn get_diff_stats(repo_path: String) -> Result<HashMap<String, DiffStat>, String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
+
+    // Get the HEAD commit's tree as our base for comparison
+    let head_ref = repo.head().map_err(|e| e.to_string())?;
+    let head_commit = head_ref.peel_to_commit().map_err(|e| e.to_string())?;
+    let base_tree = head_commit.tree().map_err(|e| e.to_string())?;
+    let head_name = head_ref.shorthand().unwrap_or("HEAD").to_string();
+
+    let mut stats_map = HashMap::new();
+
+    // Diff each local branch against HEAD
+    for branch_result in repo
+        .branches(Some(BranchType::Local))
+        .map_err(|e| e.to_string())?
+    {
+        let (branch, _) = branch_result.map_err(|e| e.to_string())?;
+        let name = branch
+            .name()
+            .map_err(|e| e.to_string())?
+            .unwrap_or("(invalid utf8)")
+            .to_string();
+
+        // Skip the HEAD branch — diffing it against itself would be zero
+        if name == head_name {
+            continue;
+        }
+
+        if let Ok(commit) = branch.get().peel_to_commit() {
+            if let Ok(branch_tree) = commit.tree() {
+                if let Ok(diff) =
+                    repo.diff_tree_to_tree(Some(&base_tree), Some(&branch_tree), None)
+                {
+                    if let Ok(diff_stats) = diff.stats() {
+                        stats_map.insert(
+                            name,
+                            DiffStat {
+                                additions: diff_stats.insertions(),
+                                deletions: diff_stats.deletions(),
+                            },
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    // Also diff worktree HEADs that may not be in the local branch list
+    let wt_names = repo.worktrees().map_err(|e| e.to_string())?;
+    for wt_name in wt_names.iter() {
+        let wt_name = match wt_name {
+            Some(n) => n,
+            None => continue,
+        };
+        let wt = match repo.find_worktree(wt_name) {
+            Ok(wt) if wt.validate().is_ok() => wt,
+            _ => continue,
+        };
+        if let Some(branch) = resolve_worktree_branch(wt.path()) {
+            // Skip if we already computed stats for this branch
+            if stats_map.contains_key(&branch) {
+                continue;
+            }
+            if let Ok(wt_repo) = Repository::open(wt.path()) {
+                if let Ok(wt_head) = wt_repo.head() {
+                    if let Ok(wt_commit) = wt_head.peel_to_commit() {
+                        if let Ok(wt_tree) = wt_commit.tree() {
+                            if let Ok(diff) = repo.diff_tree_to_tree(
+                                Some(&base_tree),
+                                Some(&wt_tree),
+                                None,
+                            ) {
+                                if let Ok(diff_stats) = diff.stats() {
+                                    stats_map.insert(
+                                        branch,
+                                        DiffStat {
+                                            additions: diff_stats.insertions(),
+                                            deletions: diff_stats.deletions(),
+                                        },
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(stats_map)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -533,5 +633,75 @@ mod tests {
             assert_eq!(branch.ahead, 0);
             assert_eq!(branch.behind, 0);
         }
+    }
+
+    #[test]
+    fn test_get_diff_stats() {
+        let tmp = TempDir::new().unwrap();
+        let repo = init_repo_with_commit(tmp.path());
+        let path = tmp.path().to_string_lossy().to_string();
+
+        let branches = list_branches(path.clone()).unwrap();
+        let default_branch = &branches[0].name;
+
+        // Create a feature branch and add a file on it
+        create_branch(path.clone(), "feature/stats".to_string(), default_branch.clone()).unwrap();
+
+        // Checkout the feature branch and create a file
+        let branch = repo
+            .find_branch("feature/stats", BranchType::Local)
+            .unwrap();
+        let commit = branch.get().peel_to_commit().unwrap();
+        let mut index = repo.index().unwrap();
+        // Add a new file blob
+        let blob_id = repo.blob(b"hello\nworld\nthree lines\n").unwrap();
+        index
+            .add(&git2::IndexEntry {
+                ctime: git2::IndexTime::new(0, 0),
+                mtime: git2::IndexTime::new(0, 0),
+                dev: 0,
+                ino: 0,
+                mode: 0o100644,
+                uid: 0,
+                gid: 0,
+                file_size: 0,
+                id: blob_id,
+                flags: 0,
+                flags_extended: 0,
+                path: b"new-file.txt".to_vec(),
+            })
+            .unwrap();
+        let tree_id = index.write_tree().unwrap();
+        let tree = repo.find_tree(tree_id).unwrap();
+        let sig = repo.signature().unwrap_or_else(|_| {
+            git2::Signature::now("Test", "test@test.com").unwrap()
+        });
+        repo.commit(
+            Some("refs/heads/feature/stats"),
+            &sig,
+            &sig,
+            "Add new file",
+            &tree,
+            &[&commit],
+        )
+        .unwrap();
+
+        let stats = get_diff_stats(path).unwrap();
+        assert!(stats.contains_key("feature/stats"));
+        let stat = &stats["feature/stats"];
+        assert!(stat.additions > 0, "Expected additions > 0, got {}", stat.additions);
+        // HEAD branch should not be in the stats
+        assert!(!stats.contains_key(default_branch));
+    }
+
+    #[test]
+    fn test_get_diff_stats_empty_for_no_branches() {
+        let tmp = TempDir::new().unwrap();
+        let _repo = init_repo_with_commit(tmp.path());
+        let path = tmp.path().to_string_lossy().to_string();
+
+        // Only HEAD branch exists — stats should be empty
+        let stats = get_diff_stats(path).unwrap();
+        assert!(stats.is_empty());
     }
 }
