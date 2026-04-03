@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modal A+E Variations</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a14; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; padding: 32px; }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 8px; }
+  .subtitle { color: #9ca3af; font-size: 14px; margin-bottom: 32px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap: 28px; }
+  .proposal { border: 2px solid #2a2a3e; border-radius: 12px; overflow: hidden; cursor: pointer; transition: border-color 0.2s, transform 0.15s; }
+  .proposal:hover { border-color: #3b82f6; transform: translateY(-2px); }
+  .proposal.selected { border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f6, 0 4px 20px rgba(59,130,246,0.15); }
+  .ph { padding: 12px 16px; background: rgba(59,130,246,0.06); border-bottom: 1px solid #2a2a3e; display: flex; justify-content: space-between; align-items: center; }
+  .ph h3 { font-size: 14px; font-weight: 600; }
+  .ph .tag { font-size: 10px; color: #9ca3af; background: #1a1a2e; padding: 2px 8px; border-radius: 10px; }
+  .ph .desc { font-size: 11px; color: #666; margin-top: 2px; }
+  .pb { background: #0e0e16; min-height: 540px; position: relative; font-size: 13px; display: flex; align-items: center; justify-content: center; padding: 24px; }
+
+  .modal { background: #161622; border: 1px solid #2a2a3e; border-radius: 10px; width: 100%; max-width: 460px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); overflow: hidden; }
+  .input-field { width: 100%; padding: 7px 10px; background: #0e0e16; border: 1px solid #2a2a3e; border-radius: 6px; color: #e0e0e0; font-size: 13px; outline: none; }
+  .input-field::placeholder { color: #444; }
+  .tab-bar { display: flex; gap: 2px; background: #0e0e16; border-radius: 6px; padding: 2px; margin-bottom: 8px; }
+  .tab-btn { flex: 1; padding: 5px 8px; border-radius: 4px; border: none; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; background: transparent; color: #9ca3af; }
+  .tab-btn.active { background: #1a1a2e; color: #e0e0e0; }
+  .tab-count { font-size: 10px; background: rgba(255,255,255,0.06); padding: 0 5px; border-radius: 8px; }
+  .search-input { width: 100%; padding: 7px 10px 7px 30px; background: #0e0e16; border: 1px solid #1e1e2e; border-radius: 6px; color: #e0e0e0; font-size: 12px; outline: none; }
+  .branch-list { max-height: 200px; overflow-y: auto; }
+  .branch-item { padding: 6px 8px; display: flex; align-items: center; gap: 7px; border-radius: 5px; cursor: pointer; }
+  .branch-item:hover { background: rgba(59,130,246,0.06); }
+  .origin-tag { font-size: 9px; color: #555; background: rgba(255,255,255,0.04); padding: 1px 5px; border-radius: 3px; flex-shrink: 0; }
+  .local-tag { font-size: 9px; color: #d97706; background: rgba(217,119,6,0.1); padding: 1px 5px; border-radius: 3px; flex-shrink: 0; }
+  .head-tag { font-size: 9px; color: #3b82f6; background: rgba(59,130,246,0.1); padding: 1px 5px; border-radius: 3px; flex-shrink: 0; }
+  .inuse-tag { font-size: 9px; color: #ef4444; background: rgba(239,68,68,0.08); padding: 1px 5px; border-radius: 3px; flex-shrink: 0; }
+  .create-btn { margin-left: auto; font-size: 11px; color: #3b82f6; background: rgba(59,130,246,0.08); padding: 2px 8px; border-radius: 4px; border: none; cursor: pointer; flex-shrink: 0; }
+  .open-btn { margin-left: auto; font-size: 11px; color: #22c55e; background: rgba(34,197,94,0.08); padding: 2px 8px; border-radius: 4px; border: none; cursor: pointer; flex-shrink: 0; }
+  .disabled-btn { margin-left: auto; font-size: 11px; color: #444; background: rgba(255,255,255,0.02); padding: 2px 8px; border-radius: 4px; border: none; cursor: not-allowed; flex-shrink: 0; }
+  .btn-primary { padding: 5px 12px; border-radius: 5px; border: none; font-size: 12px; font-weight: 500; cursor: pointer; background: #3b82f6; color: white; flex-shrink: 0; }
+  .kbd { font-size: 10px; color: #555; font-family: monospace; }
+  .section-label { font-size: 10px; color: #444; padding: 6px 8px 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .si { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #3b82f6; color: white; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; display: none; z-index: 100; max-width: 90vw; text-align: center; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: #1a1a2e; border-radius: 5px; font-size: 11px; color: #9ca3af; white-space: nowrap; cursor: pointer; border: 1px solid #2a2a3e; }
+  .footer { padding: 8px 16px; border-top: 1px solid #1e1e2e; font-size: 11px; color: #444; display: flex; align-items: center; gap: 12px; }
+</style>
+<script src="/helper.js"></script>
+</head>
+<body>
+
+<h1>A + E Variations — Smart Palette meets Base Picker</h1>
+<p class="subtitle">Mixing the browsing clarity of A with the create flow of E. Click to select favorites.</p>
+
+<div class="grid">
+
+<!-- ============================================ -->
+<!-- 1: Browse-first, create slides in -->
+<!-- ============================================ -->
+<div class="proposal" data-choice="1-browse-then-create" onclick="toggleSelect(this)">
+  <div class="ph">
+    <div>
+      <h3>1. Browse-first</h3>
+      <div class="desc">Default: browse & open. Type unknown name → create mode slides in.</div>
+    </div>
+    <span class="tag">Adaptive</span>
+  </div>
+  <div class="pb">
+    <div class="modal">
+      <!-- Search -->
+      <div style="padding: 12px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #1e1e2e;">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><circle cx="7" cy="7" r="4"/><path d="M10 10l3 3"/></svg>
+        <input class="input-field" style="border: none; padding: 4px 0; background: transparent; font-size: 14px;" placeholder="Search or create new branch..." />
+        <span style="font-size: 10px; color: #444; background: #1a1a2e; padding: 2px 6px; border-radius: 4px;">ESC</span>
+      </div>
+
+      <div style="padding: 8px 8px 0;">
+        <div class="tab-bar">
+          <div class="tab-btn active">All <span class="tab-count">8</span></div>
+          <div class="tab-btn">Worktrees <span class="tab-count">2</span></div>
+        </div>
+      </div>
+
+      <div style="padding: 0 8px;">
+        <div class="section-label">Branches</div>
+        <div class="branch-list">
+          <div class="branch-item" style="opacity: 0.5;">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+            <span style="font-weight: 500;">main</span>
+            <span class="head-tag">HEAD</span>
+            <span class="disabled-btn">checked out</span>
+          </div>
+          <div class="branch-item">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+            <span>develop</span>
+            <span class="origin-tag">origin</span>
+            <button class="create-btn">Create WT</button>
+          </div>
+          <div class="branch-item">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+            <span>feat/auth</span>
+            <span class="local-tag">local</span>
+            <button class="create-btn">Create WT</button>
+          </div>
+          <div class="branch-item" style="opacity: 0.5;">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+            <span>feat/sidebar</span>
+            <span class="inuse-tag">in worktree</span>
+            <span class="disabled-btn">in use</span>
+          </div>
+          <div class="branch-item">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+            <span>fix/pty-leak</span>
+            <span class="origin-tag">origin</span>
+            <button class="create-btn">Create WT</button>
+          </div>
+        </div>
+
+        <div class="section-label" style="border-top: 1px solid #1e1e2e; margin-top: 4px; padding-top: 8px;">Worktrees</div>
+        <div class="branch-list" style="max-height: 80px;">
+          <div class="branch-item">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+            <span>wt-sidebar</span>
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: #22c55e;"></span>
+            <button class="open-btn">Open</button>
+          </div>
+          <div class="branch-item">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+            <span>wt-tests</span>
+            <button class="open-btn">Open</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span>↑↓ navigate</span>
+        <span>↵ create/open</span>
+        <span style="margin-left: auto;">type name → create new</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 2: Same but user typed — create mode -->
+<!-- ============================================ -->
+<div class="proposal" data-choice="2-create-mode-active" onclick="toggleSelect(this)">
+  <div class="ph">
+    <div>
+      <h3>2. ↳ After typing "feat/new"</h3>
+      <div class="desc">Same palette — user typed a new branch name. Create card appears at top.</div>
+    </div>
+    <span class="tag">Create state</span>
+  </div>
+  <div class="pb">
+    <div class="modal">
+      <div style="padding: 12px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #1e1e2e;">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><circle cx="7" cy="7" r="4"/><path d="M10 10l3 3"/></svg>
+        <input class="input-field" style="border: none; padding: 4px 0; background: transparent; font-size: 14px;" value="feat/new-modal" />
+        <span style="font-size: 10px; color: #444; background: #1a1a2e; padding: 2px 6px; border-radius: 4px;">ESC</span>
+      </div>
+
+      <div style="padding: 8px;">
+        <!-- Create card -->
+        <div style="padding: 10px 12px; background: rgba(59,130,246,0.05); border: 1px solid rgba(59,130,246,0.15); border-radius: 8px; margin-bottom: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+            <span style="font-weight: 500; color: #3b82f6; flex: 1;">Create "feat/new-modal"</span>
+            <span class="kbd">⌘↵</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 11px; color: #555;">from</span>
+            <div class="chip">
+              <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+              <span style="color: #e0e0e0; font-weight: 500;">main</span>
+              <svg width="8" height="8" viewBox="0 0 16 16" fill="#555"><path d="M4 6l4 4 4-4z"/></svg>
+            </div>
+            <span style="font-size: 11px; color: #333; margin-left: 8px;">click to change base</span>
+          </div>
+        </div>
+
+        <div class="tab-bar">
+          <div class="tab-btn active">All <span class="tab-count">8</span></div>
+          <div class="tab-btn">Worktrees <span class="tab-count">2</span></div>
+        </div>
+      </div>
+
+      <div style="padding: 0 8px;">
+        <div class="section-label">No matching branches</div>
+        <div style="padding: 12px 8px; text-align: center; color: #333; font-size: 12px;">
+          No branches match "feat/new-modal"
+        </div>
+
+        <div class="section-label" style="border-top: 1px solid #1e1e2e; margin-top: 4px; padding-top: 8px;">Worktrees</div>
+        <div class="branch-list" style="max-height: 60px;">
+          <div class="branch-item">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+            <span>wt-sidebar</span>
+            <button class="open-btn">Open</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span>⌘↵ create worktree</span>
+        <span style="margin-left: auto; color: #555;">git worktree add -b <span style="color: #3b82f6;">feat/new-modal</span> … <span style="color: #9ca3af;">main</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 3: After typing — changing base branch -->
+<!-- ============================================ -->
+<div class="proposal" data-choice="3-changing-base" onclick="toggleSelect(this)">
+  <div class="ph">
+    <div>
+      <h3>3. ↳ Changing base branch</h3>
+      <div class="desc">User clicked the base chip → list becomes a base-branch picker with checkmarks.</div>
+    </div>
+    <span class="tag">Base selection</span>
+  </div>
+  <div class="pb">
+    <div class="modal">
+      <div style="padding: 12px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #1e1e2e;">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><circle cx="7" cy="7" r="4"/><path d="M10 10l3 3"/></svg>
+        <input class="input-field" style="border: none; padding: 4px 0; background: transparent; font-size: 14px;" value="feat/new-modal" />
+        <span style="font-size: 10px; color: #444; background: #1a1a2e; padding: 2px 6px; border-radius: 4px;">ESC</span>
+      </div>
+
+      <div style="padding: 8px;">
+        <!-- Create card — base picker open -->
+        <div style="padding: 10px 12px; background: rgba(59,130,246,0.05); border: 1px solid rgba(59,130,246,0.15); border-radius: 8px; margin-bottom: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+            <span style="font-weight: 500; color: #3b82f6; flex: 1;">Create "feat/new-modal"</span>
+            <span class="kbd">⌘↵</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 11px; color: #555;">from</span>
+            <div class="chip" style="border-color: #3b82f6;">
+              <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+              <span style="color: #e0e0e0; font-weight: 500;">main</span>
+              <svg width="8" height="8" viewBox="0 0 16 16" fill="#3b82f6"><path d="M12 6l-4 4-4-4z"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Base branch list -->
+      <div style="padding: 0 8px 4px;">
+        <div class="section-label">Select base branch</div>
+        <div style="position: relative; margin: 0 0 6px; padding: 0;">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5" style="position: absolute; left: 10px; top: 7px;"><circle cx="7" cy="7" r="4"/><path d="M10 10l3 3"/></svg>
+          <input class="search-input" placeholder="Filter branches..." style="padding-left: 28px; margin-bottom: 4px;" />
+        </div>
+        <div class="branch-list" style="max-height: 160px;">
+          <div class="branch-item" style="background: rgba(59,130,246,0.06);">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+            <span style="font-weight: 500;">main</span>
+            <span class="head-tag">HEAD</span>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="#3b82f6" style="margin-left: auto;"><path d="M6 10.8l-2.4-2.4L2 10l4 4 8-8-1.6-1.6z"/></svg>
+          </div>
+          <div class="branch-item">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+            <span>develop</span>
+            <span class="origin-tag">origin</span>
+          </div>
+          <div class="branch-item">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+            <span>feat/auth</span>
+            <span class="local-tag">local</span>
+          </div>
+          <div class="branch-item">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+            <span>fix/pty-leak</span>
+            <span class="origin-tag">origin</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span>↑↓ select base</span>
+        <span>↵ confirm base</span>
+        <span style="margin-left: auto;">⌘↵ create</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 4: Clicking "Create WT" on existing branch -->
+<!-- ============================================ -->
+<div class="proposal" data-choice="4-existing-branch-create" onclick="toggleSelect(this)">
+  <div class="ph">
+    <div>
+      <h3>4. ↳ Click "Create WT" on branch</h3>
+      <div class="desc">User clicked "Create WT" on develop. Confirmation appears inline with the git command.</div>
+    </div>
+    <span class="tag">Direct create</span>
+  </div>
+  <div class="pb">
+    <div class="modal">
+      <div style="padding: 12px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #1e1e2e;">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><circle cx="7" cy="7" r="4"/><path d="M10 10l3 3"/></svg>
+        <input class="input-field" style="border: none; padding: 4px 0; background: transparent; font-size: 14px;" placeholder="Search or create new branch..." />
+        <span style="font-size: 10px; color: #444; background: #1a1a2e; padding: 2px 6px; border-radius: 4px;">ESC</span>
+      </div>
+
+      <div style="padding: 8px 8px 0;">
+        <div class="tab-bar">
+          <div class="tab-btn active">All <span class="tab-count">8</span></div>
+          <div class="tab-btn">Worktrees <span class="tab-count">2</span></div>
+        </div>
+      </div>
+
+      <div style="padding: 0 8px;">
+        <div class="section-label">Branches</div>
+        <div class="branch-list">
+          <div class="branch-item" style="opacity: 0.5;">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+            <span style="font-weight: 500;">main</span>
+            <span class="head-tag">HEAD</span>
+            <span class="disabled-btn">checked out</span>
+          </div>
+
+          <!-- Selected branch — expanded confirmation -->
+          <div style="border: 1px solid rgba(59,130,246,0.2); border-radius: 6px; overflow: hidden; margin: 2px 0;">
+            <div class="branch-item" style="background: rgba(59,130,246,0.08);">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+              <span style="font-weight: 500; color: #3b82f6;">develop</span>
+              <span class="origin-tag">origin</span>
+            </div>
+            <!-- Confirmation panel -->
+            <div style="padding: 8px 10px; background: rgba(59,130,246,0.03); border-top: 1px solid rgba(59,130,246,0.1);">
+              <div style="font-size: 11px; color: #9ca3af; margin-bottom: 6px;">Create worktree for <strong style="color: #e0e0e0;">develop</strong></div>
+              <div style="display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: #0e0e16; border-radius: 4px; font-family: 'SF Mono', monospace; font-size: 11px; color: #555; margin-bottom: 8px;">
+                git worktree add ~/.superagent/wt/superagent-develop origin/develop
+              </div>
+              <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                <button style="padding: 4px 10px; border-radius: 4px; border: 1px solid #2a2a3e; font-size: 11px; color: #9ca3af; cursor: pointer; background: transparent;">Cancel</button>
+                <button class="btn-primary" style="padding: 4px 10px; font-size: 11px;">Create</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="branch-item">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+            <span>feat/auth</span>
+            <span class="local-tag">local</span>
+            <button class="create-btn">Create WT</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span>↵ confirm</span>
+        <span>ESC cancel</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 5: Worktrees tab active -->
+<!-- ============================================ -->
+<div class="proposal" data-choice="5-worktrees-tab" onclick="toggleSelect(this)">
+  <div class="ph">
+    <div>
+      <h3>5. Worktrees tab</h3>
+      <div class="desc">User switched to Worktrees tab. Only existing worktrees shown, with Open button.</div>
+    </div>
+    <span class="tag">Open flow</span>
+  </div>
+  <div class="pb">
+    <div class="modal">
+      <div style="padding: 12px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #1e1e2e;">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><circle cx="7" cy="7" r="4"/><path d="M10 10l3 3"/></svg>
+        <input class="input-field" style="border: none; padding: 4px 0; background: transparent; font-size: 14px;" placeholder="Search worktrees..." />
+        <span style="font-size: 10px; color: #444; background: #1a1a2e; padding: 2px 6px; border-radius: 4px;">ESC</span>
+      </div>
+
+      <div style="padding: 8px 8px 0;">
+        <div class="tab-bar">
+          <div class="tab-btn">All <span class="tab-count">8</span></div>
+          <div class="tab-btn active">Worktrees <span class="tab-count">3</span></div>
+        </div>
+      </div>
+
+      <div style="padding: 0 8px;">
+        <div class="branch-list">
+          <div class="branch-item">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+            <div style="flex: 1; min-width: 0;">
+              <div>wt-sidebar</div>
+              <div style="font-size: 10px; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">~/.superagent/wt/superagent-sidebar</div>
+            </div>
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: #22c55e;"></span>
+            <button class="open-btn">Open</button>
+          </div>
+          <div class="branch-item">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+            <div style="flex: 1; min-width: 0;">
+              <div>wt-tests</div>
+              <div style="font-size: 10px; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">~/.superagent/wt/superagent-tests</div>
+            </div>
+            <button class="open-btn">Open</button>
+          </div>
+          <div class="branch-item">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+            <div style="flex: 1; min-width: 0;">
+              <div>wt-experiments</div>
+              <div style="font-size: 10px; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">~/.superagent/wt/superagent-experiments</div>
+            </div>
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: #f59e0b;"></span>
+            <button class="open-btn">Open</button>
+          </div>
+        </div>
+
+        <!-- Empty state hint -->
+        <div style="padding: 20px 8px; text-align: center; color: #333; font-size: 12px; border-top: 1px solid #1e1e2e; margin-top: 8px;">
+          Worktrees already on disk. Click Open to add to sidebar.
+        </div>
+      </div>
+
+      <div class="footer">
+        <span>↑↓ navigate</span>
+        <span>↵ open</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 6: Full flow with workspace name -->
+<!-- ============================================ -->
+<div class="proposal" data-choice="6-full-with-name" onclick="toggleSelect(this)">
+  <div class="ph">
+    <div>
+      <h3>6. With workspace name</h3>
+      <div class="desc">Optional name bar at top. Create card includes the name. Full context.</div>
+    </div>
+    <span class="tag">Named workspace</span>
+  </div>
+  <div class="pb">
+    <div class="modal">
+      <!-- Optional name -->
+      <div style="padding: 8px 16px; border-bottom: 1px solid #1e1e2e; display: flex; align-items: center; gap: 8px;">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h10"/></svg>
+        <input class="input-field" style="border: none; padding: 3px 0; background: transparent; font-size: 12px; color: #9ca3af;" placeholder="Workspace name (optional)" />
+      </div>
+
+      <!-- Search -->
+      <div style="padding: 10px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #1e1e2e;">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><circle cx="7" cy="7" r="4"/><path d="M10 10l3 3"/></svg>
+        <input class="input-field" style="border: none; padding: 4px 0; background: transparent; font-size: 14px;" value="feat/sidebar-v2" />
+        <span style="font-size: 10px; color: #444; background: #1a1a2e; padding: 2px 6px; border-radius: 4px;">ESC</span>
+      </div>
+
+      <div style="padding: 8px;">
+        <!-- Create card with name context -->
+        <div style="padding: 10px 12px; background: rgba(59,130,246,0.05); border: 1px solid rgba(59,130,246,0.15); border-radius: 8px; margin-bottom: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+            <span style="font-weight: 500; color: #3b82f6; flex: 1;">Create "feat/sidebar-v2"</span>
+            <span class="kbd">⌘↵</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <span style="font-size: 11px; color: #555;">from</span>
+            <div class="chip">
+              <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+              <span style="color: #e0e0e0; font-weight: 500;">main</span>
+              <svg width="8" height="8" viewBox="0 0 16 16" fill="#555"><path d="M4 6l4 4 4-4z"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-bar">
+          <div class="tab-btn active">All <span class="tab-count">8</span></div>
+          <div class="tab-btn">Worktrees <span class="tab-count">2</span></div>
+        </div>
+      </div>
+
+      <div style="padding: 0 8px;">
+        <div style="padding: 12px 8px; text-align: center; color: #333; font-size: 12px;">
+          No branches match "feat/sidebar-v2"
+        </div>
+      </div>
+
+      <div class="footer">
+        <span style="color: #555; font-size: 11px;">git worktree add -b <span style="color: #3b82f6;">feat/sidebar-v2</span> … <span style="color: #9ca3af;">main</span></span>
+        <span style="margin-left: auto;">⌘↵</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 7: Error state — name conflict -->
+<!-- ============================================ -->
+<div class="proposal" data-choice="7-error-state" onclick="toggleSelect(this)">
+  <div class="ph">
+    <div>
+      <h3>7. Error: name conflict</h3>
+      <div class="desc">User typed "develop" — matches existing branch. Shows warning inline.</div>
+    </div>
+    <span class="tag">Edge case</span>
+  </div>
+  <div class="pb">
+    <div class="modal">
+      <div style="padding: 12px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #1e1e2e;">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#d97706" stroke-width="1.5"><circle cx="7" cy="7" r="4"/><path d="M10 10l3 3"/></svg>
+        <input class="input-field" style="border: none; padding: 4px 0; background: transparent; font-size: 14px; color: #d97706;" value="develop" />
+        <span style="font-size: 10px; color: #444; background: #1a1a2e; padding: 2px 6px; border-radius: 4px;">ESC</span>
+      </div>
+
+      <div style="padding: 8px;">
+        <!-- Warning card -->
+        <div style="padding: 10px 12px; background: rgba(217,119,6,0.05); border: 1px solid rgba(217,119,6,0.2); border-radius: 8px; margin-bottom: 10px;">
+          <div style="display: flex; align-items: flex-start; gap: 8px;">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="#d97706" style="flex-shrink: 0; margin-top: 2px;"><circle cx="8" cy="8" r="6"/><text x="8" y="11" text-anchor="middle" fill="#0e0e16" font-size="9" font-weight="bold">!</text></svg>
+            <div>
+              <div style="font-size: 12px; color: #d97706; font-weight: 500; margin-bottom: 4px;">Branch "develop" already exists</div>
+              <div style="font-size: 11px; color: #9ca3af; line-height: 1.5;">
+                Can't create a worktree with the same name. Either:
+              </div>
+              <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
+                <div style="display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: rgba(59,130,246,0.06); border-radius: 5px; cursor: pointer;">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+                  <span style="font-size: 12px; color: #3b82f6;">Use a different name</span>
+                  <span style="font-size: 10px; color: #444; margin-left: auto;">e.g. feat/develop-wt</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: rgba(59,130,246,0.06); border-radius: 5px; cursor: pointer;">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><path d="M3 8h10M10 5l3 3-3 3"/></svg>
+                  <span style="font-size: 12px; color: #3b82f6;">Create worktree for "develop" directly</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-bar">
+          <div class="tab-btn active">All <span class="tab-count">8</span></div>
+          <div class="tab-btn">Worktrees <span class="tab-count">2</span></div>
+        </div>
+      </div>
+
+      <div style="padding: 0 8px;">
+        <div class="branch-list">
+          <div class="branch-item" style="background: rgba(217,119,6,0.06); border: 1px solid rgba(217,119,6,0.15); border-radius: 5px;">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#d97706" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+            <span style="font-weight: 500; color: #d97706;">develop</span>
+            <span class="origin-tag">origin</span>
+            <button class="create-btn">Create WT</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span>↵ pick an option</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 8: Empty state — fresh repo -->
+<!-- ============================================ -->
+<div class="proposal" data-choice="8-empty-state" onclick="toggleSelect(this)">
+  <div class="ph">
+    <div>
+      <h3>8. Empty: fresh repo</h3>
+      <div class="desc">Repo with only main, no other branches, no worktrees. Shows create CTA.</div>
+    </div>
+    <span class="tag">First-use</span>
+  </div>
+  <div class="pb">
+    <div class="modal">
+      <div style="padding: 12px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #1e1e2e;">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><circle cx="7" cy="7" r="4"/><path d="M10 10l3 3"/></svg>
+        <input class="input-field" style="border: none; padding: 4px 0; background: transparent; font-size: 14px;" placeholder="Type a branch name to create..." />
+        <span style="font-size: 10px; color: #444; background: #1a1a2e; padding: 2px 6px; border-radius: 4px;">ESC</span>
+      </div>
+
+      <div style="padding: 8px 8px 0;">
+        <div class="tab-bar">
+          <div class="tab-btn active">All <span class="tab-count">1</span></div>
+          <div class="tab-btn">Worktrees <span class="tab-count">0</span></div>
+        </div>
+      </div>
+
+      <div style="padding: 0 8px;">
+        <div class="section-label">Branches</div>
+        <div class="branch-list">
+          <div class="branch-item" style="opacity: 0.5;">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+            <span style="font-weight: 500;">main</span>
+            <span class="head-tag">HEAD</span>
+            <span class="disabled-btn">checked out</span>
+          </div>
+        </div>
+
+        <!-- Empty CTA -->
+        <div style="padding: 32px 16px; text-align: center;">
+          <svg width="32" height="32" viewBox="0 0 16 16" fill="none" stroke="#2a2a3e" stroke-width="1" style="margin: 0 auto 12px;"><path d="M8 3v10M3 8h10"/></svg>
+          <div style="font-size: 13px; color: #9ca3af; margin-bottom: 4px;">No other branches or worktrees</div>
+          <div style="font-size: 12px; color: #444;">Type a name above to create a new branch & worktree from <strong style="color: #9ca3af;">main</strong></div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span>Type a name → ⌘↵ to create</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div id="selection-indicator" class="si"></div>
+
+<script>
+  document.querySelectorAll('.proposal').forEach(el => {
+    el.addEventListener('click', () => {
+      el.classList.toggle('selected');
+      const selected = document.querySelectorAll('.proposal.selected');
+      const indicator = document.getElementById('selection-indicator');
+      if (selected.length > 0) {
+        const names = Array.from(selected).map(el => el.querySelector('h3').textContent);
+        indicator.textContent = 'Selected: ' + names.join(', ');
+        indicator.style.display = 'block';
+      } else {
+        indicator.style.display = 'none';
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

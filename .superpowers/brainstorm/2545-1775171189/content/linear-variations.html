@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linear-style Variations</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a14; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; padding: 32px; }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 8px; }
+  .subtitle { color: #9ca3af; font-size: 14px; margin-bottom: 32px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 24px; }
+  .proposal { border: 2px solid #2a2a3e; border-radius: 12px; overflow: hidden; cursor: pointer; transition: border-color 0.2s, transform 0.15s; }
+  .proposal:hover { border-color: #3b82f6; transform: translateY(-2px); }
+  .proposal.selected { border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f6, 0 4px 20px rgba(59,130,246,0.15); }
+  .proposal-header { padding: 12px 16px; background: rgba(59,130,246,0.06); border-bottom: 1px solid #2a2a3e; display: flex; justify-content: space-between; align-items: center; }
+  .proposal-header h3 { font-size: 14px; font-weight: 600; }
+  .proposal-header .tag { font-size: 10px; color: #9ca3af; background: #1a1a2e; padding: 2px 8px; border-radius: 10px; }
+  .proposal-body { background: #111119; min-height: 400px; position: relative; font-size: 13px; }
+  .selected-indicator { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #3b82f6; color: white; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; display: none; z-index: 100; }
+</style>
+<script src="/helper.js"></script>
+</head>
+<body>
+
+<h1>Linear-style Variations</h1>
+<p class="subtitle">All based on the Linear aesthetic you liked. Click to select your favorite(s).</p>
+
+<div class="grid">
+
+<!-- ============================================ -->
+<!-- 3A: Tighter spacing, no section header -->
+<!-- ============================================ -->
+<div class="proposal" data-choice="3a-tight" onclick="toggleSelect(this)">
+  <div class="proposal-header">
+    <h3>A. Tight & Minimal</h3>
+    <span class="tag">Less chrome</span>
+  </div>
+  <div class="proposal-body" style="padding: 6px 0;">
+    <!-- Repo -->
+    <div style="padding: 5px 10px; display: flex; align-items: center; gap: 7px; margin: 0 5px; border-radius: 5px; background: rgba(59,130,246,0.06);">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/></svg>
+      <span style="font-weight: 500; flex: 1;">superagent</span>
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#444" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    </div>
+    <div style="padding: 4px 10px 4px 31px; display: flex; align-items: center; gap: 6px; margin: 1px 5px; border-radius: 4px; background: rgba(59,130,246,0.1);">
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+      <span style="font-weight: 500;">main</span>
+    </div>
+
+    <div style="height: 2px;"></div>
+
+    <div style="padding: 5px 10px; display: flex; align-items: center; gap: 7px; margin: 0 5px; border-radius: 5px;">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/></svg>
+      <span style="font-weight: 500; flex: 1; color: #9ca3af;">api-server</span>
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#333" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    </div>
+    <div style="padding: 4px 10px 4px 31px; display: flex; align-items: center; gap: 6px; margin: 1px 5px; border-radius: 4px;">
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+      <span style="color: #9ca3af;">main</span>
+    </div>
+    <div style="padding: 4px 10px 4px 31px; display: flex; align-items: center; gap: 6px; margin: 1px 5px; border-radius: 4px;">
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+      <span style="color: #666;">wt-auth</span>
+      <span style="margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: #22c55e;"></span>
+    </div>
+
+    <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 6px 10px; border-top: 1px solid #1a1a24;">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 5px; color: #444; font-size: 12px; padding: 5px; border-radius: 5px; border: 1px dashed #252530;">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+        Import
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 3B: Chevron + count badge -->
+<!-- ============================================ -->
+<div class="proposal" data-choice="3b-chevron-badge" onclick="toggleSelect(this)">
+  <div class="proposal-header">
+    <h3>B. Chevron + Badges</h3>
+    <span class="tag">Informative</span>
+  </div>
+  <div class="proposal-body" style="padding: 6px 0;">
+    <div style="padding: 4px 12px 6px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #444;">Projects</div>
+
+    <div style="padding: 5px 10px; display: flex; align-items: center; gap: 7px; margin: 0 6px; border-radius: 6px; background: rgba(59,130,246,0.06);">
+      <svg width="10" height="10" viewBox="0 0 16 16" fill="#3b82f6"><path d="M4 6l4 4 4-4z"/></svg>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/></svg>
+      <span style="font-weight: 500; flex: 1;">superagent</span>
+      <span style="font-size: 10px; color: #555; background: #1a1a2e; padding: 1px 6px; border-radius: 8px;">1</span>
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#444" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    </div>
+    <div style="padding: 4px 10px 4px 37px; display: flex; align-items: center; gap: 6px; margin: 1px 6px; border-radius: 5px; background: rgba(59,130,246,0.1);">
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+      <span style="font-weight: 500;">main</span>
+    </div>
+
+    <div style="height: 4px;"></div>
+
+    <div style="padding: 5px 10px; display: flex; align-items: center; gap: 7px; margin: 0 6px; border-radius: 6px;">
+      <svg width="10" height="10" viewBox="0 0 16 16" fill="#555"><path d="M4 6l4 4 4-4z"/></svg>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/></svg>
+      <span style="font-weight: 500; flex: 1; color: #9ca3af;">ml-pipeline</span>
+      <span style="font-size: 10px; color: #555; background: #1a1a2e; padding: 1px 6px; border-radius: 8px;">3</span>
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#333" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    </div>
+    <div style="padding: 4px 10px 4px 37px; display: flex; align-items: center; gap: 6px; margin: 1px 6px; border-radius: 5px;">
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+      <span style="color: #9ca3af;">main</span>
+    </div>
+    <div style="padding: 4px 10px 4px 37px; display: flex; align-items: center; gap: 6px; margin: 1px 6px; border-radius: 5px;">
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+      <span style="color: #666;">wt-training</span>
+      <span style="margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: #22c55e;"></span>
+    </div>
+    <div style="padding: 4px 10px 4px 37px; display: flex; align-items: center; gap: 6px; margin: 1px 6px; border-radius: 5px;">
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+      <span style="color: #666;">wt-eval</span>
+      <span style="margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: #f59e0b;"></span>
+    </div>
+
+    <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 8px 12px; border-top: 1px solid #1a1a24;">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 6px; color: #444; font-size: 12px; padding: 6px; border-radius: 6px; border: 1px dashed #252530;">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+        Import
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 3C: Divider lines between repos -->
+<!-- ============================================ -->
+<div class="proposal" data-choice="3c-dividers" onclick="toggleSelect(this)">
+  <div class="proposal-header">
+    <h3>C. Soft Dividers</h3>
+    <span class="tag">Structured</span>
+  </div>
+  <div class="proposal-body" style="padding: 8px 0;">
+    <div style="padding: 6px 12px; display: flex; align-items: center; gap: 8px; margin: 0 6px; border-radius: 6px; background: rgba(59,130,246,0.06);">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/></svg>
+      <span style="font-weight: 500; flex: 1;">superagent</span>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#444" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    </div>
+    <div style="padding: 4px 12px 4px 35px; display: flex; align-items: center; gap: 7px; margin: 1px 6px; border-radius: 5px; background: rgba(59,130,246,0.1);">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+      <span style="font-weight: 500;">main</span>
+    </div>
+
+    <!-- Soft divider -->
+    <div style="margin: 8px 18px; height: 1px; background: linear-gradient(90deg, transparent, #2a2a3e, transparent);"></div>
+
+    <div style="padding: 6px 12px; display: flex; align-items: center; gap: 8px; margin: 0 6px; border-radius: 6px;">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/></svg>
+      <span style="font-weight: 500; flex: 1; color: #9ca3af;">frontend</span>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#333" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    </div>
+    <div style="padding: 4px 12px 4px 35px; display: flex; align-items: center; gap: 7px; margin: 1px 6px; border-radius: 5px;">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+      <span style="color: #9ca3af;">develop</span>
+    </div>
+    <div style="padding: 4px 12px 4px 35px; display: flex; align-items: center; gap: 7px; margin: 1px 6px; border-radius: 5px;">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+      <span style="color: #666;">wt-redesign</span>
+      <span style="margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: #22c55e;"></span>
+    </div>
+
+    <div style="margin: 8px 18px; height: 1px; background: linear-gradient(90deg, transparent, #2a2a3e, transparent);"></div>
+
+    <div style="padding: 6px 12px; display: flex; align-items: center; gap: 8px; margin: 0 6px; border-radius: 6px;">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/></svg>
+      <span style="font-weight: 500; flex: 1; color: #9ca3af;">infra</span>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#333" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    </div>
+    <div style="padding: 4px 12px 4px 35px; display: flex; align-items: center; gap: 7px; margin: 1px 6px; border-radius: 5px;">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+      <span style="color: #9ca3af;">main</span>
+    </div>
+
+    <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 8px 12px; border-top: 1px solid #1a1a24;">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 6px; color: #444; font-size: 12px; padding: 6px; border-radius: 6px; border: 1px dashed #252530;">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+        Import
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 3D: Git-graph icons -->
+<!-- ============================================ -->
+<div class="proposal" data-choice="3d-git-graph" onclick="toggleSelect(this)">
+  <div class="proposal-header">
+    <h3>D. Git Graph Lines</h3>
+    <span class="tag">Developer-centric</span>
+  </div>
+  <div class="proposal-body" style="padding: 8px 0;">
+    <div style="padding: 4px 12px 6px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #444;">Projects</div>
+
+    <div style="padding: 6px 12px; display: flex; align-items: center; gap: 8px; margin: 0 6px; border-radius: 6px; background: rgba(59,130,246,0.06);">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><circle cx="8" cy="3" r="2"/><circle cx="8" cy="13" r="2"/><path d="M8 5v6"/></svg>
+      <span style="font-weight: 500; flex: 1;">superagent</span>
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#444" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    </div>
+    <!-- Connected line -->
+    <div style="display: flex; margin: 0 6px;">
+      <div style="width: 35px; display: flex; justify-content: center;">
+        <div style="width: 1px; height: 100%; background: #2a2a3e;"></div>
+      </div>
+      <div style="flex: 1; padding: 3px 10px 3px 0; display: flex; align-items: center; gap: 7px; margin: 1px 0; border-radius: 5px; background: rgba(59,130,246,0.08);">
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="#3b82f6"><circle cx="8" cy="8" r="4"/></svg>
+        <span style="font-weight: 500;">main</span>
+      </div>
+    </div>
+
+    <div style="height: 8px;"></div>
+
+    <div style="padding: 6px 12px; display: flex; align-items: center; gap: 8px; margin: 0 6px; border-radius: 6px;">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><circle cx="8" cy="3" r="2"/><circle cx="8" cy="13" r="2"/><path d="M8 5v6"/></svg>
+      <span style="font-weight: 500; flex: 1; color: #9ca3af;">backend</span>
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#333" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    </div>
+    <div style="display: flex; margin: 0 6px;">
+      <div style="width: 35px; display: flex; justify-content: center;">
+        <div style="width: 1px; height: 100%; background: #2a2a3e;"></div>
+      </div>
+      <div style="flex: 1; padding: 3px 10px 3px 0; display: flex; align-items: center; gap: 7px; margin: 1px 0; border-radius: 5px;">
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="#555"><circle cx="8" cy="8" r="4"/></svg>
+        <span style="color: #9ca3af;">develop</span>
+      </div>
+    </div>
+    <div style="display: flex; margin: 0 6px;">
+      <div style="width: 35px; display: flex; justify-content: center;">
+        <div style="width: 1px; height: 100%; background: #2a2a3e;"></div>
+      </div>
+      <div style="flex: 1; padding: 3px 10px 3px 0; display: flex; align-items: center; gap: 7px; margin: 1px 0; border-radius: 5px;">
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><rect x="4" y="4" width="8" height="8" rx="1.5"/></svg>
+        <span style="color: #666;">wt-cache</span>
+        <span style="margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; margin-right: 4px;"></span>
+      </div>
+    </div>
+    <div style="display: flex; margin: 0 6px;">
+      <div style="width: 35px; display: flex; justify-content: center;">
+        <div style="width: 1px; height: 6px; background: #2a2a3e;"></div>
+      </div>
+    </div>
+
+    <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 8px 12px; border-top: 1px solid #1a1a24;">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 6px; color: #444; font-size: 12px; padding: 6px; border-radius: 6px; border: 1px dashed #252530;">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+        Import
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 3E: Hover-reveal actions -->
+<!-- ============================================ -->
+<div class="proposal" data-choice="3e-hover-reveal" onclick="toggleSelect(this)">
+  <div class="proposal-header">
+    <h3>E. Hover Reveal</h3>
+    <span class="tag">Progressive</span>
+  </div>
+  <div class="proposal-body" style="padding: 8px 0;">
+    <div style="padding: 4px 12px 6px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #444;">Projects</div>
+
+    <!-- Hovered state shown -->
+    <div style="padding: 6px 12px; display: flex; align-items: center; gap: 8px; margin: 0 6px; border-radius: 6px; background: rgba(59,130,246,0.06);">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/></svg>
+      <span style="font-weight: 500; flex: 1;">superagent</span>
+      <!-- Actions visible on hover -->
+      <div style="display: flex; align-items: center; gap: 4px;">
+        <div style="width: 22px; height: 22px; border-radius: 5px; background: rgba(59,130,246,0.12); display: flex; align-items: center; justify-content: center;">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+        </div>
+        <div style="width: 22px; height: 22px; border-radius: 5px; background: rgba(59,130,246,0.12); display: flex; align-items: center; justify-content: center;">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><circle cx="4" cy="8" r="1" fill="#3b82f6"/><circle cx="8" cy="8" r="1" fill="#3b82f6"/><circle cx="12" cy="8" r="1" fill="#3b82f6"/></svg>
+        </div>
+      </div>
+    </div>
+    <div style="padding: 4px 12px 4px 35px; display: flex; align-items: center; gap: 7px; margin: 1px 6px; border-radius: 5px; background: rgba(59,130,246,0.1);">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+      <span style="font-weight: 500;">main</span>
+    </div>
+
+    <div style="height: 4px;"></div>
+
+    <!-- Not hovered — no actions visible -->
+    <div style="padding: 6px 12px; display: flex; align-items: center; gap: 8px; margin: 0 6px; border-radius: 6px;">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/></svg>
+      <span style="font-weight: 500; flex: 1; color: #9ca3af;">dashboard</span>
+      <!-- No actions shown when not hovered -->
+    </div>
+    <div style="padding: 4px 12px 4px 35px; display: flex; align-items: center; gap: 7px; margin: 1px 6px; border-radius: 5px;">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+      <span style="color: #9ca3af;">main</span>
+    </div>
+    <div style="padding: 4px 12px 4px 35px; display: flex; align-items: center; gap: 7px; margin: 1px 6px; border-radius: 5px;">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+      <span style="color: #666;">wt-charts</span>
+      <span style="margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: #22c55e;"></span>
+    </div>
+
+    <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 10px 14px; color: #444; font-size: 11px; text-align: center;">
+      <span style="opacity: 0.5;">↑ hover a repo to see actions</span>
+    </div>
+
+    <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 8px 12px; border-top: 1px solid #1a1a24;">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 6px; color: #444; font-size: 12px; padding: 6px; border-radius: 6px; border: 1px dashed #252530;">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+        Import
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 3F: Indented with branch type labels -->
+<!-- ============================================ -->
+<div class="proposal" data-choice="3f-type-labels" onclick="toggleSelect(this)">
+  <div class="proposal-header">
+    <h3>F. Type Labels</h3>
+    <span class="tag">Explicit</span>
+  </div>
+  <div class="proposal-body" style="padding: 8px 0;">
+    <div style="padding: 4px 12px 6px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #444;">Projects</div>
+
+    <div style="padding: 6px 12px; display: flex; align-items: center; gap: 8px; margin: 0 6px; border-radius: 6px; background: rgba(59,130,246,0.06);">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/></svg>
+      <span style="font-weight: 500; flex: 1;">superagent</span>
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#444" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    </div>
+    <div style="padding: 4px 12px 4px 35px; display: flex; align-items: center; gap: 7px; margin: 1px 6px; border-radius: 5px; background: rgba(59,130,246,0.1);">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+      <span style="font-weight: 500;">main</span>
+      <span style="margin-left: auto; font-size: 9px; color: #3b82f6; background: rgba(59,130,246,0.1); padding: 1px 5px; border-radius: 3px; font-weight: 500;">BRANCH</span>
+    </div>
+
+    <div style="height: 4px;"></div>
+
+    <div style="padding: 6px 12px; display: flex; align-items: center; gap: 8px; margin: 0 6px; border-radius: 6px;">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/></svg>
+      <span style="font-weight: 500; flex: 1; color: #9ca3af;">backend</span>
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#333" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    </div>
+    <div style="padding: 4px 12px 4px 35px; display: flex; align-items: center; gap: 7px; margin: 1px 6px; border-radius: 5px;">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+      <span style="color: #9ca3af;">develop</span>
+      <span style="margin-left: auto; font-size: 9px; color: #555; background: rgba(255,255,255,0.04); padding: 1px 5px; border-radius: 3px;">BRANCH</span>
+    </div>
+    <div style="padding: 4px 12px 4px 35px; display: flex; align-items: center; gap: 7px; margin: 1px 6px; border-radius: 5px;">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+      <span style="color: #666;">wt-api-v2</span>
+      <span style="margin-left: auto; display: flex; align-items: center; gap: 4px;">
+        <span style="width: 6px; height: 6px; border-radius: 50%; background: #22c55e;"></span>
+        <span style="font-size: 9px; color: #555; background: rgba(255,255,255,0.04); padding: 1px 5px; border-radius: 3px;">WORKTREE</span>
+      </span>
+    </div>
+
+    <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 8px 12px; border-top: 1px solid #1a1a24;">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 6px; color: #444; font-size: 12px; padding: 6px; border-radius: 6px; border: 1px dashed #252530;">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+        Import
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 3G: Subtle glow on active -->
+<!-- ============================================ -->
+<div class="proposal" data-choice="3g-subtle-glow" onclick="toggleSelect(this)">
+  <div class="proposal-header">
+    <h3>G. Subtle Glow</h3>
+    <span class="tag">Refined</span>
+  </div>
+  <div class="proposal-body" style="padding: 8px 0;">
+    <div style="padding: 4px 12px 6px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #444;">Projects</div>
+
+    <!-- Active repo with glow -->
+    <div style="padding: 6px 12px; display: flex; align-items: center; gap: 8px; margin: 0 6px; border-radius: 6px; background: rgba(59,130,246,0.05); box-shadow: inset 0 0 20px rgba(59,130,246,0.04);">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5" style="filter: drop-shadow(0 0 3px rgba(59,130,246,0.4));"><path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/></svg>
+      <span style="font-weight: 500; flex: 1;">superagent</span>
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#444" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    </div>
+    <div style="padding: 4px 12px 4px 35px; display: flex; align-items: center; gap: 7px; margin: 1px 6px; border-radius: 5px; background: rgba(59,130,246,0.08);">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="2" style="filter: drop-shadow(0 0 2px rgba(59,130,246,0.5));"><circle cx="8" cy="8" r="3"/></svg>
+      <span style="font-weight: 500;">main</span>
+    </div>
+
+    <div style="height: 4px;"></div>
+
+    <div style="padding: 6px 12px; display: flex; align-items: center; gap: 8px; margin: 0 6px; border-radius: 6px;">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/></svg>
+      <span style="font-weight: 500; flex: 1; color: #9ca3af;">analytics</span>
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#333" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    </div>
+    <div style="padding: 4px 12px 4px 35px; display: flex; align-items: center; gap: 7px; margin: 1px 6px; border-radius: 5px;">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+      <span style="color: #9ca3af;">main</span>
+    </div>
+    <div style="padding: 4px 12px 4px 35px; display: flex; align-items: center; gap: 7px; margin: 1px 6px; border-radius: 5px;">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+      <span style="color: #666;">wt-dashboard</span>
+      <span style="margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 4px rgba(34,197,94,0.5);"></span>
+    </div>
+
+    <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 8px 12px; border-top: 1px solid #1a1a24;">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 6px; color: #444; font-size: 12px; padding: 6px; border-radius: 6px; border: 1px dashed #252530;">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+        Import
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- 3H: Two-line repo with path -->
+<!-- ============================================ -->
+<div class="proposal" data-choice="3h-two-line" onclick="toggleSelect(this)">
+  <div class="proposal-header">
+    <h3>H. Two-line Repo</h3>
+    <span class="tag">Contextual</span>
+  </div>
+  <div class="proposal-body" style="padding: 8px 0;">
+    <div style="padding: 4px 12px 6px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #444;">Projects</div>
+
+    <div style="padding: 7px 12px; display: flex; align-items: center; gap: 8px; margin: 0 6px; border-radius: 6px; background: rgba(59,130,246,0.06);">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/></svg>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-weight: 500; font-size: 13px;">superagent</div>
+        <div style="font-size: 10px; color: #444; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">~/Workspace/perso/superagent</div>
+      </div>
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#444" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    </div>
+    <div style="padding: 4px 12px 4px 35px; display: flex; align-items: center; gap: 7px; margin: 1px 6px; border-radius: 5px; background: rgba(59,130,246,0.1);">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+      <span style="font-weight: 500;">main</span>
+    </div>
+
+    <div style="height: 4px;"></div>
+
+    <div style="padding: 7px 12px; display: flex; align-items: center; gap: 8px; margin: 0 6px; border-radius: 6px;">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/></svg>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-weight: 500; font-size: 13px; color: #9ca3af;">backend-api</div>
+        <div style="font-size: 10px; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">~/Work/hivebrite/backend-api</div>
+      </div>
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#333" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    </div>
+    <div style="padding: 4px 12px 4px 35px; display: flex; align-items: center; gap: 7px; margin: 1px 6px; border-radius: 5px;">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="2"><circle cx="8" cy="8" r="3"/></svg>
+      <span style="color: #9ca3af;">develop</span>
+    </div>
+    <div style="padding: 4px 12px 4px 35px; display: flex; align-items: center; gap: 7px; margin: 1px 6px; border-radius: 5px;">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#555" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+      <span style="color: #666;">wt-auth</span>
+      <span style="margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: #f59e0b;"></span>
+    </div>
+
+    <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 8px 12px; border-top: 1px solid #1a1a24;">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 6px; color: #444; font-size: 12px; padding: 6px; border-radius: 6px; border: 1px dashed #252530;">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+        Import
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div id="selection-indicator" class="selected-indicator"></div>
+
+<script>
+  document.querySelectorAll('.proposal').forEach(el => {
+    el.addEventListener('click', () => {
+      el.classList.toggle('selected');
+      updateIndicator();
+    });
+  });
+  function updateIndicator() {
+    const selected = document.querySelectorAll('.proposal.selected');
+    const indicator = document.getElementById('selection-indicator');
+    if (selected.length > 0) {
+      const names = Array.from(selected).map(el => el.querySelector('h3').textContent);
+      indicator.textContent = `Selected: ${names.join(', ')}`;
+      indicator.style.display = 'block';
+    } else {
+      indicator.style.display = 'none';
+    }
+  }
+</script>
+
+</body>
+</html>
