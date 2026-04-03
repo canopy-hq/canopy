@@ -80,6 +80,12 @@ export function getDiffStats(repoPath: string): Promise<Record<string, DiffStat>
   return invoke<Record<string, DiffStat>>('get_diff_stats', { repoPath });
 }
 
+export function getAllDiffStats(
+  repoPaths: string[],
+): Promise<Record<string, Record<string, DiffStat>>> {
+  return invoke<Record<string, Record<string, DiffStat>>>('get_all_diff_stats', { repoPaths });
+}
+
 /** Normalize a branch/worktree name to a safe identifier (spaces, underscores, slashes → dashes). */
 export function sanitizeWorktreeName(name: string): string {
   return name.trim().replace(/[\s_/]+/g, '-');

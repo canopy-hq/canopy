@@ -17,7 +17,7 @@ import {
   renameWorktree,
   getWorkspaceItemIds,
 } from '../lib/workspace-actions';
-import { getDiffStats } from '../lib/git';
+import { useDiffStatsMap } from '../hooks/useDiffStatsMap';
 import { CloseProjectModal } from './CloseProjectModal';
 import { RemoveWorktreeModal } from './RemoveWorktreeModal';
 import { StatusDot } from './StatusDot';
@@ -30,16 +30,7 @@ import type { Workspace } from '@superagent/db';
 function DiffPill({ additions, deletions }: { additions: number; deletions: number }) {
   if (additions === 0 && deletions === 0) return null;
   return (
-    <span
-      className="inline-flex flex-shrink-0 gap-1 whitespace-nowrap"
-      style={{
-        fontSize: '11px',
-        fontWeight: 500,
-        background: 'rgba(255,255,255,0.04)',
-        padding: '1px 6px',
-        borderRadius: '4px',
-      }}
-    >
+    <span className="inline-flex flex-shrink-0 gap-1 whitespace-nowrap rounded bg-white/5 px-1.5 py-px text-[11px] font-medium">
       {additions > 0 && <span style={{ color: 'var(--git-ahead)' }}>+{additions}</span>}
       {deletions > 0 && <span style={{ color: 'var(--git-behind)' }}>&minus;{deletions}</span>}
     </span>
@@ -64,60 +55,6 @@ function IconWithBadge({
       )}
     </div>
   );
-}
-
-const DIFF_POLL_MS = 10_000;
-
-/** Fetch diff stats for all workspaces, keyed by workspace ID then branch name. */
-function useDiffStatsMap(
-  workspaces: Workspace[],
-): Record<string, Record<string, DiffStat>> {
-  const [statsMap, setStatsMap] = useState<Record<string, Record<string, DiffStat>>>({});
-  const workspacesRef = useRef(workspaces);
-  useEffect(() => {
-    workspacesRef.current = workspaces;
-  }, [workspaces]);
-
-  const workspaceKey = useMemo(
-    () =>
-      workspaces
-        .map(
-          (ws) =>
-            `${ws.id}:${ws.branches.map((b) => b.name).join('|')}:${ws.worktrees.map((w) => w.name).join('|')}`,
-        )
-        .join(','),
-    [workspaces],
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
-    function fetchStats() {
-      const current = workspacesRef.current;
-      Promise.all(
-        current.map((ws) =>
-          getDiffStats(ws.path)
-            .then((stats) => [ws.id, stats] as const)
-            .catch(() => null),
-        ),
-      ).then((results) => {
-        if (cancelled) return;
-        const next: Record<string, Record<string, DiffStat>> = {};
-        for (const r of results) {
-          if (r) next[r[0]] = r[1];
-        }
-        setStatsMap((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
-        timer = setTimeout(fetchStats, DIFF_POLL_MS);
-      });
-    }
-    fetchStats();
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [workspaceKey]);
-
-  return statsMap;
 }
 
 function BranchRow({ branch, agentStatus, diffStat }: { branch: BranchInfo; agentStatus?: DotStatus; diffStat?: DiffStat }) {
@@ -391,7 +328,7 @@ export function WorkspaceTree() {
     name: string;
   } | null>(null);
   const agentMap = useWorkspaceAgentMap();
-  const diffStatsMap = useDiffStatsMap(workspaces);
+  const diffStatsMap = useDiffStatsMap(workspaces, true);
   const navigate = useNavigate();
 
   const expandedKeys = useMemo(
