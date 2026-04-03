@@ -90,7 +90,8 @@ export async function refreshRepo(id: string): Promise<void> {
     const info = await gitApi.importRepo(ws.path);
     getWorkspaceCollection().update(id, (draft) => {
       draft.branches = info.branches;
-      draft.worktrees = info.worktrees;
+      // Don't overwrite worktrees — import_repo returns [] now,
+      // but we want to keep user-opened worktrees in the sidebar.
     });
   } catch (err) {
     showErrorToast('Refresh failed', String(err));
@@ -164,11 +165,18 @@ export async function createWorktree(
   name: string,
   path: string,
   baseBranch?: string,
+  newBranch?: string,
 ): Promise<void> {
   const ws = getWorkspaceCollection().toArray.find((w) => w.id === workspaceId);
   if (!ws) return;
   try {
-    await gitApi.createWorktree(ws.path, name, path, baseBranch);
+    const wt = await gitApi.createWorktree(ws.path, name, path, baseBranch, newBranch);
+    // Add the new worktree to the sidebar
+    getWorkspaceCollection().update(workspaceId, (draft) => {
+      if (!draft.worktrees.some((w) => w.name === wt.name)) {
+        draft.worktrees.push({ name: wt.name, path: wt.path, branch: wt.branch });
+      }
+    });
     await refreshRepo(workspaceId);
   } catch (err) {
     showErrorToast('Create worktree failed', String(err));
@@ -184,4 +192,33 @@ export async function removeWorktree(workspaceId: string, name: string): Promise
   } catch (err) {
     showErrorToast('Remove worktree failed', String(err));
   }
+}
+
+/** Remove worktree from sidebar only (can be re-opened from palette). */
+export function hideWorktree(workspaceId: string, name: string): void {
+  getWorkspaceCollection().update(workspaceId, (draft) => {
+    draft.worktrees = draft.worktrees.filter((wt) => wt.name !== name);
+  });
+}
+
+export function openWorktree(
+  workspaceId: string,
+  name: string,
+  path: string,
+  branch: string,
+): void {
+  const ws = getWorkspaceCollection().toArray.find((w) => w.id === workspaceId);
+  if (!ws) return;
+  // Don't add if already in the list
+  if (ws.worktrees.some((wt) => wt.name === name)) return;
+  getWorkspaceCollection().update(workspaceId, (draft) => {
+    draft.worktrees.push({ name, path, branch });
+  });
+}
+
+export function renameWorktree(workspaceId: string, wtName: string, label: string): void {
+  getWorkspaceCollection().update(workspaceId, (draft) => {
+    const wt = draft.worktrees.find((w) => w.name === wtName);
+    if (wt) wt.label = label || undefined;
+  });
 }
