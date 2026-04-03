@@ -1,5 +1,3 @@
-import { Button, Tooltip, TooltipTrigger } from 'react-aria-components';
-
 import { toggleSidebar } from '../lib/workspace-actions';
 
 function SidebarToggleIcon() {
@@ -25,36 +23,34 @@ export function Header() {
   return (
     <header
       data-tauri-drag-region
-      className="flex h-10 flex-shrink-0 items-center border-b border-border bg-bg-primary"
-      style={{ paddingLeft: '70px' }}
+      className="flex h-12 flex-shrink-0 items-center border-b border-border bg-bg-primary"
+      style={{ paddingLeft: '78px' }}
     >
       {/* Left zone — sidebar toggle */}
-      <div className="flex items-center px-1">
-        <TooltipTrigger delay={600}>
-          <Button
-            onPress={toggleSidebar}
-            aria-label="Toggle sidebar"
-            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-text-muted hover:bg-bg-tertiary hover:text-text-primary"
-          >
-            <SidebarToggleIcon />
-          </Button>
-          <Tooltip
-            placement="right"
-            className="rounded-md bg-bg-tertiary px-2 py-1 text-xs text-text-primary shadow-lg"
-          >
+      <div data-tauri-drag-region className="flex h-full items-center px-1">
+        <button
+          onClick={toggleSidebar}
+          aria-label="Toggle sidebar"
+          className="group relative flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+        >
+          <SidebarToggleIcon />
+          <span className="pointer-events-none absolute left-full ml-2 flex items-center gap-1.5 whitespace-nowrap rounded-md bg-bg-tertiary px-2 py-1 text-xs leading-none text-text-primary opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
             Toggle sidebar
-            <kbd className="ml-1.5 rounded bg-bg-secondary px-1 py-0.5 text-[10px] text-text-muted">
-              ⌘B
+            <kbd className="rounded bg-bg-secondary px-1 py-0.5 text-[10px] leading-none text-text-muted">
+              ⌘
             </kbd>
-          </Tooltip>
-        </TooltipTrigger>
+            <kbd className="rounded bg-bg-secondary px-1 py-0.5 text-[10px] leading-none text-text-muted">
+              B
+            </kbd>
+          </span>
+        </button>
       </div>
 
       {/* Center zone — reserved for future search */}
-      <div data-tauri-drag-region className="flex-1" />
+      <div data-tauri-drag-region className="h-full flex-1" />
 
       {/* Right zone — reserved for future actions */}
-      <div className="px-3" />
+      <div data-tauri-drag-region className="h-full px-3" />
     </header>
   );
 }

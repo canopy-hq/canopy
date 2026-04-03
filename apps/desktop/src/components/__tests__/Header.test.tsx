@@ -22,10 +22,10 @@ describe('Header', () => {
     expect(getByLabelText('Toggle sidebar')).toBeInTheDocument();
   });
 
-  it('has 70px left padding for traffic lights', () => {
+  it('has 78px left padding for traffic lights', () => {
     const { container } = render(<Header />);
     const header = container.querySelector('header') as HTMLElement;
-    expect(header.style.paddingLeft).toBe('70px');
+    expect(header.style.paddingLeft).toBe('78px');
   });
 
   it('calls toggleSidebar when button is clicked', async () => {
