@@ -1,6 +1,8 @@
-import { useCallback, useRef } from 'react';
-import { updateRatio } from '../lib/tab-actions';
-import type { SplitDirection } from '../lib/pane-tree-ops';
+import { useCallback, useRef } from "react";
+
+import { updateRatio } from "../lib/tab-actions";
+
+import type { SplitDirection } from "../lib/pane-tree-ops";
 
 /**
  * Hook for pointer-capture-based splitter drag behavior.
@@ -22,14 +24,10 @@ export function useSplitterDrag(
       const target = e.currentTarget as HTMLElement;
       target.setPointerCapture(e.pointerId);
 
-      const isHorizontal = direction === 'horizontal';
+      const isHorizontal = direction === "horizontal";
       startPosRef.current = isHorizontal ? e.clientX : e.clientY;
       const parent = target.parentElement;
-      const totalSize = parent
-        ? isHorizontal
-          ? parent.offsetWidth
-          : parent.offsetHeight
-        : 1;
+      const totalSize = parent ? (isHorizontal ? parent.offsetWidth : parent.offsetHeight) : 1;
 
       const onPointerMove = (moveEvent: PointerEvent) => {
         const currentPos = isHorizontal ? moveEvent.clientX : moveEvent.clientY;
@@ -40,12 +38,12 @@ export function useSplitterDrag(
       };
 
       const onPointerUp = () => {
-        document.removeEventListener('pointermove', onPointerMove);
-        document.removeEventListener('pointerup', onPointerUp);
+        document.removeEventListener("pointermove", onPointerMove);
+        document.removeEventListener("pointerup", onPointerUp);
       };
 
-      document.addEventListener('pointermove', onPointerMove);
-      document.addEventListener('pointerup', onPointerUp);
+      document.addEventListener("pointermove", onPointerMove);
+      document.addEventListener("pointerup", onPointerUp);
     },
     [nodeId, splitIndex, direction],
   );

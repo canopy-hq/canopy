@@ -1,11 +1,19 @@
-import { getWorkspaceCollection, getTabCollection, uiCollection, getUiState, setSetting } from '@superagent/db';
-import type { Workspace } from '@superagent/db';
-import * as gitApi from './git';
-import { showErrorToast } from './toast';
-import { setActiveContext } from './tab-actions';
-import { collectLeafPtyIds } from './pane-tree-ops';
-import { closePty } from './pty';
-import { disposeCached } from './terminal-cache';
+import {
+  getWorkspaceCollection,
+  getTabCollection,
+  uiCollection,
+  getUiState,
+  setSetting,
+} from "@superagent/db";
+
+import * as gitApi from "./git";
+import { collectLeafPtyIds } from "./pane-tree-ops";
+import { closePty } from "./pty";
+import { setActiveContext } from "./tab-actions";
+import { disposeCached } from "./terminal-cache";
+import { showErrorToast } from "./toast";
+
+import type { Workspace } from "@superagent/db";
 
 /** All sidebar item IDs for a workspace (repo root + branches + worktrees). */
 export function getWorkspaceItemIds(ws: Workspace): Set<string> {
@@ -29,12 +37,12 @@ export async function importRepo(path: string): Promise<void> {
       expanded: true,
       position: collection.toArray.length,
     });
-    uiCollection.update('ui', (draft) => {
+    uiCollection.update("ui", (draft) => {
       draft.sidebarVisible = true;
     });
-    setSetting('sidebarVisible', true);
+    setSetting("sidebarVisible", true);
   } catch (err) {
-    showErrorToast('Import failed', String(err));
+    showErrorToast("Import failed", String(err));
   }
 }
 
@@ -61,13 +69,13 @@ export async function closeProject(id: string): Promise<void> {
 
   const ui = getUiState();
   if (itemIds.has(ui.activeContextId)) {
-    uiCollection.update('ui', (draft) => {
-      draft.activeContextId = '';
-      draft.activeTabId = '';
+    uiCollection.update("ui", (draft) => {
+      draft.activeContextId = "";
+      draft.activeTabId = "";
       draft.selectedItemId = null;
     });
-    setSetting('activeContextId', '');
-    setSetting('activeTabId', '');
+    setSetting("activeContextId", "");
+    setSetting("activeTabId", "");
   }
 
   getWorkspaceCollection().delete(id);
@@ -83,7 +91,7 @@ export async function refreshRepo(id: string): Promise<void> {
       draft.worktrees = info.worktrees;
     });
   } catch (err) {
-    showErrorToast('Refresh failed', String(err));
+    showErrorToast("Refresh failed", String(err));
   }
 }
 
@@ -94,32 +102,32 @@ export function toggleExpanded(id: string): void {
 }
 
 export function setSelectedItem(itemId: string | null): void {
-  uiCollection.update('ui', (draft) => {
+  uiCollection.update("ui", (draft) => {
     draft.selectedItemId = itemId;
   });
 }
 
 export function selectWorkspaceItem(itemId: string | null, itemLabel?: string): void {
-  uiCollection.update('ui', (draft) => {
+  uiCollection.update("ui", (draft) => {
     draft.selectedItemId = itemId;
   });
   if (itemId !== null && itemLabel) {
-    setActiveContext(itemId, itemLabel);
+    setActiveContext(itemId);
   } else if (itemId === null) {
-    setActiveContext('');
+    setActiveContext("");
   }
 }
 
 export function toggleSidebar(): void {
   const newVisible = !getUiState().sidebarVisible;
-  uiCollection.update('ui', (draft) => {
+  uiCollection.update("ui", (draft) => {
     draft.sidebarVisible = newVisible;
   });
-  setSetting('sidebarVisible', newVisible);
+  setSetting("sidebarVisible", newVisible);
 }
 
 export function setSidebarWidth(width: number): void {
-  uiCollection.update('ui', (draft) => {
+  uiCollection.update("ui", (draft) => {
     draft.sidebarWidth = Math.max(180, Math.min(400, width));
   });
 }
@@ -131,7 +139,7 @@ export async function createBranch(workspaceId: string, name: string, base: stri
     await gitApi.createBranch(ws.path, name, base);
     await refreshRepo(workspaceId);
   } catch (err) {
-    showErrorToast('Create branch failed', String(err));
+    showErrorToast("Create branch failed", String(err));
   }
 }
 
@@ -142,7 +150,7 @@ export async function deleteBranch(workspaceId: string, name: string): Promise<v
     await gitApi.deleteBranch(ws.path, name);
     await refreshRepo(workspaceId);
   } catch (err) {
-    showErrorToast('Delete branch failed', String(err));
+    showErrorToast("Delete branch failed", String(err));
   }
 }
 
@@ -158,7 +166,7 @@ export async function createWorktree(
     await gitApi.createWorktree(ws.path, name, path, baseBranch);
     await refreshRepo(workspaceId);
   } catch (err) {
-    showErrorToast('Create worktree failed', String(err));
+    showErrorToast("Create worktree failed", String(err));
   }
 }
 
@@ -169,6 +177,6 @@ export async function removeWorktree(workspaceId: string, name: string): Promise
     await gitApi.removeWorktree(ws.path, name);
     await refreshRepo(workspaceId);
   } catch (err) {
-    showErrorToast('Remove worktree failed', String(err));
+    showErrorToast("Remove worktree failed", String(err));
   }
 }

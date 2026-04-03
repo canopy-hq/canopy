@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
-import { addTab, closeTab, switchTab } from '../lib/tab-actions';
-import type { Tab } from '@superagent/db';
-import { StatusDot } from './StatusDot';
-import type { PaneNode } from '../lib/pane-tree-ops';
-import type { DotStatus } from './StatusDot';
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { useTabs, useAgents, useUiState } from "../hooks/useCollections";
+import { addTab, closeTab, switchTab } from "../lib/tab-actions";
+import { StatusDot } from "./StatusDot";
+
+import type { PaneNode } from "../lib/pane-tree-ops";
+import type { DotStatus } from "./StatusDot";
+import type { Tab } from "@superagent/db";
 
 function collectLeafPtyIds(node: PaneNode): number[] {
-  if (node.type === 'leaf') return node.ptyId > 0 ? [node.ptyId] : [];
+  if (node.type === "leaf") return node.ptyId > 0 ? [node.ptyId] : [];
   return node.children.flatMap(collectLeafPtyIds);
 }
 
@@ -16,13 +18,13 @@ function useTabAgentStatus(tab: Tab): DotStatus {
   const agents = useAgents();
   for (const id of ptyIds) {
     const agent = agents.find((a) => a.ptyId === id);
-    if (agent?.status === 'waiting') return 'waiting';
+    if (agent?.status === "waiting") return "waiting";
   }
   for (const id of ptyIds) {
     const agent = agents.find((a) => a.ptyId === id);
-    if (agent?.status === 'running') return 'running';
+    if (agent?.status === "running") return "running";
   }
-  return 'idle';
+  return "idle";
 }
 
 function TabItem({
@@ -40,28 +42,28 @@ function TabItem({
 
   return (
     <button
-      className={`group relative flex items-center gap-1.5 min-w-[120px] max-w-[240px] flex-shrink px-3 h-full rounded-t-md border-t-2 transition-colors cursor-pointer ${
+      className={`group relative flex h-full max-w-[240px] min-w-[120px] flex-shrink cursor-pointer items-center gap-1.5 rounded-t-md border-t-2 px-3 transition-colors ${
         isActive
-          ? 'bg-tab-active-bg border-t-accent text-text-primary'
-          : 'bg-tab-inactive-bg border-t-transparent text-text-muted hover:bg-bg-secondary'
+          ? "border-t-accent bg-tab-active-bg text-text-primary"
+          : "border-t-transparent bg-tab-inactive-bg text-text-muted hover:bg-bg-secondary"
       }`}
       style={{
-        backgroundColor: agentStatus === 'waiting' ? 'var(--agent-waiting-glow)' : undefined,
+        backgroundColor: agentStatus === "waiting" ? "var(--agent-waiting-glow)" : undefined,
       }}
       onClick={onSwitch}
       title={tab.label}
     >
-      {agentStatus !== 'idle' && <StatusDot status={agentStatus} size={8} />}
-      <span className="truncate text-xs flex-1 text-left">{tab.label}</span>
-      {agentStatus === 'waiting' && (
+      {agentStatus !== "idle" && <StatusDot status={agentStatus} size={8} />}
+      <span className="flex-1 truncate text-left text-xs">{tab.label}</span>
+      {agentStatus === "waiting" && (
         <span
           style={{
-            fontSize: '10px',
+            fontSize: "10px",
             fontWeight: 400,
-            backgroundColor: 'rgba(251, 191, 36, 0.25)',
-            color: 'var(--agent-waiting)',
-            borderRadius: '9999px',
-            padding: '4px 8px',
+            backgroundColor: "rgba(251, 191, 36, 0.25)",
+            color: "var(--agent-waiting)",
+            borderRadius: "9999px",
+            padding: "4px 8px",
             lineHeight: 1,
           }}
         >
@@ -71,15 +73,17 @@ function TabItem({
       <span
         role="button"
         tabIndex={-1}
-        className={`flex items-center justify-center w-4 h-4 rounded-sm text-[10px] leading-none hover:bg-bg-tertiary ${
-          isActive ? 'opacity-60 hover:opacity-100' : 'opacity-0 group-hover:opacity-60 hover:!opacity-100'
+        className={`flex h-4 w-4 items-center justify-center rounded-sm text-[10px] leading-none hover:bg-bg-tertiary ${
+          isActive
+            ? "opacity-60 hover:opacity-100"
+            : "opacity-0 group-hover:opacity-60 hover:!opacity-100"
         }`}
         onClick={(e) => {
           e.stopPropagation();
           onClose();
         }}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') {
+          if (e.key === "Enter") {
             e.stopPropagation();
             onClose();
           }
@@ -117,12 +121,12 @@ export function TabBar() {
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    el.addEventListener('scroll', updateScrollState, { passive: true });
+    el.addEventListener("scroll", updateScrollState, { passive: true });
     const ro = new ResizeObserver(updateScrollState);
     ro.observe(el);
     updateScrollState();
     return () => {
-      el.removeEventListener('scroll', updateScrollState);
+      el.removeEventListener("scroll", updateScrollState);
       ro.disconnect();
     };
   }, [updateScrollState]);
@@ -135,22 +139,23 @@ export function TabBar() {
   if (tabs.length === 0) return null;
 
   // Build CSS mask for scroll fade
-  let maskImage = 'none';
+  let maskImage = "none";
   if (scrollState.left && scrollState.right) {
-    maskImage = 'linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent)';
+    maskImage =
+      "linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent)";
   } else if (scrollState.left) {
-    maskImage = 'linear-gradient(to right, transparent, black 24px)';
+    maskImage = "linear-gradient(to right, transparent, black 24px)";
   } else if (scrollState.right) {
-    maskImage = 'linear-gradient(to right, black calc(100% - 24px), transparent)';
+    maskImage = "linear-gradient(to right, black calc(100% - 24px), transparent)";
   }
 
   return (
-    <div className="flex items-center bg-bg-primary border-b border-border h-9 flex-shrink-0">
+    <div className="flex h-9 flex-shrink-0 items-center border-b border-border bg-bg-primary">
       <div
         ref={scrollRef}
-        className="flex items-stretch h-full flex-1 min-w-0 overflow-x-auto"
+        className="flex h-full min-w-0 flex-1 items-stretch overflow-x-auto"
         style={{
-          scrollbarWidth: 'none',
+          scrollbarWidth: "none",
           maskImage,
           WebkitMaskImage: maskImage,
         }}
@@ -168,7 +173,7 @@ export function TabBar() {
       <button
         onClick={addTab}
         title="New Tab"
-        className="flex items-center justify-center w-8 h-8 mx-1 text-text-muted hover:text-text-primary text-lg leading-none flex-shrink-0 cursor-pointer"
+        className="mx-1 flex h-8 w-8 flex-shrink-0 cursor-pointer items-center justify-center text-lg leading-none text-text-muted hover:text-text-primary"
       >
         +
       </button>

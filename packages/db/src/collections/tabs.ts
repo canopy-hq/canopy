@@ -1,13 +1,15 @@
-import { createCollection, localOnlyCollectionOptions } from '@tanstack/db';
-import { asc, eq } from 'drizzle-orm';
-import { getDb } from '../client';
-import { tabs as table } from '../schema';
-import type { Tab, PaneNode } from '../types';
+import { createCollection, localOnlyCollectionOptions } from "@tanstack/db";
+import { asc, eq } from "drizzle-orm";
+
+import { getDb } from "../client";
+import { tabs as table } from "../schema";
+
+import type { Tab, PaneNode } from "../types";
 
 function deserialize(row: typeof table.$inferSelect): Tab {
   return {
     ...row,
-    paneRoot: JSON.parse(row.paneRoot) as Tab['paneRoot'],
+    paneRoot: JSON.parse(row.paneRoot) as Tab["paneRoot"],
     focusedPaneId: row.focusedPaneId ?? null,
   };
 }
@@ -59,12 +61,14 @@ export function getTabCollection() {
 }
 
 function resetPtyIds(node: PaneNode): PaneNode {
-  if (node.type === 'leaf') return { ...node, ptyId: -1 };
+  if (node.type === "leaf") return { ...node, ptyId: -1 };
   return { ...node, children: node.children.map(resetPtyIds) };
 }
 
 export async function hydrateTabCollection(): Promise<void> {
   const db = getDb();
   const rows = await db.select().from(table).orderBy(asc(table.position));
-  _collection = makeCollection(rows.map(deserialize).map((t) => ({ ...t, paneRoot: resetPtyIds(t.paneRoot) })));
+  _collection = makeCollection(
+    rows.map(deserialize).map((t) => ({ ...t, paneRoot: resetPtyIds(t.paneRoot) })),
+  );
 }

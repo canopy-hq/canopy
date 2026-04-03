@@ -1,17 +1,17 @@
-export type DotStatus = 'running' | 'waiting' | 'idle';
+export type DotStatus = "running" | "waiting" | "idle";
 
 const STATUS_CONFIG: Record<DotStatus, { color: string; animation: string }> = {
   running: {
-    color: 'var(--agent-running)',
-    animation: 'animate-[pulse-slow_2s_ease-in-out_infinite]',
+    color: "var(--agent-running)",
+    animation: "animate-[pulse-slow_2s_ease-in-out_infinite]",
   },
   waiting: {
-    color: 'var(--agent-waiting)',
-    animation: 'animate-[breathe_2.5s_ease-in-out_infinite]',
+    color: "var(--agent-waiting)",
+    animation: "animate-[breathe_2.5s_ease-in-out_infinite]",
   },
   idle: {
-    color: 'var(--agent-idle)',
-    animation: '',
+    color: "var(--agent-idle)",
+    animation: "",
   },
 };
 

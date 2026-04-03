@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
 export interface Keybinding {
   key: string;
@@ -30,9 +30,9 @@ export function useKeyboardRegistry(bindings: Keybinding[]): void {
       // No match -- let event propagate (terminal will handle it)
     };
 
-    document.addEventListener('keydown', handler, { capture: true });
+    document.addEventListener("keydown", handler, { capture: true });
     return () => {
-      document.removeEventListener('keydown', handler, { capture: true });
+      document.removeEventListener("keydown", handler, { capture: true });
     };
   }, []);
 }

@@ -1,6 +1,7 @@
-import type { PaneNode } from '../lib/pane-tree-ops';
-import { SplitContainer } from './SplitContainer';
-import { TerminalPane } from './TerminalPane';
+import { SplitContainer } from "./SplitContainer";
+import { TerminalPane } from "./TerminalPane";
+
+import type { PaneNode } from "../lib/pane-tree-ops";
 
 /**
  * Renders a pane tree into split containers and terminal panes.
@@ -11,7 +12,7 @@ export function PaneContainer({ root }: { root: PaneNode }) {
 }
 
 function PaneNodeRenderer({ node }: { node: PaneNode }) {
-  if (node.type === 'leaf') {
+  if (node.type === "leaf") {
     return <TerminalPane paneId={node.id} ptyId={node.ptyId} />;
   }
   return (

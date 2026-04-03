@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Dialog, Heading } from 'react-aria-components';
-import { useAgents, useWorkspaces, useTabs } from '../hooks/useCollections';
-import { setActiveContext, switchTab } from '../lib/tab-actions';
-import type { AgentInfo } from '@superagent/db';
-import type { PaneNode } from '../lib/pane-tree-ops';
-import { StatusDot } from './StatusDot';
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Dialog, Heading } from "react-aria-components";
+
+import { useAgents, useWorkspaces, useTabs } from "../hooks/useCollections";
+import { setActiveContext, switchTab } from "../lib/tab-actions";
+import { StatusDot } from "./StatusDot";
+
+import type { PaneNode } from "../lib/pane-tree-ops";
+import type { AgentInfo } from "@superagent/db";
 
 export interface AgentOverlayProps {
   isOpen: boolean;
@@ -20,7 +22,7 @@ function formatDuration(startedAt: number): string {
 
 /** Recursively check if a pane tree contains a leaf with the given ptyId */
 function treeContainsPty(node: PaneNode, ptyId: number): boolean {
-  if (node.type === 'leaf') return node.ptyId === ptyId;
+  if (node.type === "leaf") return node.ptyId === ptyId;
   return node.children.some((child) => treeContainsPty(child, ptyId));
 }
 
@@ -33,8 +35,8 @@ interface AgentRow {
 
 export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
   const agentList = useAgents();
-  const runningCount = agentList.filter((a) => a.status === 'running').length;
-  const waitingCount = agentList.filter((a) => a.status === 'waiting').length;
+  const runningCount = agentList.filter((a) => a.status === "running").length;
+  const waitingCount = agentList.filter((a) => a.status === "waiting").length;
   const workspaces = useWorkspaces();
   const tabs = useTabs();
 
@@ -58,9 +60,9 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
     const rows: AgentRow[] = [];
 
     for (const agent of agentList) {
-      let workspaceName = 'Unknown';
-      let tabId = '';
-      let workspaceItemId = '';
+      let workspaceName = "Unknown";
+      let tabId = "";
+      let workspaceItemId = "";
 
       // Find which tab contains this agent's ptyId
       for (const tab of tabs) {
@@ -121,23 +123,23 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       switch (e.key) {
-        case 'ArrowDown':
+        case "ArrowDown":
           e.preventDefault();
           setSelectedIndex((prev) => (flatRows.length === 0 ? 0 : (prev + 1) % flatRows.length));
           break;
-        case 'ArrowUp':
+        case "ArrowUp":
           e.preventDefault();
           setSelectedIndex((prev) =>
             flatRows.length === 0 ? 0 : (prev - 1 + flatRows.length) % flatRows.length,
           );
           break;
-        case 'Enter':
+        case "Enter":
           e.preventDefault();
           if (flatRows.length > 0 && flatRows[selectedIndex]) {
             handleJump(flatRows[selectedIndex]);
           }
           break;
-        case 'Escape':
+        case "Escape":
           e.preventDefault();
           onClose();
           break;
@@ -153,10 +155,10 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
   return (
     <div
       style={{
-        position: 'fixed',
+        position: "fixed",
         inset: 0,
         zIndex: 50,
-        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+        backgroundColor: "rgba(0, 0, 0, 0.3)",
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -165,44 +167,41 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
     >
       <div
         style={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '520px',
-          maxHeight: '60vh',
-          background: 'color-mix(in srgb, var(--bg-secondary) 85%, transparent)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          border: '1px solid var(--border)',
-          borderRadius: '12px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          flexDirection: 'column' as const,
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "520px",
+          maxHeight: "60vh",
+          background: "color-mix(in srgb, var(--bg-secondary) 85%, transparent)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          border: "1px solid var(--border)",
+          borderRadius: "12px",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5)",
+          display: "flex",
+          flexDirection: "column" as const,
           fontFamily: 'Menlo, Monaco, "Courier New", monospace',
         }}
         onKeyDown={handleKeyDown}
       >
-        <Dialog
-          className="outline-none"
-          aria-label="Agent Overview"
-        >
+        <Dialog className="outline-none" aria-label="Agent Overview">
           {/* Header */}
           <div
             style={{
-              padding: '16px',
-              borderBottom: '1px solid var(--border)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
+              padding: "16px",
+              borderBottom: "1px solid var(--border)",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
             }}
           >
             <Heading
               slot="title"
               style={{
-                fontSize: '14px',
+                fontSize: "14px",
                 fontWeight: 600,
-                color: 'var(--text-primary)',
+                color: "var(--text-primary)",
                 margin: 0,
               }}
             >
@@ -211,26 +210,20 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
             {(runningCount > 0 || waitingCount > 0) && (
               <span
                 style={{
-                  fontSize: '11px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
+                  fontSize: "11px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
                 }}
               >
                 {runningCount > 0 && (
-                  <span style={{ color: 'var(--agent-running)' }}>
-                    {runningCount} running
-                  </span>
+                  <span style={{ color: "var(--agent-running)" }}>{runningCount} running</span>
                 )}
                 {runningCount > 0 && waitingCount > 0 && (
-                  <span style={{ color: 'var(--text-muted)', opacity: 0.6 }}>
-                    {'\u00B7'}
-                  </span>
+                  <span style={{ color: "var(--text-muted)", opacity: 0.6 }}>{"\u00B7"}</span>
                 )}
                 {waitingCount > 0 && (
-                  <span style={{ color: 'var(--agent-waiting)' }}>
-                    {waitingCount} waiting
-                  </span>
+                  <span style={{ color: "var(--agent-waiting)" }}>{waitingCount} waiting</span>
                 )}
               </span>
             )}
@@ -239,9 +232,9 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
           {/* Body */}
           <div
             style={{
-              overflowY: 'auto',
-              scrollbarWidth: 'none',
-              padding: '8px 0',
+              overflowY: "auto",
+              scrollbarWidth: "none",
+              padding: "8px 0",
               flex: 1,
             }}
           >
@@ -249,27 +242,27 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
               /* Empty state */
               <div
                 style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '32px 16px',
-                  gap: '8px',
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "32px 16px",
+                  gap: "8px",
                 }}
               >
                 <span
                   style={{
-                    fontSize: '14px',
+                    fontSize: "14px",
                     fontWeight: 600,
-                    color: 'var(--text-muted)',
+                    color: "var(--text-muted)",
                   }}
                 >
                   No agents running
                 </span>
                 <span
                   style={{
-                    fontSize: '13px',
-                    color: 'var(--text-muted)',
+                    fontSize: "13px",
+                    color: "var(--text-muted)",
                     opacity: 0.6,
                   }}
                 >
@@ -283,10 +276,10 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                   {/* Group header */}
                   <div
                     style={{
-                      fontSize: '11px',
+                      fontSize: "11px",
                       fontWeight: 600,
-                      color: 'var(--text-muted)',
-                      padding: '8px 16px 4px 16px',
+                      color: "var(--text-muted)",
+                      padding: "8px 16px 4px 16px",
                     }}
                   >
                     {wsName}
@@ -295,7 +288,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                   {rows.map((row) => {
                     const flatIndex = flatRows.indexOf(row);
                     const isSelected = flatIndex === selectedIndex;
-                    const isWaiting = row.agent.status === 'waiting';
+                    const isWaiting = row.agent.status === "waiting";
 
                     return (
                       <div
@@ -303,28 +296,30 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                         data-testid={`agent-row-${row.agent.ptyId}`}
                         onClick={() => handleJump(row)}
                         style={{
-                          height: '36px',
-                          display: 'flex',
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '0 16px',
-                          cursor: 'pointer',
-                          borderRadius: '6px',
+                          height: "36px",
+                          display: "flex",
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: "8px",
+                          padding: "0 16px",
+                          cursor: "pointer",
+                          borderRadius: "6px",
                           background: isWaiting
-                            ? 'var(--agent-waiting-glow)'
+                            ? "var(--agent-waiting-glow)"
                             : isSelected
-                              ? 'var(--bg-tertiary)'
-                              : 'transparent',
-                          borderLeft: isSelected ? '2px solid var(--accent)' : '2px solid transparent',
+                              ? "var(--bg-tertiary)"
+                              : "transparent",
+                          borderLeft: isSelected
+                            ? "2px solid var(--accent)"
+                            : "2px solid transparent",
                         }}
                         data-selected={isSelected}
                       >
                         <StatusDot status={row.agent.status} size={8} />
                         <span
                           style={{
-                            fontSize: '13px',
-                            color: 'var(--text-primary)',
+                            fontSize: "13px",
+                            color: "var(--text-primary)",
                             flexShrink: 0,
                           }}
                         >
@@ -332,21 +327,21 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                         </span>
                         <span
                           style={{
-                            fontSize: '13px',
-                            color: 'var(--text-muted)',
+                            fontSize: "13px",
+                            color: "var(--text-muted)",
                             flex: 1,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
                           }}
                         >
                           {row.workspaceName}
                         </span>
                         <span
                           style={{
-                            fontSize: '11px',
-                            color: 'var(--text-muted)',
-                            fontVariantNumeric: 'tabular-nums',
+                            fontSize: "11px",
+                            color: "var(--text-muted)",
+                            fontVariantNumeric: "tabular-nums",
                             flexShrink: 0,
                           }}
                         >

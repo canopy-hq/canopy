@@ -1,5 +1,9 @@
 {
   "name": "superagent",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"]
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "lint": "oxlint apps/ packages/",
+    "format": "oxfmt apps/ packages/"
+  }
 }

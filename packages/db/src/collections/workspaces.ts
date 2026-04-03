@@ -1,14 +1,16 @@
-import { createCollection, localOnlyCollectionOptions } from '@tanstack/db';
-import { asc, eq } from 'drizzle-orm';
-import { getDb } from '../client';
-import { workspaces as table } from '../schema';
-import type { Workspace } from '../types';
+import { createCollection, localOnlyCollectionOptions } from "@tanstack/db";
+import { asc, eq } from "drizzle-orm";
+
+import { getDb } from "../client";
+import { workspaces as table } from "../schema";
+
+import type { Workspace } from "../types";
 
 function deserialize(row: typeof table.$inferSelect): Workspace {
   return {
     ...row,
-    branches: JSON.parse(row.branches) as Workspace['branches'],
-    worktrees: JSON.parse(row.worktrees) as Workspace['worktrees'],
+    branches: JSON.parse(row.branches) as Workspace["branches"],
+    worktrees: JSON.parse(row.worktrees) as Workspace["worktrees"],
   };
 }
 

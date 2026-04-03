@@ -1,14 +1,14 @@
 export type PaneId = string;
-export type SplitDirection = 'horizontal' | 'vertical';
+export type SplitDirection = "horizontal" | "vertical";
 
 export interface LeafNode {
-  type: 'leaf';
+  type: "leaf";
   id: PaneId;
   ptyId: number;
 }
 
 export interface BranchNode {
-  type: 'branch';
+  type: "branch";
   id: string;
   direction: SplitDirection;
   ratios: number[];
@@ -30,10 +30,10 @@ function buildParentMap(
   node: PaneNode,
   map: Map<string, BranchNode> = new Map(),
 ): Map<string, BranchNode> {
-  if (node.type === 'branch') {
+  if (node.type === "branch") {
     for (const child of node.children) {
-      map.set(child.type === 'leaf' ? child.id : child.id, node);
-      if (child.type === 'branch') buildParentMap(child, map);
+      map.set(child.type === "leaf" ? child.id : child.id, node);
+      if (child.type === "branch") buildParentMap(child, map);
     }
   }
   return map;
@@ -58,12 +58,12 @@ export function splitNode(
 ): [PaneNode, PaneId] {
   const cloned = deepClone(tree);
   const newLeafId = crypto.randomUUID();
-  const newLeaf: LeafNode = { type: 'leaf', id: newLeafId, ptyId: newPtyId };
+  const newLeaf: LeafNode = { type: "leaf", id: newLeafId, ptyId: newPtyId };
 
   // If the root itself is the target leaf
-  if (cloned.type === 'leaf' && cloned.id === targetId) {
+  if (cloned.type === "leaf" && cloned.id === targetId) {
     const branch: BranchNode = {
-      type: 'branch',
+      type: "branch",
       id: crypto.randomUUID(),
       direction,
       ratios: [0.5, 0.5],
@@ -78,7 +78,7 @@ export function splitNode(
   if (!parent) throw new Error(`Target leaf "${targetId}" not found`);
 
   const childIndex = parent.children.findIndex(
-    (c) => (c.type === 'leaf' ? c.id : c.id) === targetId,
+    (c) => (c.type === "leaf" ? c.id : c.id) === targetId,
   );
 
   if (parent.direction === direction) {
@@ -89,7 +89,7 @@ export function splitNode(
     // Different direction: wrap target in new sub-branch
     const target = parent.children[childIndex]!;
     const subBranch: BranchNode = {
-      type: 'branch',
+      type: "branch",
       id: crypto.randomUUID(),
       direction,
       ratios: [0.5, 0.5],
@@ -103,12 +103,9 @@ export function splitNode(
 
 // ── removeNode ───────────────────────────────────────────────────────
 
-export function removeNode(
-  tree: PaneNode,
-  targetId: PaneId,
-): PaneNode | null {
+export function removeNode(tree: PaneNode, targetId: PaneId): PaneNode | null {
   // Single leaf case
-  if (tree.type === 'leaf') {
+  if (tree.type === "leaf") {
     return tree.id === targetId ? null : tree;
   }
 
@@ -116,18 +113,13 @@ export function removeNode(
   return removeNodeInPlace(cloned, targetId);
 }
 
-function removeNodeInPlace(
-  node: PaneNode,
-  targetId: PaneId,
-): PaneNode | null {
-  if (node.type === 'leaf') return node;
+function removeNodeInPlace(node: PaneNode, targetId: PaneId): PaneNode | null {
+  if (node.type === "leaf") return node;
 
   const branch = node as BranchNode;
 
   // Check if target is a direct child
-  const idx = branch.children.findIndex(
-    (c) => c.type === 'leaf' && c.id === targetId,
-  );
+  const idx = branch.children.findIndex((c) => c.type === "leaf" && c.id === targetId);
 
   if (idx !== -1) {
     branch.children.splice(idx, 1);
@@ -140,7 +132,7 @@ function removeNodeInPlace(
   // Recurse into child branches
   for (let i = 0; i < branch.children.length; i++) {
     const child = branch.children[i]!;
-    if (child.type === 'branch') {
+    if (child.type === "branch") {
       const result = removeNodeInPlace(child, targetId);
       if (result === null) {
         // Child branch became empty
@@ -162,11 +154,8 @@ function removeNodeInPlace(
 
 // ── findLeaf ─────────────────────────────────────────────────────────
 
-export function findLeaf(
-  tree: PaneNode,
-  targetId: PaneId,
-): LeafNode | null {
-  if (tree.type === 'leaf') {
+export function findLeaf(tree: PaneNode, targetId: PaneId): LeafNode | null {
+  if (tree.type === "leaf") {
     return tree.id === targetId ? tree : null;
   }
   for (const child of tree.children) {
@@ -179,7 +168,7 @@ export function findLeaf(
 // ── findFirstLeaf ────────────────────────────────────────────────────
 
 export function findFirstLeaf(tree: PaneNode): LeafNode | null {
-  if (tree.type === 'leaf') return tree;
+  if (tree.type === "leaf") return tree;
   for (const child of tree.children) {
     const found = findFirstLeaf(child);
     if (found) return found;
@@ -199,11 +188,11 @@ export function findFirstLeaf(tree: PaneNode): LeafNode | null {
 export function navigate(
   tree: PaneNode,
   fromId: PaneId,
-  direction: 'up' | 'down' | 'left' | 'right',
+  direction: "up" | "down" | "left" | "right",
 ): PaneId | null {
   const axis: SplitDirection =
-    direction === 'left' || direction === 'right' ? 'horizontal' : 'vertical';
-  const forward = direction === 'right' || direction === 'down';
+    direction === "left" || direction === "right" ? "horizontal" : "vertical";
+  const forward = direction === "right" || direction === "down";
 
   // Build path from root to the target leaf
   const path = findPath(tree, fromId);
@@ -212,7 +201,7 @@ export function navigate(
   // Walk up the path looking for a matching-axis branch where we can move
   for (let i = path.length - 1; i >= 0; i--) {
     const node = path[i]!;
-    if (node.type !== 'branch' || node.direction !== axis) continue;
+    if (node.type !== "branch" || node.direction !== axis) continue;
 
     // Find which child the next path element is in
     const childNode = path[i + 1];
@@ -234,7 +223,7 @@ export function navigate(
 
 // Reserved for future use (e.g., navigate backward into last leaf)
 export function findLastLeaf(tree: PaneNode): LeafNode | null {
-  if (tree.type === 'leaf') return tree;
+  if (tree.type === "leaf") return tree;
   for (let i = tree.children.length - 1; i >= 0; i--) {
     const found = findLastLeaf(tree.children[i]!);
     if (found) return found;
@@ -243,7 +232,7 @@ export function findLastLeaf(tree: PaneNode): LeafNode | null {
 }
 
 function findPath(tree: PaneNode, targetId: PaneId): PaneNode[] | null {
-  if (tree.type === 'leaf') {
+  if (tree.type === "leaf") {
     return tree.id === targetId ? [tree] : null;
   }
   for (const child of tree.children) {
@@ -270,7 +259,7 @@ export function updateRatio(
 
 /** Collect all active ptyIds from a pane tree. */
 export function collectLeafPtyIds(node: PaneNode): number[] {
-  if (node.type === 'leaf') return node.ptyId > 0 ? [node.ptyId] : [];
+  if (node.type === "leaf") return node.ptyId > 0 ? [node.ptyId] : [];
   return node.children.flatMap(collectLeafPtyIds);
 }
 
@@ -280,7 +269,7 @@ function applyRatioUpdate(
   splitIndex: number,
   delta: number,
 ): void {
-  if (node.type === 'leaf') return;
+  if (node.type === "leaf") return;
   if (node.id === branchId) {
     const leftIdx = splitIndex - 1;
     const rightIdx = splitIndex;

@@ -1,4 +1,4 @@
-import { UNSTABLE_ToastQueue as ToastQueue } from 'react-aria-components';
+import { UNSTABLE_ToastQueue as ToastQueue } from "react-aria-components";
 
 export interface ToastContent {
   title: string;
@@ -16,7 +16,7 @@ export function showErrorToast(title: string, description?: string) {
 // ── Agent toast system ──────────────────────────────────────────────
 
 export interface AgentToastContent {
-  type: 'agent-complete' | 'agent-waiting';
+  type: "agent-complete" | "agent-waiting";
   agentName: string;
   workspace: string;
   branch: string;
@@ -28,7 +28,7 @@ export const agentToastQueue = new ToastQueue<AgentToastContent>({
 });
 
 export function showAgentToast(content: AgentToastContent) {
-  const timeout = content.type === 'agent-complete' ? 10000 : undefined;
+  const timeout = content.type === "agent-complete" ? 10000 : undefined;
   agentToastQueue.add(content, { timeout });
 }
 

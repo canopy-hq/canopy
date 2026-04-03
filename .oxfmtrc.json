@@ -1,0 +1,31 @@
+{
+  "ignorePatterns": ["apps/desktop/src/routeTree.gen.ts"],
+  "sortImports": {
+    "customGroups": [
+      {
+        "groupName": "react",
+        "elementNamePattern": ["react", "react-dom", "react-**"]
+      }
+    ],
+    "groups": [
+      "react",
+      "value-builtin",
+      "value-external",
+      "value-internal",
+      ["value-parent", "value-sibling", "value-index"],
+      { "newlinesBetween": true },
+      "type-import",
+      "unknown"
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["apps/desktop/src/**"],
+      "options": {
+        "sortTailwindcss": {
+          "stylesheet": "./apps/desktop/src/index.css"
+        }
+      }
+    }
+  ]
+}

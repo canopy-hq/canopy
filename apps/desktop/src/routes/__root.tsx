@@ -1,13 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createRootRoute, Outlet } from '@tanstack/react-router';
-import { agentCollection } from '@superagent/db';
-import { Sidebar } from '../components/Sidebar';
-import { StatusBar } from '../components/StatusBar';
-import { ErrorToastRegion } from '../components/ToastProvider';
-import { AgentOverlay } from '../components/AgentOverlay';
-import { AgentToastRegion } from '../components/AgentToastRegion';
-import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
-import { initAgentListener, toggleManualOverride } from '../lib/agent-actions';
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { agentCollection } from "@superagent/db";
+import {
+  getTabCollection,
+  getWorkspaceCollection,
+  getSettingCollection,
+  getSetting,
+} from "@superagent/db";
+import { createRootRoute, Outlet } from "@tanstack/react-router";
+
+import { AgentOverlay } from "../components/AgentOverlay";
+import { AgentToastRegion } from "../components/AgentToastRegion";
+import { Sidebar } from "../components/Sidebar";
+import { StatusBar } from "../components/StatusBar";
+import { ErrorToastRegion } from "../components/ToastProvider";
+import { useKeyboardRegistry, type Keybinding } from "../hooks/useKeyboardRegistry";
+import { initAgentListener, toggleManualOverride } from "../lib/agent-actions";
+import { findLeaf } from "../lib/pane-tree-ops";
+import { closePty } from "../lib/pty";
 import {
   addTab,
   closeTab,
@@ -17,17 +27,15 @@ import {
   switchTabByIndex,
   switchTabRelative,
   getActiveTab,
-} from '../lib/tab-actions';
-import { toggleSidebar } from '../lib/workspace-actions';
-import { closePty } from '../lib/pty';
-import { disposeCached } from '../lib/terminal-cache';
-import { findLeaf } from '../lib/pane-tree-ops';
-import type { PaneNode } from '../lib/pane-tree-ops';
-import { showErrorToast, showAgentToastDeduped } from '../lib/toast';
-import { getTabCollection, getWorkspaceCollection, getSettingCollection, getSetting } from '@superagent/db';
+} from "../lib/tab-actions";
+import { disposeCached } from "../lib/terminal-cache";
+import { showErrorToast, showAgentToastDeduped } from "../lib/toast";
+import { toggleSidebar } from "../lib/workspace-actions";
+
+import type { PaneNode } from "../lib/pane-tree-ops";
 
 function containsPtyId(node: PaneNode, ptyId: number): boolean {
-  if (node.type === 'leaf') return node.ptyId === ptyId;
+  if (node.type === "leaf") return node.ptyId === ptyId;
   return node.children.some((child) => containsPtyId(child, ptyId));
 }
 
@@ -37,7 +45,7 @@ function RootLayout() {
   // Initialize agent event listener on mount
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-    initAgentListener().then((fn) => {
+    void initAgentListener().then((fn) => {
       unlisten = fn;
     });
     return () => {
@@ -49,7 +57,7 @@ function RootLayout() {
   useEffect(() => {
     const sub = agentCollection.subscribeChanges((changes) => {
       for (const change of changes) {
-        if (change.type === 'delete') continue;
+        if (change.type === "delete") continue;
         const agent = change.value;
         const tabs = getTabCollection().toArray;
         const activeTabId = getActiveTab()?.id;
@@ -59,11 +67,11 @@ function RootLayout() {
         const workspaces = getWorkspaceCollection().toArray;
         const ws = workspaces.find((w) => agentTab.workspaceItemId.startsWith(w.id));
 
-        if (agent.status === 'waiting') {
+        if (agent.status === "waiting") {
           showAgentToastDeduped({
-            type: 'agent-waiting',
+            type: "agent-waiting",
             agentName: agent.agentName,
-            workspace: ws?.name ?? 'Unknown',
+            workspace: ws?.name ?? "Unknown",
             branch: agentTab.label,
             ptyId: agent.ptyId,
           });
@@ -76,17 +84,17 @@ function RootLayout() {
   // Apply theme from settings on mount
   useEffect(() => {
     const settings = getSettingCollection().toArray;
-    const theme = getSetting(settings, 'theme', 'obsidian') as string;
-    document.documentElement.setAttribute('data-theme', theme);
+    const theme = getSetting(settings, "theme", "obsidian") as string;
+    document.documentElement.setAttribute("data-theme", theme);
   }, []);
 
-  const handleSplit = useCallback((direction: 'horizontal' | 'vertical') => {
+  const handleSplit = useCallback((direction: "horizontal" | "vertical") => {
     const activeTab = getActiveTab();
     if (!activeTab?.focusedPaneId) return;
     try {
       splitPane(activeTab.focusedPaneId, direction, -1);
     } catch (err) {
-      showErrorToast('Failed to split pane', String(err));
+      showErrorToast("Failed to split pane", String(err));
     }
   }, []);
 
@@ -94,7 +102,7 @@ function RootLayout() {
     const activeTab = getActiveTab();
     if (!activeTab?.focusedPaneId) return;
 
-    if (activeTab.paneRoot.type === 'leaf') {
+    if (activeTab.paneRoot.type === "leaf") {
       const leaf = activeTab.paneRoot;
       if (leaf.ptyId > 0) {
         disposeCached(leaf.ptyId);
@@ -121,25 +129,25 @@ function RootLayout() {
 
   const bindings: Keybinding[] = useMemo(
     () => [
-      { key: 'd', meta: true, action: () => handleSplit('horizontal') },
-      { key: 'd', meta: true, shift: true, action: () => handleSplit('vertical') },
-      { key: 'w', meta: true, action: () => handleClose() },
-      { key: 'ArrowLeft', meta: true, alt: true, action: () => navigatePanes('left') },
-      { key: 'ArrowRight', meta: true, alt: true, action: () => navigatePanes('right') },
-      { key: 'ArrowUp', meta: true, alt: true, action: () => navigatePanes('up') },
-      { key: 'ArrowDown', meta: true, alt: true, action: () => navigatePanes('down') },
-      { key: 't', meta: true, action: () => addTab() },
+      { key: "d", meta: true, action: () => handleSplit("horizontal") },
+      { key: "d", meta: true, shift: true, action: () => handleSplit("vertical") },
+      { key: "w", meta: true, action: () => handleClose() },
+      { key: "ArrowLeft", meta: true, alt: true, action: () => navigatePanes("left") },
+      { key: "ArrowRight", meta: true, alt: true, action: () => navigatePanes("right") },
+      { key: "ArrowUp", meta: true, alt: true, action: () => navigatePanes("up") },
+      { key: "ArrowDown", meta: true, alt: true, action: () => navigatePanes("down") },
+      { key: "t", meta: true, action: () => addTab() },
       ...Array.from({ length: 9 }, (_, i) => ({
         key: String(i + 1),
         meta: true,
         action: () => switchTabByIndex(i),
       })),
-      { key: '[', meta: true, shift: true, action: () => switchTabRelative('prev') },
-      { key: ']', meta: true, shift: true, action: () => switchTabRelative('next') },
-      { key: 'b', meta: true, action: () => toggleSidebar() },
-      { key: 'o', meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
+      { key: "[", meta: true, shift: true, action: () => switchTabRelative("prev") },
+      { key: "]", meta: true, shift: true, action: () => switchTabRelative("next") },
+      { key: "b", meta: true, action: () => toggleSidebar() },
+      { key: "o", meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
       {
-        key: 'a',
+        key: "a",
         meta: true,
         shift: true,
         action: () => {
@@ -157,12 +165,11 @@ function RootLayout() {
 
   useKeyboardRegistry(bindings);
 
-
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-bg-primary">
-      <div className="flex-1 min-h-0 flex flex-row">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-bg-primary">
+      <div className="flex min-h-0 flex-1 flex-row">
         <Sidebar />
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex min-w-0 flex-1 flex-col">
           <Outlet />
         </div>
       </div>
