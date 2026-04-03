@@ -73,6 +73,7 @@ pub fn run() {
             git::create_worktree,
             git::remove_worktree,
             git::get_diff_stats,
+            git::get_all_diff_stats,
             agent_watcher::start_agent_watching,
             agent_watcher::stop_agent_watching,
             agent_watcher::toggle_agent_manual,
