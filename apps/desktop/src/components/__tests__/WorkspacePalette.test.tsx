@@ -29,7 +29,7 @@ const baseWorkspace = {
   path: '/tmp/repo',
   name: 'my-repo',
   branches: [{ name: 'main', is_head: true, ahead: 0, behind: 0 }],
-  worktrees: [{ name: 'wt-sidebar', path: '/tmp/wt-sidebar' }],
+  worktrees: [{ name: 'wt-sidebar', path: '/tmp/wt-sidebar', branch: 'feat/sidebar' }],
   expanded: true,
   position: 0,
 };

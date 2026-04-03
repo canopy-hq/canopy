@@ -247,28 +247,25 @@ function useRepoAgentSummary(ws: Workspace): Array<'running' | 'waiting'> {
   const agents = useAgents();
   const tabs = useTabs();
 
-  const itemIds = getWorkspaceItemIds(ws);
-
-  const statuses: Array<'running' | 'waiting'> = [];
-  for (const tab of tabs) {
-    if (!itemIds.has(tab.workspaceItemId)) continue;
-    const ptyIds = collectLeafPtyIds(tab.paneRoot);
-    for (const id of ptyIds) {
-      const agent = agents.find((a) => a.ptyId === id);
-      if (agent?.status === 'running' || agent?.status === 'waiting') {
-        statuses.push(agent.status);
+  return useMemo(() => {
+    const itemIds = getWorkspaceItemIds(ws);
+    const agentByPty = new Map(agents.map((a) => [a.ptyId, a]));
+    const statuses: Array<'running' | 'waiting'> = [];
+    for (const tab of tabs) {
+      if (!itemIds.has(tab.workspaceItemId)) continue;
+      for (const id of collectLeafPtyIds(tab.paneRoot)) {
+        const agent = agentByPty.get(id);
+        if (agent?.status === 'running' || agent?.status === 'waiting') {
+          statuses.push(agent.status);
+        }
       }
     }
-  }
-
-  // Sort: waiting first, then running
-  statuses.sort((a, b) => {
-    if (a === 'waiting' && b !== 'waiting') return -1;
-    if (a !== 'waiting' && b === 'waiting') return 1;
-    return 0;
-  });
-
-  return statuses;
+    statuses.sort((a, b) =>
+      a === 'waiting' && b !== 'waiting' ? -1 :
+      a !== 'waiting' && b === 'waiting' ? 1 : 0
+    );
+    return statuses;
+  }, [agents, tabs, ws]);
 }
 
 export function WorkspaceTree() {
@@ -280,9 +277,15 @@ export function WorkspaceTree() {
   const agentMap = useWorkspaceAgentMap();
   const navigate = useNavigate();
 
-  const expandedKeys = new Set<Key>(workspaces.filter((ws) => ws.expanded).map((ws) => ws.id));
+  const expandedKeys = useMemo(
+    () => new Set<Key>(workspaces.filter((ws) => ws.expanded).map((ws) => ws.id)),
+    [workspaces],
+  );
 
-  const selectedKeys: Selection = selectedItemId ? new Set([selectedItemId]) : new Set<Key>();
+  const selectedKeys = useMemo<Selection>(
+    () => selectedItemId ? new Set([selectedItemId]) : new Set<Key>(),
+    [selectedItemId],
+  );
 
   const handleSelectionChange = useCallback(
     (keys: Selection) => {
@@ -296,6 +299,7 @@ export function WorkspaceTree() {
     },
     [navigate],
   );
+
 
   function handleExpandedChange(keys: Set<Key>) {
     // Sync expanded state with store

@@ -164,7 +164,7 @@ pub fn list_all_branches(repo_path: String) -> Result<Vec<BranchDetail>, String>
     }
 
     // Remote branches (origin only, skip if already local)
-    let local_names: Vec<String> = details.iter().map(|d| d.name.clone()).collect();
+    let local_names: std::collections::HashSet<String> = details.iter().map(|d| d.name.clone()).collect();
     for branch_result in repo.branches(Some(BranchType::Remote)).map_err(|e| e.to_string())? {
         let (branch, _) = branch_result.map_err(|e| e.to_string())?;
         let full_name = branch.name().map_err(|e| e.to_string())?
