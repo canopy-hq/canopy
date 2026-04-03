@@ -182,6 +182,27 @@ export function closePane(paneId: PaneId): void {
   });
 }
 
+/** Close a pane in a specific tab (not necessarily the active one). */
+export function closePaneInTab(tabId: string, paneId: PaneId): void {
+  const col = getTabCollection();
+  const tab = col.toArray.find((t) => t.id === tabId);
+  if (!tab) return;
+  const result = removeNode(tab.paneRoot, paneId);
+  col.update(tab.id, (draft) => {
+    if (result === null) {
+      const newId = crypto.randomUUID();
+      draft.paneRoot = { type: 'leaf', id: newId, ptyId: -1 };
+      draft.focusedPaneId = newId;
+    } else {
+      draft.paneRoot = result;
+      if (draft.focusedPaneId === paneId) {
+        const firstLeaf = findFirstLeaf(result);
+        draft.focusedPaneId = firstLeaf?.id ?? null;
+      }
+    }
+  });
+}
+
 export function setFocus(paneId: PaneId): void {
   const ui = getUiState();
   const tab = getTabCollection().toArray.find((t) => t.id === ui.activeTabId);

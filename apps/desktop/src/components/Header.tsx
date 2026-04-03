@@ -1,5 +1,9 @@
 import { toggleSidebar } from '../lib/workspace-actions';
 
+interface HeaderProps {
+  onSessionsClick?: () => void;
+}
+
 function SidebarToggleIcon() {
   return (
     <svg
@@ -19,7 +23,7 @@ function SidebarToggleIcon() {
   );
 }
 
-export function Header() {
+export function Header({ onSessionsClick }: HeaderProps = {}) {
   return (
     <header
       data-tauri-drag-region
@@ -48,8 +52,34 @@ export function Header() {
       {/* Center zone — reserved for future search */}
       <div data-tauri-drag-region className="h-full flex-1" />
 
-      {/* Right zone — reserved for future actions */}
-      <div data-tauri-drag-region className="h-full px-3" />
+      {/* Right zone */}
+      <div className="flex h-full items-center px-3">
+        <button
+          onClick={onSessionsClick}
+          aria-label="PTY sessions"
+          className="group relative flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="2" y="3" width="12" height="3" rx="1" />
+            <rect x="2" y="8" width="7" height="3" rx="1" />
+            <circle cx="12" cy="9.5" r="2" />
+            <line x1="14" y1="11.5" x2="15" y2="12.5" />
+          </svg>
+          <span className="pointer-events-none absolute right-full mr-2 flex items-center whitespace-nowrap rounded-md bg-bg-tertiary px-2 py-1 text-xs leading-none text-text-primary opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+            PTY Sessions
+          </span>
+        </button>
+      </div>
     </header>
   );
 }

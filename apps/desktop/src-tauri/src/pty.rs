@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicU64;
 
+use sysinfo::{System, Pid, ProcessesToUpdate};
+
 use tauri::ipc::Channel;
 
 use crate::agent_watcher::{self, AgentWatcherState, now_millis};
@@ -108,6 +110,44 @@ pub async fn close_pty(
     }
 
     daemon.close(&pane_id).await
+}
+
+/// Info about a single active PTY session, including live resource usage.
+#[derive(serde::Serialize)]
+pub struct PtySessionInfo {
+    pub pty_id: u32,
+    pub pane_id: String,
+    pub cpu_percent: f32,
+    pub memory_mb: u64,
+}
+
+/// List all active PTY sessions with CPU/memory stats sourced from sysinfo.
+/// The System is refreshed on each call so CPU accuracy improves over repeated polls.
+#[tauri::command]
+pub fn list_pty_sessions(
+    proxy: tauri::State<'_, Mutex<PtyProxy>>,
+    sys_state: tauri::State<'_, Mutex<System>>,
+) -> Result<Vec<PtySessionInfo>, String> {
+    let sessions: Vec<(u32, String)> = {
+        let p = proxy.lock().map_err(|e| e.to_string())?;
+        p.sessions.iter().map(|(k, v)| (*k, v.clone())).collect()
+    };
+
+    let mut sys = sys_state.lock().map_err(|e| e.to_string())?;
+    sys.refresh_processes(ProcessesToUpdate::All, true);
+
+    let result = sessions
+        .into_iter()
+        .map(|(pid, pane_id)| {
+            let (cpu_percent, memory_mb) = sys
+                .process(Pid::from_u32(pid))
+                .map(|p| (p.cpu_usage(), p.memory() / 1024 / 1024))
+                .unwrap_or((0.0, 0));
+            PtySessionInfo { pty_id: pid, pane_id, cpu_percent, memory_mb }
+        })
+        .collect();
+
+    Ok(result)
 }
 
 /// Get the CWD of the shell process. Since ptyId = child PID, we call libproc directly.

@@ -12,6 +12,7 @@ import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 
 import { AgentOverlay } from '../components/AgentOverlay';
 import { Header } from '../components/Header';
+import { SessionManager } from '../components/SessionManager';
 import { AgentToastRegion } from '../components/AgentToastRegion';
 import { ErrorToastRegion } from '../components/ToastProvider';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
@@ -29,6 +30,7 @@ function containsPtyId(node: PaneNode, ptyId: number): boolean {
 
 function RootLayout() {
   const [overlayOpen, setOverlayOpen] = useState(false);
+  const [sessionManagerOpen, setSessionManagerOpen] = useState(false);
   const navigate = useNavigate();
   const booted = useRef(false);
 
@@ -109,10 +111,11 @@ function RootLayout() {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-bg-primary">
-      <Header />
+      <Header onSessionsClick={() => setSessionManagerOpen((prev) => !prev)} />
       <Outlet />
       <ErrorToastRegion />
       <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
+      <SessionManager isOpen={sessionManagerOpen} onClose={() => setSessionManagerOpen(false)} />
       <AgentToastRegion />
     </div>
   );
