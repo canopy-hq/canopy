@@ -103,21 +103,20 @@ describe('createChannelEntry — setHandlerFresh (spawn path)', () => {
     expect(received).toHaveLength(3);
   });
 
-  it('when sentinel arrived before setHandlerFresh: forwards data immediately', () => {
+  it('when sentinel arrived before setHandlerFresh: post-sentinel live byte flushed, scrollback discarded', () => {
     const entry = createChannelEntry();
-    // Sentinel arrives before handler is wired (scrollback already done)
-    entry.onData(bytes(1)); // pre-handler scrollback
+    entry.onData(bytes(1)); // pre-sentinel scrollback
     entry.onData(sentinel);
-    entry.onData(bytes(2)); // live data, arrives before handler
+    entry.onData(bytes(2)); // live byte arrives before handler is wired
     const received: Uint8Array[] = [];
-    // setHandlerFresh is called after sentinel — should NOT buffer post-sentinel data
     entry.setHandlerFresh((d) => received.push(d));
-    // Pre-handler buffer is discarded (scrollback + live that arrived before handler)
-    expect(received).toHaveLength(0);
+    // Pre-sentinel scrollback discarded; post-sentinel live byte flushed immediately
+    expect(received).toHaveLength(1);
+    expect(Array.from(received[0]!)).toEqual([2]);
     // Subsequent data flows immediately (sentinel already received)
     entry.onData(bytes(99));
-    expect(received).toHaveLength(1);
-    expect(Array.from(received[0]!)).toEqual([99]);
+    expect(received).toHaveLength(2);
+    expect(Array.from(received[1]!)).toEqual([99]);
   });
 });
 
@@ -297,5 +296,53 @@ describe('createChannelEntry — edge cases', () => {
     entry.onData(payload);
 
     expect(received).toEqual(payload);
+  });
+});
+
+describe('createChannelEntry — pre-handler race (sentinel before setHandlerFresh)', () => {
+  it('sentinel → single live chunk → setHandlerFresh: live chunk delivered', () => {
+    const entry = createChannelEntry();
+    entry.onData(sentinel);
+    entry.onData(bytes(42));
+    const received: Uint8Array[] = [];
+    entry.setHandlerFresh((d) => received.push(d));
+    expect(received).toHaveLength(1);
+    expect(Array.from(received[0]!)).toEqual([42]);
+  });
+
+  it('sentinel → multiple live chunks → setHandlerFresh: all chunks delivered in order', () => {
+    const entry = createChannelEntry();
+    entry.onData(sentinel);
+    entry.onData(bytes(1));
+    entry.onData(bytes(2));
+    entry.onData(bytes(3));
+    const received: Uint8Array[] = [];
+    entry.setHandlerFresh((d) => received.push(d));
+    expect(received).toHaveLength(3);
+    expect(Array.from(received[0]!)).toEqual([1]);
+    expect(Array.from(received[1]!)).toEqual([2]);
+    expect(Array.from(received[2]!)).toEqual([3]);
+  });
+
+  it('scrollback → sentinel → live → setHandlerFresh: scrollback discarded, live delivered', () => {
+    const entry = createChannelEntry();
+    entry.onData(bytes(10, 11)); // scrollback
+    entry.onData(bytes(12, 13)); // scrollback
+    entry.onData(sentinel);
+    entry.onData(bytes(0x24, 0x20)); // shell prompt "$ "
+    const received: Uint8Array[] = [];
+    entry.setHandlerFresh((d) => received.push(d));
+    expect(received).toHaveLength(1);
+    expect(Array.from(received[0]!)).toEqual([0x24, 0x20]);
+  });
+
+  it('setHandler (reconnect): post-sentinel live bytes flushed alongside scrollback', () => {
+    const entry = createChannelEntry();
+    entry.onData(bytes(10, 11)); // scrollback
+    entry.onData(sentinel);
+    entry.onData(bytes(20, 21)); // live bytes (prompt), no handler yet
+    const received: number[] = [];
+    entry.setHandler((d) => received.push(...Array.from(d)));
+    expect(received).toEqual([10, 11, 20, 21]);
   });
 });
