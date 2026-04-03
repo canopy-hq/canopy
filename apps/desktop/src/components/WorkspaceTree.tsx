@@ -10,9 +10,12 @@ import {
   toggleExpanded,
   selectWorkspaceItem,
   closeProject,
+  hideWorktree,
+  removeWorktree,
   getWorkspaceItemIds,
 } from '../lib/workspace-actions';
 import { CloseProjectModal } from './CloseProjectModal';
+import { RemoveWorktreeModal } from './RemoveWorktreeModal';
 import { StatusDot } from './StatusDot';
 
 import type { BranchInfo, WorktreeInfo } from '../lib/git';
@@ -46,15 +49,9 @@ function BranchRow({ branch, agentStatus }: { branch: BranchInfo; agentStatus?: 
   );
 }
 
-function WorktreeRow({
-  worktree,
-  agentStatus,
-}: {
-  worktree: WorktreeInfo;
-  agentStatus?: DotStatus;
-}) {
+function WorktreeRow({ worktree, agentStatus, onRemoveClick }: { worktree: WorktreeInfo; agentStatus?: DotStatus; onRemoveClick: (e: React.MouseEvent) => void }) {
   return (
-    <div className="flex items-center gap-[6px] py-[4px] px-[10px] rounded-[5px]"
+    <div className="group/wt flex items-center gap-[6px] py-[4px] px-[10px] rounded-[5px]"
       style={{ marginLeft: '39px', marginRight: '6px', marginTop: '1px', marginBottom: '1px' }}>
       <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.5">
         <rect x="3" y="3" width="10" height="10" rx="2"/>
@@ -65,6 +62,18 @@ function WorktreeRow({
       {agentStatus && agentStatus !== 'idle' && (
         <StatusDot status={agentStatus} size={6} />
       )}
+      <div
+        className="opacity-0 group-hover/wt:opacity-100 cursor-pointer flex-shrink-0"
+        onClick={onRemoveClick}
+        role="button"
+        aria-label={`Remove worktree ${worktree.name}`}
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter') onRemoveClick(e as unknown as React.MouseEvent); }}
+      >
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#666" strokeWidth="1.5">
+          <path d="M4 4l8 8M12 4l-8 8"/>
+        </svg>
+      </div>
     </div>
   );
 }
@@ -217,6 +226,7 @@ export function WorkspaceTree() {
   const { selectedItemId } = useUiState();
   const [modalWorkspace, setModalWorkspace] = useState<Workspace | null>(null);
   const [closeTarget, setCloseTarget] = useState<Workspace | null>(null);
+  const [removeWtTarget, setRemoveWtTarget] = useState<{ workspaceId: string; name: string } | null>(null);
   const agentMap = useWorkspaceAgentMap();
   const navigate = useNavigate();
 
@@ -261,7 +271,7 @@ export function WorkspaceTree() {
       onExpandedChange={handleExpandedChange}
     >
       {workspaces.map((ws) => (
-        <RepoTreeItem key={ws.id} ws={ws} agentMap={agentMap} setModalWorkspace={setModalWorkspace} onRequestClose={setCloseTarget} selectedItemId={selectedItemId} />
+        <RepoTreeItem key={ws.id} ws={ws} agentMap={agentMap} setModalWorkspace={setModalWorkspace} onRequestClose={setCloseTarget} onRequestRemoveWt={(name) => setRemoveWtTarget({ workspaceId: ws.id, name })} selectedItemId={selectedItemId} />
       ))}
     </Tree>
     {closeTarget && (
@@ -273,6 +283,20 @@ export function WorkspaceTree() {
           setCloseTarget(null);
         }}
         projectName={closeTarget.name}
+      />
+    )}
+    {removeWtTarget && (
+      <RemoveWorktreeModal
+        isOpen={!!removeWtTarget}
+        onClose={() => setRemoveWtTarget(null)}
+        worktreeName={removeWtTarget.name}
+        onConfirm={async (alsoDeleteGit) => {
+          if (alsoDeleteGit) {
+            await removeWorktree(removeWtTarget.workspaceId, removeWtTarget.name);
+          }
+          hideWorktree(removeWtTarget.workspaceId, removeWtTarget.name);
+          setRemoveWtTarget(null);
+        }}
       />
     )}
     </>
@@ -336,12 +360,14 @@ function RepoTreeItem({
   agentMap,
   setModalWorkspace,
   onRequestClose,
+  onRequestRemoveWt,
   selectedItemId,
 }: {
   ws: Workspace;
   agentMap: Record<string, DotStatus>;
   setModalWorkspace: (ws: Workspace) => void;
   onRequestClose: (ws: Workspace) => void;
+  onRequestRemoveWt: (name: string) => void;
   selectedItemId: string | null;
 }) {
   const agentSummary = useRepoAgentSummary(ws);
@@ -401,7 +427,10 @@ function RepoTreeItem({
           }
         >
           <TreeItemContent>
-            <WorktreeRow worktree={wt} agentStatus={agentMap[`${ws.id}-wt-${wt.name}`]} />
+            <WorktreeRow worktree={wt} agentStatus={agentMap[`${ws.id}-wt-${wt.name}`]} onRemoveClick={(e) => {
+              e.stopPropagation();
+              onRequestRemoveWt(wt.name);
+            }} />
           </TreeItemContent>
         </TreeItem>
       ))}

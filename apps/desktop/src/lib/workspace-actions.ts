@@ -193,6 +193,13 @@ export async function removeWorktree(workspaceId: string, name: string): Promise
   }
 }
 
+/** Remove worktree from sidebar only (can be re-opened from palette). */
+export function hideWorktree(workspaceId: string, name: string): void {
+  getWorkspaceCollection().update(workspaceId, (draft) => {
+    draft.worktrees = draft.worktrees.filter((wt) => wt.name !== name);
+  });
+}
+
 export function openWorktree(workspaceId: string, name: string, path: string): void {
   const ws = getWorkspaceCollection().toArray.find((w) => w.id === workspaceId);
   if (!ws) return;
