@@ -1,9 +1,21 @@
 import type { ReactNode } from 'react';
 import { Children } from 'react';
 
+import { tv } from 'tailwind-variants';
+
 import { Splitter } from './Splitter';
 
 import type { SplitDirection } from '../lib/pane-tree-ops';
+
+const splitContainer = tv({
+  base: 'flex h-full w-full',
+  variants: {
+    direction: {
+      horizontal: 'flex-row',
+      vertical: 'flex-col',
+    },
+  },
+});
 
 interface SplitContainerProps {
   direction: SplitDirection;
@@ -20,11 +32,10 @@ interface SplitContainerProps {
  * - vertical: flex-col (children stacked, splitters are horizontal bars)
  */
 export function SplitContainer({ direction, ratios, nodeId, children }: SplitContainerProps) {
-  const isHorizontal = direction === 'horizontal';
   const childArray = Children.toArray(children);
 
   return (
-    <div className={`flex h-full w-full ${isHorizontal ? 'flex-row' : 'flex-col'}`}>
+    <div className={splitContainer({ direction })}>
       {childArray.map((child, i) => (
         <Fragment key={i}>
           {i > 0 && <Splitter nodeId={nodeId} splitIndex={i} direction={direction} />}

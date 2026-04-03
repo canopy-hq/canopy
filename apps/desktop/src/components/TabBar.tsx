@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { tv } from 'tailwind-variants';
 import { closePty, disposeCached } from '@superagent/terminal';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
@@ -9,6 +10,33 @@ import { StatusDot } from './StatusDot';
 
 import type { DotStatus } from './StatusDot';
 import type { Tab } from '@superagent/db';
+
+const tabItem = tv({
+  base: 'group relative flex h-full max-w-[240px] min-w-[120px] shrink cursor-pointer items-center gap-1.5 rounded-t-md border-t-2 px-3 transition-colors',
+  variants: {
+    active: {
+      true: 'border-t-accent bg-tab-active-bg text-text-primary',
+      false: 'border-t-transparent bg-tab-inactive-bg text-text-muted hover:bg-bg-secondary',
+    },
+    agentWaiting: {
+      true: 'bg-(--agent-waiting-glow)',
+    },
+  },
+  defaultVariants: {
+    active: false,
+    agentWaiting: false,
+  },
+});
+
+const closeButton = tv({
+  base: 'flex h-4 w-4 items-center justify-center rounded-sm text-[10px] leading-none hover:bg-bg-tertiary',
+  variants: {
+    active: {
+      true: 'opacity-60 hover:opacity-100',
+      false: 'opacity-0 group-hover:opacity-60 hover:!opacity-100',
+    },
+  },
+});
 
 function useTabAgentStatus(tab: Tab): DotStatus {
   const ptyIds = collectLeafPtyIds(tab.paneRoot);
@@ -24,7 +52,7 @@ function useTabAgentStatus(tab: Tab): DotStatus {
   return 'idle';
 }
 
-function TabItem({
+function TabItemComponent({
   tab,
   isActive,
   onSwitch,
@@ -39,14 +67,7 @@ function TabItem({
 
   return (
     <button
-      className={`group relative flex h-full max-w-[240px] min-w-[120px] flex-shrink cursor-pointer items-center gap-1.5 rounded-t-md border-t-2 px-3 transition-colors ${
-        isActive
-          ? 'border-t-accent bg-tab-active-bg text-text-primary'
-          : 'border-t-transparent bg-tab-inactive-bg text-text-muted hover:bg-bg-secondary'
-      }`}
-      style={{
-        backgroundColor: agentStatus === 'waiting' ? 'var(--agent-waiting-glow)' : undefined,
-      }}
+      className={tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}
       onClick={onSwitch}
       onMouseDown={(e) => {
         if (e.button === 1) {
@@ -59,28 +80,14 @@ function TabItem({
       {agentStatus !== 'idle' && <StatusDot status={agentStatus} size={8} />}
       <span className="flex-1 truncate text-left text-xs">{tab.label}</span>
       {agentStatus === 'waiting' && (
-        <span
-          style={{
-            fontSize: '10px',
-            fontWeight: 400,
-            backgroundColor: 'rgba(251, 191, 36, 0.25)',
-            color: 'var(--agent-waiting)',
-            borderRadius: '9999px',
-            padding: '4px 8px',
-            lineHeight: 1,
-          }}
-        >
+        <span className="rounded-full bg-[rgba(251,191,36,0.25)] px-2 py-1 text-[10px] font-normal leading-none text-(--agent-waiting)">
           input
         </span>
       )}
       <span
         role="button"
         tabIndex={-1}
-        className={`flex h-4 w-4 items-center justify-center rounded-sm text-[10px] leading-none hover:bg-bg-tertiary ${
-          isActive
-            ? 'opacity-60 hover:opacity-100'
-            : 'opacity-0 group-hover:opacity-60 hover:!opacity-100'
-        }`}
+        className={closeButton({ active: isActive })}
         onClick={(e) => {
           e.stopPropagation();
           onClose();
@@ -174,14 +181,14 @@ export function TabBar() {
   }
 
   return (
-    <div className="flex h-9 flex-shrink-0 items-center border-b border-border bg-bg-primary">
+    <div className="flex h-9 shrink-0 items-center border-b border-border bg-bg-primary">
       <div
         ref={scrollRef}
-        className="flex h-full min-w-0 flex-1 items-stretch overflow-x-auto"
-        style={{ scrollbarWidth: 'none', maskImage, WebkitMaskImage: maskImage }}
+        className="scrollbar-none flex h-full min-w-0 flex-1 items-stretch overflow-x-auto"
+        style={{ maskImage, WebkitMaskImage: maskImage }}
       >
         {tabs.map((tab) => (
-          <TabItem
+          <TabItemComponent
             key={tab.id}
             tab={tab}
             isActive={tab.id === activeTabId}
@@ -193,7 +200,7 @@ export function TabBar() {
       <button
         onClick={addTab}
         title="New Tab"
-        className="mx-1 flex h-8 w-8 flex-shrink-0 cursor-pointer items-center justify-center text-lg leading-none text-text-muted hover:text-text-primary"
+        className="mx-1 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center text-lg leading-none text-text-muted hover:text-text-primary"
       >
         +
       </button>

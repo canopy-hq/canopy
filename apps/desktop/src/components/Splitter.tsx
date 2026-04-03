@@ -1,8 +1,35 @@
 import { useState } from 'react';
 
+import { tv } from 'tailwind-variants';
+
 import { useSplitterDrag } from '../hooks/useSplitterDrag';
 
 import type { SplitDirection } from '../lib/pane-tree-ops';
+
+const splitter = tv({
+  base: 'flex shrink-0',
+  variants: {
+    direction: {
+      horizontal: 'h-full w-[6px] cursor-col-resize items-center',
+      vertical: 'h-[6px] w-full cursor-row-resize justify-center',
+    },
+  },
+});
+
+const splitterLine = tv({
+  base: 'transition-colors duration-150',
+  variants: {
+    direction: {
+      horizontal: 'h-full w-[2px]',
+      vertical: 'h-[2px] w-full',
+    },
+    state: {
+      idle: 'bg-splitter-idle',
+      hovered: 'bg-splitter-hover',
+      dragging: 'bg-accent',
+    },
+  },
+});
 
 interface SplitterProps {
   nodeId: string;
@@ -14,30 +41,18 @@ interface SplitterProps {
  * Draggable divider between panes.
  *
  * 6px hit area (transparent) with a 2px visible line centered inside.
- * Visual states: idle (#2a2a3e), hover (#3a3a5e), active/dragging (#3b82f6).
+ * Visual states: idle, hover, active/dragging.
  */
 export function Splitter({ nodeId, splitIndex, direction }: SplitterProps) {
   const { onPointerDown } = useSplitterDrag(nodeId, splitIndex, direction);
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const isHorizontal = direction === 'horizontal';
 
-  const lineColor = isDragging
-    ? 'var(--accent)'
-    : isHovered
-      ? 'var(--splitter-hover)'
-      : 'var(--splitter-idle)';
+  const state = isDragging ? 'dragging' as const : isHovered ? 'hovered' as const : 'idle' as const;
 
   return (
     <div
-      className={`flex-shrink-0 ${isHorizontal ? 'cursor-col-resize' : 'cursor-row-resize'}`}
-      style={{
-        width: isHorizontal ? '6px' : '100%',
-        height: isHorizontal ? '100%' : '6px',
-        display: 'flex',
-        alignItems: isHorizontal ? 'center' : undefined,
-        justifyContent: !isHorizontal ? 'center' : undefined,
-      }}
+      className={splitter({ direction })}
       onPointerDown={(e) => {
         setIsDragging(true);
         const handleUp = () => {
@@ -50,14 +65,7 @@ export function Splitter({ nodeId, splitIndex, direction }: SplitterProps) {
       onPointerEnter={() => setIsHovered(true)}
       onPointerLeave={() => setIsHovered(false)}
     >
-      <div
-        style={{
-          width: isHorizontal ? '2px' : '100%',
-          height: isHorizontal ? '100%' : '2px',
-          backgroundColor: lineColor,
-          transition: 'background-color 150ms ease',
-        }}
-      />
+      <div className={splitterLine({ direction, state })} />
     </div>
   );
 }

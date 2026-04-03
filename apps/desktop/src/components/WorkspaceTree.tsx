@@ -27,10 +27,7 @@ import type { Workspace } from '@superagent/db';
 
 function BranchRow({ branch, agentStatus }: { branch: BranchInfo; agentStatus?: DotStatus }) {
   return (
-    <div
-      className="flex items-center gap-[6px] rounded-[5px] px-[10px] py-[4px]"
-      style={{ marginLeft: '39px', marginRight: '6px', marginTop: '1px', marginBottom: '1px' }}
-    >
+    <div className="ml-[39px] mr-1.5 my-px flex items-center gap-[6px] rounded-[5px] px-[10px] py-[4px]">
       <svg
         width="11"
         height="11"
@@ -42,33 +39,19 @@ function BranchRow({ branch, agentStatus }: { branch: BranchInfo; agentStatus?: 
         <circle cx="8" cy="8" r="3" />
       </svg>
       <span
-        style={{
-          fontSize: '13px',
-          fontWeight: branch.is_head ? 500 : 400,
-          color: branch.is_head ? 'var(--text-primary)' : 'var(--text-secondary)',
-          flex: 1,
-        }}
-        className="truncate"
+        className={`truncate flex-1 text-[13px] ${branch.is_head ? 'font-medium text-text-primary' : 'font-normal text-text-secondary'}`}
       >
         {branch.name}
       </span>
       {branch.is_head && (
-        <span
-          style={{
-            fontSize: '9px',
-            color: 'var(--accent)',
-            background: 'rgba(59,130,246,0.1)',
-            padding: '1px 5px',
-            borderRadius: '3px',
-          }}
-        >
+        <span className="text-[9px] text-accent bg-[rgba(59,130,246,0.1)] px-[5px] py-px rounded-[3px]">
           HEAD
         </span>
       )}
       {agentStatus && agentStatus !== 'idle' && <StatusDot status={agentStatus} size={6} />}
-      <span className="flex gap-1" style={{ fontSize: '11px' }}>
-        {branch.ahead > 0 && <span style={{ color: 'var(--git-ahead)' }}>+{branch.ahead}</span>}
-        {branch.behind > 0 && <span style={{ color: 'var(--git-behind)' }}>-{branch.behind}</span>}
+      <span className="flex gap-1 text-[11px]">
+        {branch.ahead > 0 && <span className="text-git-ahead">+{branch.ahead}</span>}
+        {branch.behind > 0 && <span className="text-git-behind">-{branch.behind}</span>}
       </span>
     </div>
   );
@@ -107,10 +90,7 @@ function WorktreeRow({
   }
 
   return (
-    <div
-      className="group/wt flex items-center gap-[6px] rounded-[5px] px-[10px] py-[3px]"
-      style={{ marginLeft: '39px', marginRight: '6px', marginTop: '1px', marginBottom: '1px' }}
-    >
+    <div className="group/wt ml-[39px] mr-1.5 my-px flex items-center gap-[6px] rounded-[5px] px-[10px] py-[3px]">
       <svg
         width="13"
         height="13"
@@ -122,7 +102,7 @@ function WorktreeRow({
       >
         <rect x="3" y="3" width="10" height="10" rx="2" />
       </svg>
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="flex-1 min-w-0">
         {editing ? (
           <input
             ref={inputRef}
@@ -134,27 +114,17 @@ function WorktreeRow({
               if (e.key === 'Enter') commitEdit();
               if (e.key === 'Escape') setEditing(false);
             }}
-            className="w-full border-none bg-transparent text-[var(--text-secondary)] outline-none"
-            style={{ fontSize: '14px', padding: 0, margin: 0 }}
+            className="w-full border-none bg-transparent text-[var(--text-secondary)] outline-none text-sm p-0 m-0"
           />
         ) : (
           <span
-            style={{ fontSize: '14px', color: 'var(--text-secondary)', display: 'block' }}
-            className="truncate"
+            className="block truncate text-sm text-text-secondary"
             onDoubleClick={startEditing}
           >
             {displayName}
           </span>
         )}
-        <span
-          style={{
-            fontSize: '11px',
-            color: 'var(--text-muted)',
-            display: 'block',
-            marginTop: '2px',
-          }}
-          className="truncate"
-        >
+        <span className="block truncate text-[11px] text-text-muted mt-0.5">
           {worktree.branch || worktree.name}
         </span>
       </div>
@@ -201,11 +171,7 @@ function RepoHeader({
 
   return (
     <div
-      className="group flex cursor-pointer items-center gap-[7px] py-[6px] pr-[6px] pl-[12px]"
-      style={{
-        borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent',
-        background: isSelected ? 'rgba(59,130,246,0.04)' : undefined,
-      }}
+      className={`group flex cursor-pointer items-center gap-[7px] py-[6px] pr-[6px] pl-[12px] border-l-[3px] ${isSelected ? 'border-accent bg-[rgba(59,130,246,0.04)]' : 'border-transparent'}`}
       onClick={onRowClick}
     >
       {/* Hidden chevron for React ARIA Tree expand/collapse */}
@@ -217,18 +183,12 @@ function RepoHeader({
         fill="none"
         stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'}
         strokeWidth="1.5"
-        className="flex-shrink-0"
-        style={isSelected ? { filter: 'drop-shadow(0 0 3px rgba(59,130,246,0.4))' } : undefined}
+        className={`flex-shrink-0 ${isSelected ? 'drop-shadow-[0_0_3px_rgba(59,130,246,0.4)]' : ''}`}
       >
         <path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z" />
       </svg>
       <span
-        className="truncate font-medium"
-        style={{
-          fontSize: '14px',
-          flex: 1,
-          color: isSelected ? 'var(--text-primary)' : 'var(--text-muted)',
-        }}
+        className={`truncate font-medium text-sm flex-1 ${isSelected ? 'text-text-primary' : 'text-text-muted'}`}
       >
         {workspace.name}
       </span>
@@ -236,22 +196,14 @@ function RepoHeader({
       {!workspace.expanded && (
         <>
           {agentSummary && agentSummary.length > 0 && (
-            <span className="flex items-center" style={{ gap: '3px', marginLeft: '4px' }}>
+            <span className="flex items-center gap-[3px] ml-1">
               {agentSummary.slice(0, 3).map((status, i) => (
                 <StatusDot key={i} status={status} size={5} />
               ))}
             </span>
           )}
           {childCount > 0 && (
-            <span
-              style={{
-                fontSize: '11px',
-                color: 'var(--text-muted)',
-                background: 'var(--bg-tertiary)',
-                padding: '1px 6px',
-                borderRadius: '8px',
-              }}
-            >
+            <span className="text-[11px] text-text-muted bg-bg-tertiary px-[6px] py-px rounded-lg">
               {childCount}
             </span>
           )}
@@ -407,16 +359,7 @@ export function WorkspaceTree() {
 
   return (
     <>
-      <div
-        style={{
-          padding: '4px 12px 6px',
-          fontSize: '10px',
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '1px',
-          color: 'var(--text-muted)',
-        }}
-      >
+      <div className="px-3 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-[1px] text-text-muted">
         Projects
       </div>
       <Tree
@@ -584,9 +527,7 @@ function RepoTreeItem({
             key={`${ws.id}-branch-${b.name}`}
             id={`${ws.id}-branch-${b.name}`}
             textValue={b.name}
-            className={({ isSelected }) =>
-              `cursor-pointer outline-none ${isSelected ? 'bg-[rgba(59,130,246,0.08)]' : 'hover:bg-bg-tertiary'}`
-            }
+            className="cursor-pointer outline-none data-[selected]:bg-[rgba(59,130,246,0.08)] hover:bg-bg-tertiary"
           >
             <TreeItemContent>
               <BranchRow branch={b} agentStatus={agentMap[`${ws.id}-branch-${b.name}`]} />
@@ -598,9 +539,7 @@ function RepoTreeItem({
             key={`${ws.id}-wt-${wt.name}`}
             id={`${ws.id}-wt-${wt.name}`}
             textValue={wt.name}
-            className={({ isSelected }) =>
-              `cursor-pointer outline-none ${isSelected ? 'bg-[rgba(59,130,246,0.08)]' : 'hover:bg-bg-tertiary'}`
-            }
+            className="cursor-pointer outline-none data-[selected]:bg-[rgba(59,130,246,0.08)] hover:bg-bg-tertiary"
           >
             <TreeItemContent>
               <WorktreeRow

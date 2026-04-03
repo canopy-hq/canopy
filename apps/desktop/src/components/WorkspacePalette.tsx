@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { tv } from 'tailwind-variants';
 
 import {
   listAllBranches,
@@ -20,6 +21,30 @@ export interface WorkspacePaletteProps {
 }
 
 type Tab = 'all' | 'worktrees';
+
+const tabButton = tv({
+  base: 'flex flex-1 cursor-pointer items-center justify-center gap-1 rounded border-none px-2 py-[5px] text-[12px]',
+  variants: {
+    active: {
+      true: 'bg-bg-tertiary text-text-primary',
+      false: 'bg-transparent text-text-muted',
+    },
+  },
+});
+
+const branchItemRow = tv({
+  base: 'flex items-center gap-[7px] rounded-[5px] px-2 py-[6px]',
+  variants: {
+    disabled: {
+      true: 'opacity-50 cursor-default',
+      false: 'cursor-pointer',
+    },
+    isConfirming: {
+      true: 'bg-accent/[0.08]',
+      false: '',
+    },
+  },
+});
 
 export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePaletteProps) {
   const [query, setQuery] = useState('');
@@ -114,20 +139,16 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]"
-      style={{ background: 'rgba(0,0,0,0.5)' }}
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[20vh]"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
       onKeyDown={handleKeyDown}
       role="presentation"
     >
-      <div
-        className="w-[440px] overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--bg-primary)]"
-        style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
-      >
+      <div className="w-[440px] overflow-hidden rounded-[10px] border border-border bg-bg-primary shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
         {/* Search bar */}
-        <div className="flex items-center gap-2 border-b border-[var(--border)] px-4 py-3">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
           <svg
             width="14"
             height="14"
@@ -147,31 +168,16 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
               setConfirmBranch(null);
             }}
             placeholder="Search or create new branch..."
-            className="flex-1 border-none bg-transparent text-[var(--text-primary)] outline-none"
-            style={{ fontSize: '14px' }}
+            className="flex-1 border-none bg-transparent text-[14px] text-text-primary outline-none"
           />
-          <span
-            style={{
-              fontSize: '10px',
-              color: 'var(--text-muted)',
-              background: 'var(--bg-tertiary)',
-              padding: '2px 6px',
-              borderRadius: '4px',
-            }}
-          >
+          <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[10px] text-text-muted">
             ESC
           </span>
         </div>
 
         {/* Create card */}
         {isCreateMode && !pickingBase && (
-          <div
-            className="mx-2 mt-2 rounded-lg p-3"
-            style={{
-              background: 'rgba(59,130,246,0.05)',
-              border: '1px solid rgba(59,130,246,0.15)',
-            }}
-          >
+          <div className="mx-2 mt-2 rounded-lg border border-accent/[0.15] bg-accent/[0.05] p-3">
             <div className="mb-2 flex items-center gap-2">
               <svg
                 width="13"
@@ -183,26 +189,16 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
               >
                 <path d="M8 3v10M3 8h10" />
               </svg>
-              <span style={{ fontWeight: 500, color: 'var(--accent)', flex: 1, fontSize: '13px' }}>
+              <span className="flex-1 text-[13px] font-medium text-accent">
                 Create &ldquo;{sanitizedName}&rdquo;
               </span>
-              <span
-                style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'monospace' }}
-              >
-                &#x2318;&#x21A9;
-              </span>
+              <span className="font-mono text-[10px] text-text-muted">&#x2318;&#x21A9;</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>from</span>
+              <span className="text-[11px] text-text-muted">from</span>
               <button
                 onClick={() => setPickingBase(true)}
-                className="flex cursor-pointer items-center gap-1 px-2 py-0.5"
-                style={{
-                  background: 'var(--bg-tertiary)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '5px',
-                  fontSize: '11px',
-                }}
+                className="flex cursor-pointer items-center gap-1 rounded-[5px] border border-border bg-bg-tertiary px-2 py-0.5 text-[11px]"
               >
                 <svg
                   width="9"
@@ -214,7 +210,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
                 >
                   <circle cx="8" cy="8" r="3" />
                 </svg>
-                <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{baseBranch}</span>
+                <span className="font-medium text-text-primary">{baseBranch}</span>
                 <svg width="8" height="8" viewBox="0 0 16 16" fill="var(--text-muted)">
                   <path d="M4 6l4 4 4-4z" />
                 </svg>
@@ -224,75 +220,33 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
         )}
 
         {/* Tab bar */}
-        <div className="mx-2 mt-2 flex gap-0.5 rounded-[6px] bg-[var(--bg-primary)] p-0.5">
-          <button
-            onClick={() => setTab('all')}
-            className="flex flex-1 cursor-pointer items-center justify-center gap-1 rounded border-none px-2 py-[5px]"
-            style={{
-              fontSize: '12px',
-              background: tab === 'all' ? 'var(--bg-tertiary)' : 'transparent',
-              color: tab === 'all' ? 'var(--text-primary)' : 'var(--text-muted)',
-            }}
-          >
+        <div className="mx-2 mt-2 flex gap-0.5 rounded-[6px] bg-bg-primary p-0.5">
+          <button onClick={() => setTab('all')} className={tabButton({ active: tab === 'all' })}>
             All{' '}
-            <span
-              style={{
-                fontSize: '10px',
-                background: 'rgba(255,255,255,0.06)',
-                padding: '0 5px',
-                borderRadius: '8px',
-              }}
-            >
+            <span className="rounded-full bg-white/[0.06] px-[5px] text-[10px]">
               {branches.length}
             </span>
           </button>
           <button
             onClick={() => setTab('worktrees')}
-            className="flex flex-1 cursor-pointer items-center justify-center gap-1 rounded border-none px-2 py-[5px]"
-            style={{
-              fontSize: '12px',
-              background: tab === 'worktrees' ? 'var(--bg-tertiary)' : 'transparent',
-              color: tab === 'worktrees' ? 'var(--text-primary)' : 'var(--text-muted)',
-            }}
+            className={tabButton({ active: tab === 'worktrees' })}
           >
             Worktrees{' '}
-            <span
-              style={{
-                fontSize: '10px',
-                background: 'rgba(255,255,255,0.06)',
-                padding: '0 5px',
-                borderRadius: '8px',
-              }}
-            >
+            <span className="rounded-full bg-white/[0.06] px-[5px] text-[10px]">
               {diskWorktrees.length}
             </span>
           </button>
         </div>
 
         {/* Content */}
-        <div className="px-2 pb-2" style={{ maxHeight: '320px', overflowY: 'auto' }}>
+        <div className="max-h-[320px] overflow-y-auto px-2 pb-2">
           {tab === 'all' && !pickingBase && (
             <>
-              <div
-                style={{
-                  fontSize: '10px',
-                  color: 'var(--text-muted)',
-                  padding: '6px 8px 4px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                }}
-              >
+              <div className="px-2 pb-1 pt-1.5 text-[10px] uppercase tracking-[0.5px] text-text-muted">
                 Branches
               </div>
               {filteredBranches.length === 0 && (
-                <div
-                  style={{
-                    padding: '12px 8px',
-                    textAlign: 'center',
-                    color: 'var(--text-muted)',
-                    fontSize: '12px',
-                  }}
-                >
+                <div className="py-3 text-center text-[12px] text-text-muted">
                   {query ? `No branches match "${query}"` : 'No branches'}
                 </div>
               )}
@@ -310,30 +264,11 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
                   onCancelConfirm={() => setConfirmBranch(null)}
                 />
               ))}
-              <div
-                style={{
-                  fontSize: '10px',
-                  color: 'var(--text-muted)',
-                  padding: '6px 8px 4px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  borderTop: '1px solid var(--border)',
-                  marginTop: '4px',
-                }}
-              >
+              <div className="mt-1 border-t border-border px-2 pb-1 pt-1.5 text-[10px] uppercase tracking-[0.5px] text-text-muted">
                 Worktrees
               </div>
               {filteredWorktrees.length === 0 && (
-                <div
-                  style={{
-                    padding: '12px 8px',
-                    textAlign: 'center',
-                    color: 'var(--text-muted)',
-                    fontSize: '12px',
-                  }}
-                >
-                  No worktrees
-                </div>
+                <div className="py-3 text-center text-[12px] text-text-muted">No worktrees</div>
               )}
               {filteredWorktrees.map((wt) => (
                 <WorktreeItem
@@ -349,15 +284,9 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
           {tab === 'worktrees' && (
             <>
               {filteredWorktrees.length === 0 && (
-                <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-                  <div
-                    style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}
-                  >
-                    No worktrees
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    Create one from the All tab
-                  </div>
+                <div className="px-4 py-8 text-center">
+                  <div className="mb-1 text-[13px] text-text-muted">No worktrees</div>
+                  <div className="text-[12px] text-text-muted">Create one from the All tab</div>
                 </div>
               )}
               {filteredWorktrees.map((wt) => (
@@ -370,16 +299,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
                 />
               ))}
               {filteredWorktrees.length > 0 && (
-                <div
-                  style={{
-                    padding: '8px',
-                    textAlign: 'center',
-                    color: 'var(--text-muted)',
-                    fontSize: '12px',
-                    borderTop: '1px solid var(--border)',
-                    marginTop: '4px',
-                  }}
-                >
+                <div className="mt-1 border-t border-border p-2 text-center text-[12px] text-text-muted">
                   Worktrees already on disk. Click Open to add to sidebar.
                 </div>
               )}
@@ -388,15 +308,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
 
           {pickingBase && (
             <>
-              <div
-                style={{
-                  fontSize: '10px',
-                  color: 'var(--text-muted)',
-                  padding: '6px 8px 4px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                }}
-              >
+              <div className="px-2 pb-1 pt-1.5 text-[10px] uppercase tracking-[0.5px] text-text-muted">
                 Select base branch
               </div>
               {branches
@@ -404,10 +316,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
                 .map((b) => (
                   <div
                     key={b.name}
-                    className="flex cursor-pointer items-center gap-[7px] rounded-[5px] px-2 py-[6px] hover:bg-[rgba(59,130,246,0.06)]"
-                    style={
-                      b.name === baseBranch ? { background: 'rgba(59,130,246,0.06)' } : undefined
-                    }
+                    className={`flex cursor-pointer items-center gap-[7px] rounded-[5px] px-2 py-[6px] hover:bg-accent/[0.06] ${b.name === baseBranch ? 'bg-accent/[0.06]' : ''}`}
                     onClick={() => {
                       setBaseBranch(b.name);
                       setPickingBase(false);
@@ -424,24 +333,12 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
                       <circle cx="8" cy="8" r="3" />
                     </svg>
                     <span
-                      style={{
-                        fontSize: '13px',
-                        fontWeight: b.name === baseBranch ? 500 : 400,
-                        color: 'var(--text-primary)',
-                      }}
+                      className={`text-[13px] text-text-primary ${b.name === baseBranch ? 'font-medium' : 'font-normal'}`}
                     >
                       {b.name}
                     </span>
                     {b.is_head && (
-                      <span
-                        style={{
-                          fontSize: '9px',
-                          color: 'var(--accent)',
-                          background: 'rgba(59,130,246,0.1)',
-                          padding: '1px 5px',
-                          borderRadius: '3px',
-                        }}
-                      >
+                      <span className="rounded-[3px] bg-accent/10 px-[5px] py-px text-[9px] text-accent">
                         HEAD
                       </span>
                     )}
@@ -451,7 +348,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
                         height="12"
                         viewBox="0 0 16 16"
                         fill="var(--accent)"
-                        style={{ marginLeft: 'auto' }}
+                        className="ml-auto"
                       >
                         <path d="M6 10.8l-2.4-2.4L2 10l4 4 8-8-1.6-1.6z" />
                       </svg>
@@ -463,27 +360,13 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
         </div>
 
         {/* Footer */}
-        <div
-          className="flex items-center gap-3 px-4 py-2"
-          style={{
-            borderTop: '1px solid var(--border)',
-            fontSize: '11px',
-            color: 'var(--text-muted)',
-          }}
-        >
+        <div className="flex items-center gap-3 border-t border-border px-4 py-2 text-[11px] text-text-muted">
           {isCreateMode ? (
             <>
               <span>&#x2318;&#x21A9; create worktree</span>
-              <span
-                style={{
-                  marginLeft: 'auto',
-                  fontFamily: 'monospace',
-                  fontSize: '11px',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                git worktree add -b <span style={{ color: 'var(--accent)' }}>{sanitizedName}</span>{' '}
-                &hellip; <span style={{ color: 'var(--text-muted)' }}>{baseBranch}</span>
+              <span className="ml-auto font-mono text-[11px] text-text-muted">
+                git worktree add -b <span className="text-accent">{sanitizedName}</span> &hellip;{' '}
+                <span className="text-text-muted">{baseBranch}</span>
               </span>
             </>
           ) : pickingBase ? (
@@ -495,7 +378,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
             <>
               <span>&#x2191;&#x2193; navigate</span>
               <span>&#x21A9; create/open</span>
-              <span style={{ marginLeft: 'auto' }}>type name &#x2192; create new</span>
+              <span className="ml-auto">type name &#x2192; create new</span>
             </>
           )}
         </div>
@@ -524,25 +407,13 @@ function BranchItem({
 
   return (
     <div
-      style={
+      className={
         isConfirming
-          ? {
-              border: '1px solid rgba(59,130,246,0.2)',
-              borderRadius: '6px',
-              overflow: 'hidden',
-              margin: '2px 0',
-            }
+          ? 'my-0.5 overflow-hidden rounded-[6px] border border-accent/20'
           : undefined
       }
     >
-      <div
-        className="flex items-center gap-[7px] rounded-[5px] px-2 py-[6px]"
-        style={{
-          opacity: disabled ? 0.5 : 1,
-          cursor: disabled ? 'default' : 'pointer',
-          background: isConfirming ? 'rgba(59,130,246,0.08)' : undefined,
-        }}
-      >
+      <div className={branchItemRow({ disabled, isConfirming })}>
         <svg
           width="11"
           height="11"
@@ -554,68 +425,32 @@ function BranchItem({
           <circle cx="8" cy="8" r="3" />
         </svg>
         <span
-          style={{
-            fontSize: '13px',
-            fontWeight: branch.is_head ? 500 : 400,
-            color: 'var(--text-primary)',
-          }}
+          className={`text-[13px] text-text-primary ${branch.is_head ? 'font-medium' : 'font-normal'}`}
         >
           {branch.name}
         </span>
         {branch.is_head && (
-          <span
-            style={{
-              fontSize: '9px',
-              color: 'var(--accent)',
-              background: 'rgba(59,130,246,0.1)',
-              padding: '1px 5px',
-              borderRadius: '3px',
-            }}
-          >
+          <span className="rounded-[3px] bg-accent/10 px-[5px] py-px text-[9px] text-accent">
             HEAD
           </span>
         )}
         {branch.is_local && !branch.is_head && (
-          <span
-            style={{
-              fontSize: '9px',
-              color: '#d97706',
-              background: 'rgba(217,119,6,0.1)',
-              padding: '1px 5px',
-              borderRadius: '3px',
-            }}
-          >
+          <span className="rounded-[3px] bg-[rgba(217,119,6,0.1)] px-[5px] py-px text-[9px] text-[#d97706]">
             local
           </span>
         )}
         {!branch.is_local && (
-          <span
-            style={{
-              fontSize: '9px',
-              color: 'var(--text-muted)',
-              background: 'rgba(255,255,255,0.04)',
-              padding: '1px 5px',
-              borderRadius: '3px',
-            }}
-          >
+          <span className="rounded-[3px] bg-white/[0.04] px-[5px] py-px text-[9px] text-text-muted">
             origin
           </span>
         )}
         {branch.is_in_worktree && (
-          <span
-            style={{
-              fontSize: '9px',
-              color: 'var(--destructive)',
-              background: 'rgba(239,68,68,0.08)',
-              padding: '1px 5px',
-              borderRadius: '3px',
-            }}
-          >
+          <span className="rounded-[3px] bg-destructive/[0.08] px-[5px] py-px text-[9px] text-destructive">
             in worktree
           </span>
         )}
         {disabled ? (
-          <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--text-muted)' }}>
+          <span className="ml-auto text-[11px] text-text-muted">
             {branch.is_head ? 'checked out' : 'in use'}
           </span>
         ) : !isConfirming ? (
@@ -624,72 +459,32 @@ function BranchItem({
               e.stopPropagation();
               onCreateWT();
             }}
-            style={{
-              marginLeft: 'auto',
-              fontSize: '11px',
-              color: 'var(--accent)',
-              background: 'rgba(59,130,246,0.08)',
-              padding: '2px 8px',
-              borderRadius: '4px',
-              border: 'none',
-              cursor: 'pointer',
-            }}
+            className="ml-auto cursor-pointer rounded border-none bg-accent/[0.08] px-2 py-0.5 text-[11px] text-accent"
           >
             Create WT
           </button>
         ) : null}
       </div>
       {isConfirming && (
-        <div
-          className="px-2.5 py-2"
-          style={{
-            background: 'rgba(59,130,246,0.03)',
-            borderTop: '1px solid rgba(59,130,246,0.1)',
-          }}
-        >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+        <div className="border-t border-accent/10 bg-accent/[0.03] px-2.5 py-2">
+          <div className="mb-1.5 text-[11px] text-text-muted">
             Create worktree for{' '}
-            <strong style={{ color: 'var(--text-primary)' }}>{branch.name}</strong>
+            <strong className="text-text-primary">{branch.name}</strong>
           </div>
-          <div
-            className="mb-2 flex items-center gap-1.5 rounded px-2 py-1"
-            style={{
-              background: 'var(--bg-primary)',
-              fontFamily: 'monospace',
-              fontSize: '11px',
-              color: 'var(--text-muted)',
-            }}
-          >
+          <div className="mb-2 flex items-center gap-1.5 rounded bg-bg-primary px-2 py-1 font-mono text-[11px] text-text-muted">
             git worktree add ~/.superagent/worktrees/{workspace.name}-{branch.name}{' '}
             {branch.is_local ? branch.name : `origin/${branch.name}`}
           </div>
           <div className="flex justify-end gap-1.5">
             <button
               onClick={onCancelConfirm}
-              style={{
-                padding: '4px 10px',
-                borderRadius: '4px',
-                border: '1px solid var(--border)',
-                fontSize: '11px',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                background: 'transparent',
-              }}
+              className="cursor-pointer rounded border border-border bg-transparent px-2.5 py-1 text-[11px] text-text-muted"
             >
               Cancel
             </button>
             <button
               onClick={onConfirmCreate}
-              style={{
-                padding: '4px 10px',
-                borderRadius: '5px',
-                border: 'none',
-                fontSize: '11px',
-                fontWeight: 500,
-                cursor: 'pointer',
-                background: 'var(--accent)',
-                color: 'white',
-              }}
+              className="cursor-pointer rounded-[5px] border-none bg-accent px-2.5 py-1 text-[11px] font-medium text-white"
             >
               Create
             </button>
@@ -713,8 +508,7 @@ function WorktreeItem({
 }) {
   return (
     <div
-      className="flex items-center gap-[7px] rounded-[5px] px-2 py-[6px] hover:bg-[rgba(59,130,246,0.06)]"
-      style={{ opacity: isInSidebar ? 0.5 : 1, cursor: isInSidebar ? 'default' : 'pointer' }}
+      className={`flex items-center gap-[7px] rounded-[5px] px-2 py-[6px] hover:bg-accent/[0.06] ${isInSidebar ? 'cursor-default opacity-50' : 'cursor-pointer'}`}
     >
       <svg
         width="11"
@@ -726,42 +520,23 @@ function WorktreeItem({
       >
         <rect x="3" y="3" width="10" height="10" rx="2" />
       </svg>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{worktree.name}</div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[13px] text-text-primary">{worktree.name}</div>
         {showPath && (
-          <div
-            style={{
-              fontSize: '10px',
-              color: 'var(--text-muted)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
+          <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] text-text-muted">
             {worktree.path}
           </div>
         )}
       </div>
       {isInSidebar ? (
-        <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--text-muted)' }}>
-          opened
-        </span>
+        <span className="ml-auto text-[11px] text-text-muted">opened</span>
       ) : (
         <button
           onClick={(e) => {
             e.stopPropagation();
             onOpen();
           }}
-          style={{
-            marginLeft: 'auto',
-            fontSize: '11px',
-            color: 'var(--agent-idle)',
-            background: 'rgba(34,197,94,0.08)',
-            padding: '2px 8px',
-            borderRadius: '4px',
-            border: 'none',
-            cursor: 'pointer',
-          }}
+          className="ml-auto cursor-pointer rounded border-none bg-[rgba(34,197,94,0.08)] px-2 py-0.5 text-[11px] text-(--agent-idle)"
         >
           Open
         </button>

@@ -7,15 +7,12 @@ import { WorkspaceTree } from './WorkspaceTree';
 function EmptyState({ onImport }: { onImport: () => void }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 px-4">
-      <span className="font-semibold text-text-primary" style={{ fontSize: '13px' }}>
-        No workspaces
-      </span>
-      <span className="text-center text-text-muted" style={{ fontSize: '11px' }}>
+      <span className="text-[13px] font-semibold text-text-primary">No workspaces</span>
+      <span className="text-center text-[11px] text-text-muted">
         Import a git repository to get started.
       </span>
       <button
-        className="mt-2 flex w-full cursor-pointer items-center justify-center gap-1.5 py-1.5 text-[var(--text-muted)] hover:text-[var(--accent)]"
-        style={{ fontSize: '12px', borderRadius: '6px', border: '1px dashed var(--border)' }}
+        className="mt-2 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-dashed border-border py-1.5 text-[12px] text-text-muted hover:text-accent"
         onClick={onImport}
       >
         <svg
@@ -87,17 +84,16 @@ export function Sidebar() {
 
   return (
     <div
-      className="flex flex-shrink-0 flex-row border-r border-border bg-bg-secondary"
+      className="flex shrink-0 flex-row border-r border-border bg-bg-secondary"
       style={{ width: `${width}px` }}
     >
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex-1 overflow-y-auto py-2">
           {workspaces.length === 0 ? <EmptyState onImport={handleImport} /> : <WorkspaceTree />}
         </div>
-        <div className="flex-shrink-0 border-t border-border p-2">
+        <div className="shrink-0 border-t border-border p-2">
           <button
-            className="flex w-full cursor-pointer items-center justify-center gap-1.5 py-1.5 text-[var(--text-muted)]"
-            style={{ fontSize: '12px', borderRadius: '6px', border: '1px dashed var(--border)' }}
+            className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-dashed border-border py-1.5 text-[12px] text-text-muted"
             onClick={handleImport}
           >
             <svg
@@ -115,8 +111,7 @@ export function Sidebar() {
         </div>
       </div>
       <div
-        className="cursor-col-resize hover:bg-[var(--accent)] hover:opacity-50"
-        style={{ width: '4px', marginLeft: '-4px', position: 'relative', zIndex: 10 }}
+        className="relative z-10 -ml-1 w-1 cursor-col-resize hover:bg-accent hover:opacity-50"
         onMouseDown={handleMouseDown}
       />
     </div>
