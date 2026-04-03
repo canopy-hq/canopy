@@ -97,7 +97,8 @@ export function Sidebar() {
         </div>
       </div>
       <div
-        className="w-1 flex-shrink-0 cursor-col-resize hover:bg-[var(--accent)] hover:opacity-50"
+        className="cursor-col-resize hover:bg-[var(--accent)] hover:opacity-50"
+        style={{ width: '4px', marginLeft: '-4px', position: 'relative', zIndex: 10 }}
         onMouseDown={handleMouseDown}
       />
     </div>

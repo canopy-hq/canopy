@@ -86,7 +86,7 @@ function RepoHeader({
 
   return (
     <div
-      className="group flex items-center gap-[7px] py-[6px] px-[12px] mx-[6px] rounded-[6px]"
+      className="group flex items-center gap-[7px] py-[6px] pl-[12px] pr-[6px]"
       style={{
         borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent',
         background: isSelected ? 'rgba(59,130,246,0.04)' : undefined,
@@ -136,17 +136,16 @@ function RepoHeader({
           )}
         </>
       )}
-      {/* Hover-reveal + button */}
+      {/* + button */}
       <div
-        className="opacity-0 group-hover:opacity-100 transition-opacity"
-        style={{ width: '20px', height: '20px', borderRadius: '4px', background: 'rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+        className="cursor-pointer flex-shrink-0"
         onClick={onPlusClick}
         role="button"
         aria-label="Add workspace"
         tabIndex={0}
         onKeyDown={(e) => { if (e.key === 'Enter') onPlusClick(e as unknown as React.MouseEvent); }}
       >
-        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" strokeWidth="1.5"><path d="M8 3v10M3 8h10"/></svg>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#555" strokeWidth="1.5"><path d="M8 3v10M3 8h10"/></svg>
       </div>
     </div>
   );
