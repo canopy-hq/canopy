@@ -66,18 +66,24 @@ function IconWithBadge({
   );
 }
 
+const DIFF_POLL_MS = 10_000;
+
 /** Fetch diff stats for all workspaces, keyed by workspace ID then branch name. */
 function useDiffStatsMap(
   workspaces: Workspace[],
 ): Record<string, Record<string, DiffStat>> {
   const [statsMap, setStatsMap] = useState<Record<string, Record<string, DiffStat>>>({});
+  const workspacesRef = useRef(workspaces);
+  useEffect(() => {
+    workspacesRef.current = workspaces;
+  }, [workspaces]);
 
   const workspaceKey = useMemo(
     () =>
       workspaces
         .map(
           (ws) =>
-            `${ws.id}:${ws.branches.map((b) => `${b.name}:${b.ahead}:${b.behind}`).join('|')}:${ws.worktrees.map((w) => w.name).join('|')}`,
+            `${ws.id}:${ws.branches.map((b) => b.name).join('|')}:${ws.worktrees.map((w) => w.name).join('|')}`,
         )
         .join(','),
     [workspaces],
@@ -85,24 +91,31 @@ function useDiffStatsMap(
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all(
-      workspaces.map((ws) =>
-        getDiffStats(ws.path)
-          .then((stats) => [ws.id, stats] as const)
-          .catch(() => null),
-      ),
-    ).then((results) => {
-      if (cancelled) return;
-      const next: Record<string, Record<string, DiffStat>> = {};
-      for (const r of results) {
-        if (r) next[r[0]] = r[1];
-      }
-      setStatsMap((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
-    });
+    let timer: ReturnType<typeof setTimeout>;
+    function fetchStats() {
+      const current = workspacesRef.current;
+      Promise.all(
+        current.map((ws) =>
+          getDiffStats(ws.path)
+            .then((stats) => [ws.id, stats] as const)
+            .catch(() => null),
+        ),
+      ).then((results) => {
+        if (cancelled) return;
+        const next: Record<string, Record<string, DiffStat>> = {};
+        for (const r of results) {
+          if (r) next[r[0]] = r[1];
+        }
+        setStatsMap((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+        timer = setTimeout(fetchStats, DIFF_POLL_MS);
+      });
+    }
+    fetchStats();
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-  }, [workspaceKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [workspaceKey]);
 
   return statsMap;
 }
@@ -485,7 +498,7 @@ function ContextMenu({
   x: number;
   y: number;
   onClose: () => void;
-  items: Array<{ label: string; onSelect: () => void }>;
+  items: Array<{ label: string; onSelect: () => void; destructive?: boolean }>;
 }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -503,6 +516,10 @@ function ContextMenu({
       }}
       onKeyDown={(e) => {
         if (e.key === 'Escape') onClose();
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          onClose();
+        }
       }}
       role="presentation"
     >
@@ -510,16 +527,41 @@ function ContextMenu({
         className="fixed z-50 min-w-[180px] rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] py-1 shadow-lg"
         style={{ left: x, top: y }}
         role="menu"
+        onKeyDown={(e) => {
+          const menuItems = e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
+          const current = document.activeElement as HTMLElement;
+          const idx = Array.from(menuItems).indexOf(current as HTMLButtonElement);
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            menuItems[(idx + 1) % menuItems.length]?.focus();
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            menuItems[(idx - 1 + menuItems.length) % menuItems.length]?.focus();
+          } else if (e.key === 'Home') {
+            e.preventDefault();
+            menuItems[0]?.focus();
+          } else if (e.key === 'End') {
+            e.preventDefault();
+            menuItems[menuItems.length - 1]?.focus();
+          }
+        }}
       >
         {items.map((item, i) => (
           <button
             key={item.label}
             ref={i === 0 ? buttonRef : undefined}
             role="menuitem"
-            className="w-full cursor-pointer px-3 py-1.5 text-left text-[13px] text-[var(--destructive)] outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)]"
+            tabIndex={i === 0 ? 0 : -1}
+            className={`w-full cursor-pointer px-3 py-1.5 text-left text-[13px] outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)] ${item.destructive ? 'text-[var(--destructive)]' : 'text-[var(--text-secondary)]'}`}
             onClick={(e) => {
               e.stopPropagation();
               item.onSelect();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                item.onSelect();
+              }
             }}
           >
             {item.label}
@@ -634,6 +676,7 @@ function RepoTreeItem({
           items={[
             {
               label: 'Close Project',
+              destructive: true,
               onSelect: () => {
                 setMenuOpen(false);
                 onRequestClose(ws);
@@ -650,6 +693,7 @@ function RepoTreeItem({
           items={[
             {
               label: 'Close Worktree',
+              destructive: true,
               onSelect: () => {
                 const name = wtMenuTarget;
                 setWtMenuTarget(null);

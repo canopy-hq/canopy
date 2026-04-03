@@ -382,19 +382,42 @@ fn diff_stat_for_tree(
     })
 }
 
+/// Find the local default branch (main or master) and return its tip tree.
+fn find_default_branch_tree<'a>(repo: &'a Repository) -> Option<git2::Tree<'a>> {
+    for name in &["main", "master"] {
+        if let Ok(branch) = repo.find_branch(name, BranchType::Local) {
+            if let Ok(commit) = branch.get().peel_to_commit() {
+                return commit.tree().ok();
+            }
+        }
+    }
+    None
+}
+
 #[tauri::command]
-pub fn get_diff_stats(repo_path: String) -> Result<HashMap<String, DiffStat>, String> {
-    let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
+pub async fn get_diff_stats(repo_path: String) -> Result<HashMap<String, DiffStat>, String> {
+    tokio::task::spawn_blocking(move || get_diff_stats_sync(&repo_path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn get_diff_stats_sync(repo_path: &str) -> Result<HashMap<String, DiffStat>, String> {
+    let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
+
+    let default_tree = find_default_branch_tree(&repo);
+    let base_tree = match default_tree {
+        Some(ref t) => t,
+        // No main/master — nothing to diff against
+        None => return Ok(HashMap::new()),
+    };
 
     let head_ref = repo.head().map_err(|e| e.to_string())?;
-    let head_commit = head_ref.peel_to_commit().map_err(|e| e.to_string())?;
-    let base_tree = head_commit.tree().map_err(|e| e.to_string())?;
     let head_name = head_ref.shorthand().unwrap_or("HEAD").to_string();
 
     let mut stats_map = HashMap::new();
 
-    // For HEAD branch: diff working tree (staged + unstaged) against HEAD tree
-    if let Ok(diff) = repo.diff_tree_to_workdir_with_index(Some(&base_tree), None) {
+    // For HEAD branch: diff default branch tree → working tree (committed + uncommitted)
+    if let Ok(diff) = repo.diff_tree_to_workdir_with_index(Some(base_tree), None) {
         if let Ok(stats) = diff.stats() {
             let additions = stats.insertions();
             let deletions = stats.deletions();
@@ -422,7 +445,7 @@ pub fn get_diff_stats(repo_path: String) -> Result<HashMap<String, DiffStat>, St
 
         if let Ok(commit) = branch.get().peel_to_commit() {
             if let Ok(branch_tree) = commit.tree() {
-                if let Some(stat) = diff_stat_for_tree(&repo, &base_tree, &branch_tree) {
+                if let Some(stat) = diff_stat_for_tree(&repo, base_tree, &branch_tree) {
                     stats_map.insert(name, stat);
                 }
             }
@@ -444,11 +467,10 @@ pub fn get_diff_stats(repo_path: String) -> Result<HashMap<String, DiffStat>, St
             if stats_map.contains_key(&branch_name) {
                 continue;
             }
-            // Resolve via main repo handle — no need to open a second Repository
             if let Ok(branch) = repo.find_branch(&branch_name, BranchType::Local) {
                 if let Ok(commit) = branch.get().peel_to_commit() {
                     if let Ok(wt_tree) = commit.tree() {
-                        if let Some(stat) = diff_stat_for_tree(&repo, &base_tree, &wt_tree) {
+                        if let Some(stat) = diff_stat_for_tree(&repo, base_tree, &wt_tree) {
                             stats_map.insert(branch_name, stat);
                         }
                     }
@@ -685,7 +707,7 @@ mod tests {
         )
         .unwrap();
 
-        let stats = get_diff_stats(path).unwrap();
+        let stats = get_diff_stats_sync(&path).unwrap();
         assert!(stats.contains_key("feature/stats"));
         let stat = &stats["feature/stats"];
         assert!(stat.additions > 0, "Expected additions > 0, got {}", stat.additions);
@@ -700,7 +722,7 @@ mod tests {
         let path = tmp.path().to_string_lossy().to_string();
 
         // Only HEAD branch exists — stats should be empty
-        let stats = get_diff_stats(path).unwrap();
+        let stats = get_diff_stats_sync(&path).unwrap();
         assert!(stats.is_empty());
     }
 }
