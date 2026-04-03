@@ -1,10 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { Terminal, FitAddon } from 'ghostty-web';
-import { writeToPty, resizePty, connectPtyOutput, connectPtyOutputFresh, spawnTerminal } from './pty';
-import { getCached, setCached } from './terminal-cache';
+
 import { getSettingCollection, getSetting } from '@superagent/db';
-import { terminalThemes, type ThemeName } from './themes';
+import { Terminal, FitAddon } from 'ghostty-web';
+
 import { ensureGhosttyInit } from './ghostty-init';
+import {
+  writeToPty,
+  resizePty,
+  connectPtyOutput,
+  connectPtyOutputFresh,
+  spawnTerminal,
+} from './pty';
+import { getCached, setCached } from './terminal-cache';
+import { terminalThemes, type ThemeName } from './themes';
 
 /**
  * Hook to manage a ghostty-web terminal instance connected to a PTY.
@@ -37,7 +45,7 @@ export function useTerminal(
   const [wasmReady, setWasmReady] = useState(false);
 
   useEffect(() => {
-    ensureGhosttyInit().then(() => setWasmReady(true));
+    void ensureGhosttyInit().then(() => setWasmReady(true));
   }, []);
 
   useEffect(() => {
@@ -61,7 +69,9 @@ export function useTerminal(
     let fitAddon: FitAddon;
 
     // Compute theme background early — needed for overlay in the new-terminal path.
-    const themeBg = terminalThemes[getSetting(getSettingCollection().toArray, 'theme', 'obsidian') as ThemeName].background;
+    const themeBg =
+      terminalThemes[getSetting(getSettingCollection().toArray, 'theme', 'obsidian') as ThemeName]
+        .background;
 
     if (cached) {
       // === CACHED PATH: remount after pane restructure — re-parent existing terminal ===
@@ -80,7 +90,10 @@ export function useTerminal(
         cursorStyle: 'bar',
         fontSize: 14,
         fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-        theme: terminalThemes[getSetting(getSettingCollection().toArray, 'theme', 'obsidian') as ThemeName],
+        theme:
+          terminalThemes[
+            getSetting(getSettingCollection().toArray, 'theme', 'obsidian') as ThemeName
+          ],
       });
 
       fitAddon = new FitAddon();
@@ -139,16 +152,10 @@ export function useTerminal(
               e.stopImmediatePropagation();
               return;
             }
-            if (
-              e.repeat &&
-              e.key.length === 1 &&
-              !e.metaKey &&
-              !e.ctrlKey &&
-              !e.altKey
-            ) {
+            if (e.repeat && e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
               e.stopImmediatePropagation();
               e.preventDefault();
-              if (ptrRef.ptyId > 0) writeToPty(ptrRef.ptyId, e.key);
+              if (ptrRef.ptyId > 0) void writeToPty(ptrRef.ptyId, e.key);
             }
           },
           true,
@@ -161,11 +168,11 @@ export function useTerminal(
       // spawnTerminal resolves, ensuring subsequent fits at the same size are no-ops.
       const lastSentSize = { rows: 0, cols: 0 };
       term.onResize(({ cols, rows }) => {
-        if (ptrRef.ptyId <= 0) return;  // suppress during pre-spawn phase
+        if (ptrRef.ptyId <= 0) return; // suppress during pre-spawn phase
         if (rows === lastSentSize.rows && cols === lastSentSize.cols) return;
         lastSentSize.rows = rows;
         lastSentSize.cols = cols;
-        resizePty(ptrRef.ptyId, rows, cols);
+        void resizePty(ptrRef.ptyId, rows, cols);
       });
 
       // ghostty-web: return true = "handled, stop", false = "let terminal handle"
@@ -186,7 +193,7 @@ export function useTerminal(
       });
 
       term.onData((data: string) => {
-        if (ptrRef.ptyId > 0) writeToPty(ptrRef.ptyId, data);
+        if (ptrRef.ptyId > 0) void writeToPty(ptrRef.ptyId, data);
       });
 
       // Fit terminal to container to obtain exact grid dimensions.
@@ -198,12 +205,15 @@ export function useTerminal(
         // Reconnect: PTY already running in daemon (cold app restart).
         // lastSentSize is {0,0} so onResize from fitAddon.fit() above already sent
         // the resize IPC — no explicit call needed here.
-        connectPtyOutput(ptyId, (data: Uint8Array) => { removeOverlay(); term.write(data); });
+        connectPtyOutput(ptyId, (data: Uint8Array) => {
+          removeOverlay();
+          term.write(data);
+        });
         setCached(ptyId, term, fitAddon);
       } else {
         // Spawn: PTY started at exact fitted dimensions → lastSentSize = spawn dims
         // → dedup guard suppresses any subsequent fit at the same size → 0 SIGWINCH.
-        spawnTerminal(paneId, savedCwd, term.rows, term.cols).then((newId) => {
+        void spawnTerminal(paneId, savedCwd, term.rows, term.cols).then((newId) => {
           if (spawnCancelled) return;
           ptrRef.ptyId = newId;
           lastSentSize.rows = term.rows;
@@ -212,7 +222,10 @@ export function useTerminal(
           // post-handler data until the sentinel arrives, then discards that buffer
           // too. Only post-sentinel (live) bytes reach handler — at which point the
           // overlay is removed and the canvas shows fresh content.
-          connectPtyOutputFresh(newId, (data: Uint8Array) => { removeOverlay(); term.write(data); });
+          connectPtyOutputFresh(newId, (data: Uint8Array) => {
+            removeOverlay();
+            term.write(data);
+          });
           setCached(newId, term, fitAddon);
           onPtySpawned(newId);
 
@@ -232,10 +245,10 @@ export function useTerminal(
               term.resize(c, r);
               lastSentSize.rows = r;
               lastSentSize.cols = c;
-              resizePty(newId, r, c);
+              void resizePty(newId, r, c);
             } else if (ticks === 0) {
               // First tick: always send SIGWINCH so TUI apps initialise.
-              resizePty(newId, r, c);
+              void resizePty(newId, r, c);
             }
             ticks++;
             if (ticks < 5) sigwinchTimer = setTimeout(poll, 200);

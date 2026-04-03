@@ -5,12 +5,12 @@ import {
   getUiState,
   setSetting,
 } from '@superagent/db';
+import { closePty, disposeCached } from '@superagent/terminal';
 
 import * as gitApi from './git';
-import { showErrorToast } from './toast';
 import { collectLeafPtyIds } from './pane-tree-ops';
-import { closePty, disposeCached } from '@superagent/terminal';
-import { router } from '../router';
+import { showErrorToast } from './toast';
+
 import type { Workspace } from '@superagent/db';
 
 /** All sidebar item IDs for a workspace (repo root + branches + worktrees). */
@@ -44,7 +44,10 @@ export async function importRepo(path: string): Promise<void> {
   }
 }
 
-export async function closeProject(id: string): Promise<void> {
+export async function closeProject(
+  id: string,
+  navigate: (opts: { to: string }) => void,
+): Promise<void> {
   const ws = getWorkspaceCollection().toArray.find((w) => w.id === id);
   if (!ws) return;
 
@@ -74,7 +77,7 @@ export async function closeProject(id: string): Promise<void> {
     });
     setSetting('activeContextId', '');
     setSetting('activeTabId', '');
-    router.navigate({ to: '/' });
+    navigate({ to: '/' });
   }
 
   getWorkspaceCollection().delete(id);
@@ -106,14 +109,17 @@ export function setSelectedItem(itemId: string | null): void {
   });
 }
 
-export function selectWorkspaceItem(itemId: string | null): void {
+export function selectWorkspaceItem(
+  itemId: string | null,
+  navigate: (opts: { to: string; params?: Record<string, string> }) => void,
+): void {
   uiCollection.update('ui', (draft) => {
     draft.selectedItemId = itemId;
   });
   if (itemId !== null) {
-    router.navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: itemId } });
+    navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: itemId } });
   } else {
-    router.navigate({ to: '/' });
+    navigate({ to: '/' });
   }
 }
 

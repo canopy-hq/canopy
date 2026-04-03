@@ -1,8 +1,10 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
+
+import { getSettingCollection, getSetting, setSetting } from '@superagent/db';
 import { useTerminal, getPtyCwd } from '@superagent/terminal';
+
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
 import { setFocus, setPtyId } from '../lib/tab-actions';
-import { getSettingCollection, getSetting, setSetting } from '@superagent/db';
 import { PaneHeader } from './PaneHeader';
 
 interface TerminalPaneProps {

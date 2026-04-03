@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
+
 import { createChannelEntry } from '../src/channel-manager';
 
 function bytes(...values: number[]): number[] {
@@ -85,7 +86,7 @@ describe('createChannelEntry — setHandlerFresh (spawn path)', () => {
     const received: Uint8Array[] = [];
     entry.setHandlerFresh((d) => received.push(d));
     entry.onData(bytes(10)); // scrollback (buffered)
-    entry.onData(sentinel);  // sentinel (discards buffer)
+    entry.onData(sentinel); // sentinel (discards buffer)
     entry.onData(bytes(42)); // live data
     expect(received).toHaveLength(1);
     expect(Array.from(received[0]!)).toEqual([42]);

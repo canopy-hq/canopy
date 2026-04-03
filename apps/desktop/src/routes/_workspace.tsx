@@ -1,9 +1,13 @@
 import { useCallback, useMemo } from 'react';
+
+import { closePty, disposeCached } from '@superagent/terminal';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
+
 import { Sidebar } from '../components/Sidebar';
 import { StatusBar } from '../components/StatusBar';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { toggleManualOverride } from '../lib/agent-actions';
+import { findLeaf } from '../lib/pane-tree-ops';
 import {
   addTab,
   closeTab,
@@ -14,8 +18,6 @@ import {
   switchTabRelative,
   getActiveTab,
 } from '../lib/tab-actions';
-import { closePty, disposeCached } from '@superagent/terminal';
-import { findLeaf } from '../lib/pane-tree-ops';
 import { showErrorToast } from '../lib/toast';
 
 function WorkspaceLayout() {
@@ -37,14 +39,22 @@ function WorkspaceLayout() {
       const leaf = activeTab.paneRoot;
       if (leaf.ptyId > 0) {
         disposeCached(leaf.ptyId);
-        try { await closePty(leaf.ptyId); } catch { /* PTY may be dead */ }
+        try {
+          await closePty(leaf.ptyId);
+        } catch {
+          /* PTY may be dead */
+        }
       }
       closeTab(activeTab.id);
     } else {
       const leaf = findLeaf(activeTab.paneRoot, activeTab.focusedPaneId);
       if (leaf && leaf.ptyId > 0) {
         disposeCached(leaf.ptyId);
-        try { await closePty(leaf.ptyId); } catch { /* PTY may be dead */ }
+        try {
+          await closePty(leaf.ptyId);
+        } catch {
+          /* PTY may be dead */
+        }
       }
       closePane(activeTab.focusedPaneId);
     }
@@ -86,9 +96,9 @@ function WorkspaceLayout() {
 
   return (
     <>
-      <div className="flex-1 min-h-0 flex flex-row">
+      <div className="flex min-h-0 flex-1 flex-row">
         <Sidebar />
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex min-w-0 flex-1 flex-col">
           <Outlet />
         </div>
       </div>
@@ -97,6 +107,4 @@ function WorkspaceLayout() {
   );
 }
 
-export const Route = createFileRoute('/_workspace')({
-  component: WorkspaceLayout,
-});
+export const Route = createFileRoute('/_workspace')({ component: WorkspaceLayout });

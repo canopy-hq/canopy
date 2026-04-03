@@ -1,10 +1,16 @@
 import { invoke, Channel } from '@tauri-apps/api/core';
+
 import { createChannelEntry, type ChannelEntry } from './channel-manager';
 
 // Global registry: PTY output channels keyed by ptyId (child PID).
 const outputRegistry = new Map<number, ChannelEntry>();
 
-export async function spawnTerminal(paneId: string, cwd?: string, rows?: number, cols?: number): Promise<number> {
+export async function spawnTerminal(
+  paneId: string,
+  cwd?: string,
+  rows?: number,
+  cols?: number,
+): Promise<number> {
   const entry = createChannelEntry();
 
   const channel = new Channel<number[]>();
@@ -12,7 +18,13 @@ export async function spawnTerminal(paneId: string, cwd?: string, rows?: number,
     entry.onData(data);
   };
 
-  const ptyId = await invoke<number>('spawn_terminal', { paneId, cwd, rows, cols, onOutput: channel });
+  const ptyId = await invoke<number>('spawn_terminal', {
+    paneId,
+    cwd,
+    rows,
+    cols,
+    onOutput: channel,
+  });
 
   outputRegistry.set(ptyId, entry);
   return ptyId;

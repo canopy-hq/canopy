@@ -1,5 +1,5 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
-import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
+
 import {
   agentCollection,
   getUiState,
@@ -8,15 +8,18 @@ import {
   getSettingCollection,
   getSetting,
 } from '@superagent/db';
+import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
+
 import { AgentOverlay } from '../components/AgentOverlay';
 import { AgentToastRegion } from '../components/AgentToastRegion';
 import { ErrorToastRegion } from '../components/ToastProvider';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { initAgentListener } from '../lib/agent-actions';
 import { getActiveTab } from '../lib/tab-actions';
-import { toggleSidebar } from '../lib/workspace-actions';
-import type { PaneNode } from '../lib/pane-tree-ops';
 import { showAgentToastDeduped } from '../lib/toast';
+import { toggleSidebar } from '../lib/workspace-actions';
+
+import type { PaneNode } from '../lib/pane-tree-ops';
 
 function containsPtyId(node: PaneNode, ptyId: number): boolean {
   if (node.type === 'leaf') return node.ptyId === ptyId;
@@ -34,26 +37,32 @@ function RootLayout() {
     booted.current = true;
     const { activeContextId } = getUiState();
     if (activeContextId) {
-      navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: activeContextId } });
+      void navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: activeContextId } });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-    import('@tauri-apps/api/event').then(({ listen }) => {
-      listen('menu:settings', () => {
-        navigate({ to: '/settings' });
+    void import('@tauri-apps/api/event').then(({ listen }) => {
+      void listen('menu:settings', () => {
+        void navigate({ to: '/settings' });
       }).then((fn) => {
         unlisten = fn;
       });
     });
-    return () => { unlisten?.(); };
+    return () => {
+      unlisten?.();
+    };
   }, [navigate]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-    initAgentListener().then((fn) => { unlisten = fn; });
-    return () => { unlisten?.(); };
+    void initAgentListener().then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      unlisten?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -98,7 +107,7 @@ function RootLayout() {
   useKeyboardRegistry(bindings);
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-bg-primary">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-bg-primary">
       <Outlet />
       <ErrorToastRegion />
       <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />

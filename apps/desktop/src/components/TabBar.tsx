@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { closePty, disposeCached } from '@superagent/terminal';
+
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
+import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import { addTab, closeTab, switchTab } from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
-import { collectLeafPtyIds } from '../lib/pane-tree-ops';
-import type { Tab } from '@superagent/db';
+
 import type { DotStatus } from './StatusDot';
-import { closePty, disposeCached } from '@superagent/terminal';
+import type { Tab } from '@superagent/db';
 
 function useTabAgentStatus(tab: Tab): DotStatus {
   const ptyIds = collectLeafPtyIds(tab.paneRoot);
@@ -46,7 +48,12 @@ function TabItem({
         backgroundColor: agentStatus === 'waiting' ? 'var(--agent-waiting-glow)' : undefined,
       }}
       onClick={onSwitch}
-      onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); onClose(); } }}
+      onMouseDown={(e) => {
+        if (e.button === 1) {
+          e.preventDefault();
+          onClose();
+        }
+      }}
       title={tab.label}
     >
       {agentStatus !== 'idle' && <StatusDot status={agentStatus} size={8} />}
@@ -102,7 +109,11 @@ export function TabBar() {
     const ptyIds = collectLeafPtyIds(tab.paneRoot);
     for (const ptyId of ptyIds) {
       disposeCached(ptyId);
-      try { await closePty(ptyId); } catch { /* PTY may be dead */ }
+      try {
+        await closePty(ptyId);
+      } catch {
+        /* PTY may be dead */
+      }
     }
     closeTab(tab.id);
   }, []);

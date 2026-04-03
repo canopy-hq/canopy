@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
+
 import { useNavigate } from '@tanstack/react-router';
+
 import { useAgents, useWorkspaces, useTabs } from '../hooks/useCollections';
 import { switchTab } from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
-import type { AgentInfo } from '@superagent/db';
+
 import type { PaneNode } from '../lib/pane-tree-ops';
+import type { AgentInfo } from '@superagent/db';
 
 export interface AgentOverlayProps {
   isOpen: boolean;
@@ -112,7 +115,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
   const handleJump = useCallback(
     (row: AgentRow) => {
       if (row.tabId) {
-        navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: row.workspaceItemId } });
+        void navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: row.workspaceItemId } });
         switchTab(row.tabId);
       }
       onClose();

@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { Button, Tree, TreeItem, TreeItemContent } from 'react-aria-components';
 import type { Selection, Key } from 'react-aria-components';
 import { createPortal } from 'react-dom';
@@ -167,21 +168,24 @@ export function WorkspaceTree() {
   const [modalWorkspace, setModalWorkspace] = useState<Workspace | null>(null);
   const [closeTarget, setCloseTarget] = useState<Workspace | null>(null);
   const agentMap = useWorkspaceAgentMap();
+  const navigate = useNavigate();
 
   const expandedKeys = new Set<Key>(workspaces.filter((ws) => ws.expanded).map((ws) => ws.id));
 
   const selectedKeys: Selection = selectedItemId ? new Set([selectedItemId]) : new Set<Key>();
 
-  function handleSelectionChange(keys: Selection) {
-    if (keys === 'all') return;
-    const selected = [...keys][0];
-    if (!selected) {
-      selectWorkspaceItem(null);
-      return;
-    }
-    const selectedStr = String(selected);
-    selectWorkspaceItem(selectedStr);
-  }
+  const handleSelectionChange = useCallback(
+    (keys: Selection) => {
+      if (keys === 'all') return;
+      const selected = [...keys][0];
+      if (!selected) {
+        selectWorkspaceItem(null, navigate);
+        return;
+      }
+      selectWorkspaceItem(String(selected), navigate);
+    },
+    [navigate],
+  );
 
   function handleExpandedChange(keys: Set<Key>) {
     // Sync expanded state with store
@@ -225,7 +229,7 @@ export function WorkspaceTree() {
           isOpen={!!closeTarget}
           onClose={() => setCloseTarget(null)}
           onConfirm={async () => {
-            await closeProject(closeTarget.id);
+            await closeProject(closeTarget.id, navigate);
             setCloseTarget(null);
           }}
           projectName={closeTarget.name}

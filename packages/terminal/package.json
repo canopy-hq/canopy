@@ -1,13 +1,13 @@
 {
   "name": "@superagent/terminal",
-  "private": true,
   "version": "0.0.1",
+  "private": true,
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
   },
-  "peerDependencies": {
-    "react": "catalog:"
+  "scripts": {
+    "test": "vitest run --reporter=verbose"
   },
   "dependencies": {
     "@superagent/db": "workspace:*",
@@ -23,7 +23,7 @@
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
-  "scripts": {
-    "test": "vitest run --reporter=verbose"
+  "peerDependencies": {
+    "react": "catalog:"
   }
 }

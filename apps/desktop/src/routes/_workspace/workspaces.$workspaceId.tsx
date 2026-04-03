@@ -1,7 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router';
 import { useEffect } from 'react';
-import { TabBar } from '../../components/TabBar';
+
+import { createFileRoute } from '@tanstack/react-router';
+
 import { PaneContainer } from '../../components/PaneContainer';
+import { TabBar } from '../../components/TabBar';
 import { useUiState, useTabs } from '../../hooks/useCollections';
 import { setActiveContext, addTab } from '../../lib/tab-actions';
 import { toggleSidebar } from '../../lib/workspace-actions';
@@ -17,13 +19,13 @@ function WorkspaceRoute() {
     if (ui.activeContextId !== workspaceId) {
       setActiveContext(workspaceId);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId]);
 
   return (
     <>
       <TabBar />
-      <div className="flex-1 min-h-0 relative">
+      <div className="relative min-h-0 flex-1">
         {activeTab ? (
           <div key={activeTab.id} className="absolute inset-0">
             <PaneContainer root={activeTab.paneRoot} />
@@ -61,7 +63,7 @@ function KbdBadge({ children }: { children: string }) {
 
 function EmptyState() {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-1 select-none h-full">
+    <div className="flex h-full flex-1 flex-col items-center justify-center gap-1 select-none">
       <div
         style={{
           fontFamily: 'monospace',
@@ -91,7 +93,7 @@ function EmptyState() {
           color: 'var(--text-muted)',
           fontSize: '14px',
         }}
-        className="hover:bg-bg-secondary hover:text-text-primary transition-colors"
+        className="transition-colors hover:bg-bg-secondary hover:text-text-primary"
       >
         <svg
           width="16"
@@ -130,7 +132,7 @@ function EmptyState() {
           color: 'var(--text-muted)',
           fontSize: '14px',
         }}
-        className="hover:bg-bg-secondary hover:text-text-primary transition-colors"
+        className="transition-colors hover:bg-bg-secondary hover:text-text-primary"
       >
         <svg
           width="16"
