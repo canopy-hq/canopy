@@ -11,6 +11,8 @@ export interface BranchInfo {
 export interface WorktreeInfo {
   name: string;
   path: string;
+  branch: string;
+  label?: string;
 }
 
 // ── Workspace ────────────────────────────────────────────────────────────────

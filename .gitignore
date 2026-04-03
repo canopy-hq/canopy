@@ -4,3 +4,4 @@ target/
 *.log
 *.tsbuildinfo
 .DS_Store
+.superpowers/
