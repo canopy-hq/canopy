@@ -1,0 +1,632 @@
+use std::collections::HashMap;
+use std::io::{Read, Write};
+use std::sync::{Arc, Mutex};
+use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::net::{UnixListener, UnixStream};
+use tokio::sync::broadcast;
+
+use crate::scrollback::ScrollbackBuffer;
+
+const SCROLLBACK_CAP: usize = 100 * 1024; // 100KB per session
+
+struct PtySession {
+    writer: Box<dyn Write + Send>,
+    master: Box<dyn MasterPty + Send>,
+    child: Box<dyn portable_pty::Child + Send + Sync>,
+    child_pid: u32,
+    scrollback: ScrollbackBuffer,
+    tx: broadcast::Sender<Vec<u8>>,
+}
+
+pub struct DaemonState {
+    sessions: HashMap<String, PtySession>,
+}
+
+impl DaemonState {
+    pub fn new() -> Self {
+        Self { sessions: HashMap::new() }
+    }
+}
+
+pub async fn run(socket_path: String) {
+    let _ = std::fs::remove_file(&socket_path);
+    let listener = UnixListener::bind(&socket_path).expect("daemon: bind failed");
+    let state = Arc::new(Mutex::new(DaemonState::new()));
+
+    loop {
+        match listener.accept().await {
+            Ok((stream, _)) => {
+                tokio::spawn(handle_connection(stream, state.clone()));
+            }
+            Err(e) => eprintln!("daemon accept: {e}"),
+        }
+    }
+}
+
+async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
+    let (reader_half, mut write_half) = stream.into_split();
+    let mut reader = BufReader::new(reader_half);
+    let mut line = String::new();
+
+    loop {
+        line.clear();
+        match reader.read_line(&mut line).await {
+            Ok(0) | Err(_) => break,
+            Ok(_) => {}
+        }
+
+        let cmd: serde_json::Value = match serde_json::from_str(line.trim()) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+
+        let op = cmd["op"].as_str().unwrap_or("").to_string();
+        let pane_id = cmd["paneId"].as_str().unwrap_or("").to_string();
+
+        match op.as_str() {
+            "spawn" => {
+                let cwd = cmd["cwd"].as_str().map(|s| s.to_string());
+                let rows = cmd["rows"].as_u64().unwrap_or(24) as u16;
+                let cols = cmd["cols"].as_u64().unwrap_or(80) as u16;
+                let command = cmd["command"].as_str().map(String::from);
+                let args: Vec<String> = cmd["args"]
+                    .as_array()
+                    .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                    .unwrap_or_default();
+                let result = do_spawn(state.clone(), pane_id, cwd, rows, cols, command, args);
+                let resp = match result {
+                    Ok(pid) => format!("{{\"ok\":true,\"pid\":{pid}}}\n"),
+                    Err(e) => format!("{{\"ok\":false,\"error\":{}}}\n", serde_json::json!(e)),
+                };
+                let _ = write_half.write_all(resp.as_bytes()).await;
+            }
+
+            "attach" => {
+                let result = {
+                    let st = state.lock().unwrap();
+                    st.sessions
+                        .get(&pane_id)
+                        .map(|s| (s.scrollback.get().to_vec(), s.tx.subscribe()))
+                };
+                let (scrollback, mut rx) = match result {
+                    Some(r) => r,
+                    None => break,
+                };
+
+                // Send buffered scrollback as one frame
+                if !scrollback.is_empty() {
+                    let len = (scrollback.len() as u32).to_be_bytes();
+                    if write_half.write_all(&len).await.is_err() {
+                        return;
+                    }
+                    if write_half.write_all(&scrollback).await.is_err() {
+                        return;
+                    }
+                }
+
+                // Sentinel: zero-length frame marking end of scrollback replay.
+                // The TypeScript layer detects this as `rawData.length === 0` and
+                // uses it to distinguish replayed history from live PTY output.
+                if write_half.write_all(&[0u8; 4]).await.is_err() {
+                    return;
+                }
+
+                // Stream live output
+                loop {
+                    match rx.recv().await {
+                        Ok(data) => {
+                            let len = (data.len() as u32).to_be_bytes();
+                            if write_half.write_all(&len).await.is_err() {
+                                return;
+                            }
+                            if write_half.write_all(&data).await.is_err() {
+                                return;
+                            }
+                        }
+                        Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                        Err(_) => return,
+                    }
+                }
+            }
+
+            "write" => {
+                if let Some(arr) = cmd["data"].as_array() {
+                    let bytes: Vec<u8> = arr
+                        .iter()
+                        .filter_map(|v| v.as_u64())
+                        .map(|n| n as u8)
+                        .collect();
+                    let mut st = state.lock().unwrap();
+                    if let Some(sess) = st.sessions.get_mut(&pane_id) {
+                        let _ = sess.writer.write_all(&bytes);
+                        let _ = sess.writer.flush();
+                    }
+                }
+            }
+
+            "resize" => {
+                let rows = cmd["rows"].as_u64().unwrap_or(24) as u16;
+                let cols = cmd["cols"].as_u64().unwrap_or(80) as u16;
+                let st = state.lock().unwrap();
+                if let Some(sess) = st.sessions.get(&pane_id) {
+                    let _ = sess.master.resize(PtySize {
+                        rows,
+                        cols,
+                        pixel_width: 0,
+                        pixel_height: 0,
+                    });
+                }
+            }
+
+            "close" => {
+                let removed = {
+                    let mut st = state.lock().unwrap();
+                    st.sessions.remove(&pane_id)
+                };
+                if let Some(mut sess) = removed {
+                    let _ = sess.child.kill();
+                    let _ = sess.child.wait();
+                }
+                let _ = write_half.write_all(b"{\"ok\":true}\n").await;
+            }
+
+            "list" => {
+                let ids: Vec<String> = {
+                    let st = state.lock().unwrap();
+                    st.sessions.keys().cloned().collect()
+                };
+                let resp = format!("{{\"paneIds\":{}}}\n", serde_json::json!(ids));
+                let _ = write_half.write_all(resp.as_bytes()).await;
+            }
+
+            _ => {}
+        }
+    }
+}
+
+fn do_spawn(
+    state: Arc<Mutex<DaemonState>>,
+    pane_id: String,
+    cwd: Option<String>,
+    rows: u16,
+    cols: u16,
+    command: Option<String>,
+    args: Vec<String>,
+) -> Result<u32, String> {
+    // Return existing session pid if it already exists (reconnect case)
+    {
+        let st = state.lock().unwrap();
+        if let Some(sess) = st.sessions.get(&pane_id) {
+            return Ok(sess.child_pid);
+        }
+    }
+
+    let pty_system = native_pty_system();
+    let pair = pty_system
+        .openpty(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
+        .map_err(|e| e.to_string())?;
+
+    let mut cmd = match command {
+        Some(ref c) => {
+            let mut b = CommandBuilder::new(c);
+            for arg in &args {
+                b.arg(arg);
+            }
+            b
+        }
+        None => CommandBuilder::new_default_prog(),
+    };
+    cmd.env("TERM", "xterm-256color");
+    cmd.env("COLORTERM", "truecolor");
+    if let Some(ref dir) = cwd {
+        cmd.cwd(dir);
+    }
+
+    let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
+    let child_pid = child.process_id().unwrap_or(0);
+    drop(pair.slave);
+
+    let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
+    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+
+    // broadcast::channel capacity: 256 chunks before lagging
+    let (tx, _) = broadcast::channel::<Vec<u8>>(256);
+
+    {
+        let mut st = state.lock().unwrap();
+        st.sessions.insert(
+            pane_id.clone(),
+            PtySession {
+                writer,
+                master: pair.master,
+                child,
+                child_pid,
+                scrollback: ScrollbackBuffer::new(SCROLLBACK_CAP),
+                tx,
+            },
+        );
+    }
+
+    // Reader thread: blocking I/O — tee to scrollback + broadcast.
+    // Both operations happen under the same lock to eliminate the race where
+    // an attach handler could clone the scrollback AND subscribe to the
+    // broadcast between the lock-drop and the send, receiving the same chunk twice.
+    let state_clone = state.clone();
+    std::thread::spawn(move || {
+        let mut buf = [0u8; 4096];
+        loop {
+            match reader.read(&mut buf) {
+                Ok(0) | Err(_) => break,
+                Ok(n) => {
+                    let data = buf[..n].to_vec();
+                    let mut st = state_clone.lock().unwrap();
+                    if let Some(sess) = st.sessions.get_mut(&pane_id) {
+                        sess.scrollback.push(&data);
+                        let _ = sess.tx.send(data);
+                    }
+                }
+            }
+        }
+    });
+
+    Ok(child_pid)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use tokio::io::AsyncReadExt;
+
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    fn temp_socket() -> String {
+        format!(
+            "/tmp/test-daemon-{}.sock",
+            COUNTER.fetch_add(1, Ordering::Relaxed)
+        )
+    }
+
+    async fn start_daemon(socket_path: &str) {
+        let path = socket_path.to_string();
+        tokio::spawn(async move { run(path).await });
+        for _ in 0..20 {
+            tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
+            if UnixStream::connect(socket_path).await.is_ok() {
+                return;
+            }
+        }
+        panic!("daemon did not start within 300ms");
+    }
+
+    async fn send_line(stream: &mut UnixStream, json: &str) {
+        use tokio::io::AsyncWriteExt;
+        let msg = format!("{json}\n");
+        stream.write_all(msg.as_bytes()).await.unwrap();
+    }
+
+    /// Read a newline-terminated JSON response without consuming extra bytes.
+    async fn read_json_line(stream: &mut UnixStream) -> serde_json::Value {
+        let mut buf = Vec::new();
+        let mut byte = [0u8; 1];
+        loop {
+            stream.read_exact(&mut byte).await.unwrap();
+            if byte[0] == b'\n' {
+                break;
+            }
+            buf.push(byte[0]);
+        }
+        serde_json::from_slice(&buf).unwrap()
+    }
+
+    /// Read one binary frame: [u32 BE length][bytes]. Returns empty Vec for sentinel.
+    async fn read_frame(stream: &mut UnixStream) -> Vec<u8> {
+        let mut len_buf = [0u8; 4];
+        stream.read_exact(&mut len_buf).await.unwrap();
+        let len = u32::from_be_bytes(len_buf) as usize;
+        if len == 0 {
+            return vec![];
+        }
+        let mut data = vec![0u8; len];
+        stream.read_exact(&mut data).await.unwrap();
+        data
+    }
+
+    #[tokio::test]
+    async fn scrollback_replayed_byte_for_byte() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // Spawn with a known-output command
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(
+            &mut conn,
+            r#"{"op":"spawn","paneId":"p1","rows":24,"cols":80,"command":"sh","args":["-c","printf 'SUPERAGENT_12345'"]}"#,
+        )
+        .await;
+        let resp = read_json_line(&mut conn).await;
+        assert_eq!(resp["ok"], true, "spawn failed: {resp}");
+
+        // Wait for printf to complete and output to be buffered
+        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+
+        // Attach on a fresh connection and collect scrollback frames
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"attach","paneId":"p1"}"#).await;
+
+        let mut scrollback = Vec::new();
+        let mut sentinel_received = false;
+        for _ in 0..50 {
+            let frame = read_frame(&mut conn2).await;
+            if frame.is_empty() {
+                sentinel_received = true;
+                break;
+            }
+            scrollback.extend_from_slice(&frame);
+        }
+
+        assert!(sentinel_received, "sentinel frame not received");
+        let text = String::from_utf8_lossy(&scrollback);
+        assert!(
+            text.contains("SUPERAGENT_12345"),
+            "scrollback missing expected bytes; got: {text:?}"
+        );
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn sentinel_always_follows_scrollback() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(
+            &mut conn,
+            r#"{"op":"spawn","paneId":"p2","rows":24,"cols":80,"command":"sh","args":["-c","printf 'HELLO'"]}"#,
+        )
+        .await;
+        let _ = read_json_line(&mut conn).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"attach","paneId":"p2"}"#).await;
+
+        let mut sentinel_received = false;
+        for _ in 0..50 {
+            let frame = read_frame(&mut conn2).await;
+            if frame.is_empty() {
+                sentinel_received = true;
+                break;
+            }
+        }
+
+        assert!(sentinel_received, "sentinel not received before EOF");
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn reconnect_returns_same_pid() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"spawn","paneId":"p3","rows":24,"cols":80}"#).await;
+        let resp1 = read_json_line(&mut conn).await;
+        let pid1 = resp1["pid"].as_u64().unwrap();
+
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"spawn","paneId":"p3","rows":24,"cols":80}"#).await;
+        let resp2 = read_json_line(&mut conn2).await;
+        let pid2 = resp2["pid"].as_u64().unwrap();
+
+        assert_eq!(pid1, pid2, "reconnect must return same pid");
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    /// Collect all pre-sentinel frames from an attach stream, returning the
+    /// concatenated scrollback bytes and asserting the sentinel was received.
+    async fn drain_scrollback(stream: &mut UnixStream) -> Vec<u8> {
+        let mut scrollback = Vec::new();
+        for _ in 0..200 {
+            let frame = read_frame(stream).await;
+            if frame.is_empty() {
+                return scrollback; // sentinel received
+            }
+            scrollback.extend_from_slice(&frame);
+        }
+        panic!("sentinel not received after draining 200 frames");
+    }
+
+    #[tokio::test]
+    async fn write_op_echoes_through_pty() {
+        // Spawn `cat` — PTY echo causes any bytes written to stdin to appear
+        // in stdout, so they show up in the scrollback.
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"spawn","paneId":"w1","rows":24,"cols":80,"command":"cat","args":[]}"#).await;
+        let resp = read_json_line(&mut conn).await;
+        assert_eq!(resp["ok"], true, "spawn failed: {resp}");
+
+        // Write known bytes to the PTY.
+        // Encode "WRITE_ECHO_TEST\r" as a JSON number array.
+        let payload = b"WRITE_ECHO_TEST\r";
+        let data_json: Vec<u8> = payload.to_vec();
+        let arr: Vec<serde_json::Value> = data_json.iter().map(|&b| serde_json::json!(b)).collect();
+        let write_cmd = format!(
+            "{{\"op\":\"write\",\"paneId\":\"w1\",\"data\":{}}}\n",
+            serde_json::json!(arr)
+        );
+        use tokio::io::AsyncWriteExt;
+        conn.write_all(write_cmd.as_bytes()).await.unwrap();
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"attach","paneId":"w1"}"#).await;
+        let scrollback = drain_scrollback(&mut conn2).await;
+
+        let text = String::from_utf8_lossy(&scrollback);
+        assert!(
+            text.contains("WRITE_ECHO_TEST"),
+            "write op output missing from scrollback; got: {text:?}"
+        );
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn close_drops_attach_connection() {
+        // After closing a session, attaching to it must not succeed:
+        // the daemon breaks the connection (no frames, no sentinel).
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"spawn","paneId":"c1","rows":24,"cols":80,"command":"cat","args":[]}"#).await;
+        let _ = read_json_line(&mut conn).await;
+
+        // Close the session
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"close","paneId":"c1"}"#).await;
+        let resp = read_json_line(&mut conn2).await;
+        assert_eq!(resp["ok"], true);
+
+        // After close, re-spawn should produce a NEW pid (old session gone)
+        let mut conn3 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn3, r#"{"op":"spawn","paneId":"c1","rows":24,"cols":80,"command":"cat","args":[]}"#).await;
+        let resp2 = read_json_line(&mut conn3).await;
+        assert_eq!(resp2["ok"], true);
+        // The new pid must differ from zero (valid process started)
+        let new_pid = resp2["pid"].as_u64().unwrap();
+        assert!(new_pid > 0, "expected valid new pid after re-spawn");
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn ansi_unicode_bytes_survive_scrollback() {
+        // ANSI sequences and multi-byte UTF-8 must pass through the daemon
+        // byte-for-byte with no substitution or truncation.
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        // printf: bold green, CJK, bold reset, space, rocket emoji
+        // Use octal escapes: \346\227\245 = 日, \346\234\254 = 本, \350\252\236 = 語,
+        // \360\237\232\200 = 🚀. Octal is valid in all sh printf AND valid JSON (no \x).
+        send_line(
+            &mut conn,
+            r#"{"op":"spawn","paneId":"u1","rows":24,"cols":80,"command":"sh","args":["-c","printf '\\033[1;32m\\346\\227\\245\\346\\234\\254\\350\\252\\236\\033[0m \\360\\237\\232\\200'"]}"#,
+        )
+        .await;
+        let _ = read_json_line(&mut conn).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"attach","paneId":"u1"}"#).await;
+        let scrollback = drain_scrollback(&mut conn2).await;
+
+        // 日本語 = [0xe6,0x97,0xa5, 0xe6,0x9c,0xac, 0xe8,0xaa,0x9e]
+        let cjk = [0xe6u8, 0x97, 0xa5, 0xe6, 0x9c, 0xac, 0xe8, 0xaa, 0x9e];
+        // 🚀 = [0xf0,0x9f,0x9a,0x80]
+        let emoji = [0xf0u8, 0x9f, 0x9a, 0x80];
+
+        assert!(
+            scrollback.windows(cjk.len()).any(|w| w == cjk),
+            "CJK bytes missing from scrollback"
+        );
+        assert!(
+            scrollback.windows(emoji.len()).any(|w| w == emoji),
+            "emoji bytes missing from scrollback"
+        );
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn scrollback_capped_at_100kb() {
+        // Produce output larger than SCROLLBACK_CAP (100KB).
+        // The scrollback frame sent on attach must not exceed the cap.
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        // yes | head -c 110000 produces ~110KB of "y\n" lines
+        send_line(
+            &mut conn,
+            r#"{"op":"spawn","paneId":"cap1","rows":24,"cols":80,"command":"sh","args":["-c","yes | head -c 110000"]}"#,
+        )
+        .await;
+        let _ = read_json_line(&mut conn).await;
+
+        // Give the command time to finish
+        tokio::time::sleep(tokio::time::Duration::from_millis(400)).await;
+
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"attach","paneId":"cap1"}"#).await;
+
+        let scrollback = drain_scrollback(&mut conn2).await;
+
+        assert!(
+            scrollback.len() <= SCROLLBACK_CAP,
+            "scrollback {} bytes exceeds cap {} bytes",
+            scrollback.len(),
+            SCROLLBACK_CAP,
+        );
+        assert!(!scrollback.is_empty(), "scrollback must not be empty");
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn list_returns_active_pane_ids() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // Spawn two sessions
+        for pane in &["pane-a", "pane-b"] {
+            let mut conn = UnixStream::connect(&socket).await.unwrap();
+            let cmd = format!(
+                "{{\"op\":\"spawn\",\"paneId\":\"{pane}\",\"rows\":24,\"cols\":80,\"command\":\"cat\",\"args\":[]}}\n"
+            );
+            use tokio::io::AsyncWriteExt;
+            conn.write_all(cmd.as_bytes()).await.unwrap();
+            let _ = read_json_line(&mut conn).await;
+        }
+
+        // List active sessions
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"list","paneId":""}"#).await;
+        let resp = read_json_line(&mut conn).await;
+        let ids: Vec<&str> = resp["paneIds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+
+        assert!(ids.contains(&"pane-a"), "pane-a not in list: {ids:?}");
+        assert!(ids.contains(&"pane-b"), "pane-b not in list: {ids:?}");
+
+        // Close one and verify it disappears
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"close","paneId":"pane-a"}"#).await;
+        let _ = read_json_line(&mut conn2).await;
+
+        let mut conn3 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn3, r#"{"op":"list","paneId":""}"#).await;
+        let resp2 = read_json_line(&mut conn3).await;
+        let ids2: Vec<&str> = resp2["paneIds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+
+        assert!(!ids2.contains(&"pane-a"), "pane-a should be gone after close");
+        assert!(ids2.contains(&"pane-b"), "pane-b should still be active");
+
+        let _ = std::fs::remove_file(&socket);
+    }
+}

@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "identifier": "com.superagent.app",
   "build": {
-    "beforeDevCommand": "test -f src-tauri/target/debug/superagent-pty-daemon || cargo build --bin superagent-pty-daemon --manifest-path src-tauri/Cargo.toml; bun run dev",
+    "beforeDevCommand": "test -f ../../target/debug/superagent-pty-daemon || cargo build --bin superagent-pty-daemon --manifest-path ../../packages/pty-daemon/Cargo.toml; bun run dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "cargo build --release --bin superagent-pty-daemon --manifest-path src-tauri/Cargo.toml && bun run build",
+    "beforeBuildCommand": "cargo build --release --bin superagent-pty-daemon --manifest-path ../../packages/pty-daemon/Cargo.toml && bun run build",
     "frontendDist": "../dist"
   },
   "app": {
