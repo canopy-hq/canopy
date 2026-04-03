@@ -43,6 +43,12 @@ export function useTerminal(
 ): React.MutableRefObject<Terminal | null> {
   const termRef = useRef<Terminal | null>(null);
   const [wasmReady, setWasmReady] = useState(false);
+  // Ref so the effect always reads the latest ptyId without re-running.
+  // onPtySpawned → setPtyId → store update → PaneContainer re-renders with
+  // the new ptyId as prop. If ptyId were a direct dep, the effect would re-run
+  // (cleanup cancels the sigwinch timer, cached path has no SIGWINCH → blank).
+  const ptyIdRef = useRef(ptyId);
+  ptyIdRef.current = ptyId;
 
   useEffect(() => {
     void ensureGhosttyInit().then(() => setWasmReady(true));
@@ -60,6 +66,10 @@ export function useTerminal(
     const container = containerRef.current;
     if (!container) return;
 
+    // Snapshot ptyId at effect-run time. Using the ref ensures that when the
+    // component remounts (pane restructure), the effect sees the latest value.
+    const ptyId = ptyIdRef.current;
+
     let spawnCancelled = false;
     let sigwinchTimer: ReturnType<typeof setTimeout> | null = null;
     let overlayTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -76,6 +86,7 @@ export function useTerminal(
 
     if (cached) {
       // === CACHED PATH: remount after pane restructure — re-parent existing terminal ===
+      console.error('[useTerminal] CACHED PATH', { paneId, ptyId });
       term = cached.term;
       fitAddon = cached.fitAddon;
       const el = term.element;
@@ -216,7 +227,11 @@ export function useTerminal(
         // Spawn: PTY started at exact fitted dimensions → lastSentSize = spawn dims
         // → dedup guard suppresses any subsequent fit at the same size → 0 SIGWINCH.
         void spawnTerminal(paneId, savedCwd, term.rows, term.cols).then(({ ptyId: newId, isNew }) => {
-          if (spawnCancelled) return;
+          if (spawnCancelled) {
+            console.error('[useTerminal] spawnCancelled — skipping .then() for ptyId', newId);
+            return;
+          }
+          console.error('[useTerminal] spawn resolved', { paneId, newId, isNew });
           ptrRef.ptyId = newId;
           lastSentSize.rows = term.rows;
           lastSentSize.cols = term.cols;
@@ -236,8 +251,12 @@ export function useTerminal(
             // Restored session: keep overlay until first byte arrives.
             // SIGWINCH (100ms timer below) forces zsh to reprint its prompt,
             // producing the bytes that remove the overlay.
-            overlayTimeoutId = setTimeout(removeOverlay, 2000);
+            overlayTimeoutId = setTimeout(() => {
+              console.error('[useTerminal] overlay removed by 2s TIMEOUT (no data arrived)', { paneId, newId });
+              removeOverlay();
+            }, 2000);
             connectPtyOutput(newId, (data: Uint8Array) => {
+              console.error('[useTerminal] isNew=false handler called', { paneId, newId, dataLen: data.length });
               if (overlayTimeoutId !== null) {
                 clearTimeout(overlayTimeoutId);
                 overlayTimeoutId = null;
@@ -270,6 +289,7 @@ export function useTerminal(
               // Always send SIGWINCH on first tick so TUI apps and zsh initialise.
               // For restored sessions this forces zsh to reprint its prompt, producing
               // the first live bytes that remove the overlay.
+              console.error('[useTerminal] SIGWINCH tick=0', { paneId, newId, r, c, isNew });
               void resizePty(newId, r, c);
             }
             ticks++;
@@ -301,6 +321,7 @@ export function useTerminal(
     }
 
     return () => {
+      console.error('[useTerminal] cleanup', { paneId, ptyId, sigwinchPending: sigwinchTimer !== null, overlayPending: overlayTimeoutId !== null });
       spawnCancelled = true;
       removeOverlay();
       resizeObserver.disconnect();
@@ -314,7 +335,7 @@ export function useTerminal(
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerRef, ptyId, wasmReady]);
+  }, [containerRef, wasmReady]);
 
   return termRef;
 }
