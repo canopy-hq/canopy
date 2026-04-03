@@ -64,6 +64,35 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
     };
   }, [realPtyId, paneId]);
 
+  if (ptyId === -2) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-bg-primary">
+        <svg
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-text-muted opacity-40"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <line x1="9" y1="9" x2="15" y2="15" />
+          <line x1="15" y1="9" x2="9" y2="15" />
+        </svg>
+        <div className="flex flex-col items-center gap-1 text-center">
+          <span className="text-sm font-semibold text-text-muted">Session terminated</span>
+          <span className="max-w-[260px] text-[12px] leading-relaxed text-text-muted opacity-60">
+            This PTY session was forcefully killed. Open a new tab to start a fresh terminal.
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <TerminalPaneInner
       paneId={paneId}

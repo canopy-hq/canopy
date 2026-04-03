@@ -203,6 +203,26 @@ export function closePaneInTab(tabId: string, paneId: PaneId): void {
   });
 }
 
+/**
+ * Mark a pane as killed (ptyId = -2). The pane stays in the tree but shows
+ * a "session terminated" screen instead of spawning a new terminal.
+ */
+export function killPaneInTab(tabId: string, paneId: PaneId): void {
+  const col = getTabCollection();
+  const tab = col.toArray.find((t) => t.id === tabId);
+  if (!tab) return;
+  col.update(tab.id, (draft) => {
+    function markKilled(node: Tab['paneRoot']): void {
+      if (node.type === 'leaf') {
+        if (node.id === paneId) node.ptyId = -2;
+        return;
+      }
+      for (const child of node.children) markKilled(child);
+    }
+    markKilled(draft.paneRoot);
+  });
+}
+
 export function setFocus(paneId: PaneId): void {
   const ui = getUiState();
   const tab = getTabCollection().toArray.find((t) => t.id === ui.activeTabId);

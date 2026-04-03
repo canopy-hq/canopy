@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
 
 import { useTabs } from '../hooks/useCollections';
-import { closePaneInTab } from '../lib/tab-actions';
+import { killPaneInTab } from '../lib/tab-actions';
 import { closePty, listPtySessions } from '@superagent/terminal';
 
 import type { Tab } from '@superagent/db';
@@ -63,7 +63,7 @@ export function SessionManager({ isOpen, onClose }: SessionManagerProps) {
       setKilling((prev) => new Set(prev).add(ptyId));
       try {
         await closePty(ptyId);
-        closePaneInTab(row.tab.id, paneId);
+        killPaneInTab(row.tab.id, paneId);
         setSessions((prev) => prev.filter((s) => s.ptyId !== ptyId));
       } finally {
         setKilling((prev) => {
