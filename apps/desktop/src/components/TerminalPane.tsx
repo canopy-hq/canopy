@@ -26,7 +26,11 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
   const focusedPaneId = activeTab?.focusedPaneId ?? null;
   const isFocused = focusedPaneId === paneId;
   const [cwd, setCwd] = useState('');
-  const [realPtyId, setRealPtyId] = useState<number | null>(ptyId > 0 ? ptyId : null);
+  // CWD polling needs the real ptyId, but it must NOT flow into useTerminal's
+  // effect deps — otherwise onPtySpawned triggers a re-render that re-runs
+  // the effect, cancelling the sigwinch timer and detaching the terminal DOM
+  // before the shell prompt arrives.
+  const [cwdPtyId, setCwdPtyId] = useState<number | null>(ptyId > 0 ? ptyId : null);
 
   // Read once; only used for the initial spawn inside useTerminal.
   const savedCwd = useMemo(() => {
@@ -36,13 +40,13 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
 
   // Poll CWD from Rust side every 2 seconds and persist changes.
   useEffect(() => {
-    if (realPtyId === null) return;
+    if (cwdPtyId === null) return;
 
     let cancelled = false;
 
     const poll = async () => {
       try {
-        const newCwd = await getPtyCwd(realPtyId);
+        const newCwd = await getPtyCwd(cwdPtyId);
         if (!cancelled && newCwd) {
           setCwd((prev) => {
             if (prev === newCwd) return prev;
@@ -62,18 +66,19 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [realPtyId, paneId]);
+  }, [cwdPtyId, paneId]);
 
   return (
     <TerminalPaneInner
       paneId={paneId}
-      ptyId={realPtyId ?? ptyId}
+      ptyId={ptyId}
+      agentPtyId={cwdPtyId ?? ptyId}
       savedCwd={savedCwd}
       isFocused={isFocused}
       cwd={cwd}
       containerRef={containerRef}
       onPtySpawned={(id) => {
-        setRealPtyId(id);
+        setCwdPtyId(id);
         setPtyId(paneId, id);
       }}
     />
@@ -86,6 +91,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
 function TerminalPaneInner({
   paneId,
   ptyId,
+  agentPtyId,
   savedCwd,
   isFocused,
   cwd,
@@ -94,6 +100,7 @@ function TerminalPaneInner({
 }: {
   paneId: string;
   ptyId: number;
+  agentPtyId: number;
   savedCwd: string | undefined;
   isFocused: boolean;
   cwd: string;
@@ -103,7 +110,7 @@ function TerminalPaneInner({
   const termRef = useTerminal(containerRef, paneId, savedCwd, ptyId, isFocused, onPtySpawned);
 
   const agents = useAgents();
-  const agent = agents.find((a) => a.ptyId === ptyId);
+  const agent = agents.find((a) => a.ptyId === agentPtyId);
   const agentStatus = agent?.status ?? 'idle';
   const isWaiting = agentStatus === 'waiting';
 

@@ -232,21 +232,6 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
     unmount();
   });
 
-  it('calls resizePty immediately for isNew=false (before onPtySpawned re-render cancels sigwinchTimer)', async () => {
-    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
-
-    const container = makeContainer();
-    const { unmount } = renderHook(() =>
-      useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
-    );
-
-    await act(flushPromises);
-
-    const { resizePty } = await import('../src/pty');
-    expect(vi.mocked(resizePty)).toHaveBeenCalledWith(42, expect.any(Number), expect.any(Number));
-    unmount();
-  });
-
   it('uses connectPtyOutput (not connectPtyOutputFresh) when isNew=false', async () => {
     vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
 

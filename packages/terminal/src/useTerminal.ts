@@ -234,9 +234,8 @@ export function useTerminal(
             });
           } else {
             // Restored session: keep overlay until first byte arrives.
-            // IMPORTANT: onPtySpawned (below) triggers a React re-render which cancels
-            // sigwinchTimer before it fires at 100ms. Send SIGWINCH immediately here so
-            // the shell reprints its prompt even for an idle session with empty scrollback.
+            // SIGWINCH (100ms timer below) forces zsh to reprint its prompt,
+            // producing the bytes that remove the overlay.
             overlayTimeoutId = setTimeout(removeOverlay, 2000);
             connectPtyOutput(newId, (data: Uint8Array) => {
               if (overlayTimeoutId !== null) {
@@ -246,7 +245,6 @@ export function useTerminal(
               removeOverlay();
               term.write(data);
             });
-            void resizePty(newId, term.rows, term.cols);
           }
           setCached(newId, term, fitAddon);
           onPtySpawned(newId);
