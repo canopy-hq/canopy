@@ -19,12 +19,23 @@ export interface RepoInfo {
   worktrees: WorktreeInfo[];
 }
 
+export interface BranchDetail {
+  name: string;
+  is_head: boolean;
+  is_local: boolean;
+  is_in_worktree: boolean;
+}
+
 export function importRepo(path: string): Promise<RepoInfo> {
   return invoke<RepoInfo>('import_repo', { path });
 }
 
 export function listBranches(repoPath: string): Promise<BranchInfo[]> {
   return invoke<BranchInfo[]>('list_branches', { repoPath });
+}
+
+export function listAllBranches(repoPath: string): Promise<BranchDetail[]> {
+  return invoke<BranchDetail[]>('list_all_branches', { repoPath });
 }
 
 export function createBranch(repoPath: string, name: string, base: string): Promise<BranchInfo> {
