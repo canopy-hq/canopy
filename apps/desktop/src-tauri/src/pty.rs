@@ -18,12 +18,6 @@ impl PtyProxy {
     }
 }
 
-#[derive(serde::Serialize)]
-pub struct SpawnResult {
-    pub pty_id: u32,
-    pub is_new: bool,
-}
-
 #[tauri::command]
 pub async fn spawn_terminal(
     pane_id: String,
@@ -35,8 +29,8 @@ pub async fn spawn_terminal(
     proxy: tauri::State<'_, Mutex<PtyProxy>>,
     daemon: tauri::State<'_, DaemonClient>,
     watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
-) -> Result<SpawnResult, String> {
-    let (pid, is_new) = daemon.spawn(&pane_id, cwd.as_deref(), rows.unwrap_or(24), cols.unwrap_or(80)).await?;
+) -> Result<u32, String> {
+    let pid = daemon.spawn(&pane_id, cwd.as_deref(), rows.unwrap_or(24), cols.unwrap_or(80)).await?;
 
     {
         let mut p = proxy.lock().map_err(|e| e.to_string())?;
@@ -55,7 +49,7 @@ pub async fn spawn_terminal(
     }
     agent_watcher::start_watching(pid, pid, app, last_output, cancel_rx);
 
-    Ok(SpawnResult { pty_id: pid, is_new })
+    Ok(pid)
 }
 
 #[tauri::command]

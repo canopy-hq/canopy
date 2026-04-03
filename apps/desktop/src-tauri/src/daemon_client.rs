@@ -87,8 +87,8 @@ impl DaemonClient {
     }
 
     /// Spawn a PTY session for pane_id (no-op if already exists).
-    /// Returns `(pid, is_new)` — `is_new` is false when the session already existed.
-    pub async fn spawn(&self, pane_id: &str, cwd: Option<&str>, rows: u16, cols: u16) -> Result<(u32, bool), String> {
+    /// Returns the child process PID used as ptyId on the Tauri side.
+    pub async fn spawn(&self, pane_id: &str, cwd: Option<&str>, rows: u16, cols: u16) -> Result<u32, String> {
         let mut obj = serde_json::json!({
             "op": "spawn",
             "paneId": pane_id,
@@ -102,12 +102,10 @@ impl DaemonClient {
 
         let resp = self.send_cmd(&msg).await?;
         if resp["ok"].as_bool() == Some(true) {
-            let pid = resp["pid"]
+            resp["pid"]
                 .as_u64()
                 .map(|p| p as u32)
-                .ok_or_else(|| "daemon: spawn returned no pid".to_string())?;
-            let is_new = resp["new"].as_bool().unwrap_or(true);
-            Ok((pid, is_new))
+                .ok_or_else(|| "daemon: spawn returned no pid".to_string())
         } else {
             Err(resp["error"].as_str().unwrap_or("spawn failed").to_string())
         }
