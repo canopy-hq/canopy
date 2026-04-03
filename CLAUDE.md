@@ -59,19 +59,13 @@ TanStack DB collections (in-memory)
 SQLite via drizzle-orm + @tauri-apps/plugin-sql
 ```
 
-### Rust backend
+### Backend
 
-| Module | Responsibility |
-|--------|---------------|
-| `git.rs` | All git2 ops: branches, worktrees, diff stats. `spawn_blocking` + `Semaphore(6)` for async. Batch variant `get_all_diff_stats` for N repos in one call. |
-| `pty.rs` | Bridges daemon client + agent watcher. `spawn_terminal` → daemon spawn → attach Channel → start agent watcher. |
-| `agent_watcher.rs` | libproc process-tree walk. Known agents: claude, codex, aider, gemini. 250ms poll, emits `agent-status-changed` events on state change only. |
-| `daemon_client.rs` | Unix socket client for pty-daemon. Fresh connection per request (spawn/close), persistent connection for fire-and-forget (write/resize). |
-| `lib.rs` | Tauri setup: plugins, menu, daemon lifecycle, window hide-on-close (PTY sessions survive). |
+See [`apps/desktop/src-tauri/BACKEND.md`](apps/desktop/src-tauri/BACKEND.md) for Rust modules, PTY daemon, IPC patterns, and backend performance rules.
 
-### PTY daemon (separate process)
+### Frontend
 
-Standalone binary (`superagent-pty-daemon`) in own process group — survives app restart. Protocol: newline-delimited JSON commands, binary framed output. Scrollback: 100KB ring-buffer replayed on attach.
+See [`apps/desktop/FRONTEND.md`](apps/desktop/FRONTEND.md) for styling conventions, `tv()` variants, React ARIA data-attributes, and CSS custom properties.
 
 ### Frontend layers
 
@@ -83,21 +77,9 @@ Standalone binary (`superagent-pty-daemon`) in own process group — survives ap
 | **Components** (`src/components/`) | Leaf components. `WorkspaceTree` uses `React.memo` + custom comparators for tree rows. |
 | **Routes** (`src/routes/`) | TanStack Router file-based. `__root.tsx` handles boot + global listeners. |
 
-### IPC pattern
-
-TypeScript → `invoke<T>('command_name', { args })` → Rust `#[tauri::command]` → `spawn_blocking` for git2/IO → serialize result → TypeScript.
-
-Events (agent status): Rust `app_handle.emit('event', payload)` → TypeScript `listen('event', callback)`.
-
 ## Performance
 
 **Superagent must feel as fast as Linear. Design for 40 workspaces x 50 branches = 2000 items.**
-
-### IPC
-
-- **Batch, never loop.** Never fire N individual IPC calls when one batched call works. Always provide batch variants for commands called in loops (e.g., `get_all_diff_stats` not N x `get_diff_stats`).
-- **Cap concurrency.** Use `tokio::sync::Semaphore` to limit concurrent `spawn_blocking` tasks (max 6-8). Never let 40 blocking tasks run simultaneously.
-- **Filter on Rust side.** Drop zero/empty results before serializing — don't send data the frontend will discard.
 
 ### React rendering
 
@@ -111,12 +93,6 @@ Events (agent status): Rust `app_handle.emit('event', payload)` → TypeScript `
 - **Scope to visible data.** Only poll for expanded workspaces; carry forward stale data for collapsed ones.
 - **Adaptive intervals.** Start at 10s, back off to 20s after 3 unchanged polls, 30s after 6. Reset on change detection.
 - **Shallow comparison.** Never use `JSON.stringify` for deep equality — use shallow key/value comparison or refs.
-
-### Rust backend
-
-- **`git2::Repository` is `!Send`.** Never cache or share across threads. Open fresh per operation inside `spawn_blocking`.
-- **Always `spawn_blocking` for git2.** All git2 operations block on disk I/O.
-- **Filter before serialize.** Drop empty/zero results before sending over IPC.
 
 ### State
 
@@ -134,15 +110,6 @@ Events (agent status): Rust `app_handle.emit('event', payload)` → TypeScript `
 
 ## Conventions
 
-### Frontend styling
-
-See [`apps/desktop/FRONTEND.md`](apps/desktop/FRONTEND.md) for full rules. Summary:
-
-- **Tailwind-first**: `style={{}}` only for CSS variable injection or vendor-prefixed properties
-- **`tv()` for variants**: `tailwind-variants` for all conditional class logic — no ternary class strings
-- **React ARIA data-attributes**: `data-[selected]:`, `data-[focused]:`, etc. — no render-prop `className` functions
-- **CSS custom properties**: theming tokens only in `@theme {}` block — use Tailwind classes (`bg-bg-primary`) not `var()` in styles
-
 ### Component patterns
 
 - **`React.memo` + custom comparators** for all leaf components in lists/trees (see `WorkspaceTree.tsx` for pattern: compare only props that affect rendering)
@@ -158,18 +125,11 @@ See [`apps/desktop/FRONTEND.md`](apps/desktop/FRONTEND.md) for full rules. Summa
 - **Dual-write UI state**: navigation state (`activeTabId`, `sidebarVisible`, etc.) written to both `uiCollection` (in-memory) and `settingCollection` (persisted) on every change
 - **`workspaceItemId` composite keys**: `ws.id` for repo root, `ws.id-branch-{name}` for branches, `ws.id-wt-{name}` for worktrees
 
-### IPC
-
-- TypeScript wrappers in `lib/git.ts` — thin typed `invoke<T>()` calls
-- Rust commands: `#[tauri::command]` with `spawn_blocking` for all git2/IO ops
-- Events for push-based data (agent status): Rust `emit()` → TS `listen()`
-- `#[serde(rename_all = "camelCase")]` on all Rust structs crossing IPC boundary
-
 ### Testing
 
 - **TypeScript**: Vitest + RTL. `vi.mock()` for Tauri modules. Pure logic tests (pane-tree-ops, tab-actions) need no mocks.
-- **Rust**: inline `#[cfg(test)]` modules. `tempfile::TempDir` for git repos. `#[tokio::test]` for async commands.
-- **Terminal package**: separate vitest config with happy-dom. `__mocks__/` dir for ghostty-web, db, tauri-apps.
+- **Rust**: See [BACKEND.md](apps/desktop/src-tauri/BACKEND.md#testing).
+- **Terminal package**: separate vitest config with happy-dom. `test/__mocks__/` dir for ghostty-web, db, tauri-apps.
 
 ### File organization
 
