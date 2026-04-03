@@ -5,7 +5,7 @@ import { tv } from 'tailwind-variants';
 import { useNavigate } from '@tanstack/react-router';
 
 import { useAgents, useWorkspaces, useTabs } from '../hooks/useCollections';
-import { switchTab } from '../lib/tab-actions';
+import { jumpToPane } from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
 
 import type { PaneNode } from '../lib/pane-tree-ops';
@@ -130,11 +130,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
   const handleJump = useCallback(
     (row: AgentRow) => {
       if (row.tabId) {
-        void navigate({
-          to: '/workspaces/$workspaceId',
-          params: { workspaceId: row.workspaceItemId },
-        });
-        switchTab(row.tabId);
+        jumpToPane(navigate, row.workspaceItemId, row.tabId);
       }
       onClose();
     },

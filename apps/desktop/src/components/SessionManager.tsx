@@ -3,9 +3,10 @@ import { Dialog, Heading } from 'react-aria-components';
 import { useNavigate } from '@tanstack/react-router';
 
 import { useTabs, useWorkspaces } from '../hooks/useCollections';
-import { killPaneInTab } from '../lib/tab-actions';
-import { switchTab } from '../lib/tab-actions';
+import { killPaneInTab, jumpToPane } from '../lib/tab-actions';
 import { closePty, listPtySessions } from '@superagent/terminal';
+
+import { getWorkspaceItemIds } from '../lib/workspace-actions';
 
 import type { Tab, Workspace } from '@superagent/db';
 import type { PtySessionInfo } from '@superagent/terminal';
@@ -28,14 +29,7 @@ function treeContainsPty(node: PaneNode, ptyId: number): boolean {
 }
 
 function findWorkspaceForTab(tab: Tab, workspaces: Workspace[]): Workspace | null {
-  return (
-    workspaces.find(
-      (w) =>
-        w.id === tab.workspaceItemId ||
-        w.branches.some((b) => b.name === tab.workspaceItemId) ||
-        w.worktrees.some((wt) => wt.name === tab.workspaceItemId),
-    ) ?? null
-  );
+  return workspaces.find((w) => getWorkspaceItemIds(w).has(tab.workspaceItemId)) ?? null;
 }
 
 interface SessionRow {
@@ -103,8 +97,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
   const handleJump = useCallback(
     (row: SessionRow) => {
       if (!row.tab) return;
-      void navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: row.workspaceItemId } });
-      switchTab(row.tab.id);
+      jumpToPane(navigate, row.workspaceItemId, row.tab.id);
       onClose();
     },
     [navigate, onClose],

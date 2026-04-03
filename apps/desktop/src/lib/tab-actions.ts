@@ -223,6 +223,44 @@ export function killPaneInTab(tabId: string, paneId: PaneId): void {
   });
 }
 
+/**
+ * Navigate to a specific workspace → tab → pane from anywhere in the app.
+ *
+ * - Same context: switchTab direct — no route change, no re-render.
+ * - Cross context: pre-populates contextActiveTabIds before navigating so that
+ *   setActiveContext (triggered by the route's useEffect) picks the right tab.
+ * - Pane: focusedPaneId is set directly on the tab, independent of active context.
+ *
+ * Always calls navigate() to handle the case where the user is on a different
+ * route (e.g. /settings) even when the workspace context is already correct.
+ */
+export function jumpToPane(
+  navigate: (opts: { to: string; params?: Record<string, string> }) => void,
+  workspaceItemId: string,
+  tabId?: string,
+  paneId?: string,
+): void {
+  const ui = getUiState();
+
+  if (tabId && paneId) {
+    getTabCollection().update(tabId, (draft) => {
+      draft.focusedPaneId = paneId;
+    });
+  }
+
+  if (ui.activeContextId !== workspaceItemId && tabId) {
+    uiCollection.update('ui', (draft) => {
+      draft.contextActiveTabIds[workspaceItemId] = tabId;
+    });
+  }
+
+  navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: workspaceItemId } });
+
+  if (ui.activeContextId === workspaceItemId && tabId) {
+    switchTab(tabId);
+  }
+}
+
 export function setFocus(paneId: PaneId): void {
   const ui = getUiState();
   const tab = getTabCollection().toArray.find((t) => t.id === ui.activeTabId);
