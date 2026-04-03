@@ -1,5 +1,7 @@
 import { useCallback, useRef } from 'react';
+
 import { updateRatio } from '../lib/tab-actions';
+
 import type { SplitDirection } from '../lib/pane-tree-ops';
 
 /**
@@ -25,11 +27,7 @@ export function useSplitterDrag(
       const isHorizontal = direction === 'horizontal';
       startPosRef.current = isHorizontal ? e.clientX : e.clientY;
       const parent = target.parentElement;
-      const totalSize = parent
-        ? isHorizontal
-          ? parent.offsetWidth
-          : parent.offsetHeight
-        : 1;
+      const totalSize = parent ? (isHorizontal ? parent.offsetWidth : parent.offsetHeight) : 1;
 
       const onPointerMove = (moveEvent: PointerEvent) => {
         const currentPos = isHorizontal ? moveEvent.clientX : moveEvent.clientY;

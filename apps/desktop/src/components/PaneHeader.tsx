@@ -1,4 +1,5 @@
 import { StatusDot } from './StatusDot';
+
 import type { DotStatus } from './StatusDot';
 
 /**
@@ -21,9 +22,7 @@ export function PaneHeader({
   agentStatus?: DotStatus;
   agentName?: string;
 }) {
-  const displayPath = cwd
-    ? cwd.split('/').filter(Boolean).slice(-2).join('/')
-    : '~';
+  const displayPath = cwd ? cwd.split('/').filter(Boolean).slice(-2).join('/') : '~';
 
   const showAgent = agentStatus && agentStatus !== 'idle';
 
@@ -52,7 +51,9 @@ export function PaneHeader({
       {showAgent && agentName && (
         <>
           <span style={{ fontSize: '11px', color: 'var(--text-primary)' }}>{agentName}</span>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)', opacity: 0.4 }}>&middot;</span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', opacity: 0.4 }}>
+            &middot;
+          </span>
         </>
       )}
       {displayPath}

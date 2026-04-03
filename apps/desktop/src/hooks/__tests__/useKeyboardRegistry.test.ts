@@ -1,14 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
-import { renderHook } from '@testing-library/react';
 import { fireEvent } from '@testing-library/dom';
+import { renderHook } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+
 import { useKeyboardRegistry, type Keybinding } from '../useKeyboardRegistry';
 
 describe('useKeyboardRegistry', () => {
   it('calls action when matching Cmd+D keydown fires', () => {
     const action = vi.fn();
-    const bindings: Keybinding[] = [
-      { key: 'd', meta: true, action },
-    ];
+    const bindings: Keybinding[] = [{ key: 'd', meta: true, action }];
     renderHook(() => useKeyboardRegistry(bindings));
 
     fireEvent.keyDown(document, { key: 'd', metaKey: true });
@@ -17,9 +16,7 @@ describe('useKeyboardRegistry', () => {
 
   it('calls preventDefault and stopPropagation on matched shortcut', () => {
     const action = vi.fn();
-    const bindings: Keybinding[] = [
-      { key: 'd', meta: true, action },
-    ];
+    const bindings: Keybinding[] = [{ key: 'd', meta: true, action }];
     renderHook(() => useKeyboardRegistry(bindings));
 
     const event = new KeyboardEvent('keydown', {
@@ -38,9 +35,7 @@ describe('useKeyboardRegistry', () => {
 
   it('does NOT call preventDefault on unmatched key', () => {
     const action = vi.fn();
-    const bindings: Keybinding[] = [
-      { key: 'd', meta: true, action },
-    ];
+    const bindings: Keybinding[] = [{ key: 'd', meta: true, action }];
     renderHook(() => useKeyboardRegistry(bindings));
 
     const event = new KeyboardEvent('keydown', {
@@ -59,9 +54,7 @@ describe('useKeyboardRegistry', () => {
   it('listener is on capture phase', () => {
     const action = vi.fn();
     const addSpy = vi.spyOn(document, 'addEventListener');
-    const bindings: Keybinding[] = [
-      { key: 'd', meta: true, action },
-    ];
+    const bindings: Keybinding[] = [{ key: 'd', meta: true, action }];
     renderHook(() => useKeyboardRegistry(bindings));
 
     const captureCall = addSpy.mock.calls.find(
@@ -73,9 +66,7 @@ describe('useKeyboardRegistry', () => {
 
   it('matches shift:true binding only when shiftKey is true', () => {
     const action = vi.fn();
-    const bindings: Keybinding[] = [
-      { key: 'd', meta: true, shift: true, action },
-    ];
+    const bindings: Keybinding[] = [{ key: 'd', meta: true, shift: true, action }];
     renderHook(() => useKeyboardRegistry(bindings));
 
     // Without shift - should not match
@@ -89,9 +80,7 @@ describe('useKeyboardRegistry', () => {
 
   it('matches alt:true binding only when altKey is true', () => {
     const action = vi.fn();
-    const bindings: Keybinding[] = [
-      { key: 'd', meta: true, alt: true, action },
-    ];
+    const bindings: Keybinding[] = [{ key: 'd', meta: true, alt: true, action }];
     renderHook(() => useKeyboardRegistry(bindings));
 
     // Without alt - should not match

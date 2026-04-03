@@ -1,9 +1,11 @@
 import { useRef, useState, useEffect } from 'react';
-import { useTerminal } from '../hooks/useTerminal';
-import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
-import { setFocus, setPtyId } from '../lib/tab-actions';
-import { spawnTerminal, getPtyCwd } from '../lib/pty';
+
 import { getSettingCollection, getSetting, setSetting } from '@superagent/db';
+
+import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
+import { useTerminal } from '../hooks/useTerminal';
+import { spawnTerminal, getPtyCwd } from '../lib/pty';
+import { setFocus, setPtyId } from '../lib/tab-actions';
 import { PaneHeader } from './PaneHeader';
 
 interface TerminalPaneProps {
@@ -37,7 +39,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
     const settings = getSettingCollection().toArray;
     const savedCwd = getSetting(settings, `cwd:${paneId}`, '') as string;
 
-    spawnTerminal(paneId, savedCwd || undefined).then((id) => {
+    void spawnTerminal(paneId, savedCwd || undefined).then((id) => {
       if (cancelled) return;
       setRealPtyId(id);
       setPtyId(paneId, id);
@@ -69,7 +71,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
       }
     };
 
-    poll();
+    void poll();
     const interval = setInterval(poll, 2000);
 
     return () => {
@@ -80,7 +82,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
 
   if (realPtyId === null) {
     return (
-      <div className="h-full w-full flex items-center justify-center text-gray-500 text-sm">
+      <div className="flex h-full w-full items-center justify-center text-sm text-gray-500">
         Starting terminal...
       </div>
     );

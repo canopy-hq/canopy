@@ -1,6 +1,7 @@
+import { sql } from 'drizzle-orm';
+
 import { getDb } from './client';
 import { settings, workspaces, tabs, sessions } from './schema';
-import { sql } from 'drizzle-orm';
 
 /**
  * Run all migrations against the already-initialized SQLite database.

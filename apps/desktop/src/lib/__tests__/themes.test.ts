@@ -1,21 +1,54 @@
 import { describe, it, expect } from 'vitest';
+
 import { themes, themeNames, terminalThemes, cssThemeProperties, type ThemeName } from '../themes';
 
 const EXPECTED_THEMES: ThemeName[] = [
-  'carbon', 'graphite', 'obsidian', 'slate', 'midnight', 'void', 'smoke', 'ash',
+  'carbon',
+  'graphite',
+  'obsidian',
+  'slate',
+  'midnight',
+  'void',
+  'smoke',
+  'ash',
 ];
 
 const CSS_KEYS = [
-  'bgPrimary', 'bgSecondary', 'bgTertiary', 'border', 'borderFocus',
-  'textPrimary', 'textMuted', 'accent', 'tabActiveBg', 'tabInactiveBg',
-  'splitterIdle', 'splitterHover',
+  'bgPrimary',
+  'bgSecondary',
+  'bgTertiary',
+  'border',
+  'borderFocus',
+  'textPrimary',
+  'textMuted',
+  'accent',
+  'tabActiveBg',
+  'tabInactiveBg',
+  'splitterIdle',
+  'splitterHover',
 ] as const;
 
 const TERMINAL_KEYS = [
-  'background', 'foreground', 'cursor', 'selectionBackground',
-  'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white',
-  'brightBlack', 'brightRed', 'brightGreen', 'brightYellow',
-  'brightBlue', 'brightMagenta', 'brightCyan', 'brightWhite',
+  'background',
+  'foreground',
+  'cursor',
+  'selectionBackground',
+  'black',
+  'red',
+  'green',
+  'yellow',
+  'blue',
+  'magenta',
+  'cyan',
+  'white',
+  'brightBlack',
+  'brightRed',
+  'brightGreen',
+  'brightYellow',
+  'brightBlue',
+  'brightMagenta',
+  'brightCyan',
+  'brightWhite',
 ] as const;
 
 describe('themes', () => {

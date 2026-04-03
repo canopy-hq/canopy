@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
+
 import { useAgents, useWorkspaces, useTabs } from '../hooks/useCollections';
 import { setActiveContext, switchTab } from '../lib/tab-actions';
-import type { AgentInfo } from '@superagent/db';
-import type { PaneNode } from '../lib/pane-tree-ops';
 import { StatusDot } from './StatusDot';
+
+import type { PaneNode } from '../lib/pane-tree-ops';
+import type { AgentInfo } from '@superagent/db';
 
 export interface AgentOverlayProps {
   isOpen: boolean;
@@ -152,12 +154,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
 
   return (
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 50,
-        backgroundColor: 'rgba(0, 0, 0, 0.3)',
-      }}
+      style={{ position: 'fixed', inset: 0, zIndex: 50, backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -183,10 +180,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
         }}
         onKeyDown={handleKeyDown}
       >
-        <Dialog
-          className="outline-none"
-          aria-label="Agent Overview"
-        >
+        <Dialog className="outline-none" aria-label="Agent Overview">
           {/* Header */}
           <div
             style={{
@@ -199,52 +193,27 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
           >
             <Heading
               slot="title"
-              style={{
-                fontSize: '14px',
-                fontWeight: 600,
-                color: 'var(--text-primary)',
-                margin: 0,
-              }}
+              style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}
             >
               Agent Overview
             </Heading>
             {(runningCount > 0 || waitingCount > 0) && (
-              <span
-                style={{
-                  fontSize: '11px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
+              <span style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 {runningCount > 0 && (
-                  <span style={{ color: 'var(--agent-running)' }}>
-                    {runningCount} running
-                  </span>
+                  <span style={{ color: 'var(--agent-running)' }}>{runningCount} running</span>
                 )}
                 {runningCount > 0 && waitingCount > 0 && (
-                  <span style={{ color: 'var(--text-muted)', opacity: 0.6 }}>
-                    {'\u00B7'}
-                  </span>
+                  <span style={{ color: 'var(--text-muted)', opacity: 0.6 }}>{'\u00B7'}</span>
                 )}
                 {waitingCount > 0 && (
-                  <span style={{ color: 'var(--agent-waiting)' }}>
-                    {waitingCount} waiting
-                  </span>
+                  <span style={{ color: 'var(--agent-waiting)' }}>{waitingCount} waiting</span>
                 )}
               </span>
             )}
           </div>
 
           {/* Body */}
-          <div
-            style={{
-              overflowY: 'auto',
-              scrollbarWidth: 'none',
-              padding: '8px 0',
-              flex: 1,
-            }}
-          >
+          <div style={{ overflowY: 'auto', scrollbarWidth: 'none', padding: '8px 0', flex: 1 }}>
             {!hasAgents ? (
               /* Empty state */
               <div
@@ -257,22 +226,10 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                   gap: '8px',
                 }}
               >
-                <span
-                  style={{
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    color: 'var(--text-muted)',
-                  }}
-                >
+                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)' }}>
                   No agents running
                 </span>
-                <span
-                  style={{
-                    fontSize: '13px',
-                    color: 'var(--text-muted)',
-                    opacity: 0.6,
-                  }}
-                >
+                <span style={{ fontSize: '13px', color: 'var(--text-muted)', opacity: 0.6 }}>
                   Start an AI agent in any terminal to see it here
                 </span>
               </div>
@@ -316,17 +273,15 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                             : isSelected
                               ? 'var(--bg-tertiary)'
                               : 'transparent',
-                          borderLeft: isSelected ? '2px solid var(--accent)' : '2px solid transparent',
+                          borderLeft: isSelected
+                            ? '2px solid var(--accent)'
+                            : '2px solid transparent',
                         }}
                         data-selected={isSelected}
                       >
                         <StatusDot status={row.agent.status} size={8} />
                         <span
-                          style={{
-                            fontSize: '13px',
-                            color: 'var(--text-primary)',
-                            flexShrink: 0,
-                          }}
+                          style={{ fontSize: '13px', color: 'var(--text-primary)', flexShrink: 0 }}
                         >
                           {row.agent.agentName}
                         </span>

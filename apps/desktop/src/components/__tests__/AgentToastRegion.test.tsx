@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import {
-  agentToastQueue,
-  showAgentToast,
-  showAgentToastDeduped,
-} from '../../lib/toast';
+
+import { agentToastQueue, showAgentToast, showAgentToastDeduped } from '../../lib/toast';
+
 import type { AgentToastContent } from '../../lib/toast';
 
 function makeToast(overrides?: Partial<AgentToastContent>): AgentToastContent {
@@ -20,7 +18,7 @@ function makeToast(overrides?: Partial<AgentToastContent>): AgentToastContent {
 describe('AgentToastRegion', () => {
   beforeEach(() => {
     // Clear any existing toasts by closing them through the queue
-    for (const toast of [...agentToastQueue.visibleToasts]) {
+    for (const toast of agentToastQueue.visibleToasts) {
       agentToastQueue.close(toast.key);
     }
   });

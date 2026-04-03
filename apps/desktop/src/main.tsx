@@ -1,8 +1,10 @@
 import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
+
+import { initDb, runMigrations, hydrateCollections } from '@superagent/db';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { invoke } from '@tauri-apps/api/core';
-import { initDb, runMigrations, hydrateCollections } from '@superagent/db';
+import { createRoot } from 'react-dom/client';
+
 import { routeTree } from './routeTree.gen';
 import './index.css';
 
@@ -27,4 +29,4 @@ async function boot() {
   );
 }
 
-boot();
+await boot();

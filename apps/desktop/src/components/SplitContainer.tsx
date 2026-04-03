@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { Children } from 'react';
+
 import { Splitter } from './Splitter';
+
 import type { SplitDirection } from '../lib/pane-tree-ops';
 
 interface SplitContainerProps {
@@ -25,13 +27,8 @@ export function SplitContainer({ direction, ratios, nodeId, children }: SplitCon
     <div className={`flex h-full w-full ${isHorizontal ? 'flex-row' : 'flex-col'}`}>
       {childArray.map((child, i) => (
         <Fragment key={i}>
-          {i > 0 && (
-            <Splitter nodeId={nodeId} splitIndex={i} direction={direction} />
-          )}
-          <div
-            className="overflow-hidden relative"
-            style={{ flex: `${ratios[i] ?? 1} 1 0%` }}
-          >
+          {i > 0 && <Splitter nodeId={nodeId} splitIndex={i} direction={direction} />}
+          <div className="relative overflow-hidden" style={{ flex: `${ratios[i] ?? 1} 1 0%` }}>
             {child}
           </div>
         </Fragment>
