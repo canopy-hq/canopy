@@ -74,7 +74,7 @@ function WorktreeRow({ worktree, workspaceId, agentStatus, onRemoveClick }: { wo
   return (
     <div className="group/wt flex items-center gap-[6px] py-[3px] px-[10px] rounded-[5px]"
       style={{ marginLeft: '39px', marginRight: '6px', marginTop: '1px', marginBottom: '1px' }}>
-      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" className="flex-shrink-0 mt-[1px]">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" className="flex-shrink-0 mt-[1px]">
         <rect x="3" y="3" width="10" height="10" rx="2"/>
       </svg>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -90,18 +90,18 @@ function WorktreeRow({ worktree, workspaceId, agentStatus, onRemoveClick }: { wo
               if (e.key === 'Escape') setEditing(false);
             }}
             className="w-full bg-transparent border-none outline-none text-[var(--text-secondary)]"
-            style={{ fontSize: '13px', padding: 0, margin: 0 }}
+            style={{ fontSize: '14px', padding: 0, margin: 0 }}
           />
         ) : (
           <span
-            style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'block' }}
+            style={{ fontSize: '14px', color: 'var(--text-secondary)', display: 'block' }}
             className="truncate"
             onDoubleClick={startEditing}
           >
             {displayName}
           </span>
         )}
-        <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }} className="truncate">
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }} className="truncate">
           {worktree.branch || worktree.name}
         </span>
       </div>
@@ -116,7 +116,7 @@ function WorktreeRow({ worktree, workspaceId, agentStatus, onRemoveClick }: { wo
         tabIndex={0}
         onKeyDown={(e) => { if (e.key === 'Enter') onRemoveClick(e as unknown as React.MouseEvent); }}
       >
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#666" strokeWidth="1.5">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.5">
           <path d="M4 4l8 8M12 4l-8 8"/>
         </svg>
       </div>
@@ -129,53 +129,49 @@ function RepoHeader({
   agentSummary,
   isSelected,
   onPlusClick,
+  onRowClick,
 }: {
   workspace: Workspace;
   agentSummary?: Array<'running' | 'waiting'>;
   isSelected: boolean;
   onPlusClick: (e: React.MouseEvent) => void;
+  onRowClick: (e: React.MouseEvent) => void;
 }) {
   const headBranch = workspace.branches.find((b) => b.is_head);
   const childCount = workspace.branches.length + workspace.worktrees.length;
 
   return (
     <div
-      className="group flex items-center gap-[7px] py-[6px] pl-[12px] pr-[6px]"
+      className="group flex items-center gap-[7px] py-[6px] pl-[12px] pr-[6px] cursor-pointer"
       style={{
         borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent',
         background: isSelected ? 'rgba(59,130,246,0.04)' : undefined,
       }}
+      onClick={onRowClick}
     >
+      {/* Hidden chevron for React ARIA Tree expand/collapse */}
       <Button
         slot="chevron"
-        className="text-[var(--text-muted)] bg-transparent border-none p-0 outline-none cursor-pointer"
-        style={{ fontSize: '10px', width: '10px', textAlign: 'center' }}
-      >
-        {workspace.expanded ? (
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M4 6l4 4 4-4z"/></svg>
-        ) : (
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M6 4l4 4-4 4z"/></svg>
-        )}
-      </Button>
+        className="hidden"
+      />
       <svg
-        width="14" height="14" viewBox="0 0 16 16" fill="none"
+        width="16" height="16" viewBox="0 0 16 16" fill="none"
         stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'}
         strokeWidth="1.5"
+        className="flex-shrink-0"
         style={isSelected ? { filter: 'drop-shadow(0 0 3px rgba(59,130,246,0.4))' } : undefined}
       >
         <path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/>
       </svg>
       <span
         className="font-medium truncate"
-        style={{ fontSize: '13px', flex: 1, color: isSelected ? 'var(--text-primary)' : 'var(--text-muted)' }}
+        style={{ fontSize: '14px', flex: 1, color: isSelected ? 'var(--text-primary)' : 'var(--text-muted)' }}
       >
         {workspace.name}
       </span>
       {/* Collapsed: show inline branch + count */}
       {!workspace.expanded && (
         <>
-          <span style={{ color: 'var(--text-muted)', margin: '0 2px' }}>·</span>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{headBranch?.name ?? 'main'}</span>
           {agentSummary && agentSummary.length > 0 && (
             <span className="flex items-center" style={{ gap: '3px', marginLeft: '4px' }}>
               {agentSummary.slice(0, 3).map((status, i) => (
@@ -184,22 +180,30 @@ function RepoHeader({
             </span>
           )}
           {childCount > 0 && (
-            <span style={{ fontSize: '10px', color: 'var(--text-muted)', background: 'var(--bg-tertiary)', padding: '1px 6px', borderRadius: '8px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--bg-tertiary)', padding: '1px 6px', borderRadius: '8px' }}>
               {childCount}
             </span>
           )}
         </>
       )}
+      {/* Collapse/expand chevron indicator */}
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--text-muted)" className="flex-shrink-0">
+        {workspace.expanded ? (
+          <path d="M4 6l4 4 4-4z"/>
+        ) : (
+          <path d="M6 4l4 4-4 4z"/>
+        )}
+      </svg>
       {/* + button */}
       <div
         className="cursor-pointer flex-shrink-0"
-        onClick={onPlusClick}
+        onClick={(e) => { e.stopPropagation(); onPlusClick(e); }}
         role="button"
         aria-label="Add workspace"
         tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter') onPlusClick(e as unknown as React.MouseEvent); }}
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onPlusClick(e as unknown as React.MouseEvent); } }}
       >
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#555" strokeWidth="1.5"><path d="M8 3v10M3 8h10"/></svg>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.5"><path d="M8 3v10M3 8h10"/></svg>
       </div>
     </div>
   );
@@ -445,6 +449,10 @@ function RepoTreeItem({
             onPlusClick={(e) => {
               e.stopPropagation();
               setModalWorkspace(ws);
+            }}
+            onRowClick={(e) => {
+              e.stopPropagation();
+              toggleExpanded(ws.id);
             }}
           />
         </div>
