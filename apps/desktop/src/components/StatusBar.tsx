@@ -1,76 +1,19 @@
-import { useState, useCallback } from 'react';
-
-import { useTabs, useWorkspaces, useAgents, useUiState } from '../hooks/useCollections';
-
-import type { PaneNode } from '../lib/pane-tree-ops';
-
-function BranchLabel({ name }: { name: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleClick = useCallback(() => {
-    navigator.clipboard.writeText(name).then(
-      () => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      },
-      () => {},
-    );
-  }, [name]);
-
-  return (
-    <span
-      className="flex cursor-pointer items-center gap-1 transition-colors hover:text-text-primary"
-      onClick={handleClick}
-      title="Click to copy branch name"
-    >
-      <span style={{ color: 'var(--branch-icon)' }}>&#x2387;</span>
-      <span style={{ opacity: copied ? 0.5 : 1, transition: 'opacity 150ms' }}>{name}</span>
-    </span>
-  );
-}
-
-function countLeaves(node: PaneNode): number {
-  if (node.type === 'leaf') return 1;
-  return node.children.reduce((sum, child) => sum + countLeaves(child), 0);
-}
+import { useAgents } from '../hooks/useCollections';
 
 export function StatusBar() {
-  const tabs = useTabs();
-  const ui = useUiState();
-  const workspaces = useWorkspaces();
   const agents = useAgents();
 
   const runningCount = agents.filter((a) => a.status === 'running').length;
   const waitingCount = agents.filter((a) => a.status === 'waiting').length;
 
-  const activeTab = tabs.find((t) => t.id === ui.activeTabId);
-  const paneCount = activeTab ? countLeaves(activeTab.paneRoot) : 0;
-
-  const activeWorkspace = workspaces.length > 0 ? workspaces[0] : null;
-  const headBranch = activeWorkspace?.branches.find((b) => b.is_head);
-
   return (
     <div
-      className="flex h-6 flex-shrink-0 items-center justify-between border-t border-border bg-bg-primary px-3 text-text-muted"
+      className="flex h-6 flex-shrink-0 items-center justify-end border-t border-border bg-bg-primary px-3 text-text-muted"
       style={{ fontSize: '11px', fontFamily: 'Menlo, Monaco, "Courier New", monospace' }}
     >
       <div className="flex items-center gap-3">
-        {activeWorkspace && (
-          <>
-            <span className="text-text-primary" style={{ fontSize: '13px' }}>
-              {activeWorkspace.name}
-            </span>
-            {headBranch && <BranchLabel name={headBranch.name} />}
-            <span className="text-text-muted">|</span>
-          </>
-        )}
-        <span>
-          {paneCount} {paneCount === 1 ? 'pane' : 'panes'}
-        </span>
-      </div>
-      <div className="flex items-center gap-3">
         {(runningCount > 0 || waitingCount > 0) && (
-          <span className="flex items-center gap-1" style={{ fontSize: '11px' }}>
+          <span className="flex items-center gap-1">
             {runningCount > 0 && (
               <span style={{ color: 'var(--agent-running)' }}>{runningCount} working</span>
             )}
