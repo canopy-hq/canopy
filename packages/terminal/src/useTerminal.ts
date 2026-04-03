@@ -243,18 +243,11 @@ export function useTerminal(
               term.write(data);
             });
           } else {
-            // Restored session: keep overlay until first byte arrives.
-            // SIGWINCH (100ms timer below) forces zsh to reprint its prompt,
-            // producing the bytes that remove the overlay.
-            overlayTimeoutId = setTimeout(removeOverlay, 2000);
-            connectPtyOutput(newId, (data: Uint8Array) => {
-              if (overlayTimeoutId !== null) {
-                clearTimeout(overlayTimeoutId);
-                overlayTimeoutId = null;
-              }
-              removeOverlay();
-              term.write(data);
-            });
+            // Restored session: setHandler drains buffered scrollback synchronously.
+            // Remove overlay immediately — SIGWINCH (100ms timer below) will force
+            // the shell to reprint its prompt if scrollback was empty.
+            connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
+            removeOverlay();
           }
           setCached(newId, term, fitAddon);
           onPtySpawned(newId);

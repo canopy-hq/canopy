@@ -206,7 +206,7 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
     unmount();
   });
 
-  it('overlay removed on first data byte when isNew=false', async () => {
+  it('overlay removed immediately when isNew=false (restored session)', async () => {
     vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
 
     const container = makeContainer();
@@ -218,18 +218,9 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
 
     const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
     const wrapper = termInstance.element as HTMLElement;
-    // Overlay still present — SIGWINCH hasn't fired yet (waiting for first byte).
-    const overlay = wrapper.firstElementChild as HTMLElement;
-    expect(overlay).toBeTruthy();
-    expect(overlay.style.position).toBe('absolute');
-
-    // Simulate first byte arriving via connectPtyOutput handler
-    const outputHandler = vi.mocked(connectPtyOutput).mock.calls[0]![1];
-    act(() => {
-      outputHandler(new Uint8Array([65])); // 'A'
-    });
-
-    expect(overlay.parentNode).toBeNull();
+    // Overlay should be gone — removed immediately after connectPtyOutput drains scrollback.
+    const overlay = wrapper.firstElementChild as HTMLElement | null;
+    expect(overlay === null || overlay.style.position !== 'absolute').toBe(true);
     unmount();
   });
 
@@ -480,7 +471,7 @@ describe('useTerminal — ptyId change after spawn must NOT cancel sigwinch (isN
     unmount();
   });
 
-  it('overlay removed on first byte for isNew=false even after ptyId prop changes', async () => {
+  it('overlay removed immediately for isNew=false even after ptyId prop changes', async () => {
     vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
 
     const container = makeContainer();
@@ -494,26 +485,15 @@ describe('useTerminal — ptyId change after spawn must NOT cancel sigwinch (isN
 
     await act(flushPromises);
 
-    // Store update changes ptyId prop — effect stays stable
+    // Store update changes ptyId prop — effect stays stable (ptyId is a ref, not a dep)
     rerender({ ptyId: 42 });
     await act(flushPromises);
 
-    // Overlay still present — waiting for first byte
+    // Overlay was removed immediately after connectPtyOutput (isNew=false path)
     const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
     const wrapper = termInstance.element as HTMLElement;
-    const overlay = wrapper.firstElementChild as HTMLElement;
-    expect(overlay).toBeTruthy();
-    expect(overlay.style.position).toBe('absolute');
-
-    // Simulate SIGWINCH response arriving via connectPtyOutput handler
-    const outputHandler = vi.mocked(connectPtyOutput).mock.calls[0]![1];
-    act(() => {
-      outputHandler(new Uint8Array([27, 91, 72, 126]));
-    });
-
-    // Overlay removed, content written
-    expect(overlay.parentNode).toBeNull();
-    expect(termInstance.write).toHaveBeenCalled();
+    const overlay = wrapper.firstElementChild as HTMLElement | null;
+    expect(overlay === null || overlay.style.position !== 'absolute').toBe(true);
 
     unmount();
   });
