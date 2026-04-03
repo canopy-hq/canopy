@@ -9,7 +9,7 @@ let _tabs: Tab[] = [];
 let _uiState: UiState = {
   id: 'ui',
   sidebarVisible: false,
-  sidebarWidth: 230,
+  sidebarWidth: 400,
   selectedItemId: null,
   activeTabId: '',
   activeContextId: '',
@@ -63,7 +63,7 @@ function resetState() {
   _uiState = {
     id: 'ui',
     sidebarVisible: false,
-    sidebarWidth: 230,
+    sidebarWidth: 400,
     selectedItemId: null,
     activeTabId: '',
     activeContextId: '',

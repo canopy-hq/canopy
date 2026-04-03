@@ -8,6 +8,7 @@ mod pty;
 use std::sync::Mutex;
 use daemon_client::DaemonClient;
 use tauri::{Emitter, Manager};
+use tauri::window::Color;
 
 /// Returns the absolute path to the SQLite DB, creating ~/.superagent/ if needed.
 #[tauri::command]
@@ -32,6 +33,12 @@ pub fn run() {
                 .output();
 
             menu::setup_menu(app)?;
+
+            // Match the native window + webview background to the default dark theme
+            // (#0a0a14) so macOS resize animations don't show a different-colored gap.
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_background_color(Some(Color(10, 10, 20, 255)));
+            }
 
             // Locate daemon socket and binary
             let socket = app.path().app_data_dir()?.join("pty-daemon.sock");
