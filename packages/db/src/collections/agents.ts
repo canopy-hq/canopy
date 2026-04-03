@@ -11,7 +11,5 @@ export interface AgentInfo {
 
 // In-memory only — agent state is ephemeral runtime data, not persisted
 export const agentCollection = createCollection(
-  localOnlyCollectionOptions<AgentInfo, number>({
-    getKey: (a) => a.ptyId,
-  }),
+  localOnlyCollectionOptions<AgentInfo, number>({ getKey: (a) => a.ptyId }),
 );

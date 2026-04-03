@@ -1,5 +1,6 @@
-import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup, within } from '@testing-library/react';
+import { describe, it, expect, afterEach } from 'vitest';
+
 import { PaneHeader } from '../PaneHeader';
 
 describe('PaneHeader', () => {

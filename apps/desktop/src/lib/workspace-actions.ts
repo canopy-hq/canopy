@@ -1,11 +1,19 @@
-import { getWorkspaceCollection, getTabCollection, uiCollection, getUiState, setSetting } from '@superagent/db';
-import type { Workspace } from '@superagent/db';
+import {
+  getWorkspaceCollection,
+  getTabCollection,
+  uiCollection,
+  getUiState,
+  setSetting,
+} from '@superagent/db';
+
 import * as gitApi from './git';
-import { showErrorToast } from './toast';
-import { setActiveContext } from './tab-actions';
 import { collectLeafPtyIds } from './pane-tree-ops';
 import { closePty } from './pty';
+import { setActiveContext } from './tab-actions';
 import { disposeCached } from './terminal-cache';
+import { showErrorToast } from './toast';
+
+import type { Workspace } from '@superagent/db';
 
 /** All sidebar item IDs for a workspace (repo root + branches + worktrees). */
 export function getWorkspaceItemIds(ws: Workspace): Set<string> {
@@ -104,7 +112,7 @@ export function selectWorkspaceItem(itemId: string | null, itemLabel?: string): 
     draft.selectedItemId = itemId;
   });
   if (itemId !== null && itemLabel) {
-    setActiveContext(itemId, itemLabel);
+    setActiveContext(itemId);
   } else if (itemId === null) {
     setActiveContext('');
   }

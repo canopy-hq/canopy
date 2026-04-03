@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { toastQueue, showErrorToast } from '../../lib/toast';
 
 describe('ToastProvider', () => {

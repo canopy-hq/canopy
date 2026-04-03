@@ -5,9 +5,7 @@ export interface ToastContent {
   description?: string;
 }
 
-export const toastQueue = new ToastQueue<ToastContent>({
-  maxVisibleToasts: 5,
-});
+export const toastQueue = new ToastQueue<ToastContent>({ maxVisibleToasts: 5 });
 
 export function showErrorToast(title: string, description?: string) {
   toastQueue.add({ title, description }, { timeout: 8000 });
@@ -23,9 +21,7 @@ export interface AgentToastContent {
   ptyId: number;
 }
 
-export const agentToastQueue = new ToastQueue<AgentToastContent>({
-  maxVisibleToasts: 3,
-});
+export const agentToastQueue = new ToastQueue<AgentToastContent>({ maxVisibleToasts: 3 });
 
 export function showAgentToast(content: AgentToastContent) {
   const timeout = content.type === 'agent-complete' ? 10000 : undefined;

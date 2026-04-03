@@ -1,53 +1,51 @@
 import { useState, useRef, useEffect } from 'react';
+import { Button, Tree, TreeItem, TreeItemContent } from 'react-aria-components';
+import type { Selection, Key } from 'react-aria-components';
 import { createPortal } from 'react-dom';
-import {
-  Button,
-  Tree,
-  TreeItem,
-  TreeItemContent,
-} from 'react-aria-components';
+
 import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useCollections';
-import { toggleExpanded, selectWorkspaceItem, closeProject, getWorkspaceItemIds } from '../lib/workspace-actions';
+import { collectLeafPtyIds } from '../lib/pane-tree-ops';
+import {
+  toggleExpanded,
+  selectWorkspaceItem,
+  closeProject,
+  getWorkspaceItemIds,
+} from '../lib/workspace-actions';
+import { CloseProjectModal } from './CloseProjectModal';
+import { CreateModal } from './CreateModal';
 import { StatusDot } from './StatusDot';
+
+import type { BranchInfo, WorktreeInfo } from '../lib/git';
 import type { DotStatus } from './StatusDot';
 import type { Workspace } from '@superagent/db';
-import type { BranchInfo, WorktreeInfo } from '../lib/git';
-import type { Selection, Key } from 'react-aria-components';
-import { collectLeafPtyIds } from '../lib/pane-tree-ops';
-import { CreateModal } from './CreateModal';
-import { CloseProjectModal } from './CloseProjectModal';
 
 function BranchRow({ branch, agentStatus }: { branch: BranchInfo; agentStatus?: DotStatus }) {
   return (
-    <div className="flex items-center h-7 pl-4 pr-2 gap-1">
+    <div className="flex h-7 items-center gap-1 pr-2 pl-4">
       <span style={{ color: 'var(--branch-icon)' }}>&#x2387;</span>
-      <span
-        className="text-text-primary truncate flex-1"
-        style={{ fontSize: '13px' }}
-      >
+      <span className="flex-1 truncate text-text-primary" style={{ fontSize: '13px' }}>
         {branch.name}
       </span>
       {agentStatus && agentStatus !== 'idle' && <StatusDot status={agentStatus} size={8} />}
       <span className="flex gap-1" style={{ fontSize: '11px' }}>
-        {branch.ahead > 0 && (
-          <span style={{ color: 'var(--git-ahead)' }}>+{branch.ahead}</span>
-        )}
-        {branch.behind > 0 && (
-          <span style={{ color: 'var(--git-behind)' }}>-{branch.behind}</span>
-        )}
+        {branch.ahead > 0 && <span style={{ color: 'var(--git-ahead)' }}>+{branch.ahead}</span>}
+        {branch.behind > 0 && <span style={{ color: 'var(--git-behind)' }}>-{branch.behind}</span>}
       </span>
     </div>
   );
 }
 
-function WorktreeRow({ worktree, agentStatus }: { worktree: WorktreeInfo; agentStatus?: DotStatus }) {
+function WorktreeRow({
+  worktree,
+  agentStatus,
+}: {
+  worktree: WorktreeInfo;
+  agentStatus?: DotStatus;
+}) {
   return (
-    <div className="flex items-center h-7 pl-4 pr-2 gap-1">
+    <div className="flex h-7 items-center gap-1 pr-2 pl-4">
       <span style={{ color: 'var(--worktree-icon)' }}>&#x25C6;</span>
-      <span
-        className="text-text-primary truncate flex-1"
-        style={{ fontSize: '13px' }}
-      >
+      <span className="flex-1 truncate text-text-primary" style={{ fontSize: '13px' }}>
         {worktree.name}
       </span>
       {agentStatus && agentStatus !== 'idle' && <StatusDot status={agentStatus} size={8} />}
@@ -55,22 +53,25 @@ function WorktreeRow({ worktree, agentStatus }: { worktree: WorktreeInfo; agentS
   );
 }
 
-function RepoHeader({ workspace, agentSummary }: { workspace: Workspace; agentSummary?: Array<'running' | 'waiting'> }) {
+function RepoHeader({
+  workspace,
+  agentSummary,
+}: {
+  workspace: Workspace;
+  agentSummary?: Array<'running' | 'waiting'>;
+}) {
   const headBranch = workspace.branches.find((b) => b.is_head);
   return (
-    <div className="flex flex-col justify-center h-7 pl-2 pr-2">
+    <div className="flex h-7 flex-col justify-center pr-2 pl-2">
       <div className="flex items-center gap-1">
         <Button
           slot="chevron"
-          className="text-text-muted bg-transparent border-none p-0 outline-none cursor-pointer"
+          className="cursor-pointer border-none bg-transparent p-0 text-text-muted outline-none"
           style={{ fontSize: '11px', width: '12px', textAlign: 'center' }}
         >
           {workspace.expanded ? '\u25BE' : '\u25B8'}
         </Button>
-        <span
-          className="text-text-primary font-semibold truncate"
-          style={{ fontSize: '13px' }}
-        >
+        <span className="truncate font-semibold text-text-primary" style={{ fontSize: '13px' }}>
           {workspace.name}
         </span>
         {!workspace.expanded && agentSummary && agentSummary.length > 0 && (
@@ -88,7 +89,7 @@ function RepoHeader({ workspace, agentSummary }: { workspace: Workspace; agentSu
       </div>
       {headBranch && (
         <span
-          className="text-text-muted truncate pl-5"
+          className="truncate pl-5 text-text-muted"
           style={{ fontSize: '11px', lineHeight: '1.3' }}
         >
           {headBranch.name}
@@ -112,7 +113,10 @@ function useWorkspaceAgentMap(): Record<string, DotStatus> {
     let best: DotStatus = 'idle';
     for (const id of ptyIds) {
       const agent = agents.find((a) => a.ptyId === id);
-      if (agent?.status === 'waiting') { best = 'waiting'; break; }
+      if (agent?.status === 'waiting') {
+        best = 'waiting';
+        break;
+      }
       if (agent?.status === 'running') best = 'running';
     }
     const existing = result[tab.workspaceItemId];
@@ -164,13 +168,9 @@ export function WorkspaceTree() {
   const [closeTarget, setCloseTarget] = useState<Workspace | null>(null);
   const agentMap = useWorkspaceAgentMap();
 
-  const expandedKeys = new Set<Key>(
-    workspaces.filter((ws) => ws.expanded).map((ws) => ws.id),
-  );
+  const expandedKeys = new Set<Key>(workspaces.filter((ws) => ws.expanded).map((ws) => ws.id));
 
-  const selectedKeys: Selection = selectedItemId
-    ? new Set([selectedItemId])
-    : new Set<Key>();
+  const selectedKeys: Selection = selectedItemId ? new Set([selectedItemId]) : new Set<Key>();
 
   function findItemLabel(itemId: string): string {
     for (const ws of workspaces) {
@@ -209,41 +209,52 @@ export function WorkspaceTree() {
 
   return (
     <>
-    <Tree
-      aria-label="Workspaces"
-      selectionMode="single"
-      selectedKeys={selectedKeys}
-      onSelectionChange={handleSelectionChange}
-      expandedKeys={expandedKeys}
-      onExpandedChange={handleExpandedChange}
-    >
-      {workspaces.map((ws) => (
-        <RepoTreeItem key={ws.id} ws={ws} agentMap={agentMap} setModalWorkspace={setModalWorkspace} onRequestClose={setCloseTarget} />
-      ))}
-    </Tree>
-    {modalWorkspace && (
-      <CreateModal
-        isOpen={!!modalWorkspace}
-        onClose={() => setModalWorkspace(null)}
-        workspace={modalWorkspace}
-      />
-    )}
-    {closeTarget && (
-      <CloseProjectModal
-        isOpen={!!closeTarget}
-        onClose={() => setCloseTarget(null)}
-        onConfirm={async () => {
-          await closeProject(closeTarget.id);
-          setCloseTarget(null);
-        }}
-        projectName={closeTarget.name}
-      />
-    )}
+      <Tree
+        aria-label="Workspaces"
+        selectionMode="single"
+        selectedKeys={selectedKeys}
+        onSelectionChange={handleSelectionChange}
+        expandedKeys={expandedKeys}
+        onExpandedChange={handleExpandedChange}
+      >
+        {workspaces.map((ws) => (
+          <RepoTreeItem
+            key={ws.id}
+            ws={ws}
+            agentMap={agentMap}
+            setModalWorkspace={setModalWorkspace}
+            onRequestClose={setCloseTarget}
+          />
+        ))}
+      </Tree>
+      {modalWorkspace && (
+        <CreateModal
+          isOpen={!!modalWorkspace}
+          onClose={() => setModalWorkspace(null)}
+          workspace={modalWorkspace}
+        />
+      )}
+      {closeTarget && (
+        <CloseProjectModal
+          isOpen={!!closeTarget}
+          onClose={() => setCloseTarget(null)}
+          onConfirm={async () => {
+            await closeProject(closeTarget.id);
+            setCloseTarget(null);
+          }}
+          projectName={closeTarget.name}
+        />
+      )}
     </>
   );
 }
 
-function ContextMenu({ x, y, onClose, onCloseProject }: {
+function ContextMenu({
+  x,
+  y,
+  onClose,
+  onCloseProject,
+}: {
   x: number;
   y: number;
   onClose: () => void;
@@ -259,19 +270,24 @@ function ContextMenu({ x, y, onClose, onCloseProject }: {
     <div
       className="fixed inset-0 z-40"
       onClick={onClose}
-      onContextMenu={(e) => { e.preventDefault(); onClose(); }}
-      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
       role="presentation"
     >
       <div
-        className="fixed z-50 min-w-[180px] py-1 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg shadow-lg"
+        className="fixed z-50 min-w-[180px] rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] py-1 shadow-lg"
         style={{ left: x, top: y }}
         role="menu"
       >
         <button
           ref={buttonRef}
           role="menuitem"
-          className="w-full px-3 py-1.5 text-left text-[13px] text-[var(--destructive)] hover:bg-[var(--bg-tertiary)] cursor-pointer outline-none focus:bg-[var(--bg-tertiary)]"
+          className="w-full cursor-pointer px-3 py-1.5 text-left text-[13px] text-[var(--destructive)] outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)]"
           onClick={(e) => {
             e.stopPropagation();
             onCloseProject();
@@ -309,79 +325,81 @@ function RepoTreeItem({
 
   return (
     <>
-    <TreeItem
-      key={ws.id}
-      id={ws.id}
-      textValue={ws.name}
-      hasChildItems={ws.branches.length > 0 || ws.worktrees.length > 0}
-      className={({ isSelected }) =>
-        `outline-none cursor-pointer ${isSelected ? 'bg-bg-tertiary border-l-2 border-l-[var(--accent)]' : 'hover:bg-bg-tertiary'}`
-      }
-    >
-      <TreeItemContent>
-        <div onContextMenu={handleContextMenu}>
-          <RepoHeader workspace={ws} agentSummary={agentSummary} />
-        </div>
-      </TreeItemContent>
-      {ws.branches.map((b) => (
-        <TreeItem
-          key={`${ws.id}-branch-${b.name}`}
-          id={`${ws.id}-branch-${b.name}`}
-          textValue={b.name}
-          className={({ isSelected }) =>
-            `outline-none cursor-pointer ${isSelected ? 'bg-bg-tertiary border-l-2 border-l-[var(--accent)]' : 'hover:bg-bg-tertiary'}`
-          }
-        >
-          <TreeItemContent>
-            <BranchRow branch={b} agentStatus={agentMap[`${ws.id}-branch-${b.name}`]} />
-          </TreeItemContent>
-        </TreeItem>
-      ))}
-      {ws.worktrees.map((wt) => (
-        <TreeItem
-          key={`${ws.id}-wt-${wt.name}`}
-          id={`${ws.id}-wt-${wt.name}`}
-          textValue={wt.name}
-          className={({ isSelected }) =>
-            `outline-none cursor-pointer ${isSelected ? 'bg-bg-tertiary border-l-2 border-l-[var(--accent)]' : 'hover:bg-bg-tertiary'}`
-          }
-        >
-          <TreeItemContent>
-            <WorktreeRow worktree={wt} agentStatus={agentMap[`${ws.id}-wt-${wt.name}`]} />
-          </TreeItemContent>
-        </TreeItem>
-      ))}
       <TreeItem
-        key={`${ws.id}-new-branch`}
-        id={`${ws.id}-new-branch`}
-        textValue="New Branch"
-        className="outline-none"
+        key={ws.id}
+        id={ws.id}
+        textValue={ws.name}
+        hasChildItems={ws.branches.length > 0 || ws.worktrees.length > 0}
+        className={({ isSelected }) =>
+          `cursor-pointer outline-none ${isSelected ? 'border-l-2 border-l-[var(--accent)] bg-bg-tertiary' : 'hover:bg-bg-tertiary'}`
+        }
       >
         <TreeItemContent>
-          <div className="h-7 flex items-center pl-4">
-            <button
-              className="text-text-muted hover:text-[var(--accent)] cursor-pointer"
-              style={{ fontSize: '13px' }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setModalWorkspace(ws);
-              }}
-            >
-              + New Branch
-            </button>
+          <div onContextMenu={handleContextMenu}>
+            <RepoHeader workspace={ws} agentSummary={agentSummary} />
           </div>
         </TreeItemContent>
+        {ws.branches.map((b) => (
+          <TreeItem
+            key={`${ws.id}-branch-${b.name}`}
+            id={`${ws.id}-branch-${b.name}`}
+            textValue={b.name}
+            className={({ isSelected }) =>
+              `cursor-pointer outline-none ${isSelected ? 'border-l-2 border-l-[var(--accent)] bg-bg-tertiary' : 'hover:bg-bg-tertiary'}`
+            }
+          >
+            <TreeItemContent>
+              <BranchRow branch={b} agentStatus={agentMap[`${ws.id}-branch-${b.name}`]} />
+            </TreeItemContent>
+          </TreeItem>
+        ))}
+        {ws.worktrees.map((wt) => (
+          <TreeItem
+            key={`${ws.id}-wt-${wt.name}`}
+            id={`${ws.id}-wt-${wt.name}`}
+            textValue={wt.name}
+            className={({ isSelected }) =>
+              `cursor-pointer outline-none ${isSelected ? 'border-l-2 border-l-[var(--accent)] bg-bg-tertiary' : 'hover:bg-bg-tertiary'}`
+            }
+          >
+            <TreeItemContent>
+              <WorktreeRow worktree={wt} agentStatus={agentMap[`${ws.id}-wt-${wt.name}`]} />
+            </TreeItemContent>
+          </TreeItem>
+        ))}
+        <TreeItem
+          key={`${ws.id}-new-branch`}
+          id={`${ws.id}-new-branch`}
+          textValue="New Branch"
+          className="outline-none"
+        >
+          <TreeItemContent>
+            <div className="flex h-7 items-center pl-4">
+              <button
+                className="cursor-pointer text-text-muted hover:text-[var(--accent)]"
+                style={{ fontSize: '13px' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setModalWorkspace(ws);
+                }}
+              >
+                + New Branch
+              </button>
+            </div>
+          </TreeItemContent>
+        </TreeItem>
       </TreeItem>
-    </TreeItem>
-    {menuOpen && <ContextMenu
-      x={menuPos.current.x}
-      y={menuPos.current.y}
-      onClose={() => setMenuOpen(false)}
-      onCloseProject={() => {
-        setMenuOpen(false);
-        onRequestClose(ws);
-      }}
-    />}
+      {menuOpen && (
+        <ContextMenu
+          x={menuPos.current.x}
+          y={menuPos.current.y}
+          onClose={() => setMenuOpen(false)}
+          onCloseProject={() => {
+            setMenuOpen(false);
+            onRequestClose(ws);
+          }}
+        />
+      )}
     </>
   );
 }

@@ -1,5 +1,5 @@
 import { getTabCollection, uiCollection, getUiState, setSetting } from '@superagent/db';
-import type { Tab } from '@superagent/db';
+
 import {
   splitNode,
   removeNode,
@@ -9,6 +9,8 @@ import {
   type PaneId,
   type SplitDirection,
 } from './pane-tree-ops';
+
+import type { Tab } from '@superagent/db';
 
 function makeTab(opts?: { workspaceItemId?: string; label?: string }): Tab {
   const id = crypto.randomUUID();
@@ -106,7 +108,7 @@ export function switchTabRelative(direction: 'prev' | 'next'): void {
   setSetting('activeTabId', tabId);
 }
 
-export function setActiveContext(contextId: string, label?: string): void {
+export function setActiveContext(contextId: string): void {
   const ui = getUiState();
   const col = getTabCollection();
 

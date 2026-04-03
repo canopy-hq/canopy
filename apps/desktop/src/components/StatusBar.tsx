@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
+
 import { useTabs, useWorkspaces, useAgents, useUiState } from '../hooks/useCollections';
+
 import type { PaneNode } from '../lib/pane-tree-ops';
 
 function BranchLabel({ name }: { name: string }) {
@@ -17,7 +19,7 @@ function BranchLabel({ name }: { name: string }) {
 
   return (
     <span
-      className="flex items-center gap-1 cursor-pointer hover:text-text-primary transition-colors"
+      className="flex cursor-pointer items-center gap-1 transition-colors hover:text-text-primary"
       onClick={handleClick}
       title="Click to copy branch name"
     >
@@ -49,7 +51,7 @@ export function StatusBar() {
 
   return (
     <div
-      className="h-6 flex items-center justify-between px-3 border-t border-border bg-bg-primary text-text-muted flex-shrink-0"
+      className="flex h-6 flex-shrink-0 items-center justify-between border-t border-border bg-bg-primary px-3 text-text-muted"
       style={{ fontSize: '11px', fontFamily: 'Menlo, Monaco, "Courier New", monospace' }}
     >
       <div className="flex items-center gap-3">
@@ -58,9 +60,7 @@ export function StatusBar() {
             <span className="text-text-primary" style={{ fontSize: '13px' }}>
               {activeWorkspace.name}
             </span>
-            {headBranch && (
-              <BranchLabel name={headBranch.name} />
-            )}
+            {headBranch && <BranchLabel name={headBranch.name} />}
             <span className="text-text-muted">|</span>
           </>
         )}
