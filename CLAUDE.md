@@ -120,11 +120,8 @@ superagent/
 All commands run from repo root unless noted.
 
 ```bash
-# Install dependencies
+# Install dependencies (also activates pre-commit hooks via postinstall)
 bun install
-
-# Activate pre-commit hooks (run once after cloning)
-lefthook install
 
 # Dev server (from apps/desktop)
 cd apps/desktop && bun tauri dev
