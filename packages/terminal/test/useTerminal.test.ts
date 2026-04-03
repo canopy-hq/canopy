@@ -443,7 +443,6 @@ describe('useTerminal — ptyId change after spawn must NOT cancel sigwinch (isN
     vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
 
     const container = makeContainer();
-    // Stable ref object — same identity across rerenders (like useRef in real app)
     const containerRef = { current: container };
     const onPtySpawned = vi.fn();
 
@@ -485,7 +484,7 @@ describe('useTerminal — ptyId change after spawn must NOT cancel sigwinch (isN
 
     await act(flushPromises);
 
-    // Store update changes ptyId prop — effect stays stable (ptyId is a ref, not a dep)
+    // Store update changes ptyId prop — effect stays stable
     rerender({ ptyId: 42 });
     await act(flushPromises);
 
@@ -495,6 +494,57 @@ describe('useTerminal — ptyId change after spawn must NOT cancel sigwinch (isN
     const overlay = wrapper.firstElementChild as HTMLElement | null;
     expect(overlay === null || overlay.style.position !== 'absolute').toBe(true);
 
+    unmount();
+  });
+
+  it('resizePty (SIGWINCH) is called even after ptyId prop change — full end-to-end', async () => {
+    vi.useFakeTimers();
+    vi.mocked(spawnTerminal).mockImplementation(
+      () => new Promise((resolve) => {
+        // Resolve as microtask so fake timers don't block it
+        queueMicrotask(() => resolve({ ptyId: 42, isNew: false }));
+      }),
+    );
+
+    const container = makeContainer();
+    const containerRef = { current: container };
+
+    const { rerender, unmount } = renderHook(
+      ({ ptyId }: { ptyId: number }) =>
+        useTerminal(containerRef as any, 'pane-1', undefined, ptyId, false, vi.fn()),
+      { initialProps: { ptyId: -1 } },
+    );
+
+    // Flush: WASM init (microtask) → wasmReady=true → effect runs → spawnTerminal (microtask)
+    await act(async () => {
+      await flushPromises();
+      vi.advanceTimersByTime(0);
+      await flushPromises();
+    });
+
+    // Verify spawn resolved
+    expect(spawnTerminal).toHaveBeenCalled();
+    expect(setCached).toHaveBeenCalledWith(42, expect.anything(), expect.anything());
+
+    // Simulate store update: ptyId changes to 42
+    rerender({ ptyId: 42 });
+    await act(async () => {
+      await flushPromises();
+    });
+
+    // Effect must NOT have re-run
+    expect(vi.mocked(Terminal).mock.instances.length).toBe(1);
+
+    // Advance past 100ms sigwinch timer
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+      await flushPromises();
+    });
+
+    // SIGWINCH was sent — resizePty called with the spawned ptyId
+    expect(vi.mocked(resizePty)).toHaveBeenCalledWith(42, expect.any(Number), expect.any(Number));
+
+    vi.useRealTimers();
     unmount();
   });
 });
