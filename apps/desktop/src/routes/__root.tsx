@@ -115,7 +115,7 @@ function RootLayout() {
       <Outlet />
       <ErrorToastRegion />
       <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
-      <SessionManager isOpen={sessionManagerOpen} onClose={() => setSessionManagerOpen(false)} />
+      {sessionManagerOpen && <SessionManager onClose={() => setSessionManagerOpen(false)} />}
       <AgentToastRegion />
     </div>
   );

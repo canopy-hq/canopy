@@ -10,7 +10,6 @@ import type { PtySessionInfo } from '@superagent/terminal';
 import type { PaneNode } from '../lib/pane-tree-ops';
 
 export interface SessionManagerProps {
-  isOpen: boolean;
   onClose: () => void;
 }
 
@@ -31,21 +30,21 @@ interface SessionRow {
   tab: Tab | null;
 }
 
-export function SessionManager({ isOpen, onClose }: SessionManagerProps) {
+/**
+ * Mounted only when the panel is open — polling starts on mount, stops on unmount.
+ */
+export function SessionManager({ onClose }: SessionManagerProps) {
   const tabs = useTabs();
   const [sessions, setSessions] = useState<PtySessionInfo[]>([]);
   const [killing, setKilling] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    if (!isOpen) {
-      setSessions([]);
-      return;
-    }
+    let cancelled = false;
 
     async function poll() {
       try {
         const data = await listPtySessions();
-        setSessions(data);
+        if (!cancelled) setSessions(data);
       } catch {
         // ignore transient errors
       }
@@ -53,28 +52,28 @@ export function SessionManager({ isOpen, onClose }: SessionManagerProps) {
 
     void poll();
     const interval = setInterval(() => void poll(), 2000);
-    return () => clearInterval(interval);
-  }, [isOpen]);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
-  const handleKill = useCallback(
-    async (row: SessionRow) => {
-      if (!row.tab) return;
-      const { ptyId, paneId } = row.info;
-      setKilling((prev) => new Set(prev).add(ptyId));
-      try {
-        await closePty(ptyId);
-        killPaneInTab(row.tab.id, paneId);
-        setSessions((prev) => prev.filter((s) => s.ptyId !== ptyId));
-      } finally {
-        setKilling((prev) => {
-          const next = new Set(prev);
-          next.delete(ptyId);
-          return next;
-        });
-      }
-    },
-    [],
-  );
+  const handleKill = useCallback(async (row: SessionRow) => {
+    if (!row.tab) return;
+    const { ptyId, paneId } = row.info;
+    setKilling((prev) => new Set(prev).add(ptyId));
+    try {
+      await closePty(ptyId);
+      killPaneInTab(row.tab.id, paneId);
+      setSessions((prev) => prev.filter((s) => s.ptyId !== ptyId));
+    } finally {
+      setKilling((prev) => {
+        const next = new Set(prev);
+        next.delete(ptyId);
+        return next;
+      });
+    }
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -85,8 +84,6 @@ export function SessionManager({ isOpen, onClose }: SessionManagerProps) {
     },
     [onClose],
   );
-
-  if (!isOpen) return null;
 
   const rows: SessionRow[] = sessions.map((info) => ({
     info,
