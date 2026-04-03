@@ -11,7 +11,30 @@ function getInterval(noChangeCount: number): number {
   return DIFF_POLL_MS;
 }
 
-/** Fetch diff stats for all workspaces, keyed by workspace ID then branch name. */
+/** Shallow-compare two nested stats maps. Returns true if equal. */
+function statsEqual(
+  a: Record<string, Record<string, DiffStat>>,
+  b: Record<string, Record<string, DiffStat>>,
+): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  for (const wsId of bKeys) {
+    const aWs = a[wsId];
+    const bWs = b[wsId];
+    if (!aWs) return false;
+    const aK = Object.keys(aWs);
+    const bK = Object.keys(bWs);
+    if (aK.length !== bK.length) return false;
+    for (const k of bK) {
+      if (aWs[k]?.additions !== bWs[k]?.additions || aWs[k]?.deletions !== bWs[k]?.deletions)
+        return false;
+    }
+  }
+  return true;
+}
+
+/** Fetch diff stats for expanded workspaces, keyed by workspace ID then branch name. */
 export function useDiffStatsMap(
   workspaces: Workspace[],
   enabled: boolean,
@@ -19,6 +42,9 @@ export function useDiffStatsMap(
   const [statsMap, setStatsMap] = useState<Record<string, Record<string, DiffStat>>>({});
   const workspacesRef = useRef(workspaces);
   const noChangeCountRef = useRef(0);
+  const prevStatsRef = useRef(statsMap);
+  prevStatsRef.current = statsMap;
+
   useEffect(() => {
     workspacesRef.current = workspaces;
   }, [workspaces]);
@@ -26,13 +52,10 @@ export function useDiffStatsMap(
   const workspaceKey = useMemo(
     () =>
       workspaces
-        .map((ws) => `${ws.id}:${ws.expanded ? 1 : 0}:${ws.branches.length}:${ws.worktrees.length}`)
+        .map((ws) => `${ws.id}:${ws.expanded ? 1 : 0}`)
         .join(','),
     [workspaces],
   );
-
-  // Track previously expanded workspace IDs for immediate fetch on expand
-  const prevExpandedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!enabled) return;
@@ -61,52 +84,22 @@ export function useDiffStatsMap(
             const id = pathToId.get(path);
             if (id) next[id] = stats;
           }
-          let changed = false;
-          setStatsMap((prev) => {
-            // Start with carried-forward collapsed entries
-            const merged: Record<string, Record<string, DiffStat>> = {};
-            for (const wsId in prev) {
-              if (!expandedIds.has(wsId)) merged[wsId] = prev[wsId];
-            }
-            // Add fresh data for expanded workspaces
-            for (const wsId in next) {
-              merged[wsId] = next[wsId];
-            }
-            // Shallow equality — return prev reference if nothing changed
-            if (Object.keys(prev).length !== Object.keys(merged).length) {
-              changed = true;
-              return merged;
-            }
-            for (const wsId in merged) {
-              const prevWs = prev[wsId];
-              const mergedWs = merged[wsId];
-              if (!prevWs) {
-                changed = true;
-                return merged;
-              }
-              const prevKeys = Object.keys(prevWs);
-              const mergedKeys = Object.keys(mergedWs);
-              if (prevKeys.length !== mergedKeys.length) {
-                changed = true;
-                return merged;
-              }
-              for (const k of mergedKeys) {
-                if (
-                  prevWs[k]?.additions !== mergedWs[k]?.additions ||
-                  prevWs[k]?.deletions !== mergedWs[k]?.deletions
-                ) {
-                  changed = true;
-                  return merged;
-                }
-              }
-            }
-            return prev;
-          });
 
-          if (changed) {
-            noChangeCountRef.current = 0;
-          } else {
+          // Build merged: carry forward collapsed entries + fresh expanded data
+          const prev = prevStatsRef.current;
+          const merged: Record<string, Record<string, DiffStat>> = {};
+          for (const wsId in prev) {
+            if (!expandedIds.has(wsId)) merged[wsId] = prev[wsId];
+          }
+          for (const wsId in next) {
+            merged[wsId] = next[wsId];
+          }
+
+          if (statsEqual(prev, merged)) {
             noChangeCountRef.current += 1;
+          } else {
+            noChangeCountRef.current = 0;
+            setStatsMap(merged);
           }
           timer = setTimeout(fetchStats, getInterval(noChangeCountRef.current));
         })
@@ -121,33 +114,6 @@ export function useDiffStatsMap(
       clearTimeout(timer);
     };
   }, [workspaceKey, enabled]);
-
-  // Immediate fetch when a workspace transitions from collapsed to expanded
-  useEffect(() => {
-    if (!enabled) return;
-    const currentExpanded = new Set(workspaces.filter((ws) => ws.expanded).map((ws) => ws.id));
-    const prev = prevExpandedRef.current;
-    const newlyExpanded = workspaces.filter(
-      (ws) => currentExpanded.has(ws.id) && !prev.has(ws.id),
-    );
-    prevExpandedRef.current = currentExpanded;
-
-    if (newlyExpanded.length === 0) return;
-
-    // Fetch only the newly expanded workspaces immediately
-    const paths = newlyExpanded.map((ws) => ws.path);
-    const pathToId = new Map(newlyExpanded.map((ws) => [ws.path, ws.id]));
-    getAllDiffStats(paths)
-      .then((result) => {
-        const fresh: Record<string, Record<string, DiffStat>> = {};
-        for (const [path, stats] of Object.entries(result)) {
-          const id = pathToId.get(path);
-          if (id) fresh[id] = stats;
-        }
-        setStatsMap((prev) => ({ ...prev, ...fresh }));
-      })
-      .catch(() => {});
-  }, [workspaces, enabled]);
 
   return statsMap;
 }

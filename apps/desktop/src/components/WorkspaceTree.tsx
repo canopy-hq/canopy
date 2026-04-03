@@ -168,7 +168,7 @@ const WorktreeRow = memo(function WorktreeRow({
 }, (prev, next) =>
   prev.worktree.name === next.worktree.name &&
   prev.worktree.branch === next.worktree.branch &&
-  (prev.worktree as any).label === (next.worktree as any).label &&
+  prev.worktree.label === next.worktree.label &&
   prev.workspaceId === next.workspaceId &&
   prev.agentStatus === next.agentStatus &&
   prev.diffStat?.additions === next.diffStat?.additions &&

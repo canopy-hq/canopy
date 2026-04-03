@@ -426,8 +426,12 @@ pub async fn get_all_diff_stats(
 
     let mut result = HashMap::new();
     for handle in handles {
-        if let Ok(Ok((key, stats))) = handle.await {
-            result.insert(key, stats);
+        match handle.await {
+            Ok(Ok((key, stats))) => {
+                result.insert(key, stats);
+            }
+            Ok(Err(e)) => eprintln!("get_all_diff_stats: repo failed: {e}"),
+            Err(e) => eprintln!("get_all_diff_stats: task panicked: {e}"),
         }
     }
     Ok(result)
