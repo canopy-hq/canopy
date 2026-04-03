@@ -109,7 +109,7 @@ function useDiffStatsMap(
 
 function BranchRow({ branch, agentStatus, diffStat }: { branch: BranchInfo; agentStatus?: DotStatus; diffStat?: DiffStat }) {
   return (
-    <div className="ml-[39px] mr-1.5 my-px flex items-center gap-[6px] rounded-[5px] px-[10px] py-[3px]">
+    <div className="ml-[39px] mr-1.5 my-px flex items-center gap-[6px] rounded-[5px] py-[3px] pl-[10px]">
       <IconWithBadge agentStatus={agentStatus}>
         <Laptop
           size={14}
@@ -171,7 +171,7 @@ function WorktreeRow({
   }
 
   return (
-    <div className="group/wt ml-[39px] mr-1.5 my-px flex items-center gap-[6px] rounded-[5px] px-[10px] py-[3px]">
+    <div className="group/wt ml-[39px] mr-1.5 my-px flex items-center gap-[6px] rounded-[5px] py-[3px] pl-[10px]">
       <IconWithBadge agentStatus={agentStatus}>
         <FolderGit2 size={14} strokeWidth={1.5} stroke="var(--text-muted)" />
       </IconWithBadge>
