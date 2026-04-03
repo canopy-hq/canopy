@@ -10,7 +10,7 @@
   },
   "app": {
     "windows": [
-      { "title": "Superagent", "width": 1200, "height": 800, "minWidth": 640, "minHeight": 480 }
+      { "title": "Superagent", "width": 1200, "height": 800, "minWidth": 640, "minHeight": 480, "titleBarStyle": "overlay", "hiddenTitle": true }
     ],
     "security": { "csp": null }
   },
