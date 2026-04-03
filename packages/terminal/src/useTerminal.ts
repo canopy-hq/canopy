@@ -43,12 +43,6 @@ export function useTerminal(
 ): React.MutableRefObject<Terminal | null> {
   const termRef = useRef<Terminal | null>(null);
   const [wasmReady, setWasmReady] = useState(false);
-  // Ref so the effect reads the latest ptyId without re-running.
-  // setPtyId updates the reactive store → PaneContainer re-renders with ptyId=42.
-  // Without this ref, ptyId in deps would re-run the effect, detaching the terminal
-  // DOM element — ghostty-web loses rendering state during detach/reattach.
-  const ptyIdRef = useRef(ptyId);
-  ptyIdRef.current = ptyId;
 
   useEffect(() => {
     void ensureGhosttyInit().then(() => setWasmReady(true));
@@ -65,9 +59,6 @@ export function useTerminal(
 
     const container = containerRef.current;
     if (!container) return;
-
-    // Snapshot ptyId at effect-run time via ref.
-    const ptyId = ptyIdRef.current;
 
     let spawnCancelled = false;
     let sigwinchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -228,23 +219,19 @@ export function useTerminal(
       } else {
         // Spawn: PTY started at exact fitted dimensions → lastSentSize = spawn dims
         // → dedup guard suppresses any subsequent fit at the same size → 0 SIGWINCH.
-        void spawnTerminal(paneId, savedCwd, term.rows, term.cols).then(({ ptyId: newId, isNew }) => {
+        void spawnTerminal(paneId, savedCwd, term.rows, term.cols).then((newId) => {
           if (spawnCancelled) return;
           ptrRef.ptyId = newId;
           lastSentSize.rows = term.rows;
           lastSentSize.cols = term.cols;
-          if (isNew) {
-            // Fresh shell: discard scrollback replay, wait for first live byte.
-            connectPtyOutputFresh(newId, (data: Uint8Array) => {
-              removeOverlay();
-              term.write(data);
-            });
-          } else {
-            // Restored session: drain scrollback (includes previous prompt).
-            // Remove overlay immediately — setHandler flushes buffers synchronously.
-            connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
+          // connectPtyOutputFresh: discards pre-handler buffer, then buffers all
+          // post-handler data until the sentinel arrives, then discards that buffer
+          // too. Only post-sentinel (live) bytes reach handler — at which point the
+          // overlay is removed and the canvas shows fresh content.
+          connectPtyOutputFresh(newId, (data: Uint8Array) => {
             removeOverlay();
-          }
+            term.write(data);
+          });
           setCached(newId, term, fitAddon);
           onPtySpawned(newId);
 
@@ -321,7 +308,7 @@ export function useTerminal(
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerRef, wasmReady]);
+  }, [containerRef, ptyId, wasmReady]);
 
   return termRef;
 }
