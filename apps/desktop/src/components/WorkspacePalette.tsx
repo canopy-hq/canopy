@@ -43,6 +43,9 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
   );
   const isCreateMode = query.trim().length > 0 && !exactMatch;
 
+  // Sanitize worktree name: whitespace, underscores, slashes → dashes
+  const sanitizedName = query.trim().replace(/[\s_/]+/g, '-');
+
   // Worktrees from disk — mark which are already in the sidebar
   const sidebarNames = new Set(workspace.worktrees.map((wt) => wt.name));
   const diskWorktrees = allWorktrees.map((wt) => ({
@@ -54,14 +57,11 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
   );
 
   const handleCreateNew = useCallback(async () => {
-    const name = query.trim();
-    if (!name) return;
-    // Worktree name (git identifier) must not contain slashes
-    const wtName = name.replaceAll('/', '-');
-    const wtPath = `~/.superagent/worktrees/${workspace.name}-${wtName}`;
-    await createWorktree(workspace.id, wtName, wtPath, baseBranch, wtName);
+    if (!sanitizedName) return;
+    const wtPath = `~/.superagent/worktrees/${workspace.name}-${sanitizedName}`;
+    await createWorktree(workspace.id, sanitizedName, wtPath, baseBranch, sanitizedName);
     onClose();
-  }, [query, workspace, baseBranch, onClose]);
+  }, [sanitizedName, workspace, baseBranch, onClose]);
 
   async function handleCreateFromBranch(branchName: string) {
     const wtName = branchName.replaceAll('/', '-');
@@ -70,8 +70,8 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
     onClose();
   }
 
-  function handleOpenWorktree(name: string, path: string) {
-    openWorktree(workspace.id, name, path);
+  function handleOpenWorktree(name: string, path: string, branch: string) {
+    openWorktree(workspace.id, name, path, branch);
     onClose();
   }
 
@@ -128,7 +128,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
           <div className="mx-2 mt-2 p-3 rounded-lg" style={{ background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.15)' }}>
             <div className="flex items-center gap-2 mb-2">
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" strokeWidth="1.5"><path d="M8 3v10M3 8h10"/></svg>
-              <span style={{ fontWeight: 500, color: 'var(--accent)', flex: 1, fontSize: '13px' }}>Create &ldquo;{query.trim()}&rdquo;</span>
+              <span style={{ fontWeight: 500, color: 'var(--accent)', flex: 1, fontSize: '13px' }}>Create &ldquo;{sanitizedName}&rdquo;</span>
               <span style={{ fontSize: '10px', color: '#555', fontFamily: 'monospace' }}>&#x2318;&#x21A9;</span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -193,7 +193,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
                 <div style={{ padding: '12px 8px', textAlign: 'center', color: '#333', fontSize: '12px' }}>No worktrees</div>
               )}
               {filteredWorktrees.map((wt) => (
-                <WorktreeItem key={wt.name} worktree={wt} onOpen={() => handleOpenWorktree(wt.name, wt.path)} isInSidebar={wt.isInSidebar} />
+                <WorktreeItem key={wt.name} worktree={wt} onOpen={() => handleOpenWorktree(wt.name, wt.path, wt.branch)} isInSidebar={wt.isInSidebar} />
               ))}
             </>
           )}
@@ -207,7 +207,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
                 </div>
               )}
               {filteredWorktrees.map((wt) => (
-                <WorktreeItem key={wt.name} worktree={wt} onOpen={() => handleOpenWorktree(wt.name, wt.path)} showPath isInSidebar={wt.isInSidebar} />
+                <WorktreeItem key={wt.name} worktree={wt} onOpen={() => handleOpenWorktree(wt.name, wt.path, wt.branch)} showPath isInSidebar={wt.isInSidebar} />
               ))}
               {filteredWorktrees.length > 0 && (
                 <div style={{ padding: '8px', textAlign: 'center', color: '#333', fontSize: '12px', borderTop: '1px solid #1e1e2e', marginTop: '4px' }}>
@@ -245,7 +245,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
             <>
               <span>&#x2318;&#x21A9; create worktree</span>
               <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: '11px', color: '#555' }}>
-                git worktree add -b <span style={{ color: 'var(--accent)' }}>{query.trim()}</span> &hellip; <span style={{ color: 'var(--text-muted)' }}>{baseBranch}</span>
+                git worktree add -b <span style={{ color: 'var(--accent)' }}>{sanitizedName}</span> &hellip; <span style={{ color: 'var(--text-muted)' }}>{baseBranch}</span>
               </span>
             </>
           ) : pickingBase ? (

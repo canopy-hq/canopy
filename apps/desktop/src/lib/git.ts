@@ -10,6 +10,7 @@ export interface BranchInfo {
 export interface WorktreeInfo {
   name: string;
   path: string;
+  branch: string;
 }
 
 export interface RepoInfo {

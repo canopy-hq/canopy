@@ -174,7 +174,7 @@ export async function createWorktree(
     // Add the new worktree to the sidebar
     getWorkspaceCollection().update(workspaceId, (draft) => {
       if (!draft.worktrees.some((w) => w.name === wt.name)) {
-        draft.worktrees.push({ name: wt.name, path: wt.path });
+        draft.worktrees.push({ name: wt.name, path: wt.path, branch: wt.branch });
       }
     });
     await refreshRepo(workspaceId);
@@ -201,12 +201,19 @@ export function hideWorktree(workspaceId: string, name: string): void {
   });
 }
 
-export function openWorktree(workspaceId: string, name: string, path: string): void {
+export function openWorktree(workspaceId: string, name: string, path: string, branch: string): void {
   const ws = getWorkspaceCollection().toArray.find((w) => w.id === workspaceId);
   if (!ws) return;
   // Don't add if already in the list
   if (ws.worktrees.some((wt) => wt.name === name)) return;
   getWorkspaceCollection().update(workspaceId, (draft) => {
-    draft.worktrees.push({ name, path });
+    draft.worktrees.push({ name, path, branch });
+  });
+}
+
+export function renameWorktree(workspaceId: string, wtName: string, label: string): void {
+  getWorkspaceCollection().update(workspaceId, (draft) => {
+    const wt = draft.worktrees.find((w) => w.name === wtName);
+    if (wt) wt.label = label || undefined;
   });
 }

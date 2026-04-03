@@ -12,6 +12,7 @@ import {
   closeProject,
   hideWorktree,
   removeWorktree,
+  renameWorktree,
   getWorkspaceItemIds,
 } from '../lib/workspace-actions';
 import { CloseProjectModal } from './CloseProjectModal';
@@ -31,7 +32,7 @@ function BranchRow({ branch, agentStatus }: { branch: BranchInfo; agentStatus?: 
         <circle cx="8" cy="8" r="3"/>
       </svg>
       <span style={{ fontSize: '13px', fontWeight: branch.is_head ? 500 : 400,
-        color: branch.is_head ? 'var(--text-primary)' : 'var(--text-muted)', flex: 1 }}
+        color: branch.is_head ? 'var(--text-primary)' : 'var(--text-secondary)', flex: 1 }}
         className="truncate">
         {branch.name}
       </span>
@@ -49,16 +50,61 @@ function BranchRow({ branch, agentStatus }: { branch: BranchInfo; agentStatus?: 
   );
 }
 
-function WorktreeRow({ worktree, agentStatus, onRemoveClick }: { worktree: WorktreeInfo; agentStatus?: DotStatus; onRemoveClick: (e: React.MouseEvent) => void }) {
+function WorktreeRow({ worktree, workspaceId, agentStatus, onRemoveClick }: { worktree: WorktreeInfo & { label?: string }; workspaceId: string; agentStatus?: DotStatus; onRemoveClick: (e: React.MouseEvent) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const displayName = worktree.label || worktree.branch || worktree.name;
+
+  function startEditing() {
+    setEditValue(displayName);
+    setEditing(true);
+    requestAnimationFrame(() => inputRef.current?.select());
+  }
+
+  function commitEdit() {
+    const trimmed = editValue.trim();
+    // If cleared or same as branch, remove custom label
+    const newLabel = (trimmed && trimmed !== worktree.branch && trimmed !== worktree.name) ? trimmed : '';
+    renameWorktree(workspaceId, worktree.name, newLabel);
+    setEditing(false);
+  }
+
   return (
-    <div className="group/wt flex items-center gap-[6px] py-[4px] px-[10px] rounded-[5px]"
+    <div className="group/wt flex items-center gap-[6px] py-[3px] px-[10px] rounded-[5px]"
       style={{ marginLeft: '39px', marginRight: '6px', marginTop: '1px', marginBottom: '1px' }}>
-      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.5">
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" className="flex-shrink-0 mt-[1px]">
         <rect x="3" y="3" width="10" height="10" rx="2"/>
       </svg>
-      <span style={{ fontSize: '13px', color: 'var(--text-muted)', flex: 1 }} className="truncate">
-        {worktree.name}
-      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {editing ? (
+          <input
+            ref={inputRef}
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={commitEdit}
+            onKeyDown={(e) => {
+              e.stopPropagation(); // prevent Tree from capturing space/arrows
+              if (e.key === 'Enter') commitEdit();
+              if (e.key === 'Escape') setEditing(false);
+            }}
+            className="w-full bg-transparent border-none outline-none text-[var(--text-secondary)]"
+            style={{ fontSize: '13px', padding: 0, margin: 0 }}
+          />
+        ) : (
+          <span
+            style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'block' }}
+            className="truncate"
+            onDoubleClick={startEditing}
+          >
+            {displayName}
+          </span>
+        )}
+        <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }} className="truncate">
+          {worktree.branch || worktree.name}
+        </span>
+      </div>
       {agentStatus && agentStatus !== 'idle' && (
         <StatusDot status={agentStatus} size={6} />
       )}
@@ -427,7 +473,7 @@ function RepoTreeItem({
           }
         >
           <TreeItemContent>
-            <WorktreeRow worktree={wt} agentStatus={agentMap[`${ws.id}-wt-${wt.name}`]} onRemoveClick={(e) => {
+            <WorktreeRow worktree={wt} workspaceId={ws.id} agentStatus={agentMap[`${ws.id}-wt-${wt.name}`]} onRemoveClick={(e) => {
               e.stopPropagation();
               onRequestRemoveWt(wt.name);
             }} />

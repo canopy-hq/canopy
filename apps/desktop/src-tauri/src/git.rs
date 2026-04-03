@@ -14,6 +14,7 @@ pub struct BranchInfo {
 pub struct WorktreeInfo {
     pub name: String,
     pub path: String,
+    pub branch: String,
 }
 
 #[derive(Serialize, Clone)]
@@ -74,9 +75,22 @@ fn enumerate_worktrees(repo: &Repository) -> Result<Vec<WorktreeInfo>, String> {
         match repo.find_worktree(name) {
             Ok(wt) => {
                 if wt.validate().is_ok() {
+                    let wt_path = wt.path().to_string_lossy().to_string();
+                    // Resolve the branch checked out in this worktree
+                    let branch = match Repository::open(&wt_path) {
+                        Ok(wt_repo) => match wt_repo.head() {
+                            Ok(head) => head
+                                .shorthand()
+                                .unwrap_or(name)
+                                .to_string(),
+                            Err(_) => name.to_string(),
+                        },
+                        Err(_) => name.to_string(),
+                    };
                     worktrees.push(WorktreeInfo {
                         name: name.to_string(),
-                        path: wt.path().to_string_lossy().to_string(),
+                        path: wt_path,
+                        branch,
                     });
                 }
             }
@@ -319,9 +333,18 @@ pub fn create_worktree(
         .worktree(&name, target, Some(&opts))
         .map_err(|e| e.to_string())?;
 
+    let wt_name = wt.name().unwrap_or("").to_string();
+    let wt_path = wt.path().to_string_lossy().to_string();
+    // The branch is the new_branch if provided, otherwise the base_branch
+    let branch = new_branch
+        .as_deref()
+        .or(base_branch.as_deref())
+        .unwrap_or(&wt_name)
+        .to_string();
     Ok(WorktreeInfo {
-        name: wt.name().unwrap_or("").to_string(),
-        path: wt.path().to_string_lossy().to_string(),
+        name: wt_name,
+        path: wt_path,
+        branch,
     })
 }
 
