@@ -187,6 +187,56 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
     expect(setCached).toHaveBeenCalledWith(42, expect.anything(), expect.anything());
     unmount();
   });
+
+  it('overlay still present after spawn when isNew=true (waiting for first live byte)', async () => {
+    const container = makeContainer();
+    const { unmount } = renderHook(() =>
+      useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
+    );
+
+    await act(flushPromises);
+
+    const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
+    const wrapper = termInstance.element as HTMLElement;
+    const overlay = wrapper.firstElementChild as HTMLElement;
+    // Overlay must still be present — awaiting the first post-sentinel live byte.
+    expect(overlay).toBeTruthy();
+    expect(overlay.style.position).toBe('absolute');
+    unmount();
+  });
+
+  it('overlay removed immediately when isNew=false (restored session, no data needed)', async () => {
+    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
+
+    const container = makeContainer();
+    const { unmount } = renderHook(() =>
+      useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
+    );
+
+    await act(flushPromises);
+
+    const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
+    const wrapper = termInstance.element as HTMLElement;
+    // Overlay should be gone without any data arrival — idle restored sessions must not be blank.
+    const overlay = wrapper.firstElementChild as HTMLElement | null;
+    expect(overlay === null || overlay.style.position !== 'absolute').toBe(true);
+    unmount();
+  });
+
+  it('uses connectPtyOutput (not connectPtyOutputFresh) when isNew=false', async () => {
+    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
+
+    const container = makeContainer();
+    const { unmount } = renderHook(() =>
+      useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
+    );
+
+    await act(flushPromises);
+
+    expect(connectPtyOutput).toHaveBeenCalledWith(42, expect.any(Function));
+    expect(connectPtyOutputFresh).not.toHaveBeenCalled();
+    unmount();
+  });
 });
 
 describe('useTerminal — reconnect path (ptyId > 0)', () => {
@@ -212,6 +262,22 @@ describe('useTerminal — reconnect path (ptyId > 0)', () => {
     await act(flushPromises);
 
     expect(connectPtyOutputFresh).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('overlay is removed immediately without waiting for data', async () => {
+    const container = makeContainer();
+    const { unmount } = renderHook(() =>
+      useTerminal({ current: container } as any, 'pane-1', undefined, 5, false, vi.fn()),
+    );
+
+    await act(flushPromises);
+
+    const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
+    const wrapper = termInstance.element as HTMLElement;
+    // Overlay should be gone — no data needed to remove it on reconnect path.
+    const overlay = wrapper.firstElementChild as HTMLElement | null;
+    expect(overlay === null || overlay.style.position !== 'absolute').toBe(true);
     unmount();
   });
 });

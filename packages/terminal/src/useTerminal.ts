@@ -62,6 +62,7 @@ export function useTerminal(
 
     let spawnCancelled = false;
     let sigwinchTimer: ReturnType<typeof setTimeout> | null = null;
+    let overlayTimeoutId: ReturnType<typeof setTimeout> | null = null;
     // Hoisted so cleanup can always call it (no-op for the cached path).
     let removeOverlay = () => {};
     const cached = getCached(ptyId);
@@ -112,13 +113,14 @@ export function useTerminal(
       // Clear any stale WASM state that may persist from a previously disposed
       // terminal instance (ghostty-web WASM allocator may reuse heap memory).
       term.reset();
-      // Opaque overlay covering the canvas until the first LIVE PTY byte arrives.
+      // Opaque overlay covering the canvas to prevent a flash of blank content.
       //
-      // "Live" is defined as post-sentinel: the daemon sends a zero-length sentinel
-      // frame after replaying scrollback (see daemon.rs attach handler). The
-      // connectPtyOutputFresh call buffers and silently discards all data up to and
-      // including the sentinel. The overlay is therefore removed only when fresh
-      // shell output (e.g. the zsh prompt) first hits the canvas.
+      // Removal strategy differs by path:
+      //  • isNew=true  (fresh spawn): removed on first live post-sentinel byte so the
+      //    user never sees a blank canvas before the shell prompt appears.
+      //  • isNew=false (restored) / reconnect: removed immediately after connectPtyOutput
+      //    because setHandler drains buffered scrollback synchronously — an idle shell
+      //    would never produce bytes, leaving the overlay up permanently.
       const overlay = document.createElement('div');
       overlay.style.cssText = `position:absolute;inset:0;background:${themeBg};z-index:1;pointer-events:none`;
       wrapper.appendChild(overlay);
@@ -205,10 +207,10 @@ export function useTerminal(
         // Reconnect: PTY already running in daemon (cold app restart).
         // lastSentSize is {0,0} so onResize from fitAddon.fit() above already sent
         // the resize IPC — no explicit call needed here.
-        connectPtyOutput(ptyId, (data: Uint8Array) => {
-          removeOverlay();
-          term.write(data);
-        });
+        // setHandler drains buffered scrollback synchronously — remove overlay now
+        // rather than waiting for future bytes that may never arrive (idle shell).
+        connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
+        removeOverlay();
         setCached(ptyId, term, fitAddon);
       } else {
         // Spawn: PTY started at exact fitted dimensions → lastSentSize = spawn dims
@@ -218,15 +220,24 @@ export function useTerminal(
           ptrRef.ptyId = newId;
           lastSentSize.rows = term.rows;
           lastSentSize.cols = term.cols;
-          // isNew=true  → fresh shell: discard daemon scrollback, wait for first live
-          //               byte to remove overlay (connectPtyOutputFresh).
-          // isNew=false → restored session: flush scrollback immediately so the user
-          //               sees their previous session state (connectPtyOutput).
-          const connectFn = isNew ? connectPtyOutputFresh : connectPtyOutput;
-          connectFn(newId, (data: Uint8Array) => {
+          if (isNew) {
+            // Fresh shell: discard scrollback replay, wait for first live byte.
+            // Safety timeout in case the shell never outputs (crash, slow startup).
+            overlayTimeoutId = setTimeout(removeOverlay, 2000);
+            connectPtyOutputFresh(newId, (data: Uint8Array) => {
+              if (overlayTimeoutId !== null) {
+                clearTimeout(overlayTimeoutId);
+                overlayTimeoutId = null;
+              }
+              removeOverlay();
+              term.write(data);
+            });
+          } else {
+            // Restored session: setHandler synchronously flushed all buffered scrollback
+            // above — remove overlay immediately so an idle shell isn't permanently blank.
+            connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
             removeOverlay();
-            term.write(data);
-          });
+          }
           setCached(newId, term, fitAddon);
           onPtySpawned(newId);
 
@@ -285,6 +296,7 @@ export function useTerminal(
       resizeObserver.disconnect();
       if (resizeTimer !== null) clearTimeout(resizeTimer);
       if (sigwinchTimer !== null) clearTimeout(sigwinchTimer);
+      if (overlayTimeoutId !== null) clearTimeout(overlayTimeoutId);
       // DON'T dispose term — just detach from container. Cache keeps it alive.
       const el = term.element;
       if (el && el.parentNode === container) {
