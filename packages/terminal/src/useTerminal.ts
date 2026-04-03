@@ -252,7 +252,7 @@ export function useTerminal(
             const c = dims?.cols ?? lastSentSize.cols;
             const changed = r !== lastSentSize.rows || c !== lastSentSize.cols;
             if (changed) {
-              term.resize(c, r);
+              term.resize(c, r); // ghostty-web API: resize(cols, rows)
               lastSentSize.rows = r;
               lastSentSize.cols = c;
               void resizePty(newId, r, c);

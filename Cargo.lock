@@ -4061,6 +4061,7 @@ version = "0.1.0"
 dependencies = [
  "git2",
  "libproc",
+ "portable-pty",
  "serde",
  "serde_json",
  "tauri",

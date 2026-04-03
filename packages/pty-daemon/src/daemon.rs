@@ -91,7 +91,10 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 };
                 let (scrollback, mut rx) = match result {
                     Some(r) => r,
-                    None => break,
+                    None => {
+                        let _ = write_half.write_all(b"{\"ok\":false,\"error\":\"session not found\"}\n").await;
+                        break;
+                    }
                 };
 
                 // Send buffered scrollback as one frame
@@ -250,9 +253,10 @@ fn do_spawn(
     }
 
     // Reader thread: blocking I/O — tee to scrollback + broadcast.
-    // Both operations happen under the same lock to eliminate the race where
-    // an attach handler could clone the scrollback AND subscribe to the
-    // broadcast between the lock-drop and the send, receiving the same chunk twice.
+    // Scrollback push happens under the lock; broadcast send happens outside to
+    // avoid blocking all sessions if a receiver is slow. The attach handler
+    // subscribes to tx BEFORE copying scrollback (both under the same lock),
+    // so a chunk is received via scrollback OR broadcast, never both/neither.
     let state_clone = state.clone();
     std::thread::spawn(move || {
         let mut buf = [0u8; 4096];
@@ -261,10 +265,17 @@ fn do_spawn(
                 Ok(0) | Err(_) => break,
                 Ok(n) => {
                     let data = buf[..n].to_vec();
-                    let mut st = state_clone.lock().unwrap();
-                    if let Some(sess) = st.sessions.get_mut(&pane_id) {
-                        sess.scrollback.push(&data);
-                        let _ = sess.tx.send(data);
+                    let tx = {
+                        let mut st = state_clone.lock().unwrap();
+                        if let Some(sess) = st.sessions.get_mut(&pane_id) {
+                            sess.scrollback.push(&data);
+                            Some(sess.tx.clone())
+                        } else {
+                            None
+                        }
+                    };
+                    if let Some(tx) = tx {
+                        let _ = tx.send(data);
                     }
                 }
             }

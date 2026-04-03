@@ -5,7 +5,7 @@ pub struct ScrollbackBuffer {
 
 impl ScrollbackBuffer {
     pub fn new(cap: usize) -> Self {
-        Self { cap, buf: Vec::new() }
+        Self { cap, buf: Vec::with_capacity(cap) }
     }
 
     /// Append data, draining from the front if total would exceed cap.

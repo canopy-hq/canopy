@@ -116,11 +116,10 @@ impl DaemonClient {
 
     /// Write data to a PTY session (fire-and-forget, persistent stream).
     pub async fn write(&self, pane_id: &str, data: &[u8]) -> Result<(), String> {
-        let arr: Vec<u8> = data.to_vec();
         let msg = format!(
             "{{\"op\":\"write\",\"paneId\":{},\"data\":{}}}\n",
             serde_json::json!(pane_id),
-            serde_json::json!(arr),
+            serde_json::json!(data),
         );
         self.send_noack(&msg).await
     }
