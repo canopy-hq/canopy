@@ -219,19 +219,23 @@ export function useTerminal(
       } else {
         // Spawn: PTY started at exact fitted dimensions → lastSentSize = spawn dims
         // → dedup guard suppresses any subsequent fit at the same size → 0 SIGWINCH.
-        void spawnTerminal(paneId, savedCwd, term.rows, term.cols).then((newId) => {
+        void spawnTerminal(paneId, savedCwd, term.rows, term.cols).then(({ ptyId: newId, isNew }) => {
           if (spawnCancelled) return;
           ptrRef.ptyId = newId;
           lastSentSize.rows = term.rows;
           lastSentSize.cols = term.cols;
-          // connectPtyOutputFresh: discards pre-handler buffer, then buffers all
-          // post-handler data until the sentinel arrives, then discards that buffer
-          // too. Only post-sentinel (live) bytes reach handler — at which point the
-          // overlay is removed and the canvas shows fresh content.
-          connectPtyOutputFresh(newId, (data: Uint8Array) => {
+          if (isNew) {
+            // Fresh shell: discard scrollback replay, wait for first live byte.
+            connectPtyOutputFresh(newId, (data: Uint8Array) => {
+              removeOverlay();
+              term.write(data);
+            });
+          } else {
+            // Restored session: drain scrollback (includes previous prompt).
+            // Remove overlay immediately — setHandler flushes buffers synchronously.
+            connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
             removeOverlay();
-            term.write(data);
-          });
+          }
           setCached(newId, term, fitAddon);
           onPtySpawned(newId);
 

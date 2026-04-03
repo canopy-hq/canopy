@@ -17,10 +17,8 @@ vi.mock('../src/ghostty-init', () => ({
   ensureGhosttyInit: vi.fn().mockResolvedValue(undefined),
 }));
 
-// Default mock: spawnTerminal returns a number (matching current main code).
-// Phase 2 tests override this to return { ptyId, isNew }.
 vi.mock('../src/pty', () => ({
-  spawnTerminal: vi.fn().mockResolvedValue(42),
+  spawnTerminal: vi.fn().mockResolvedValue({ ptyId: 42, isNew: true }),
   connectPtyOutput: vi.fn(),
   connectPtyOutputFresh: vi.fn(),
   writeToPty: vi.fn().mockResolvedValue(undefined),
@@ -56,8 +54,7 @@ import { flushPromises, makeContainer } from './helpers';
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Restore default: spawnTerminal returns number (main behavior).
-  vi.mocked(spawnTerminal).mockResolvedValue(42);
+  vi.mocked(spawnTerminal).mockResolvedValue({ ptyId: 42, isNew: true });
   vi.mocked(getCached).mockReturnValue(undefined);
 });
 
@@ -138,9 +135,9 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
   });
 
   it('unmount before spawn resolves cancels — connectPtyOutputFresh not called', async () => {
-    let resolveSpawn!: (result: number) => void;
+    let resolveSpawn!: (result: { ptyId: number; isNew: boolean }) => void;
     vi.mocked(spawnTerminal).mockReturnValueOnce(
-      new Promise<number>((resolve) => { resolveSpawn = resolve; }),
+      new Promise<{ ptyId: number; isNew: boolean }>((resolve) => { resolveSpawn = resolve; }),
     );
 
     const container = makeContainer();
@@ -152,7 +149,7 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
     unmount();
 
     await act(async () => {
-      resolveSpawn(99);
+      resolveSpawn({ ptyId: 99, isNew: true });
       await flushPromises();
     });
 
@@ -375,7 +372,7 @@ describe('useTerminal — full spawn → unmount → remount cycle', () => {
 
 describe('useTerminal — restored session (isNew=false) [PHASE 2]', () => {
   it('uses connectPtyOutput (not connectPtyOutputFresh) for restored sessions', async () => {
-    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false } as any);
+    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
 
     const container = makeContainer();
     const { unmount } = renderHook(() =>
@@ -389,7 +386,7 @@ describe('useTerminal — restored session (isNew=false) [PHASE 2]', () => {
   });
 
   it('overlay removed immediately for restored sessions', async () => {
-    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false } as any);
+    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
 
     const container = makeContainer();
     const { unmount } = renderHook(() =>
@@ -405,7 +402,7 @@ describe('useTerminal — restored session (isNew=false) [PHASE 2]', () => {
   });
 
   it('typing works for restored sessions', async () => {
-    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false } as any);
+    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
 
     const container = makeContainer();
     const { unmount } = renderHook(() =>
@@ -423,7 +420,7 @@ describe('useTerminal — restored session (isNew=false) [PHASE 2]', () => {
   });
 
   it('fresh session (isNew=true) still uses connectPtyOutputFresh', async () => {
-    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: true } as any);
+    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: true });
 
     const container = makeContainer();
     const { unmount } = renderHook(() =>
