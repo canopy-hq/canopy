@@ -22,8 +22,7 @@ import type { Workspace } from '@superagent/db';
 function BranchRow({ branch, agentStatus }: { branch: BranchInfo; agentStatus?: DotStatus }) {
   return (
     <div className="flex items-center gap-[6px] py-[4px] px-[10px] rounded-[5px]"
-      style={{ marginLeft: '39px', marginRight: '6px', marginTop: '1px', marginBottom: '1px',
-        background: branch.is_head ? 'rgba(59,130,246,0.1)' : undefined }}>
+      style={{ marginLeft: '39px', marginRight: '6px', marginTop: '1px', marginBottom: '1px' }}>
       <svg width="11" height="11" viewBox="0 0 16 16" fill="none"
         stroke={branch.is_head ? 'var(--accent)' : 'var(--text-muted)'} strokeWidth="2">
         <circle cx="8" cy="8" r="3"/>
@@ -384,7 +383,7 @@ function RepoTreeItem({
           id={`${ws.id}-branch-${b.name}`}
           textValue={b.name}
           className={({ isSelected }) =>
-            `outline-none cursor-pointer ${isSelected ? 'bg-bg-tertiary' : 'hover:bg-bg-tertiary'}`
+            `outline-none cursor-pointer ${isSelected ? 'bg-[rgba(59,130,246,0.08)]' : 'hover:bg-bg-tertiary'}`
           }
         >
           <TreeItemContent>
@@ -398,7 +397,7 @@ function RepoTreeItem({
           id={`${ws.id}-wt-${wt.name}`}
           textValue={wt.name}
           className={({ isSelected }) =>
-            `outline-none cursor-pointer ${isSelected ? 'bg-bg-tertiary' : 'hover:bg-bg-tertiary'}`
+            `outline-none cursor-pointer ${isSelected ? 'bg-[rgba(59,130,246,0.08)]' : 'hover:bg-bg-tertiary'}`
           }
         >
           <TreeItemContent>
