@@ -11,6 +11,7 @@ import {
 import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 
 import { AgentOverlay } from '../components/AgentOverlay';
+import { Header } from '../components/Header';
 import { AgentToastRegion } from '../components/AgentToastRegion';
 import { ErrorToastRegion } from '../components/ToastProvider';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
@@ -108,6 +109,7 @@ function RootLayout() {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-bg-primary">
+      <Header />
       <Outlet />
       <ErrorToastRegion />
       <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
