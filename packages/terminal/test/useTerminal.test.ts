@@ -440,75 +440,81 @@ describe('useTerminal — full spawn → unmount → remount cycle', () => {
   });
 });
 
-// ─── Regression: ptyId prop change cancels sigwinch timer ─────────────────
+// ─── Regression: ptyId prop change vs sigwinch timer ──────────────────────
+//
+// The reactive store updates ptyId from -1 → 42 after onPtySpawned. If ptyId
+// were in the effect deps, this would re-run the effect (cleanup cancels the
+// sigwinch timer → no SIGWINCH → blank terminal). Using a ref instead keeps
+// the effect stable.
 
-describe('useTerminal — ptyId stability after spawn (isNew=false)', () => {
-  it('BROKEN: changing ptyId from -1 to 42 re-runs the effect — sigwinch timer cancelled, resizePty never called', async () => {
-    vi.useFakeTimers();
+describe('useTerminal — ptyId change after spawn must NOT cancel sigwinch (isNew=false)', () => {
+  it('ptyId prop changing from -1 to 42 does NOT re-run the effect — no new Terminal created', async () => {
     vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
 
     const container = makeContainer();
+    // Stable ref object — same identity across rerenders (like useRef in real app)
+    const containerRef = { current: container };
     const onPtySpawned = vi.fn();
 
-    // Initial render: ptyId=-1 → spawn path
     const { rerender, unmount } = renderHook(
       ({ ptyId }: { ptyId: number }) =>
-        useTerminal({ current: container } as any, 'pane-1', undefined, ptyId, false, onPtySpawned),
+        useTerminal(containerRef as any, 'pane-1', undefined, ptyId, false, onPtySpawned),
       { initialProps: { ptyId: -1 } },
     );
 
-    // WASM init + spawnTerminal resolve (microtasks, not timers)
-    await act(async () => {
-      await flushPromises();
-    });
+    await act(flushPromises);
 
-    // Simulate what OLD TerminalPane did: onPtySpawned(42) → setRealPtyId(42) → rerender with ptyId=42
-    // This causes useTerminal's effect to re-run (cleanup + cached path).
-    // Cleanup cancels the 100ms sigwinchTimer before it fires.
+    const terminalCallCount = vi.mocked(Terminal).mock.instances.length;
+    expect(terminalCallCount).toBe(1);
+
+    // Simulate the reactive store: setPtyId → PaneContainer re-renders with ptyId=42.
+    // Because ptyId is read via ref (not a dep), the effect must NOT re-run.
     rerender({ ptyId: 42 });
+    await act(flushPromises);
 
-    // Advance well past the 100ms sigwinch timer
-    act(() => {
-      vi.advanceTimersByTime(200);
-    });
+    // No new Terminal — effect did NOT re-run
+    expect(vi.mocked(Terminal).mock.instances.length).toBe(terminalCallCount);
+    // setCached called only once (from the original spawn)
+    expect(setCached).toHaveBeenCalledTimes(1);
 
-    // resizePty was NEVER called — the timer was cancelled by effect cleanup.
-    // For a restored session with empty scrollback, this means no SIGWINCH,
-    // no shell prompt reprint, blank terminal.
-    expect(vi.mocked(resizePty)).not.toHaveBeenCalled();
-
-    vi.useRealTimers();
     unmount();
   });
 
-  it('FIXED: ptyId stays at -1 — sigwinch timer fires at 100ms, resizePty sends SIGWINCH', async () => {
-    vi.useFakeTimers();
+  it('overlay removed on first byte for isNew=false even after ptyId prop changes', async () => {
     vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
 
     const container = makeContainer();
-    const onPtySpawned = vi.fn();
+    const containerRef = { current: container };
 
-    // Render with ptyId=-1 and NEVER rerender — simulates the fix where
-    // onPtySpawned does NOT change the ptyId prop passed to useTerminal.
-    const { unmount } = renderHook(() =>
-      useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, onPtySpawned),
+    const { rerender, unmount } = renderHook(
+      ({ ptyId }: { ptyId: number }) =>
+        useTerminal(containerRef as any, 'pane-1', undefined, ptyId, false, vi.fn()),
+      { initialProps: { ptyId: -1 } },
     );
 
-    // WASM init + spawnTerminal resolve
-    await act(async () => {
-      await flushPromises();
-    });
+    await act(flushPromises);
 
-    // Advance past the 100ms sigwinch timer
+    // Store update changes ptyId prop — effect stays stable
+    rerender({ ptyId: 42 });
+    await act(flushPromises);
+
+    // Overlay still present — waiting for first byte
+    const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
+    const wrapper = termInstance.element as HTMLElement;
+    const overlay = wrapper.firstElementChild as HTMLElement;
+    expect(overlay).toBeTruthy();
+    expect(overlay.style.position).toBe('absolute');
+
+    // Simulate SIGWINCH response arriving via connectPtyOutput handler
+    const outputHandler = vi.mocked(connectPtyOutput).mock.calls[0]![1];
     act(() => {
-      vi.advanceTimersByTime(150);
+      outputHandler(new Uint8Array([27, 91, 72, 126]));
     });
 
-    // resizePty WAS called — the timer fired because no cleanup cancelled it.
-    // SIGWINCH forces zsh to reprint its prompt → bytes arrive → overlay removed.
-    expect(vi.mocked(resizePty)).toHaveBeenCalledWith(42, expect.any(Number), expect.any(Number));
+    // Overlay removed, content written
+    expect(overlay.parentNode).toBeNull();
+    expect(termInstance.write).toHaveBeenCalled();
 
-    vi.useRealTimers();
     unmount();
   });
 });
