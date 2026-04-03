@@ -630,4 +630,109 @@ mod tests {
 
         let _ = std::fs::remove_file(&socket);
     }
+
+    #[tokio::test]
+    async fn resize_delivers_sigwinch_to_shell() {
+        // Spawn a shell with a SIGWINCH trap, then resize. The trap output
+        // must appear as live bytes on the attach stream (after sentinel).
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // Shell: set WINCH trap, signal readiness, then block on `read`.
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(
+            &mut conn,
+            r#"{"op":"spawn","paneId":"rsz1","rows":24,"cols":80,"command":"sh","args":["-c","trap 'printf WINCH_OK' WINCH; printf READY; read line"]}"#,
+        )
+        .await;
+        let resp = read_json_line(&mut conn).await;
+        assert_eq!(resp["ok"], true, "spawn failed: {resp}");
+
+        // Wait for READY to appear in scrollback.
+        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+
+        // Attach and drain scrollback + sentinel.
+        let mut attach = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut attach, r#"{"op":"attach","paneId":"rsz1"}"#).await;
+        let scrollback = drain_scrollback(&mut attach).await;
+        let text = String::from_utf8_lossy(&scrollback);
+        assert!(text.contains("READY"), "shell did not start: {text:?}");
+
+        // Resize — this sends SIGWINCH to the shell process group.
+        let mut cmd = UnixStream::connect(&socket).await.unwrap();
+        send_line(
+            &mut cmd,
+            r#"{"op":"resize","paneId":"rsz1","rows":30,"cols":100}"#,
+        )
+        .await;
+
+        // Read live frames until we see the trap output.
+        let mut live = Vec::new();
+        for _ in 0..50 {
+            tokio::select! {
+                frame = read_frame(&mut attach) => {
+                    live.extend_from_slice(&frame);
+                    if String::from_utf8_lossy(&live).contains("WINCH_OK") {
+                        break;
+                    }
+                }
+                _ = tokio::time::sleep(tokio::time::Duration::from_millis(100)) => {}
+            }
+        }
+        let live_text = String::from_utf8_lossy(&live);
+        assert!(
+            live_text.contains("WINCH_OK"),
+            "SIGWINCH trap output not received as live data; got: {live_text:?}"
+        );
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn reconnect_spawn_returns_is_new_false_and_scrollback_preserved() {
+        // First spawn creates a session (is_new=true). Second spawn for same
+        // paneId returns is_new=false with the same pid. Attaching after the
+        // second spawn must still replay the scrollback from the first session.
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // First spawn: create session, produce known output.
+        let mut conn1 = UnixStream::connect(&socket).await.unwrap();
+        send_line(
+            &mut conn1,
+            r#"{"op":"spawn","paneId":"rc1","rows":24,"cols":80,"command":"sh","args":["-c","printf 'RESTORE_ME'; sleep 60"]}"#,
+        )
+        .await;
+        let resp1 = read_json_line(&mut conn1).await;
+        assert_eq!(resp1["ok"], true);
+        assert_eq!(resp1["new"], true, "first spawn must be new");
+        let pid1 = resp1["pid"].as_u64().unwrap();
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+
+        // Second spawn: same paneId → reconnect (is_new=false, same pid).
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(
+            &mut conn2,
+            r#"{"op":"spawn","paneId":"rc1","rows":24,"cols":80}"#,
+        )
+        .await;
+        let resp2 = read_json_line(&mut conn2).await;
+        assert_eq!(resp2["ok"], true);
+        assert_eq!(resp2["new"], false, "second spawn must be reconnect");
+        assert_eq!(resp2["pid"].as_u64().unwrap(), pid1, "pid must match");
+
+        // Attach and verify scrollback contains output from the first session.
+        let mut attach = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut attach, r#"{"op":"attach","paneId":"rc1"}"#).await;
+        let scrollback = drain_scrollback(&mut attach).await;
+
+        let text = String::from_utf8_lossy(&scrollback);
+        assert!(
+            text.contains("RESTORE_ME"),
+            "scrollback from original session not preserved; got: {text:?}"
+        );
+
+        let _ = std::fs::remove_file(&socket);
+    }
 }
