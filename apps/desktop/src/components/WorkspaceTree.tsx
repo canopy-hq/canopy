@@ -18,6 +18,7 @@ import {
   getWorkspaceItemIds,
 } from '../lib/workspace-actions';
 import { useDiffStatsMap } from '../hooks/useDiffStatsMap';
+import { usePageVisible } from '../hooks/usePageVisible';
 import { CloseProjectModal } from './CloseProjectModal';
 import { RemoveWorktreeModal } from './RemoveWorktreeModal';
 import { StatusDot } from './StatusDot';
@@ -320,7 +321,7 @@ function useRepoAgentSummary(ws: Workspace): Array<'running' | 'waiting'> {
 
 export function WorkspaceTree() {
   const workspaces = useWorkspaces();
-  const { selectedItemId } = useUiState();
+  const { selectedItemId, sidebarVisible } = useUiState();
   const [modalWorkspace, setModalWorkspace] = useState<Workspace | null>(null);
   const [closeTarget, setCloseTarget] = useState<Workspace | null>(null);
   const [removeWtTarget, setRemoveWtTarget] = useState<{
@@ -328,7 +329,8 @@ export function WorkspaceTree() {
     name: string;
   } | null>(null);
   const agentMap = useWorkspaceAgentMap();
-  const diffStatsMap = useDiffStatsMap(workspaces, true);
+  const pageVisible = usePageVisible();
+  const diffStatsMap = useDiffStatsMap(workspaces, sidebarVisible && pageVisible);
   const navigate = useNavigate();
 
   const expandedKeys = useMemo(
