@@ -268,6 +268,13 @@ body.resizing * {
   transition: none !important;
 }
 
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @keyframes pulse-slow {
   0%,
   100% {

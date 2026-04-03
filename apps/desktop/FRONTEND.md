@@ -11,61 +11,73 @@ Styling and component conventions for `apps/desktop/`.
 
 ## Rules
 
-### 1. Tailwind-first — no inline styles
+### 1. Tailwind-first — minimize `style={{}}`
 
-Use utility classes by default. Inline `style={{}}` is only acceptable for:
-- Vendor-prefixed properties not available in Tailwind (`WebkitMaskImage`, `WebkitBackdropFilter`)
-- Complex CSS functions that can't be expressed as utilities (multi-stop `mask-image` gradients)
+Use utility classes as the default. `style={{}}` has two accepted uses:
 
-For CSS custom property references, use Tailwind v4's `property-(--var)` shorthand instead of inline styles:
+**a) CSS variable injection** — passing a dynamic JS value into a Tailwind class via a CSS variable:
 ```tsx
-// BAD — inline style with var()
-<div style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--agent-running)' }} />
+// Pass a dynamic size prop into Tailwind via CSS variable
+<span
+  className="size-(--dot-size)"
+  style={{ '--dot-size': `${size}px` } as React.CSSProperties}
+/>
 
-// BAD — arbitrary value with var()
-<div className="bg-[var(--bg-primary)]" />
-
-// GOOD — Tailwind semantic class (when token is in @theme)
-<div className="bg-bg-primary" />
-
-// GOOD — Tailwind v4 CSS variable shorthand (when token is NOT in @theme)
-<div className="bg-(--agent-running) text-(--agent-waiting)" />
+// Truly dynamic JS expression with no Tailwind equivalent
+<div style={{ flex: `${ratio} 1 0%` }} />
 ```
 
-For dynamic pixel/numeric values, use CSS variables with the shorthand syntax:
+**b) Vendor-prefixed properties and unrepresentable CSS** — properties Tailwind doesn't cover:
 ```tsx
-// BAD — inline style for a computed value
-<div style={{ width: size, height: size }} />
+// webkit prefix (no Tailwind equivalent)
+<div style={{ WebkitBackdropFilter: 'blur(12px)' }} />
 
-// GOOD — CSS variable + Tailwind shorthand
-<div className="size-(--dot-size)" style={{ '--dot-size': `${size}px` } as React.CSSProperties} />
+// Dynamic multi-stop mask gradient computed in JS
+<div style={{ WebkitMaskImage: maskImage }} />
+```
 
-// ACCEPTABLE — inline style when it's a truly dynamic JS expression (e.g. flex ratios)
-<div style={{ flex: `${ratio} 1 0%` }} />
+Everything else must use Tailwind classes. In particular, **never** reference a CSS var via `style=`:
+```tsx
+// BAD
+<div style={{ backgroundColor: 'var(--bg-primary)' }} />
+<div style={{ color: 'var(--agent-running)' }} />
+
+// BAD — old arbitrary-value syntax
+<div className="bg-[var(--bg-primary)]" />
+
+// GOOD — Tailwind semantic class (token in @theme)
+<div className="bg-bg-primary" />
+
+// GOOD — Tailwind v4 CSS variable shorthand (token not in @theme)
+<div className="bg-(--agent-running) text-(--agent-waiting)" />
 ```
 
 ### 2. Component variants with `tv()`
 
-Use `tailwind-variants` for all component variant logic. Never use manual template literal ternaries for conditional classes.
+Use `tailwind-variants` for all component variant logic. Never use template literal ternaries for conditional classes.
 
 ```tsx
 import { tv } from 'tailwind-variants';
 
 const tab = tv({
-  base: 'group relative flex h-full max-w-[240px] min-w-[120px] flex-shrink cursor-pointer items-center gap-1.5 rounded-t-md border-t-2 px-3 transition-colors',
+  base: 'group flex h-full cursor-pointer items-center gap-1.5 border-t-2 px-3 transition-colors',
   variants: {
     active: {
       true: 'border-t-accent bg-tab-active-bg text-text-primary',
       false: 'border-t-transparent bg-tab-inactive-bg text-text-muted hover:bg-bg-secondary',
     },
+    agentWaiting: {
+      true: 'bg-(--agent-waiting-glow)',
+    },
   },
   defaultVariants: {
     active: false,
+    agentWaiting: false,
   },
 });
 
 // Usage
-<button className={tab({ active: isActive })} />
+<button className={tab({ active: isActive, agentWaiting: agentStatus === 'waiting' })} />
 ```
 
 For components with multiple styled sub-elements, use **slots**:
@@ -137,18 +149,49 @@ Use built-in Tailwind variants for interactive and structural patterns:
 
 Custom properties are for **theming tokens only**, defined in the `@theme {}` block of `index.css`. Each theme (`[data-theme="obsidian"]`, etc.) sets the raw `--var` values, and `@theme` maps them to Tailwind color utilities.
 
-- Use Tailwind semantic classes (`bg-bg-primary`, `text-text-muted`, `border-border`) for tokens defined in `@theme`
+- Use Tailwind semantic classes (`bg-bg-primary`, `text-text-muted`, `border-border`) for tokens in `@theme`
 - Use Tailwind v4 shorthand `property-(--var)` for theme vars not yet in `@theme` (e.g. `bg-(--agent-running)`)
-- Never use `style={{ color: 'var(--x)' }}` — always use a Tailwind class instead
 - If a CSS variable is used in 3+ places and not yet in `@theme`, add it to the `@theme` block
 
 ### 6. Arbitrary values
 
 Tailwind's `[]` syntax is fine for one-off values: `text-[13px]`, `w-[480px]`, `rounded-[10px]`.
 
+In Tailwind v4, `z-<integer>` works for any integer natively (`z-50`, `z-100`, etc.) — no config needed.
+
 If a value repeats across 3+ components, add it to the `@theme {}` block instead.
 
-### 7. Type-safe variant props
+### 7. Custom utilities
+
+Add reusable vendor-prefixed or non-standard CSS patterns as `@utility` in `index.css` rather than repeating inline styles:
+
+```css
+/* index.css */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+```
+
+```tsx
+// Usage
+<div className="scrollbar-none overflow-y-auto" />
+```
+
+### 8. SVG attributes
+
+`stroke` and `fill` on `<svg>` / `<path>` elements are SVG attributes, not CSS — `className` cannot be used on them. CSS var references via the attribute value are acceptable:
+
+```tsx
+// ACCEPTABLE — SVG attribute (not inline CSS)
+<svg stroke={isActive ? 'var(--accent)' : 'var(--text-muted)'} />
+```
+
+Prefer `stroke="currentColor"` + a `text-*` class on the parent when the stroke is static.
+
+### 9. Type-safe variant props
 
 Use `VariantProps` to extract variant types for component props:
 
@@ -156,7 +199,7 @@ Use `VariantProps` to extract variant types for component props:
 import { tv, type VariantProps } from 'tailwind-variants';
 
 const statusDot = tv({
-  base: 'inline-block shrink-0 rounded-full',
+  base: 'inline-block shrink-0 rounded-full size-(--dot-size)',
   variants: {
     status: {
       running: 'bg-(--agent-running) animate-[pulse-slow_2s_ease-in-out_infinite]',

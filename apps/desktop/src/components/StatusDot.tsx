@@ -1,7 +1,9 @@
+import type React from 'react';
+
 import { tv, type VariantProps } from 'tailwind-variants';
 
 const statusDot = tv({
-  base: 'inline-block shrink-0 rounded-full',
+  base: 'inline-block shrink-0 rounded-full size-(--dot-size)',
   variants: {
     status: {
       running: 'bg-(--agent-running) animate-[pulse-slow_2s_ease-in-out_infinite]',
@@ -17,7 +19,7 @@ export function StatusDot({ status, size = 8 }: { status: DotStatus; size?: numb
   return (
     <span
       className={statusDot({ status })}
-      style={{ width: size, height: size }}
+      style={{ '--dot-size': `${size}px` } as React.CSSProperties}
       role="img"
       aria-label={`Agent ${status}`}
     />

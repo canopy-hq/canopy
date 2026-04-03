@@ -27,11 +27,10 @@ describe('StatusDot', () => {
     expect(dot.className).toContain('bg-(--agent-waiting)');
   });
 
-  it('uses custom size prop', () => {
+  it('uses custom size prop via CSS variable', () => {
     render(<StatusDot status="running" size={12} />);
-    const dot = screen.getByRole('img');
-    expect(dot.style.width).toBe('12px');
-    expect(dot.style.height).toBe('12px');
+    const dot = screen.getByRole('img') as HTMLElement;
+    expect(dot.style.getPropertyValue('--dot-size')).toBe('12px');
   });
 
   it('has accessible aria-label', () => {
@@ -42,8 +41,7 @@ describe('StatusDot', () => {
 
   it('uses default size of 8px', () => {
     render(<StatusDot status="running" />);
-    const dot = screen.getByRole('img');
-    expect(dot.style.width).toBe('8px');
-    expect(dot.style.height).toBe('8px');
+    const dot = screen.getByRole('img') as HTMLElement;
+    expect(dot.style.getPropertyValue('--dot-size')).toBe('8px');
   });
 });

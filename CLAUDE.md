@@ -179,7 +179,7 @@ cd apps/desktop && bun tauri build
 
 See [`apps/desktop/FRONTEND.md`](apps/desktop/FRONTEND.md) for full details.
 
-- **Tailwind-first**: utility classes by default, inline `style={{}}` only for truly dynamic runtime values
+- **Tailwind-first**: utility classes by default, `style={{}}` only for CSS variable injection (dynamic values → `size-(--dot-size)`) or vendor-prefixed properties
 - **`tv()` for variants**: use `tailwind-variants` for all conditional class logic — no manual template literal ternaries
 - **React ARIA data-attributes**: use `data-[selected]:`, `data-[focused]:`, etc. via the `tailwindcss-react-aria-components` plugin — no render-prop `className` functions
 - **CSS custom properties**: theming tokens only, defined in `@theme {}` block — use Tailwind classes (`bg-bg-primary`) not `var(--bg-primary)` in styles

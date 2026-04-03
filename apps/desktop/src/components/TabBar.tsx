@@ -18,9 +18,13 @@ const tabItem = tv({
       true: 'border-t-accent bg-tab-active-bg text-text-primary',
       false: 'border-t-transparent bg-tab-inactive-bg text-text-muted hover:bg-bg-secondary',
     },
+    agentWaiting: {
+      true: 'bg-(--agent-waiting-glow)',
+    },
   },
   defaultVariants: {
     active: false,
+    agentWaiting: false,
   },
 });
 
@@ -63,7 +67,7 @@ function TabItemComponent({
 
   return (
     <button
-      className={`${tabItem({ active: isActive })} ${agentStatus === 'waiting' ? 'bg-(--agent-waiting-glow)' : ''}`}
+      className={tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}
       onClick={onSwitch}
       onMouseDown={(e) => {
         if (e.button === 1) {
@@ -180,8 +184,8 @@ export function TabBar() {
     <div className="flex h-9 shrink-0 items-center border-b border-border bg-bg-primary">
       <div
         ref={scrollRef}
-        className="flex h-full min-w-0 flex-1 items-stretch overflow-x-auto"
-        style={{ scrollbarWidth: 'none', maskImage, WebkitMaskImage: maskImage }}
+        className="scrollbar-none flex h-full min-w-0 flex-1 items-stretch overflow-x-auto"
+        style={{ maskImage, WebkitMaskImage: maskImage }}
       >
         {tabs.map((tab) => (
           <TabItemComponent

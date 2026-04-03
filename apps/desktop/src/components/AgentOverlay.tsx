@@ -211,7 +211,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto py-2" style={{ scrollbarWidth: 'none' }}>
+          <div className="scrollbar-none flex-1 overflow-y-auto py-2">
             {!hasAgents ? (
               /* Empty state */
               <div className="flex flex-col items-center justify-center gap-2 px-4 py-8">
