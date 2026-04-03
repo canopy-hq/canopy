@@ -258,8 +258,12 @@ export function useTerminal(
               lastSentSize.rows = r;
               lastSentSize.cols = c;
               void resizePty(newId, r, c);
-            } else if (ticks === 0) {
-              // First tick: always send SIGWINCH so TUI apps initialise.
+            } else if (ticks === 0 && isNew) {
+              // Fresh shell only: always send SIGWINCH so TUI apps initialise.
+              // Restored sessions (isNew=false) already have the correct size —
+              // a spurious SIGWINCH causes zsh to reprint its prompt below the
+              // replayed scrollback, shifting the viewport and making the session
+              // appear empty.
               void resizePty(newId, r, c);
             }
             ticks++;
