@@ -40,6 +40,7 @@ import { Terminal, FitAddon } from 'ghostty-web';
 import {
   connectPtyOutput,
   connectPtyOutputFresh,
+  resizePty,
   spawnTerminal,
 } from '../src/pty';
 import { getCached, setCached } from '../src/terminal-cache';
@@ -436,5 +437,78 @@ describe('useTerminal — full spawn → unmount → remount cycle', () => {
     expect(connectPtyOutputFresh).not.toHaveBeenCalled();
 
     hook2.unmount();
+  });
+});
+
+// ─── Regression: ptyId prop change cancels sigwinch timer ─────────────────
+
+describe('useTerminal — ptyId stability after spawn (isNew=false)', () => {
+  it('BROKEN: changing ptyId from -1 to 42 re-runs the effect — sigwinch timer cancelled, resizePty never called', async () => {
+    vi.useFakeTimers();
+    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
+
+    const container = makeContainer();
+    const onPtySpawned = vi.fn();
+
+    // Initial render: ptyId=-1 → spawn path
+    const { rerender, unmount } = renderHook(
+      ({ ptyId }: { ptyId: number }) =>
+        useTerminal({ current: container } as any, 'pane-1', undefined, ptyId, false, onPtySpawned),
+      { initialProps: { ptyId: -1 } },
+    );
+
+    // WASM init + spawnTerminal resolve (microtasks, not timers)
+    await act(async () => {
+      await flushPromises();
+    });
+
+    // Simulate what OLD TerminalPane did: onPtySpawned(42) → setRealPtyId(42) → rerender with ptyId=42
+    // This causes useTerminal's effect to re-run (cleanup + cached path).
+    // Cleanup cancels the 100ms sigwinchTimer before it fires.
+    rerender({ ptyId: 42 });
+
+    // Advance well past the 100ms sigwinch timer
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    // resizePty was NEVER called — the timer was cancelled by effect cleanup.
+    // For a restored session with empty scrollback, this means no SIGWINCH,
+    // no shell prompt reprint, blank terminal.
+    expect(vi.mocked(resizePty)).not.toHaveBeenCalled();
+
+    vi.useRealTimers();
+    unmount();
+  });
+
+  it('FIXED: ptyId stays at -1 — sigwinch timer fires at 100ms, resizePty sends SIGWINCH', async () => {
+    vi.useFakeTimers();
+    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
+
+    const container = makeContainer();
+    const onPtySpawned = vi.fn();
+
+    // Render with ptyId=-1 and NEVER rerender — simulates the fix where
+    // onPtySpawned does NOT change the ptyId prop passed to useTerminal.
+    const { unmount } = renderHook(() =>
+      useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, onPtySpawned),
+    );
+
+    // WASM init + spawnTerminal resolve
+    await act(async () => {
+      await flushPromises();
+    });
+
+    // Advance past the 100ms sigwinch timer
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+
+    // resizePty WAS called — the timer fired because no cleanup cancelled it.
+    // SIGWINCH forces zsh to reprint its prompt → bytes arrive → overlay removed.
+    expect(vi.mocked(resizePty)).toHaveBeenCalledWith(42, expect.any(Number), expect.any(Number));
+
+    vi.useRealTimers();
+    unmount();
   });
 });
