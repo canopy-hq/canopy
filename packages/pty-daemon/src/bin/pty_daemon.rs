@@ -6,5 +6,5 @@ fn main() {
     });
 
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
-    rt.block_on(superagent_lib::daemon::run(socket_path));
+    rt.block_on(pty_daemon_lib::daemon::run(socket_path));
 }

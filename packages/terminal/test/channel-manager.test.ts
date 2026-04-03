@@ -103,21 +103,20 @@ describe('createChannelEntry — setHandlerFresh (spawn path)', () => {
     expect(received).toHaveLength(3);
   });
 
-  it('when sentinel arrived before setHandlerFresh: forwards data immediately', () => {
+  it('when sentinel arrived before setHandlerFresh: post-sentinel live byte flushed, scrollback discarded', () => {
     const entry = createChannelEntry();
-    // Sentinel arrives before handler is wired (scrollback already done)
-    entry.onData(bytes(1)); // pre-handler scrollback
+    entry.onData(bytes(1)); // pre-sentinel scrollback
     entry.onData(sentinel);
-    entry.onData(bytes(2)); // live data, arrives before handler
+    entry.onData(bytes(2)); // live byte arrives before handler is wired
     const received: Uint8Array[] = [];
-    // setHandlerFresh is called after sentinel — should NOT buffer post-sentinel data
     entry.setHandlerFresh((d) => received.push(d));
-    // Pre-handler buffer is discarded (scrollback + live that arrived before handler)
-    expect(received).toHaveLength(0);
+    // Pre-sentinel scrollback discarded; post-sentinel live byte flushed immediately
+    expect(received).toHaveLength(1);
+    expect(Array.from(received[0]!)).toEqual([2]);
     // Subsequent data flows immediately (sentinel already received)
     entry.onData(bytes(99));
-    expect(received).toHaveLength(1);
-    expect(Array.from(received[0]!)).toEqual([99]);
+    expect(received).toHaveLength(2);
+    expect(Array.from(received[1]!)).toEqual([99]);
   });
 });
 
@@ -206,5 +205,144 @@ describe('createChannelEntry — overlay scenario', () => {
     entry.onData(bytes(1, 2, 3));
     // In reconnect mode the first byte removes the overlay (correct behavior)
     expect(overlayRemoved).toBe(true);
+  });
+});
+
+describe('createChannelEntry — edge cases', () => {
+  it('sentinel as very first frame (zero scrollback before handler)', () => {
+    const entry = createChannelEntry();
+    entry.onData(sentinel);
+    const received: Uint8Array[] = [];
+    entry.setHandlerFresh((d) => received.push(d));
+    entry.onData(bytes(42));
+    expect(received).toHaveLength(1);
+    expect(Array.from(received[0]!)).toEqual([42]);
+  });
+
+  it('multiple sentinels are idempotent in fresh mode', () => {
+    const entry = createChannelEntry();
+    const received: Uint8Array[] = [];
+    entry.setHandlerFresh((d) => received.push(d));
+    entry.onData(bytes(10));
+    entry.onData(sentinel);
+    entry.onData(bytes(20));
+    entry.onData(sentinel); // second sentinel — no-op
+    entry.onData(bytes(30));
+    expect(received).toHaveLength(2);
+    expect(Array.from(received[0]!)).toEqual([20]);
+    expect(Array.from(received[1]!)).toEqual([30]);
+  });
+
+  it('handler replaced via setHandlerFresh before sentinel — only second handler gets live data', () => {
+    const entry = createChannelEntry();
+    const r1: Uint8Array[] = [];
+    const r2: Uint8Array[] = [];
+    entry.setHandlerFresh((d) => r1.push(d));
+    entry.onData(bytes(10));
+    entry.setHandlerFresh((d) => r2.push(d));
+    entry.onData(bytes(20));
+    entry.onData(sentinel);
+    entry.onData(bytes(99));
+    expect(r1).toHaveLength(0);
+    expect(r2).toHaveLength(1);
+    expect(Array.from(r2[0]!)).toEqual([99]);
+  });
+
+  it('very large pre-handler buffer (>1 MB) flushes completely via setHandler', () => {
+    const CHUNK_SIZE = 64 * 1024; // 64 KB
+    const CHUNKS = 20; // 20 × 64 KB = ~1.28 MB
+    const entry = createChannelEntry();
+    let totalExpected = 0;
+    for (let i = 0; i < CHUNKS; i++) {
+      const chunk = Array.from({ length: CHUNK_SIZE }, (_, j) => (i * 7 + j) & 0xff);
+      entry.onData(chunk);
+      totalExpected += CHUNK_SIZE;
+    }
+    let totalReceived = 0;
+    entry.setHandler((d) => {
+      totalReceived += d.length;
+    });
+    expect(totalReceived).toBe(totalExpected);
+  });
+
+  it('rapid interleaving: scrollback → setHandlerFresh → more scrollback → sentinel → live (single tick)', () => {
+    const entry = createChannelEntry();
+    const received: number[][] = [];
+    entry.onData(bytes(1, 2));
+    entry.onData(bytes(3, 4));
+    entry.setHandlerFresh((d) => received.push(Array.from(d)));
+    entry.onData(bytes(5, 6));
+    entry.onData(bytes(7, 8));
+    entry.onData(sentinel);
+    entry.onData(bytes(9, 10));
+    entry.onData(bytes(11, 12));
+    expect(received).toHaveLength(2);
+    expect(received[0]).toEqual([9, 10]);
+    expect(received[1]).toEqual([11, 12]);
+  });
+
+  it('multi-byte UTF-8 sequences (CJK + emoji) survive unchanged through the pipeline', () => {
+    // 日 = U+65E5 → 0xE6 0x97 0xA5
+    // 本 = U+672C → 0xE6 0x9C 0xAC
+    // 語 = U+8A9E → 0xE8 0xAA 0x9E
+    // 🚀 = U+1F680 → 0xF0 0x9F 0x9A 0x80
+    const cjk = [0xe6, 0x97, 0xa5, 0xe6, 0x9c, 0xac, 0xe8, 0xaa, 0x9e];
+    const emoji = [0xf0, 0x9f, 0x9a, 0x80];
+    const payload = [...cjk, ...emoji];
+
+    const entry = createChannelEntry();
+    const received: number[] = [];
+    entry.setHandler((d) => received.push(...Array.from(d)));
+    entry.onData(payload);
+
+    expect(received).toEqual(payload);
+  });
+});
+
+describe('createChannelEntry — pre-handler race (sentinel before setHandlerFresh)', () => {
+  it('sentinel → single live chunk → setHandlerFresh: live chunk delivered', () => {
+    const entry = createChannelEntry();
+    entry.onData(sentinel);
+    entry.onData(bytes(42));
+    const received: Uint8Array[] = [];
+    entry.setHandlerFresh((d) => received.push(d));
+    expect(received).toHaveLength(1);
+    expect(Array.from(received[0]!)).toEqual([42]);
+  });
+
+  it('sentinel → multiple live chunks → setHandlerFresh: all chunks delivered in order', () => {
+    const entry = createChannelEntry();
+    entry.onData(sentinel);
+    entry.onData(bytes(1));
+    entry.onData(bytes(2));
+    entry.onData(bytes(3));
+    const received: Uint8Array[] = [];
+    entry.setHandlerFresh((d) => received.push(d));
+    expect(received).toHaveLength(3);
+    expect(Array.from(received[0]!)).toEqual([1]);
+    expect(Array.from(received[1]!)).toEqual([2]);
+    expect(Array.from(received[2]!)).toEqual([3]);
+  });
+
+  it('scrollback → sentinel → live → setHandlerFresh: scrollback discarded, live delivered', () => {
+    const entry = createChannelEntry();
+    entry.onData(bytes(10, 11)); // scrollback
+    entry.onData(bytes(12, 13)); // scrollback
+    entry.onData(sentinel);
+    entry.onData(bytes(0x24, 0x20)); // shell prompt "$ "
+    const received: Uint8Array[] = [];
+    entry.setHandlerFresh((d) => received.push(d));
+    expect(received).toHaveLength(1);
+    expect(Array.from(received[0]!)).toEqual([0x24, 0x20]);
+  });
+
+  it('setHandler (reconnect): post-sentinel live bytes flushed alongside scrollback', () => {
+    const entry = createChannelEntry();
+    entry.onData(bytes(10, 11)); // scrollback
+    entry.onData(sentinel);
+    entry.onData(bytes(20, 21)); // live bytes (prompt), no handler yet
+    const received: number[] = [];
+    entry.setHandler((d) => received.push(...Array.from(d)));
+    expect(received).toEqual([10, 11, 20, 21]);
   });
 });

@@ -87,8 +87,8 @@ impl DaemonClient {
     }
 
     /// Spawn a PTY session for pane_id (no-op if already exists).
-    /// Returns the child process PID used as ptyId on the Tauri side.
-    pub async fn spawn(&self, pane_id: &str, cwd: Option<&str>, rows: u16, cols: u16) -> Result<u32, String> {
+    /// Returns `(pid, is_new)` — `is_new` is false when the session already existed.
+    pub async fn spawn(&self, pane_id: &str, cwd: Option<&str>, rows: u16, cols: u16) -> Result<(u32, bool), String> {
         let mut obj = serde_json::json!({
             "op": "spawn",
             "paneId": pane_id,
@@ -102,10 +102,13 @@ impl DaemonClient {
 
         let resp = self.send_cmd(&msg).await?;
         if resp["ok"].as_bool() == Some(true) {
-            resp["pid"]
+            let pid = resp["pid"]
                 .as_u64()
                 .map(|p| p as u32)
-                .ok_or_else(|| "daemon: spawn returned no pid".to_string())
+                .ok_or_else(|| "daemon: spawn returned no pid".to_string())?;
+            // Default to true (fresh) if the daemon omits "new" (forward compat with older daemons).
+            let is_new = resp["new"].as_bool().unwrap_or(true);
+            Ok((pid, is_new))
         } else {
             Err(resp["error"].as_str().unwrap_or("spawn failed").to_string())
         }
@@ -113,11 +116,10 @@ impl DaemonClient {
 
     /// Write data to a PTY session (fire-and-forget, persistent stream).
     pub async fn write(&self, pane_id: &str, data: &[u8]) -> Result<(), String> {
-        let arr: Vec<u8> = data.to_vec();
         let msg = format!(
             "{{\"op\":\"write\",\"paneId\":{},\"data\":{}}}\n",
             serde_json::json!(pane_id),
-            serde_json::json!(arr),
+            serde_json::json!(data),
         );
         self.send_noack(&msg).await
     }

@@ -1,0 +1,17 @@
+[package]
+name = "superagent-pty-daemon"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "pty_daemon_lib"
+
+[[bin]]
+name = "superagent-pty-daemon"
+path = "src/bin/pty_daemon.rs"
+
+[dependencies]
+portable-pty.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tempfile = "3"

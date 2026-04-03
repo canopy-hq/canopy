@@ -35,25 +35,36 @@ export interface ChannelEntry {
 
 export function createChannelEntry(): ChannelEntry {
   const preHandlerBuffer: Uint8Array[] = [];
-  const postHandlerBuffer: Uint8Array[] = [];
+  // Post-sentinel, pre-handler: live bytes that arrived before the handler was wired.
+  // Always flushed — these are the shell prompt the user is waiting for.
+  const postSentinelBuffer: Uint8Array[] = [];
   let handler: ((data: Uint8Array) => void) | null = null;
   let freshMode = false;
   let sentinelReceived = false;
+
+  function drain(buf: Uint8Array[], h: (d: Uint8Array) => void) {
+    for (const b of buf) h(b);
+    buf.length = 0;
+  }
 
   return {
     onData(rawData) {
       if (rawData.length === 0) {
         // Sentinel: end of scrollback replay.
         sentinelReceived = true;
-        if (freshMode) postHandlerBuffer.length = 0;
         return;
       }
       const bytes = new Uint8Array(rawData);
       if (!handler) {
-        preHandlerBuffer.push(bytes);
+        // Split on sentinel boundary so setHandlerFresh can discard scrollback
+        // while preserving live bytes (e.g. the initial shell prompt).
+        if (sentinelReceived) {
+          postSentinelBuffer.push(bytes);
+        } else {
+          preHandlerBuffer.push(bytes);
+        }
       } else if (freshMode && !sentinelReceived) {
-        // Post-handler but pre-sentinel: still scrollback — buffer and discard.
-        postHandlerBuffer.push(bytes);
+        // Post-handler but pre-sentinel: still scrollback — drop it.
       } else {
         handler(bytes);
       }
@@ -62,17 +73,22 @@ export function createChannelEntry(): ChannelEntry {
     setHandler(h) {
       freshMode = false;
       handler = h;
-      for (const b of preHandlerBuffer) h(b);
-      preHandlerBuffer.length = 0;
+      drain(preHandlerBuffer, h);
+      drain(postSentinelBuffer, h);
     },
 
     setHandlerFresh(h) {
       freshMode = true;
       preHandlerBuffer.length = 0;
-      // If the sentinel already arrived before we wired the handler, all buffered
-      // data was scrollback (now discarded). Go straight to live-forwarding mode.
-      if (sentinelReceived) freshMode = false;
-      handler = h;
+      if (sentinelReceived) {
+        // Sentinel already arrived before handler wired: skip fresh-mode buffering
+        // and flush any live bytes (shell prompt) that arrived in the gap.
+        freshMode = false;
+        handler = h;
+        drain(postSentinelBuffer, h);
+      } else {
+        handler = h;
+      }
     },
   };
 }
