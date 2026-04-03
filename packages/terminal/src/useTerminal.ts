@@ -90,7 +90,7 @@ export function useTerminal(
         cursorBlink: true,
         cursorStyle: 'bar',
         fontSize: 14,
-        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+        fontFamily: '"Geist Mono", Menlo, Monaco, "Courier New", monospace',
         theme:
           terminalThemes[
             getSetting(getSettingCollection().toArray, 'theme', 'obsidian') as ThemeName
