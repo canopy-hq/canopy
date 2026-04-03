@@ -10,17 +10,9 @@
   },
   "app": {
     "windows": [
-      {
-        "title": "Superagent",
-        "width": 1200,
-        "height": 800,
-        "minWidth": 640,
-        "minHeight": 480
-      }
+      { "title": "Superagent", "width": 1200, "height": 800, "minWidth": 640, "minHeight": 480 }
     ],
-    "security": {
-      "csp": null
-    }
+    "security": { "csp": null }
   },
   "bundle": {}
 }

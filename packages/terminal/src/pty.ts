@@ -1,40 +1,43 @@
 import { invoke, Channel } from '@tauri-apps/api/core';
 
-// Global registry: PTY output channels keyed by ptyId (child PID).
-// Allows useTerminal to wire the ghostty-web terminal to the daemon output stream.
-const outputRegistry = new Map<number, { setHandler: (h: (data: Uint8Array) => void) => void }>();
+import { createChannelEntry, type ChannelEntry } from './channel-manager';
 
-export async function spawnTerminal(paneId: string, cwd?: string): Promise<number> {
-  const buffer: Uint8Array[] = [];
-  let handler: ((data: Uint8Array) => void) | null = null;
+// Global registry: PTY output channels keyed by ptyId (child PID).
+const outputRegistry = new Map<number, ChannelEntry>();
+
+export async function spawnTerminal(
+  paneId: string,
+  cwd?: string,
+  rows?: number,
+  cols?: number,
+): Promise<number> {
+  const entry = createChannelEntry();
 
   const channel = new Channel<number[]>();
   channel.onmessage = (data: number[]) => {
-    const bytes = new Uint8Array(data);
-    if (handler) {
-      handler(bytes);
-    } else {
-      buffer.push(bytes);
-    }
+    entry.onData(data);
   };
 
-  const ptyId = await invoke<number>('spawn_terminal', { paneId, cwd, onOutput: channel });
-
-  outputRegistry.set(ptyId, {
-    setHandler: (h) => {
-      handler = h;
-      for (const b of buffer) h(b);
-      buffer.length = 0;
-    },
+  const ptyId = await invoke<number>('spawn_terminal', {
+    paneId,
+    cwd,
+    rows,
+    cols,
+    onOutput: channel,
   });
 
+  outputRegistry.set(ptyId, entry);
   return ptyId;
 }
 
-/** Wire (or re-wire) a PTY's output to a handler. Flushes buffered data on first call. */
+/** Wire (or re-wire) a PTY's output to a handler. Flushes buffered scrollback on first call (reconnect path). */
 export function connectPtyOutput(ptyId: number, handler: (data: Uint8Array) => void): void {
-  const entry = outputRegistry.get(ptyId);
-  if (entry) entry.setHandler(handler);
+  outputRegistry.get(ptyId)?.setHandler(handler);
+}
+
+/** Wire a PTY's output to a handler, discarding buffered scrollback and waiting for sentinel (spawn path). */
+export function connectPtyOutputFresh(ptyId: number, handler: (data: Uint8Array) => void): void {
+  outputRegistry.get(ptyId)?.setHandlerFresh(handler);
 }
 
 export async function writeToPty(ptyId: number, data: string): Promise<void> {

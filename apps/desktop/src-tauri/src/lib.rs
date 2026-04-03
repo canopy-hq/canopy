@@ -7,7 +7,7 @@ mod pty;
 
 use std::sync::Mutex;
 use daemon_client::DaemonClient;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 /// Returns the absolute path to the SQLite DB, creating ~/.superagent/ if needed.
 #[tauri::command]
@@ -25,6 +25,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_sql::Builder::new().build())
         .setup(|app| {
+            // Disable macOS press-and-hold accent picker — key repeat works instead
+            let bundle_id = &app.config().identifier;
+            let _ = std::process::Command::new("defaults")
+                .args(["write", bundle_id, "ApplePressAndHoldEnabled", "-bool", "false"])
+                .output();
+
             menu::setup_menu(app)?;
 
             // Locate daemon socket and binary
@@ -62,6 +68,13 @@ pub fn run() {
             agent_watcher::stop_agent_watching,
             agent_watcher::toggle_agent_manual,
         ])
+        .on_menu_event(|app, event| {
+            if event.id().as_ref() == "settings" {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.emit("menu:settings", ());
+                }
+            }
+        })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| match event {

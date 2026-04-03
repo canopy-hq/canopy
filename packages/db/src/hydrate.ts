@@ -25,7 +25,7 @@ function restoreUiState(): void {
   const settings = getSettingCollection().toArray;
   const activeContextId = getSetting(settings, 'activeContextId', '');
   const activeTabId = getSetting(settings, 'activeTabId', '');
-  const sidebarVisible = getSetting(settings, 'sidebarVisible', false);
+  const sidebarVisible = getSetting(settings, 'sidebarVisible', true);
 
   const tab =
     activeContextId && activeTabId
