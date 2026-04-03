@@ -13,7 +13,6 @@ import {
   getWorkspaceItemIds,
 } from '../lib/workspace-actions';
 import { CloseProjectModal } from './CloseProjectModal';
-import { CreateModal } from './CreateModal';
 import { StatusDot } from './StatusDot';
 
 import type { BranchInfo, WorktreeInfo } from '../lib/git';
@@ -22,12 +21,24 @@ import type { Workspace } from '@superagent/db';
 
 function BranchRow({ branch, agentStatus }: { branch: BranchInfo; agentStatus?: DotStatus }) {
   return (
-    <div className="flex h-7 items-center gap-1 pr-2 pl-4">
-      <span style={{ color: 'var(--branch-icon)' }}>&#x2387;</span>
-      <span className="flex-1 truncate text-text-primary" style={{ fontSize: '13px' }}>
+    <div className="flex items-center gap-[6px] py-[4px] px-[10px] rounded-[5px]"
+      style={{ marginLeft: '39px', marginRight: '6px', marginTop: '1px', marginBottom: '1px',
+        background: branch.is_head ? 'rgba(59,130,246,0.1)' : undefined }}>
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="none"
+        stroke={branch.is_head ? 'var(--accent)' : 'var(--text-muted)'} strokeWidth="2">
+        <circle cx="8" cy="8" r="3"/>
+      </svg>
+      <span style={{ fontSize: '13px', fontWeight: branch.is_head ? 500 : 400,
+        color: branch.is_head ? 'var(--text-primary)' : 'var(--text-muted)', flex: 1 }}
+        className="truncate">
         {branch.name}
       </span>
-      {agentStatus && agentStatus !== 'idle' && <StatusDot status={agentStatus} size={8} />}
+      {branch.is_head && (
+        <span style={{ fontSize: '9px', color: 'var(--accent)', background: 'rgba(59,130,246,0.1)', padding: '1px 5px', borderRadius: '3px' }}>HEAD</span>
+      )}
+      {agentStatus && agentStatus !== 'idle' && (
+        <StatusDot status={agentStatus} size={6} />
+      )}
       <span className="flex gap-1" style={{ fontSize: '11px' }}>
         {branch.ahead > 0 && <span style={{ color: 'var(--git-ahead)' }}>+{branch.ahead}</span>}
         {branch.behind > 0 && <span style={{ color: 'var(--git-behind)' }}>-{branch.behind}</span>}
@@ -44,12 +55,17 @@ function WorktreeRow({
   agentStatus?: DotStatus;
 }) {
   return (
-    <div className="flex h-7 items-center gap-1 pr-2 pl-4">
-      <span style={{ color: 'var(--worktree-icon)' }}>&#x25C6;</span>
-      <span className="flex-1 truncate text-text-primary" style={{ fontSize: '13px' }}>
+    <div className="flex items-center gap-[6px] py-[4px] px-[10px] rounded-[5px]"
+      style={{ marginLeft: '39px', marginRight: '6px', marginTop: '1px', marginBottom: '1px' }}>
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" strokeWidth="1.5">
+        <rect x="3" y="3" width="10" height="10" rx="2"/>
+      </svg>
+      <span style={{ fontSize: '13px', color: 'var(--text-muted)', flex: 1 }} className="truncate">
         {worktree.name}
       </span>
-      {agentStatus && agentStatus !== 'idle' && <StatusDot status={agentStatus} size={8} />}
+      {agentStatus && agentStatus !== 'idle' && (
+        <StatusDot status={agentStatus} size={6} />
+      )}
     </div>
   );
 }
@@ -57,45 +73,81 @@ function WorktreeRow({
 function RepoHeader({
   workspace,
   agentSummary,
+  isSelected,
+  onPlusClick,
 }: {
   workspace: Workspace;
   agentSummary?: Array<'running' | 'waiting'>;
+  isSelected: boolean;
+  onPlusClick: (e: React.MouseEvent) => void;
 }) {
   const headBranch = workspace.branches.find((b) => b.is_head);
+  const childCount = workspace.branches.length + workspace.worktrees.length;
+
   return (
-    <div className="flex h-7 flex-col justify-center pr-2 pl-2">
-      <div className="flex items-center gap-1">
-        <Button
-          slot="chevron"
-          className="cursor-pointer border-none bg-transparent p-0 text-text-muted outline-none"
-          style={{ fontSize: '11px', width: '12px', textAlign: 'center' }}
-        >
-          {workspace.expanded ? '\u25BE' : '\u25B8'}
-        </Button>
-        <span className="truncate font-semibold text-text-primary" style={{ fontSize: '13px' }}>
-          {workspace.name}
-        </span>
-        {!workspace.expanded && agentSummary && agentSummary.length > 0 && (
-          <span className="flex items-center" style={{ gap: '4px', marginLeft: '4px' }}>
-            {agentSummary.slice(0, 3).map((status, i) => (
-              <StatusDot key={i} status={status} size={6} />
-            ))}
-            {agentSummary.length > 3 && (
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                +{agentSummary.length - 3}
-              </span>
-            )}
-          </span>
+    <div
+      className="group flex items-center gap-[7px] py-[6px] px-[12px] mx-[6px] rounded-[6px]"
+      style={{
+        borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent',
+        background: isSelected ? 'rgba(59,130,246,0.04)' : undefined,
+      }}
+    >
+      <Button
+        slot="chevron"
+        className="text-[var(--text-muted)] bg-transparent border-none p-0 outline-none cursor-pointer"
+        style={{ fontSize: '10px', width: '10px', textAlign: 'center' }}
+      >
+        {workspace.expanded ? (
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M4 6l4 4 4-4z"/></svg>
+        ) : (
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M6 4l4 4-4 4z"/></svg>
         )}
-      </div>
-      {headBranch && (
-        <span
-          className="truncate pl-5 text-text-muted"
-          style={{ fontSize: '11px', lineHeight: '1.3' }}
-        >
-          {headBranch.name}
-        </span>
+      </Button>
+      <svg
+        width="14" height="14" viewBox="0 0 16 16" fill="none"
+        stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'}
+        strokeWidth="1.5"
+        style={isSelected ? { filter: 'drop-shadow(0 0 3px rgba(59,130,246,0.4))' } : undefined}
+      >
+        <path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/>
+      </svg>
+      <span
+        className="font-medium truncate"
+        style={{ fontSize: '13px', flex: 1, color: isSelected ? 'var(--text-primary)' : 'var(--text-muted)' }}
+      >
+        {workspace.name}
+      </span>
+      {/* Collapsed: show inline branch + count */}
+      {!workspace.expanded && (
+        <>
+          <span style={{ color: 'var(--text-muted)', margin: '0 2px' }}>·</span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{headBranch?.name ?? 'main'}</span>
+          {agentSummary && agentSummary.length > 0 && (
+            <span className="flex items-center" style={{ gap: '3px', marginLeft: '4px' }}>
+              {agentSummary.slice(0, 3).map((status, i) => (
+                <StatusDot key={i} status={status} size={5} />
+              ))}
+            </span>
+          )}
+          {childCount > 0 && (
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)', background: 'var(--bg-tertiary)', padding: '1px 6px', borderRadius: '8px' }}>
+              {childCount}
+            </span>
+          )}
+        </>
       )}
+      {/* Hover-reveal + button */}
+      <div
+        className="opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{ width: '20px', height: '20px', borderRadius: '4px', background: 'rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+        onClick={onPlusClick}
+        role="button"
+        aria-label="Add workspace"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter') onPlusClick(e as unknown as React.MouseEvent); }}
+      >
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" strokeWidth="1.5"><path d="M8 3v10M3 8h10"/></svg>
+      </div>
     </div>
   );
 }
@@ -199,42 +251,32 @@ export function WorkspaceTree() {
 
   return (
     <>
-      <Tree
-        aria-label="Workspaces"
-        selectionMode="single"
-        selectedKeys={selectedKeys}
-        onSelectionChange={handleSelectionChange}
-        expandedKeys={expandedKeys}
-        onExpandedChange={handleExpandedChange}
-      >
-        {workspaces.map((ws) => (
-          <RepoTreeItem
-            key={ws.id}
-            ws={ws}
-            agentMap={agentMap}
-            setModalWorkspace={setModalWorkspace}
-            onRequestClose={setCloseTarget}
-          />
-        ))}
-      </Tree>
-      {modalWorkspace && (
-        <CreateModal
-          isOpen={!!modalWorkspace}
-          onClose={() => setModalWorkspace(null)}
-          workspace={modalWorkspace}
-        />
-      )}
-      {closeTarget && (
-        <CloseProjectModal
-          isOpen={!!closeTarget}
-          onClose={() => setCloseTarget(null)}
-          onConfirm={async () => {
-            await closeProject(closeTarget.id, navigate);
-            setCloseTarget(null);
-          }}
-          projectName={closeTarget.name}
-        />
-      )}
+    <div style={{ padding: '4px 12px 6px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)' }}>
+      Projects
+    </div>
+    <Tree
+      aria-label="Workspaces"
+      selectionMode="single"
+      selectedKeys={selectedKeys}
+      onSelectionChange={handleSelectionChange}
+      expandedKeys={expandedKeys}
+      onExpandedChange={handleExpandedChange}
+    >
+      {workspaces.map((ws) => (
+        <RepoTreeItem key={ws.id} ws={ws} agentMap={agentMap} setModalWorkspace={setModalWorkspace} onRequestClose={setCloseTarget} selectedItemId={selectedItemId} />
+      ))}
+    </Tree>
+    {closeTarget && (
+      <CloseProjectModal
+        isOpen={!!closeTarget}
+        onClose={() => setCloseTarget(null)}
+        onConfirm={async () => {
+          await closeProject(closeTarget.id, navigate);
+          setCloseTarget(null);
+        }}
+        projectName={closeTarget.name}
+      />
+    )}
     </>
   );
 }
@@ -296,11 +338,13 @@ function RepoTreeItem({
   agentMap,
   setModalWorkspace,
   onRequestClose,
+  selectedItemId,
 }: {
   ws: Workspace;
   agentMap: Record<string, DotStatus>;
   setModalWorkspace: (ws: Workspace) => void;
   onRequestClose: (ws: Workspace) => void;
+  selectedItemId: string | null;
 }) {
   const agentSummary = useRepoAgentSummary(ws);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -315,81 +359,64 @@ function RepoTreeItem({
 
   return (
     <>
-      <TreeItem
-        key={ws.id}
-        id={ws.id}
-        textValue={ws.name}
-        hasChildItems={ws.branches.length > 0 || ws.worktrees.length > 0}
-        className={({ isSelected }) =>
-          `cursor-pointer outline-none ${isSelected ? 'border-l-2 border-l-[var(--accent)] bg-bg-tertiary' : 'hover:bg-bg-tertiary'}`
-        }
-      >
-        <TreeItemContent>
-          <div onContextMenu={handleContextMenu}>
-            <RepoHeader workspace={ws} agentSummary={agentSummary} />
-          </div>
-        </TreeItemContent>
-        {ws.branches.map((b) => (
-          <TreeItem
-            key={`${ws.id}-branch-${b.name}`}
-            id={`${ws.id}-branch-${b.name}`}
-            textValue={b.name}
-            className={({ isSelected }) =>
-              `cursor-pointer outline-none ${isSelected ? 'border-l-2 border-l-[var(--accent)] bg-bg-tertiary' : 'hover:bg-bg-tertiary'}`
-            }
-          >
-            <TreeItemContent>
-              <BranchRow branch={b} agentStatus={agentMap[`${ws.id}-branch-${b.name}`]} />
-            </TreeItemContent>
-          </TreeItem>
-        ))}
-        {ws.worktrees.map((wt) => (
-          <TreeItem
-            key={`${ws.id}-wt-${wt.name}`}
-            id={`${ws.id}-wt-${wt.name}`}
-            textValue={wt.name}
-            className={({ isSelected }) =>
-              `cursor-pointer outline-none ${isSelected ? 'border-l-2 border-l-[var(--accent)] bg-bg-tertiary' : 'hover:bg-bg-tertiary'}`
-            }
-          >
-            <TreeItemContent>
-              <WorktreeRow worktree={wt} agentStatus={agentMap[`${ws.id}-wt-${wt.name}`]} />
-            </TreeItemContent>
-          </TreeItem>
-        ))}
+    <TreeItem
+      key={ws.id}
+      id={ws.id}
+      textValue={ws.name}
+      hasChildItems={ws.branches.length > 0 || ws.worktrees.length > 0}
+      className="outline-none cursor-pointer"
+    >
+      <TreeItemContent>
+        <div onContextMenu={handleContextMenu}>
+          <RepoHeader
+            workspace={ws}
+            agentSummary={agentSummary}
+            isSelected={!!selectedItemId?.startsWith(ws.id)}
+            onPlusClick={(e) => {
+              e.stopPropagation();
+              setModalWorkspace(ws);
+            }}
+          />
+        </div>
+      </TreeItemContent>
+      {ws.branches.map((b) => (
         <TreeItem
-          key={`${ws.id}-new-branch`}
-          id={`${ws.id}-new-branch`}
-          textValue="New Branch"
-          className="outline-none"
+          key={`${ws.id}-branch-${b.name}`}
+          id={`${ws.id}-branch-${b.name}`}
+          textValue={b.name}
+          className={({ isSelected }) =>
+            `outline-none cursor-pointer ${isSelected ? 'bg-bg-tertiary' : 'hover:bg-bg-tertiary'}`
+          }
         >
           <TreeItemContent>
-            <div className="flex h-7 items-center pl-4">
-              <button
-                className="cursor-pointer text-text-muted hover:text-[var(--accent)]"
-                style={{ fontSize: '13px' }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setModalWorkspace(ws);
-                }}
-              >
-                + New Branch
-              </button>
-            </div>
+            <BranchRow branch={b} agentStatus={agentMap[`${ws.id}-branch-${b.name}`]} />
           </TreeItemContent>
         </TreeItem>
-      </TreeItem>
-      {menuOpen && (
-        <ContextMenu
-          x={menuPos.current.x}
-          y={menuPos.current.y}
-          onClose={() => setMenuOpen(false)}
-          onCloseProject={() => {
-            setMenuOpen(false);
-            onRequestClose(ws);
-          }}
-        />
-      )}
+      ))}
+      {ws.worktrees.map((wt) => (
+        <TreeItem
+          key={`${ws.id}-wt-${wt.name}`}
+          id={`${ws.id}-wt-${wt.name}`}
+          textValue={wt.name}
+          className={({ isSelected }) =>
+            `outline-none cursor-pointer ${isSelected ? 'bg-bg-tertiary' : 'hover:bg-bg-tertiary'}`
+          }
+        >
+          <TreeItemContent>
+            <WorktreeRow worktree={wt} agentStatus={agentMap[`${ws.id}-wt-${wt.name}`]} />
+          </TreeItemContent>
+        </TreeItem>
+      ))}
+    </TreeItem>
+    {menuOpen && <ContextMenu
+      x={menuPos.current.x}
+      y={menuPos.current.y}
+      onClose={() => setMenuOpen(false)}
+      onCloseProject={() => {
+        setMenuOpen(false);
+        onRequestClose(ws);
+      }}
+    />}
     </>
   );
 }
