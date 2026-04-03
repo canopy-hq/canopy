@@ -1,4 +1,5 @@
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
+
 import * as schema from './schema';
 
 type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>;
@@ -27,7 +28,9 @@ export async function initDb(dbPath: string): Promise<void> {
         if (method === 'get') {
           return { rows: rows[0] ? Object.values(rows[0]) : [] };
         }
-        return { rows: (rows as unknown as Record<string, unknown>[]).map((row) => Object.values(row)) };
+        return {
+          rows: (rows as unknown as Record<string, unknown>[]).map((row) => Object.values(row)),
+        };
       } catch (e) {
         console.error('[db] query error:', e, { sql, params });
         throw e;

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import {
   splitNode,
   removeNode,
@@ -52,10 +53,12 @@ describe('splitNode', () => {
   });
 
   it('inserts sibling when parent branch has SAME direction', () => {
-    const root = makeBranch('b1', 'horizontal', [
-      makeLeaf('leaf-1', 1),
-      makeLeaf('leaf-2', 2),
-    ], [0.5, 0.5]);
+    const root = makeBranch(
+      'b1',
+      'horizontal',
+      [makeLeaf('leaf-1', 1), makeLeaf('leaf-2', 2)],
+      [0.5, 0.5],
+    );
 
     const [newTree, newLeafId] = splitNode(root, 'leaf-1', 'horizontal', 99);
     const branch = newTree as BranchNode;
@@ -68,10 +71,12 @@ describe('splitNode', () => {
   });
 
   it('wraps leaf in sub-branch when parent has DIFFERENT direction', () => {
-    const root = makeBranch('b1', 'vertical', [
-      makeLeaf('leaf-1', 1),
-      makeLeaf('leaf-2', 2),
-    ], [0.5, 0.5]);
+    const root = makeBranch(
+      'b1',
+      'vertical',
+      [makeLeaf('leaf-1', 1), makeLeaf('leaf-2', 2)],
+      [0.5, 0.5],
+    );
 
     const [newTree, newLeafId] = splitNode(root, 'leaf-1', 'horizontal', 99);
     const branch = newTree as BranchNode;
@@ -108,10 +113,12 @@ describe('removeNode', () => {
   });
 
   it('collapses branch to surviving child when removing from 2-child branch', () => {
-    const root = makeBranch('b1', 'horizontal', [
-      makeLeaf('leaf-1', 1),
-      makeLeaf('leaf-2', 2),
-    ], [0.5, 0.5]);
+    const root = makeBranch(
+      'b1',
+      'horizontal',
+      [makeLeaf('leaf-1', 1), makeLeaf('leaf-2', 2)],
+      [0.5, 0.5],
+    );
     const result = removeNode(root, 'leaf-1');
     expect(result).not.toBeNull();
     expect(result!.type).toBe('leaf');
@@ -129,10 +136,7 @@ describe('findLeaf', () => {
   it('finds a leaf in a nested tree', () => {
     const root = makeBranch('b1', 'horizontal', [
       makeLeaf('leaf-1', 1),
-      makeBranch('b2', 'vertical', [
-        makeLeaf('leaf-2', 2),
-        makeLeaf('leaf-3', 3),
-      ]),
+      makeBranch('b2', 'vertical', [makeLeaf('leaf-2', 2), makeLeaf('leaf-3', 3)]),
     ]);
     const found = findLeaf(root, 'leaf-3');
     expect(found).not.toBeNull();
@@ -149,10 +153,7 @@ describe('findLeaf', () => {
 describe('findFirstLeaf', () => {
   it('returns first leaf via DFS', () => {
     const root = makeBranch('b1', 'horizontal', [
-      makeBranch('b2', 'vertical', [
-        makeLeaf('leaf-deep', 10),
-        makeLeaf('leaf-2', 2),
-      ]),
+      makeBranch('b2', 'vertical', [makeLeaf('leaf-deep', 10), makeLeaf('leaf-2', 2)]),
       makeLeaf('leaf-3', 3),
     ]);
     const first = findFirstLeaf(root);
@@ -168,36 +169,24 @@ describe('findFirstLeaf', () => {
 
 describe('navigate', () => {
   it('navigates right to adjacent leaf in horizontal branch', () => {
-    const root = makeBranch('b1', 'horizontal', [
-      makeLeaf('left', 1),
-      makeLeaf('right', 2),
-    ]);
+    const root = makeBranch('b1', 'horizontal', [makeLeaf('left', 1), makeLeaf('right', 2)]);
     expect(navigate(root, 'left', 'right')).toBe('right');
   });
 
   it('navigates down to adjacent leaf in vertical branch', () => {
-    const root = makeBranch('b1', 'vertical', [
-      makeLeaf('top', 1),
-      makeLeaf('bottom', 2),
-    ]);
+    const root = makeBranch('b1', 'vertical', [makeLeaf('top', 1), makeLeaf('bottom', 2)]);
     expect(navigate(root, 'top', 'down')).toBe('bottom');
   });
 
   it('returns null when at edge', () => {
-    const root = makeBranch('b1', 'horizontal', [
-      makeLeaf('left', 1),
-      makeLeaf('right', 2),
-    ]);
+    const root = makeBranch('b1', 'horizontal', [makeLeaf('left', 1), makeLeaf('right', 2)]);
     expect(navigate(root, 'right', 'right')).toBeNull();
   });
 
   it('navigates across nested branches', () => {
     // Horizontal top-level with left subtree (vertical) and right leaf
     const root = makeBranch('b1', 'horizontal', [
-      makeBranch('b2', 'vertical', [
-        makeLeaf('top-left', 1),
-        makeLeaf('bottom-left', 2),
-      ]),
+      makeBranch('b2', 'vertical', [makeLeaf('top-left', 1), makeLeaf('bottom-left', 2)]),
       makeLeaf('right', 3),
     ]);
     // From top-left, navigating right should reach 'right'
@@ -210,10 +199,12 @@ describe('navigate', () => {
 
 describe('updateRatio', () => {
   it('adjusts ratios by delta', () => {
-    const root = makeBranch('b1', 'horizontal', [
-      makeLeaf('left', 1),
-      makeLeaf('right', 2),
-    ], [0.5, 0.5]);
+    const root = makeBranch(
+      'b1',
+      'horizontal',
+      [makeLeaf('left', 1), makeLeaf('right', 2)],
+      [0.5, 0.5],
+    );
     const result = updateRatio(root, 'b1', 1, 0.05);
     const branch = result as BranchNode;
     expect(branch.ratios[0]).toBeCloseTo(0.55, 10);
@@ -221,10 +212,12 @@ describe('updateRatio', () => {
   });
 
   it('clamps ratios to min 0.1', () => {
-    const root = makeBranch('b1', 'horizontal', [
-      makeLeaf('left', 1),
-      makeLeaf('right', 2),
-    ], [0.15, 0.85]);
+    const root = makeBranch(
+      'b1',
+      'horizontal',
+      [makeLeaf('left', 1), makeLeaf('right', 2)],
+      [0.15, 0.85],
+    );
     // Trying to shrink left by 0.1 would push it to 0.05, should clamp to 0.1
     const result = updateRatio(root, 'b1', 1, -0.1);
     const branch = result as BranchNode;
@@ -247,10 +240,7 @@ describe('collectLeafPtyIds', () => {
   it('collects from nested branch tree', () => {
     const tree = makeBranch('b1', 'horizontal', [
       makeLeaf('l1', 10),
-      makeBranch('b2', 'vertical', [
-        makeLeaf('l2', 20),
-        makeLeaf('l3', 30),
-      ]),
+      makeBranch('b2', 'vertical', [makeLeaf('l2', 20), makeLeaf('l3', 30)]),
     ]);
     expect(collectLeafPtyIds(tree)).toEqual([10, 20, 30]);
   });

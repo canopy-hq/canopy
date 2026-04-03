@@ -103,10 +103,7 @@ export function splitNode(
 
 // ── removeNode ───────────────────────────────────────────────────────
 
-export function removeNode(
-  tree: PaneNode,
-  targetId: PaneId,
-): PaneNode | null {
+export function removeNode(tree: PaneNode, targetId: PaneId): PaneNode | null {
   // Single leaf case
   if (tree.type === 'leaf') {
     return tree.id === targetId ? null : tree;
@@ -116,18 +113,13 @@ export function removeNode(
   return removeNodeInPlace(cloned, targetId);
 }
 
-function removeNodeInPlace(
-  node: PaneNode,
-  targetId: PaneId,
-): PaneNode | null {
+function removeNodeInPlace(node: PaneNode, targetId: PaneId): PaneNode | null {
   if (node.type === 'leaf') return node;
 
   const branch = node as BranchNode;
 
   // Check if target is a direct child
-  const idx = branch.children.findIndex(
-    (c) => c.type === 'leaf' && c.id === targetId,
-  );
+  const idx = branch.children.findIndex((c) => c.type === 'leaf' && c.id === targetId);
 
   if (idx !== -1) {
     branch.children.splice(idx, 1);
@@ -162,10 +154,7 @@ function removeNodeInPlace(
 
 // ── findLeaf ─────────────────────────────────────────────────────────
 
-export function findLeaf(
-  tree: PaneNode,
-  targetId: PaneId,
-): LeafNode | null {
+export function findLeaf(tree: PaneNode, targetId: PaneId): LeafNode | null {
   if (tree.type === 'leaf') {
     return tree.id === targetId ? tree : null;
   }

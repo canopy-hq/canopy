@@ -1,7 +1,9 @@
 import { createCollection, localOnlyCollectionOptions } from '@tanstack/db';
 import { asc, eq } from 'drizzle-orm';
+
 import { getDb } from '../client';
 import { tabs as table } from '../schema';
+
 import type { Tab, PaneNode } from '../types';
 
 function deserialize(row: typeof table.$inferSelect): Tab {
@@ -66,5 +68,7 @@ function resetPtyIds(node: PaneNode): PaneNode {
 export async function hydrateTabCollection(): Promise<void> {
   const db = getDb();
   const rows = await db.select().from(table).orderBy(asc(table.position));
-  _collection = makeCollection(rows.map(deserialize).map((t) => ({ ...t, paneRoot: resetPtyIds(t.paneRoot) })));
+  _collection = makeCollection(
+    rows.map(deserialize).map((t) => ({ ...t, paneRoot: resetPtyIds(t.paneRoot) })),
+  );
 }

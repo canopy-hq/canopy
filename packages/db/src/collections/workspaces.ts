@@ -1,7 +1,9 @@
 import { createCollection, localOnlyCollectionOptions } from '@tanstack/db';
 import { asc, eq } from 'drizzle-orm';
+
 import { getDb } from '../client';
 import { workspaces as table } from '../schema';
+
 import type { Workspace } from '../types';
 
 function deserialize(row: typeof table.$inferSelect): Workspace {
@@ -13,11 +15,7 @@ function deserialize(row: typeof table.$inferSelect): Workspace {
 }
 
 function serialize(ws: Workspace) {
-  return {
-    ...ws,
-    branches: JSON.stringify(ws.branches),
-    worktrees: JSON.stringify(ws.worktrees),
-  };
+  return { ...ws, branches: JSON.stringify(ws.branches), worktrees: JSON.stringify(ws.worktrees) };
 }
 
 let _collection!: ReturnType<typeof makeCollection>;

@@ -1,5 +1,7 @@
 import { useState } from 'react';
+
 import { useSplitterDrag } from '../hooks/useSplitterDrag';
+
 import type { SplitDirection } from '../lib/pane-tree-ops';
 
 interface SplitterProps {

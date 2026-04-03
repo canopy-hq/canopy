@@ -1,17 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import { CloseProjectModal, type CloseProjectModalProps } from '../CloseProjectModal';
 
 describe('CloseProjectModal', () => {
   let props: CloseProjectModalProps;
 
   beforeEach(() => {
-    props = {
-      isOpen: true,
-      onClose: vi.fn(),
-      onConfirm: vi.fn(),
-      projectName: 'my-project',
-    };
+    props = { isOpen: true, onClose: vi.fn(), onConfirm: vi.fn(), projectName: 'my-project' };
   });
 
   it('renders nothing when isOpen is false', () => {

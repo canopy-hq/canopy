@@ -1,8 +1,3 @@
-/**
- * Reactive hooks for all TanStack DB collections.
- * Uses useLiveQuery from @tanstack/react-db for React integration.
- */
-import { useLiveQuery } from '@tanstack/react-db';
 import {
   getWorkspaceCollection,
   getTabCollection,
@@ -11,6 +6,11 @@ import {
   uiCollection,
   getUiState,
 } from '@superagent/db';
+/**
+ * Reactive hooks for all TanStack DB collections.
+ * Uses useLiveQuery from @tanstack/react-db for React integration.
+ */
+import { useLiveQuery } from '@tanstack/react-db';
 
 export function useWorkspaces() {
   const { data = [] } = useLiveQuery(() => getWorkspaceCollection());

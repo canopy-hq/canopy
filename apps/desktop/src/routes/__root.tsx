@@ -1,13 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createRootRoute, Outlet } from '@tanstack/react-router';
+
 import { agentCollection } from '@superagent/db';
+import {
+  getTabCollection,
+  getWorkspaceCollection,
+  getSettingCollection,
+  getSetting,
+} from '@superagent/db';
+import { createRootRoute, Outlet } from '@tanstack/react-router';
+
+import { AgentOverlay } from '../components/AgentOverlay';
+import { AgentToastRegion } from '../components/AgentToastRegion';
 import { Sidebar } from '../components/Sidebar';
 import { StatusBar } from '../components/StatusBar';
 import { ErrorToastRegion } from '../components/ToastProvider';
-import { AgentOverlay } from '../components/AgentOverlay';
-import { AgentToastRegion } from '../components/AgentToastRegion';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { initAgentListener, toggleManualOverride } from '../lib/agent-actions';
+import { findLeaf } from '../lib/pane-tree-ops';
+import { closePty } from '../lib/pty';
 import {
   addTab,
   closeTab,
@@ -18,13 +28,11 @@ import {
   switchTabRelative,
   getActiveTab,
 } from '../lib/tab-actions';
-import { toggleSidebar } from '../lib/workspace-actions';
-import { closePty } from '../lib/pty';
 import { disposeCached } from '../lib/terminal-cache';
-import { findLeaf } from '../lib/pane-tree-ops';
-import type { PaneNode } from '../lib/pane-tree-ops';
 import { showErrorToast, showAgentToastDeduped } from '../lib/toast';
-import { getTabCollection, getWorkspaceCollection, getSettingCollection, getSetting } from '@superagent/db';
+import { toggleSidebar } from '../lib/workspace-actions';
+
+import type { PaneNode } from '../lib/pane-tree-ops';
 
 function containsPtyId(node: PaneNode, ptyId: number): boolean {
   if (node.type === 'leaf') return node.ptyId === ptyId;
@@ -37,7 +45,7 @@ function RootLayout() {
   // Initialize agent event listener on mount
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-    initAgentListener().then((fn) => {
+    void initAgentListener().then((fn) => {
       unlisten = fn;
     });
     return () => {
@@ -157,12 +165,11 @@ function RootLayout() {
 
   useKeyboardRegistry(bindings);
 
-
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-bg-primary">
-      <div className="flex-1 min-h-0 flex flex-row">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-bg-primary">
+      <div className="flex min-h-0 flex-1 flex-row">
         <Sidebar />
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex min-w-0 flex-1 flex-col">
           <Outlet />
         </div>
       </div>
@@ -174,6 +181,4 @@ function RootLayout() {
   );
 }
 
-export const Route = createRootRoute({
-  component: RootLayout,
-});
+export const Route = createRootRoute({ component: RootLayout });

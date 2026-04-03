@@ -5,12 +5,15 @@ import {
   Text,
   Button,
 } from 'react-aria-components';
-import { agentToastQueue } from '../lib/toast';
-import type { AgentToastContent } from '../lib/toast';
-import { StatusDot } from './StatusDot';
+
 import { getTabCollection } from '@superagent/db';
+
 import { setActiveContext, switchTab } from '../lib/tab-actions';
+import { agentToastQueue } from '../lib/toast';
+import { StatusDot } from './StatusDot';
+
 import type { PaneNode } from '../lib/pane-tree-ops';
+import type { AgentToastContent } from '../lib/toast';
 
 /** Recursively check if a pane tree contains a leaf with the given ptyId */
 function containsPtyId(node: PaneNode, ptyId: number): boolean {
@@ -21,7 +24,7 @@ function containsPtyId(node: PaneNode, ptyId: number): boolean {
 function handleJump(ptyId: number, close: () => void) {
   const tab = getTabCollection().toArray.find((t) => containsPtyId(t.paneRoot, ptyId));
   if (tab) {
-    setActiveContext(tab.workspaceItemId, tab.label);
+    setActiveContext(tab.workspaceItemId);
     switchTab(tab.id);
   }
   close();
@@ -60,24 +63,14 @@ export function AgentToastRegion() {
         >
           <ToastContentSlot>
             {/* Row 1: StatusDot + Agent name + workspace/branch + close */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <StatusDot
                 status={toast.content.type === 'agent-waiting' ? 'waiting' : 'idle'}
                 size={8}
               />
               <Text
                 slot="title"
-                style={{
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  color: 'var(--text-primary)',
-                }}
+                style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}
               >
                 {toast.content.agentName}
               </Text>
@@ -125,13 +118,7 @@ export function AgentToastRegion() {
             </Text>
 
             {/* Row 3: Actions */}
-            <div
-              style={{
-                display: 'flex',
-                gap: '12px',
-                marginTop: '8px',
-              }}
-            >
+            <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
               <button
                 onClick={() => handleJump(toast.content.ptyId, () => toast.onClose?.())}
                 style={{

@@ -1,6 +1,7 @@
-import type { PaneNode } from '../lib/pane-tree-ops';
 import { SplitContainer } from './SplitContainer';
 import { TerminalPane } from './TerminalPane';
+
+import type { PaneNode } from '../lib/pane-tree-ops';
 
 /**
  * Renders a pane tree into split containers and terminal panes.

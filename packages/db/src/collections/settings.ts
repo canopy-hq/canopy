@@ -1,7 +1,9 @@
 import { createCollection, localOnlyCollectionOptions } from '@tanstack/db';
 import { eq } from 'drizzle-orm';
+
 import { getDb } from '../client';
 import { settings as table } from '../schema';
+
 import type { Setting } from '../types';
 
 let _collection!: ReturnType<typeof makeCollection>;

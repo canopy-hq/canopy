@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import type { Tab } from '@superagent/db';
 import type { UiState } from '@superagent/db';
 
@@ -43,7 +44,7 @@ vi.mock('@superagent/db', () => ({
 }));
 
 // Import AFTER mock is set up
-import { addTab, closeTab, setActiveContext, getContextTabs } from '../tab-actions';
+import { closeTab, setActiveContext } from '../tab-actions';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -80,7 +81,7 @@ describe('setActiveContext', () => {
     _uiState.activeContextId = 'old-ctx';
     _uiState.activeTabId = 'old-tab';
 
-    setActiveContext('new-ctx', 'feature-branch');
+    setActiveContext('new-ctx');
 
     expect(_uiState.activeContextId).toBe('new-ctx');
     expect(_uiState.activeTabId).toBe('');
@@ -95,12 +96,12 @@ describe('setActiveContext', () => {
     _uiState.activeTabId = 'tab-a';
 
     // Switch to ctx-b (no tabs)
-    setActiveContext('ctx-b', 'other-branch');
+    setActiveContext('ctx-b');
     expect(_uiState.activeContextId).toBe('ctx-b');
     expect(_uiState.activeTabId).toBe('');
 
     // Switch back to ctx-a
-    setActiveContext('ctx-a', 'feature-branch');
+    setActiveContext('ctx-a');
     expect(_uiState.activeContextId).toBe('ctx-a');
     expect(_uiState.activeTabId).toBe('tab-a');
   });
@@ -113,11 +114,11 @@ describe('setActiveContext', () => {
     _uiState.activeTabId = 'tab-2'; // tab-2 is active, not tab-1
 
     // Switch away
-    setActiveContext('ctx-b', 'other');
+    setActiveContext('ctx-b');
     expect(_uiState.contextActiveTabIds['ctx-a']).toBe('tab-2');
 
     // Switch back
-    setActiveContext('ctx-a', 'feature');
+    setActiveContext('ctx-a');
     expect(_uiState.activeTabId).toBe('tab-2');
   });
 });
