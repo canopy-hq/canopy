@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { Button, Tree, TreeItem, TreeItemContent } from 'react-aria-components';
 import type { Selection, Key } from 'react-aria-components';
 import { createPortal } from 'react-dom';
@@ -28,7 +28,7 @@ import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
 import type { DotStatus } from './StatusDot';
 import type { Workspace } from '@superagent/db';
 
-function DiffPill({ additions, deletions }: { additions: number; deletions: number }) {
+const DiffPill = memo(function DiffPill({ additions, deletions }: { additions: number; deletions: number }) {
   if (additions === 0 && deletions === 0) return null;
   return (
     <span className="inline-flex flex-shrink-0 gap-1 whitespace-nowrap rounded bg-white/5 px-1.5 py-px text-[11px] font-medium">
@@ -36,9 +36,9 @@ function DiffPill({ additions, deletions }: { additions: number; deletions: numb
       {deletions > 0 && <span style={{ color: 'var(--git-behind)' }}>&minus;{deletions}</span>}
     </span>
   );
-}
+});
 
-function IconWithBadge({
+const IconWithBadge = memo(function IconWithBadge({
   children,
   agentStatus,
 }: {
@@ -56,9 +56,9 @@ function IconWithBadge({
       )}
     </div>
   );
-}
+});
 
-function BranchRow({ branch, agentStatus, diffStat }: { branch: BranchInfo; agentStatus?: DotStatus; diffStat?: DiffStat }) {
+const BranchRow = memo(function BranchRow({ branch, agentStatus, diffStat }: { branch: BranchInfo; agentStatus?: DotStatus; diffStat?: DiffStat }) {
   return (
     <div className="ml-[39px] mr-1.5 my-px flex items-center gap-[6px] rounded-[5px] py-[3px] pl-[10px]">
       <IconWithBadge agentStatus={agentStatus}>
@@ -87,9 +87,15 @@ function BranchRow({ branch, agentStatus, diffStat }: { branch: BranchInfo; agen
       </div>
     </div>
   );
-}
+}, (prev, next) =>
+  prev.branch.name === next.branch.name &&
+  prev.branch.is_head === next.branch.is_head &&
+  prev.agentStatus === next.agentStatus &&
+  prev.diffStat?.additions === next.diffStat?.additions &&
+  prev.diffStat?.deletions === next.diffStat?.deletions
+);
 
-function WorktreeRow({
+const WorktreeRow = memo(function WorktreeRow({
   worktree,
   workspaceId,
   agentStatus,
@@ -159,9 +165,17 @@ function WorktreeRow({
       </div>
     </div>
   );
-}
+}, (prev, next) =>
+  prev.worktree.name === next.worktree.name &&
+  prev.worktree.branch === next.worktree.branch &&
+  (prev.worktree as any).label === (next.worktree as any).label &&
+  prev.workspaceId === next.workspaceId &&
+  prev.agentStatus === next.agentStatus &&
+  prev.diffStat?.additions === next.diffStat?.additions &&
+  prev.diffStat?.deletions === next.diffStat?.deletions
+);
 
-function RepoHeader({
+const RepoHeader = memo(function RepoHeader({
   workspace,
   agentSummary,
   isSelected,
@@ -256,7 +270,18 @@ function RepoHeader({
       </div>
     </div>
   );
-}
+}, (prev, next) =>
+  prev.workspace.id === next.workspace.id &&
+  prev.workspace.name === next.workspace.name &&
+  prev.workspace.expanded === next.workspace.expanded &&
+  prev.workspace.branches.length === next.workspace.branches.length &&
+  prev.workspace.worktrees.length === next.workspace.worktrees.length &&
+  prev.isSelected === next.isSelected &&
+  prev.onPlusClick === next.onPlusClick &&
+  prev.onRowClick === next.onRowClick &&
+  prev.agentSummary?.length === next.agentSummary?.length &&
+  (prev.agentSummary ?? []).every((s, i) => s === next.agentSummary?.[i])
+);
 
 /**
  * Compute a map of workspaceItemId -> best agent status by cross-referencing
@@ -535,6 +560,16 @@ function RepoTreeItem({
   const [wtMenuTarget, setWtMenuTarget] = useState<string | null>(null);
   const wtMenuPos = useRef({ x: 0, y: 0 });
 
+  const handlePlusClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setModalWorkspace(ws);
+  }, [ws, setModalWorkspace]);
+
+  const handleRowClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleExpanded(ws.id);
+  }, [ws.id]);
+
   function handleContextMenu(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
@@ -557,14 +592,8 @@ function RepoTreeItem({
               workspace={ws}
               agentSummary={agentSummary}
               isSelected={!!selectedItemId?.startsWith(ws.id)}
-              onPlusClick={(e) => {
-                e.stopPropagation();
-                setModalWorkspace(ws);
-              }}
-              onRowClick={(e) => {
-                e.stopPropagation();
-                toggleExpanded(ws.id);
-              }}
+              onPlusClick={handlePlusClick}
+              onRowClick={handleRowClick}
             />
           </div>
         </TreeItemContent>
