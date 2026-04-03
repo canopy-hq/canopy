@@ -23,8 +23,7 @@ export function Header() {
   return (
     <header
       data-tauri-drag-region
-      className="flex h-12 flex-shrink-0 items-center border-b border-border bg-bg-primary"
-      style={{ paddingLeft: '78px' }}
+      className="flex h-12 shrink-0 items-center border-b border-border bg-bg-primary pl-[78px]"
     >
       {/* Left zone — sidebar toggle */}
       <div data-tauri-drag-region className="flex h-full items-center px-1">
