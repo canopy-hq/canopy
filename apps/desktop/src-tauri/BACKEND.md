@@ -1,6 +1,6 @@
 # Backend Conventions
 
-Rust backend architecture, IPC patterns, and performance rules for `apps/desktop/src-tauri/`.
+Rust backend architecture, IPC patterns, and performance rules.
 
 ## Modules
 

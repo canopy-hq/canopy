@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working with this repository.
 
 ## Project
 
@@ -85,7 +85,7 @@ See [`apps/desktop/FRONTEND.md`](apps/desktop/FRONTEND.md) for styling conventio
 
 - **Memoize list items.** Always wrap leaf display components with `React.memo` + custom comparators when they appear in lists or trees. The sidebar tree has 500+ nodes — every unnecessary re-render matters.
 - **Stabilize callbacks.** `useCallback` for any function passed to memoized children.
-- **No allocations in selectors.** Never use `filter()`, `map()`, or object spread in Zustand/TanStack DB selectors — creates new references every render, causing infinite re-renders.
+- **No allocations in selectors.** Never use `filter()`, `map()`, or object spread in TanStack DB selectors — creates new references every render, causing infinite re-renders.
 
 ### Polling
 
@@ -130,15 +130,6 @@ See [`apps/desktop/FRONTEND.md`](apps/desktop/FRONTEND.md) for styling conventio
 - **TypeScript**: Vitest + RTL. `vi.mock()` for Tauri modules. Pure logic tests (pane-tree-ops, tab-actions) need no mocks.
 - **Rust**: See [BACKEND.md](apps/desktop/src-tauri/BACKEND.md#testing).
 - **Terminal package**: separate vitest config with happy-dom. `test/__mocks__/` dir for ghostty-web, db, tauri-apps.
-
-### File organization
-
-- `hooks/` — React hooks only (reactive reads, polling, DOM events)
-- `lib/` — imperative action functions + IPC wrappers (no React, no hooks)
-- `components/` — display components (read from hooks, call lib functions)
-- `routes/` — TanStack Router pages (compose components, bind keyboard shortcuts)
-- `packages/db/collections/` — state definitions + persistence logic
-- `packages/terminal/` — terminal lifecycle (useTerminal hook, cache, themes, PTY IPC)
 
 ### Git conventions
 
