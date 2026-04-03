@@ -18,7 +18,7 @@ vi.mock('../src/ghostty-init', () => ({
 }));
 
 vi.mock('../src/pty', () => ({
-  spawnTerminal: vi.fn().mockResolvedValue(42),
+  spawnTerminal: vi.fn().mockResolvedValue({ ptyId: 42, isNew: true }),
   connectPtyOutput: vi.fn(),
   connectPtyOutputFresh: vi.fn(),
   writeToPty: vi.fn().mockResolvedValue(undefined),
@@ -54,7 +54,7 @@ import { flushPromises, makeContainer } from './helpers';
 beforeEach(() => {
   vi.clearAllMocks();
   // Restore defaults cleared by clearAllMocks.
-  vi.mocked(spawnTerminal).mockResolvedValue(42);
+  vi.mocked(spawnTerminal).mockResolvedValue({ ptyId: 42, isNew: true });
   vi.mocked(getCached).mockReturnValue(undefined);
 });
 
@@ -152,9 +152,9 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
   });
 
   it('unmounting before spawn resolves cancels the spawn — connectPtyOutputFresh is not called', async () => {
-    let resolveSpawn!: (id: number) => void;
+    let resolveSpawn!: (result: { ptyId: number; isNew: boolean }) => void;
     vi.mocked(spawnTerminal).mockReturnValueOnce(
-      new Promise<number>((resolve) => {
+      new Promise<{ ptyId: number; isNew: boolean }>((resolve) => {
         resolveSpawn = resolve;
       }),
     );
@@ -169,7 +169,7 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
     unmount(); // cleanup fires, spawnCancelled = true
 
     await act(async () => {
-      resolveSpawn(99);
+      resolveSpawn({ ptyId: 99, isNew: true });
       await flushPromises();
     });
 

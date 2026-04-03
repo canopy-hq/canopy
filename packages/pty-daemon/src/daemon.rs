@@ -76,7 +76,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                     .unwrap_or_default();
                 let result = do_spawn(state.clone(), pane_id, cwd, rows, cols, command, args);
                 let resp = match result {
-                    Ok(pid) => format!("{{\"ok\":true,\"pid\":{pid}}}\n"),
+                    Ok((pid, is_new)) => format!("{{\"ok\":true,\"pid\":{pid},\"new\":{is_new}}}\n"),
                     Err(e) => format!("{{\"ok\":false,\"error\":{}}}\n", serde_json::json!(e)),
                 };
                 let _ = write_half.write_all(resp.as_bytes()).await;
@@ -185,6 +185,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
     }
 }
 
+/// Returns `(pid, is_new)` where `is_new` is false when the session already existed.
 fn do_spawn(
     state: Arc<Mutex<DaemonState>>,
     pane_id: String,
@@ -193,12 +194,12 @@ fn do_spawn(
     cols: u16,
     command: Option<String>,
     args: Vec<String>,
-) -> Result<u32, String> {
+) -> Result<(u32, bool), String> {
     // Return existing session pid if it already exists (reconnect case)
     {
         let st = state.lock().unwrap();
         if let Some(sess) = st.sessions.get(&pane_id) {
-            return Ok(sess.child_pid);
+            return Ok((sess.child_pid, false));
         }
     }
 
@@ -270,7 +271,7 @@ fn do_spawn(
         }
     });
 
-    Ok(child_pid)
+    Ok((child_pid, true))
 }
 
 #[cfg(test)]

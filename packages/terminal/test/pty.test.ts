@@ -37,8 +37,8 @@ describe('pty', () => {
 
   describe('spawnTerminal', () => {
     it('calls spawn_terminal and returns the ptyId from invoke', async () => {
-      invokeFn.mockResolvedValueOnce(42);
-      const id = await pty.spawnTerminal('pane-1', '/home/user', 24, 80);
+      invokeFn.mockResolvedValueOnce({ pty_id: 42, is_new: true });
+      const result = await pty.spawnTerminal('pane-1', '/home/user', 24, 80);
       expect(invokeFn).toHaveBeenCalledWith('spawn_terminal', {
         paneId: 'pane-1',
         cwd: '/home/user',
@@ -46,11 +46,11 @@ describe('pty', () => {
         cols: 80,
         onOutput: expect.any(MockChannel),
       });
-      expect(id).toBe(42);
+      expect(result).toEqual({ ptyId: 42, isNew: true });
     });
 
     it('registers the channel entry in the output registry', async () => {
-      invokeFn.mockResolvedValueOnce(7);
+      invokeFn.mockResolvedValueOnce({ pty_id: 7, is_new: true });
       await pty.spawnTerminal('pane-1');
       // Verify by confirming connectPtyOutput can reach the entry
       const handler = vi.fn();
@@ -59,7 +59,7 @@ describe('pty', () => {
     });
 
     it('wires channel.onmessage to entry.onData', async () => {
-      invokeFn.mockResolvedValueOnce(99);
+      invokeFn.mockResolvedValueOnce({ pty_id: 99, is_new: true });
       await pty.spawnTerminal('pane-1');
       // Find the Channel instance passed to invoke
       const channelArg = invokeFn.mock.calls[0][1].onOutput as {
@@ -74,7 +74,7 @@ describe('pty', () => {
 
   describe('connectPtyOutput', () => {
     it('calls setHandler on the correct channel entry', async () => {
-      invokeFn.mockResolvedValueOnce(5);
+      invokeFn.mockResolvedValueOnce({ pty_id: 5, is_new: true });
       await pty.spawnTerminal('pane-1');
       const handler = vi.fn();
       pty.connectPtyOutput(5, handler);
@@ -89,7 +89,7 @@ describe('pty', () => {
 
   describe('connectPtyOutputFresh', () => {
     it('calls setHandlerFresh on the correct channel entry', async () => {
-      invokeFn.mockResolvedValueOnce(6);
+      invokeFn.mockResolvedValueOnce({ pty_id: 6, is_new: true });
       await pty.spawnTerminal('pane-1');
       const handler = vi.fn();
       pty.connectPtyOutputFresh(6, handler);
@@ -116,7 +116,7 @@ describe('pty', () => {
 
   describe('closePty', () => {
     it('invokes close_pty and removes the entry from the registry', async () => {
-      invokeFn.mockResolvedValueOnce(8);
+      invokeFn.mockResolvedValueOnce({ pty_id: 8, is_new: true });
       await pty.spawnTerminal('pane-1');
 
       invokeFn.mockResolvedValueOnce(undefined);

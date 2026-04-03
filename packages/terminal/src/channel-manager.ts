@@ -34,23 +34,24 @@ export interface ChannelEntry {
 }
 
 export function createChannelEntry(): ChannelEntry {
-  // Pre-sentinel, pre-handler: scrollback. Flushed for reconnect, discarded for fresh.
   const preHandlerBuffer: Uint8Array[] = [];
   // Post-sentinel, pre-handler: live bytes that arrived before the handler was wired.
   // Always flushed — these are the shell prompt the user is waiting for.
   const postSentinelBuffer: Uint8Array[] = [];
-  // Post-handler, pre-sentinel in freshMode: still scrollback — discarded on sentinel.
-  const postHandlerBuffer: Uint8Array[] = [];
   let handler: ((data: Uint8Array) => void) | null = null;
   let freshMode = false;
   let sentinelReceived = false;
+
+  function drain(buf: Uint8Array[], h: (d: Uint8Array) => void) {
+    for (const b of buf) h(b);
+    buf.length = 0;
+  }
 
   return {
     onData(rawData) {
       if (rawData.length === 0) {
         // Sentinel: end of scrollback replay.
         sentinelReceived = true;
-        if (freshMode) postHandlerBuffer.length = 0;
         return;
       }
       const bytes = new Uint8Array(rawData);
@@ -63,8 +64,7 @@ export function createChannelEntry(): ChannelEntry {
           preHandlerBuffer.push(bytes);
         }
       } else if (freshMode && !sentinelReceived) {
-        // Post-handler but pre-sentinel: still scrollback — buffer and discard.
-        postHandlerBuffer.push(bytes);
+        // Post-handler but pre-sentinel: still scrollback — drop it.
       } else {
         handler(bytes);
       }
@@ -73,22 +73,19 @@ export function createChannelEntry(): ChannelEntry {
     setHandler(h) {
       freshMode = false;
       handler = h;
-      for (const b of preHandlerBuffer) h(b);
-      preHandlerBuffer.length = 0;
-      for (const b of postSentinelBuffer) h(b);
-      postSentinelBuffer.length = 0;
+      drain(preHandlerBuffer, h);
+      drain(postSentinelBuffer, h);
     },
 
     setHandlerFresh(h) {
       freshMode = true;
-      preHandlerBuffer.length = 0; // discard scrollback
+      preHandlerBuffer.length = 0;
       if (sentinelReceived) {
         // Sentinel already arrived before handler wired: skip fresh-mode buffering
         // and flush any live bytes (shell prompt) that arrived in the gap.
         freshMode = false;
         handler = h;
-        for (const b of postSentinelBuffer) h(b);
-        postSentinelBuffer.length = 0;
+        drain(postSentinelBuffer, h);
       } else {
         handler = h;
       }
