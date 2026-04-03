@@ -10,7 +10,7 @@ export async function spawnTerminal(
   cwd?: string,
   rows?: number,
   cols?: number,
-): Promise<{ ptyId: number; isNew: boolean }> {
+): Promise<number> {
   const entry = createChannelEntry();
 
   const channel = new Channel<number[]>();
@@ -18,7 +18,7 @@ export async function spawnTerminal(
     entry.onData(data);
   };
 
-  const { pty_id, is_new } = await invoke<{ pty_id: number; is_new: boolean }>('spawn_terminal', {
+  const ptyId = await invoke<number>('spawn_terminal', {
     paneId,
     cwd,
     rows,
@@ -26,8 +26,8 @@ export async function spawnTerminal(
     onOutput: channel,
   });
 
-  outputRegistry.set(pty_id, entry);
-  return { ptyId: pty_id, isNew: is_new };
+  outputRegistry.set(ptyId, entry);
+  return ptyId;
 }
 
 /** Wire (or re-wire) a PTY's output to a handler. Flushes buffered scrollback on first call (reconnect path). */
