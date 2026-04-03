@@ -1,6 +1,9 @@
 use git2::{BranchType, Repository, WorktreeAddOptions, WorktreePruneOptions};
 use serde::Serialize;
+use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 
 #[derive(Serialize, Clone)]
 pub struct BranchInfo {
@@ -23,6 +26,12 @@ pub struct RepoInfo {
     pub name: String,
     pub branches: Vec<BranchInfo>,
     pub worktrees: Vec<WorktreeInfo>,
+}
+
+#[derive(Serialize, Clone)]
+pub struct DiffStat {
+    pub additions: usize,
+    pub deletions: usize,
 }
 
 #[derive(Serialize, Clone)]
@@ -361,6 +370,152 @@ pub fn remove_worktree(repo_path: String, name: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Compute diff stats between a base tree and a branch tip tree.
+fn diff_stat_for_tree(
+    repo: &Repository,
+    base_tree: &git2::Tree,
+    tip_tree: &git2::Tree,
+) -> Option<DiffStat> {
+    let diff = repo.diff_tree_to_tree(Some(base_tree), Some(tip_tree), None).ok()?;
+    let stats = diff.stats().ok()?;
+    let additions = stats.insertions();
+    let deletions = stats.deletions();
+    if additions == 0 && deletions == 0 {
+        return None;
+    }
+    Some(DiffStat { additions, deletions })
+}
+
+/// Find the local default branch (main or master) and return its tip tree.
+fn find_default_branch_tree<'a>(repo: &'a Repository) -> Option<git2::Tree<'a>> {
+    for name in &["main", "master"] {
+        if let Ok(branch) = repo.find_branch(name, BranchType::Local) {
+            if let Ok(commit) = branch.get().peel_to_commit() {
+                return commit.tree().ok();
+            }
+        }
+    }
+    None
+}
+
+#[tauri::command]
+pub async fn get_diff_stats(repo_path: String) -> Result<HashMap<String, DiffStat>, String> {
+    tokio::task::spawn_blocking(move || get_diff_stats_sync(&repo_path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn get_all_diff_stats(
+    repo_paths: Vec<String>,
+) -> Result<HashMap<String, HashMap<String, DiffStat>>, String> {
+    let semaphore = Arc::new(Semaphore::new(6));
+    let mut handles = Vec::with_capacity(repo_paths.len());
+
+    for path in repo_paths {
+        let sem = semaphore.clone();
+        let key = path.clone();
+        handles.push(tokio::spawn(async move {
+            let _permit = sem.acquire().await.map_err(|e| e.to_string())?;
+            let stats = tokio::task::spawn_blocking(move || get_diff_stats_sync(&path))
+                .await
+                .map_err(|e| e.to_string())??;
+            Ok::<_, String>((key, stats))
+        }));
+    }
+
+    let mut result = HashMap::new();
+    for handle in handles {
+        match handle.await {
+            Ok(Ok((key, stats))) => {
+                result.insert(key, stats);
+            }
+            Ok(Err(e)) => eprintln!("get_all_diff_stats: repo failed: {e}"),
+            Err(e) => eprintln!("get_all_diff_stats: task panicked: {e}"),
+        }
+    }
+    Ok(result)
+}
+
+fn get_diff_stats_sync(repo_path: &str) -> Result<HashMap<String, DiffStat>, String> {
+    let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
+
+    let base_tree = match find_default_branch_tree(&repo) {
+        Some(t) => t,
+        None => return Ok(HashMap::new()),
+    };
+
+    let head_ref = repo.head().map_err(|e| e.to_string())?;
+    let head_name = head_ref.shorthand().unwrap_or("HEAD").to_string();
+
+    let mut stats_map = HashMap::new();
+
+    // For HEAD branch: diff default branch tree → working tree (committed + uncommitted)
+    if let Ok(diff) = repo.diff_tree_to_workdir_with_index(Some(&base_tree), None) {
+        if let Ok(stats) = diff.stats() {
+            let additions = stats.insertions();
+            let deletions = stats.deletions();
+            if additions > 0 || deletions > 0 {
+                stats_map.insert(head_name.clone(), DiffStat { additions, deletions });
+            }
+        }
+    }
+
+    for branch_result in repo
+        .branches(Some(BranchType::Local))
+        .map_err(|e| e.to_string())?
+    {
+        let (branch, _) = branch_result.map_err(|e| e.to_string())?;
+        let name = branch
+            .name()
+            .map_err(|e| e.to_string())?
+            .unwrap_or("(invalid utf8)")
+            .to_string();
+
+        // HEAD is already handled above via working tree diff
+        if name == head_name {
+            continue;
+        }
+
+        if let Ok(commit) = branch.get().peel_to_commit() {
+            if let Ok(branch_tree) = commit.tree() {
+                if let Some(stat) = diff_stat_for_tree(&repo, &base_tree, &branch_tree) {
+                    stats_map.insert(name, stat);
+                }
+            }
+        }
+    }
+
+    // Worktree HEADs not yet covered by the local branch loop (e.g. detached HEAD)
+    let wt_names = repo.worktrees().map_err(|e| e.to_string())?;
+    for wt_name in wt_names.iter() {
+        let wt_name = match wt_name {
+            Some(n) => n,
+            None => continue,
+        };
+        let wt = match repo.find_worktree(wt_name) {
+            Ok(wt) if wt.validate().is_ok() => wt,
+            _ => continue,
+        };
+        if let Some(branch_name) = resolve_worktree_branch(wt.path()) {
+            if stats_map.contains_key(&branch_name) {
+                continue;
+            }
+            if let Ok(branch) = repo.find_branch(&branch_name, BranchType::Local) {
+                if let Ok(commit) = branch.get().peel_to_commit() {
+                    if let Ok(wt_tree) = commit.tree() {
+                        if let Some(stat) = diff_stat_for_tree(&repo, &base_tree, &wt_tree) {
+                            stats_map.insert(branch_name, stat);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(stats_map)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -533,5 +688,177 @@ mod tests {
             assert_eq!(branch.ahead, 0);
             assert_eq!(branch.behind, 0);
         }
+    }
+
+    #[test]
+    fn test_get_diff_stats() {
+        let tmp = TempDir::new().unwrap();
+        let repo = init_repo_with_commit(tmp.path());
+        let path = tmp.path().to_string_lossy().to_string();
+
+        let branches = list_branches(path.clone()).unwrap();
+        let default_branch = &branches[0].name;
+
+        // Create a feature branch and add a file on it
+        create_branch(path.clone(), "feature/stats".to_string(), default_branch.clone()).unwrap();
+
+        // Checkout the feature branch and create a file
+        let branch = repo
+            .find_branch("feature/stats", BranchType::Local)
+            .unwrap();
+        let commit = branch.get().peel_to_commit().unwrap();
+        let mut index = repo.index().unwrap();
+        // Add a new file blob
+        let blob_id = repo.blob(b"hello\nworld\nthree lines\n").unwrap();
+        index
+            .add(&git2::IndexEntry {
+                ctime: git2::IndexTime::new(0, 0),
+                mtime: git2::IndexTime::new(0, 0),
+                dev: 0,
+                ino: 0,
+                mode: 0o100644,
+                uid: 0,
+                gid: 0,
+                file_size: 0,
+                id: blob_id,
+                flags: 0,
+                flags_extended: 0,
+                path: b"new-file.txt".to_vec(),
+            })
+            .unwrap();
+        let tree_id = index.write_tree().unwrap();
+        let tree = repo.find_tree(tree_id).unwrap();
+        let sig = repo.signature().unwrap_or_else(|_| {
+            git2::Signature::now("Test", "test@test.com").unwrap()
+        });
+        repo.commit(
+            Some("refs/heads/feature/stats"),
+            &sig,
+            &sig,
+            "Add new file",
+            &tree,
+            &[&commit],
+        )
+        .unwrap();
+
+        let stats = get_diff_stats_sync(&path).unwrap();
+        assert!(stats.contains_key("feature/stats"));
+        let stat = &stats["feature/stats"];
+        assert!(stat.additions > 0, "Expected additions > 0, got {}", stat.additions);
+        // HEAD branch should not be in the stats
+        assert!(!stats.contains_key(default_branch));
+    }
+
+    #[test]
+    fn test_get_diff_stats_empty_for_no_branches() {
+        let tmp = TempDir::new().unwrap();
+        let _repo = init_repo_with_commit(tmp.path());
+        let path = tmp.path().to_string_lossy().to_string();
+
+        // Only HEAD branch exists — stats should be empty
+        let stats = get_diff_stats_sync(&path).unwrap();
+        assert!(stats.is_empty());
+    }
+
+    /// Helper: create a repo with a feature branch that has changes relative to default branch
+    fn create_repo_with_feature_branch(dir: &std::path::Path) -> String {
+        let repo = init_repo_with_commit(dir);
+        let path = dir.to_string_lossy().to_string();
+
+        let branches = list_branches(path.clone()).unwrap();
+        let default_branch = &branches[0].name;
+
+        create_branch(
+            path.clone(),
+            "feature/batch-test".to_string(),
+            default_branch.clone(),
+        )
+        .unwrap();
+
+        // Add a file on the feature branch
+        let branch = repo
+            .find_branch("feature/batch-test", BranchType::Local)
+            .unwrap();
+        let commit = branch.get().peel_to_commit().unwrap();
+        let mut index = repo.index().unwrap();
+        let blob_id = repo.blob(b"batch test content\n").unwrap();
+        index
+            .add(&git2::IndexEntry {
+                ctime: git2::IndexTime::new(0, 0),
+                mtime: git2::IndexTime::new(0, 0),
+                dev: 0,
+                ino: 0,
+                mode: 0o100644,
+                uid: 0,
+                gid: 0,
+                file_size: 0,
+                id: blob_id,
+                flags: 0,
+                flags_extended: 0,
+                path: b"batch-file.txt".to_vec(),
+            })
+            .unwrap();
+        let tree_id = index.write_tree().unwrap();
+        let tree = repo.find_tree(tree_id).unwrap();
+        let sig = git2::Signature::now("Test", "test@test.com").unwrap();
+        repo.commit(
+            Some("refs/heads/feature/batch-test"),
+            &sig,
+            &sig,
+            "Add batch file",
+            &tree,
+            &[&commit],
+        )
+        .unwrap();
+
+        path
+    }
+
+    #[tokio::test]
+    async fn test_get_all_diff_stats() {
+        // Repo 1: has a feature branch with changes
+        let tmp1 = TempDir::new().unwrap();
+        let path1 = create_repo_with_feature_branch(tmp1.path());
+
+        // Repo 2: has a feature branch with changes
+        let tmp2 = TempDir::new().unwrap();
+        let path2 = create_repo_with_feature_branch(tmp2.path());
+
+        // Repo 3: only HEAD branch, no changes
+        let tmp3 = TempDir::new().unwrap();
+        let _repo3 = init_repo_with_commit(tmp3.path());
+        let path3 = tmp3.path().to_string_lossy().to_string();
+
+        let result = get_all_diff_stats(vec![
+            path1.clone(),
+            path2.clone(),
+            path3.clone(),
+        ])
+        .await
+        .unwrap();
+
+        // All three repos should have entries
+        assert_eq!(result.len(), 3, "Expected 3 entries, got {}", result.len());
+        assert!(result.contains_key(&path1));
+        assert!(result.contains_key(&path2));
+        assert!(result.contains_key(&path3));
+
+        // Repos with feature branches should have stats
+        let stats1 = &result[&path1];
+        assert!(
+            stats1.contains_key("feature/batch-test"),
+            "Repo 1 should have feature/batch-test stats"
+        );
+        assert!(stats1["feature/batch-test"].additions > 0);
+
+        let stats2 = &result[&path2];
+        assert!(
+            stats2.contains_key("feature/batch-test"),
+            "Repo 2 should have feature/batch-test stats"
+        );
+
+        // Repo with only HEAD should have empty stats
+        let stats3 = &result[&path3];
+        assert!(stats3.is_empty(), "Repo 3 should have empty stats");
     }
 }
