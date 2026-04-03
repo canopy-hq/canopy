@@ -233,10 +233,17 @@ export function useTerminal(
               term.write(data);
             });
           } else {
-            // Restored session: setHandler synchronously flushed all buffered scrollback
-            // above — remove overlay immediately so an idle shell isn't permanently blank.
-            connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
-            removeOverlay();
+            // Restored session: SIGWINCH (100ms below) forces zsh to reprint its prompt.
+            // Keep overlay until first byte so the canvas isn't exposed blank during that window.
+            overlayTimeoutId = setTimeout(removeOverlay, 2000);
+            connectPtyOutput(newId, (data: Uint8Array) => {
+              if (overlayTimeoutId !== null) {
+                clearTimeout(overlayTimeoutId);
+                overlayTimeoutId = null;
+              }
+              removeOverlay();
+              term.write(data);
+            });
           }
           setCached(newId, term, fitAddon);
           onPtySpawned(newId);
@@ -258,12 +265,10 @@ export function useTerminal(
               lastSentSize.rows = r;
               lastSentSize.cols = c;
               void resizePty(newId, r, c);
-            } else if (ticks === 0 && isNew) {
-              // Fresh shell only: always send SIGWINCH so TUI apps initialise.
-              // Restored sessions (isNew=false) already have the correct size —
-              // a spurious SIGWINCH causes zsh to reprint its prompt below the
-              // replayed scrollback, shifting the viewport and making the session
-              // appear empty.
+            } else if (ticks === 0) {
+              // Always send SIGWINCH on first tick so TUI apps and zsh initialise.
+              // For restored sessions this forces zsh to reprint its prompt, producing
+              // the first live bytes that remove the overlay.
               void resizePty(newId, r, c);
             }
             ticks++;

@@ -205,7 +205,7 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
     unmount();
   });
 
-  it('overlay removed immediately when isNew=false (restored session, no data needed)', async () => {
+  it('overlay removed on first data byte when isNew=false', async () => {
     vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
 
     const container = makeContainer();
@@ -217,9 +217,18 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
 
     const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
     const wrapper = termInstance.element as HTMLElement;
-    // Overlay should be gone without any data arrival — idle restored sessions must not be blank.
-    const overlay = wrapper.firstElementChild as HTMLElement | null;
-    expect(overlay === null || overlay.style.position !== 'absolute').toBe(true);
+    // Overlay still present — SIGWINCH hasn't fired yet (waiting for first byte).
+    const overlay = wrapper.firstElementChild as HTMLElement;
+    expect(overlay).toBeTruthy();
+    expect(overlay.style.position).toBe('absolute');
+
+    // Simulate first byte arriving via connectPtyOutput handler
+    const outputHandler = vi.mocked(connectPtyOutput).mock.calls[0]![1];
+    act(() => {
+      outputHandler(new Uint8Array([65])); // 'A'
+    });
+
+    expect(overlay.parentNode).toBeNull();
     unmount();
   });
 
