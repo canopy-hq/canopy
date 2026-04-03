@@ -11,7 +11,7 @@ name = "superagent-pty-daemon"
 path = "src/bin/pty_daemon.rs"
 
 [dependencies]
-portable-pty = "0.9"
-serde_json = "1"
-tokio = { version = "1", features = ["full"] }
+portable-pty.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
 tempfile = "3"

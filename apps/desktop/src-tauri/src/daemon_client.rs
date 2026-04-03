@@ -106,6 +106,7 @@ impl DaemonClient {
                 .as_u64()
                 .map(|p| p as u32)
                 .ok_or_else(|| "daemon: spawn returned no pid".to_string())?;
+            // Default to true (fresh) if the daemon omits "new" (forward compat with older daemons).
             let is_new = resp["new"].as_bool().unwrap_or(true);
             Ok((pid, is_new))
         } else {
