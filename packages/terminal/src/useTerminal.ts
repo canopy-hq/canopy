@@ -43,12 +43,6 @@ export function useTerminal(
 ): React.MutableRefObject<Terminal | null> {
   const termRef = useRef<Terminal | null>(null);
   const [wasmReady, setWasmReady] = useState(false);
-  // Ref so the effect always reads the latest ptyId without re-running.
-  // onPtySpawned → setPtyId → store update → PaneContainer re-renders with
-  // the new ptyId as prop. If ptyId were a direct dep, the effect would re-run
-  // (cleanup cancels the sigwinch timer, cached path has no SIGWINCH → blank).
-  const ptyIdRef = useRef(ptyId);
-  ptyIdRef.current = ptyId;
 
   useEffect(() => {
     void ensureGhosttyInit().then(() => setWasmReady(true));
@@ -66,13 +60,9 @@ export function useTerminal(
     const container = containerRef.current;
     if (!container) return;
 
-    // Snapshot ptyId at effect-run time. Using the ref ensures that when the
-    // component remounts (pane restructure), the effect sees the latest value.
-    const ptyId = ptyIdRef.current;
-
     let spawnCancelled = false;
     let sigwinchTimer: ReturnType<typeof setTimeout> | null = null;
-    let overlayTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let ptyResizeTimer: ReturnType<typeof setTimeout> | null = null;
     // Hoisted so cleanup can always call it (no-op for the cached path).
     let removeOverlay = () => {};
     const cached = getCached(ptyId);
@@ -123,14 +113,13 @@ export function useTerminal(
       // Clear any stale WASM state that may persist from a previously disposed
       // terminal instance (ghostty-web WASM allocator may reuse heap memory).
       term.reset();
-      // Opaque overlay covering the canvas to prevent a flash of blank content.
+      // Opaque overlay covering the canvas until the first LIVE PTY byte arrives.
       //
-      // Removal strategy differs by path:
-      //  • isNew=true  (fresh spawn): removed on first live post-sentinel byte so the
-      //    user never sees a blank canvas before the shell prompt appears.
-      //  • isNew=false (restored) / reconnect: removed immediately after connectPtyOutput
-      //    because setHandler drains buffered scrollback synchronously — an idle shell
-      //    would never produce bytes, leaving the overlay up permanently.
+      // "Live" is defined as post-sentinel: the daemon sends a zero-length sentinel
+      // frame after replaying scrollback (see daemon.rs attach handler). The
+      // connectPtyOutputFresh call buffers and silently discards all data up to and
+      // including the sentinel. The overlay is therefore removed only when fresh
+      // shell output (e.g. the zsh prompt) first hits the canvas.
       const overlay = document.createElement('div');
       overlay.style.cssText = `position:absolute;inset:0;background:${themeBg};z-index:1;pointer-events:none`;
       wrapper.appendChild(overlay);
@@ -182,9 +171,14 @@ export function useTerminal(
       term.onResize(({ cols, rows }) => {
         if (ptrRef.ptyId <= 0) return; // suppress during pre-spawn phase
         if (rows === lastSentSize.rows && cols === lastSentSize.cols) return;
-        lastSentSize.rows = rows;
-        lastSentSize.cols = cols;
-        void resizePty(ptrRef.ptyId, rows, cols);
+        // Debounce PTY IPC (not the visual fit) to avoid flooding with SIGWINCHes.
+        if (ptyResizeTimer !== null) clearTimeout(ptyResizeTimer);
+        ptyResizeTimer = setTimeout(() => {
+          ptyResizeTimer = null;
+          lastSentSize.rows = rows;
+          lastSentSize.cols = cols;
+          void resizePty(ptrRef.ptyId, rows, cols);
+        }, 80);
       });
 
       // ghostty-web: return true = "handled, stop", false = "let terminal handle"
@@ -217,10 +211,10 @@ export function useTerminal(
         // Reconnect: PTY already running in daemon (cold app restart).
         // lastSentSize is {0,0} so onResize from fitAddon.fit() above already sent
         // the resize IPC — no explicit call needed here.
-        // setHandler drains buffered scrollback synchronously — remove overlay now
-        // rather than waiting for future bytes that may never arrive (idle shell).
-        connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
-        removeOverlay();
+        connectPtyOutput(ptyId, (data: Uint8Array) => {
+          removeOverlay();
+          term.write(data);
+        });
         setCached(ptyId, term, fitAddon);
       } else {
         // Spawn: PTY started at exact fitted dimensions → lastSentSize = spawn dims
@@ -232,20 +226,13 @@ export function useTerminal(
           lastSentSize.cols = term.cols;
           if (isNew) {
             // Fresh shell: discard scrollback replay, wait for first live byte.
-            // Safety timeout in case the shell never outputs (crash, slow startup).
-            overlayTimeoutId = setTimeout(removeOverlay, 2000);
             connectPtyOutputFresh(newId, (data: Uint8Array) => {
-              if (overlayTimeoutId !== null) {
-                clearTimeout(overlayTimeoutId);
-                overlayTimeoutId = null;
-              }
               removeOverlay();
               term.write(data);
             });
           } else {
-            // Restored session: setHandler drains buffered scrollback synchronously.
-            // Remove overlay immediately — SIGWINCH (100ms timer below) will force
-            // the shell to reprint its prompt if scrollback was empty.
+            // Restored session: drain scrollback (includes previous prompt).
+            // Remove overlay immediately — setHandler flushes buffers synchronously.
             connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
             removeOverlay();
           }
@@ -270,9 +257,7 @@ export function useTerminal(
               lastSentSize.cols = c;
               void resizePty(newId, r, c);
             } else if (ticks === 0) {
-              // Always send SIGWINCH on first tick so TUI apps and zsh initialise.
-              // For restored sessions this forces zsh to reprint its prompt, producing
-              // the first live bytes that remove the overlay.
+              // First tick: always send SIGWINCH so TUI apps initialise.
               void resizePty(newId, r, c);
             }
             ticks++;
@@ -285,17 +270,25 @@ export function useTerminal(
 
     termRef.current = term;
 
-    // Debounced resize: background fills gap during macOS window animations.
+    // Immediate visual fit via rAF; PTY resize IPC is debounced in onResize above.
     if (term.element) term.element.style.background = themeBg;
 
-    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+    let resizeRaf: number | null = null;
+    let resizingClassTimer: ReturnType<typeof setTimeout> | null = null;
     const resizeObserver = new ResizeObserver(() => {
       if (container.offsetWidth === 0 || container.offsetHeight === 0) return;
-      if (resizeTimer !== null) clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        resizeTimer = null;
+      // Suppress CSS transitions during resize to avoid layout contention.
+      document.body.classList.add('resizing');
+      if (resizingClassTimer !== null) clearTimeout(resizingClassTimer);
+      resizingClassTimer = setTimeout(() => {
+        resizingClassTimer = null;
+        document.body.classList.remove('resizing');
+      }, 150);
+      if (resizeRaf !== null) cancelAnimationFrame(resizeRaf);
+      resizeRaf = requestAnimationFrame(() => {
+        resizeRaf = null;
         fitAddon.fit();
-      }, 100);
+      });
     });
     resizeObserver.observe(container);
 
@@ -307,9 +300,11 @@ export function useTerminal(
       spawnCancelled = true;
       removeOverlay();
       resizeObserver.disconnect();
-      if (resizeTimer !== null) clearTimeout(resizeTimer);
+      if (resizeRaf !== null) cancelAnimationFrame(resizeRaf);
+      if (resizingClassTimer !== null) clearTimeout(resizingClassTimer);
+      document.body.classList.remove('resizing');
+      if (ptyResizeTimer !== null) clearTimeout(ptyResizeTimer);
       if (sigwinchTimer !== null) clearTimeout(sigwinchTimer);
-      if (overlayTimeoutId !== null) clearTimeout(overlayTimeoutId);
       // DON'T dispose term — just detach from container. Cache keeps it alive.
       const el = term.element;
       if (el && el.parentNode === container) {
@@ -317,7 +312,7 @@ export function useTerminal(
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerRef, wasmReady]);
+  }, [containerRef, ptyId, wasmReady]);
 
   return termRef;
 }

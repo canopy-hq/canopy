@@ -266,7 +266,7 @@ describe('useTerminal — reconnect path (ptyId > 0)', () => {
     unmount();
   });
 
-  it('overlay is removed immediately without waiting for data', async () => {
+  it('overlay removed on first data byte (reconnect path)', async () => {
     const container = makeContainer();
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, 5, false, vi.fn()),
@@ -276,9 +276,16 @@ describe('useTerminal — reconnect path (ptyId > 0)', () => {
 
     const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
     const wrapper = termInstance.element as HTMLElement;
-    // Overlay should be gone — no data needed to remove it on reconnect path.
-    const overlay = wrapper.firstElementChild as HTMLElement | null;
-    expect(overlay === null || overlay.style.position !== 'absolute').toBe(true);
+    const overlay = wrapper.firstElementChild as HTMLElement;
+    expect(overlay).toBeTruthy();
+
+    // Simulate first byte arriving via connectPtyOutput handler
+    const handler = vi.mocked(connectPtyOutput).mock.calls[0]![1];
+    act(() => {
+      handler(new Uint8Array([65]));
+    });
+
+    expect(overlay.parentNode).toBeNull();
     unmount();
   });
 });
@@ -431,120 +438,94 @@ describe('useTerminal — full spawn → unmount → remount cycle', () => {
   });
 });
 
-// ─── Regression: ptyId prop change vs sigwinch timer ──────────────────────
-//
-// The reactive store updates ptyId from -1 → 42 after onPtySpawned. If ptyId
-// were in the effect deps, this would re-run the effect (cleanup cancels the
-// sigwinch timer → no SIGWINCH → blank terminal). Using a ref instead keeps
-// the effect stable.
+// ─── Session restore: isNew=false uses connectPtyOutput (not Fresh) ──────
 
-describe('useTerminal — ptyId change after spawn must NOT cancel sigwinch (isNew=false)', () => {
-  it('ptyId prop changing from -1 to 42 does NOT re-run the effect — no new Terminal created', async () => {
+describe('useTerminal — restored session (isNew=false)', () => {
+  it('uses connectPtyOutput (not connectPtyOutputFresh) for restored sessions', async () => {
     vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
 
     const container = makeContainer();
-    const containerRef = { current: container };
-    const onPtySpawned = vi.fn();
-
-    const { rerender, unmount } = renderHook(
-      ({ ptyId }: { ptyId: number }) =>
-        useTerminal(containerRef as any, 'pane-1', undefined, ptyId, false, onPtySpawned),
-      { initialProps: { ptyId: -1 } },
+    const { unmount } = renderHook(() =>
+      useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
     );
 
     await act(flushPromises);
 
-    const terminalCallCount = vi.mocked(Terminal).mock.instances.length;
-    expect(terminalCallCount).toBe(1);
-
-    // Simulate the reactive store: setPtyId → PaneContainer re-renders with ptyId=42.
-    // Because ptyId is read via ref (not a dep), the effect must NOT re-run.
-    rerender({ ptyId: 42 });
-    await act(flushPromises);
-
-    // No new Terminal — effect did NOT re-run
-    expect(vi.mocked(Terminal).mock.instances.length).toBe(terminalCallCount);
-    // setCached called only once (from the original spawn)
-    expect(setCached).toHaveBeenCalledTimes(1);
-
+    expect(connectPtyOutput).toHaveBeenCalledWith(42, expect.any(Function));
+    expect(connectPtyOutputFresh).not.toHaveBeenCalled();
     unmount();
   });
 
-  it('overlay removed immediately for isNew=false even after ptyId prop changes', async () => {
+  it('overlay removed immediately for restored sessions (scrollback drained synchronously)', async () => {
     vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
 
     const container = makeContainer();
-    const containerRef = { current: container };
-
-    const { rerender, unmount } = renderHook(
-      ({ ptyId }: { ptyId: number }) =>
-        useTerminal(containerRef as any, 'pane-1', undefined, ptyId, false, vi.fn()),
-      { initialProps: { ptyId: -1 } },
+    const { unmount } = renderHook(() =>
+      useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
     );
 
     await act(flushPromises);
 
-    // Store update changes ptyId prop — effect stays stable
-    rerender({ ptyId: 42 });
-    await act(flushPromises);
-
-    // Overlay was removed immediately after connectPtyOutput (isNew=false path)
     const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
     const wrapper = termInstance.element as HTMLElement;
     const overlay = wrapper.firstElementChild as HTMLElement | null;
     expect(overlay === null || overlay.style.position !== 'absolute').toBe(true);
-
     unmount();
   });
 
-  it('resizePty (SIGWINCH) is called even after ptyId prop change — full end-to-end', async () => {
-    vi.useFakeTimers();
-    vi.mocked(spawnTerminal).mockImplementation(
-      () => new Promise((resolve) => {
-        // Resolve as microtask so fake timers don't block it
-        queueMicrotask(() => resolve({ ptyId: 42, isNew: false }));
-      }),
-    );
+  it('typing works for restored sessions (ptrRef.ptyId set after spawn)', async () => {
+    vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
 
     const container = makeContainer();
-    const containerRef = { current: container };
-
-    const { rerender, unmount } = renderHook(
-      ({ ptyId }: { ptyId: number }) =>
-        useTerminal(containerRef as any, 'pane-1', undefined, ptyId, false, vi.fn()),
-      { initialProps: { ptyId: -1 } },
+    const { unmount } = renderHook(() =>
+      useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
     );
 
-    // Flush: WASM init (microtask) → wasmReady=true → effect runs → spawnTerminal (microtask)
-    await act(async () => {
-      await flushPromises();
-      vi.advanceTimersByTime(0);
-      await flushPromises();
-    });
+    await act(flushPromises);
 
-    // Verify spawn resolved
-    expect(spawnTerminal).toHaveBeenCalled();
-    expect(setCached).toHaveBeenCalledWith(42, expect.anything(), expect.anything());
+    // term.onData was called with a callback — simulate a keystroke
+    const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
+    const onDataCb = termInstance.onData.mock.calls[0]?.[0];
+    expect(onDataCb).toBeDefined();
 
-    // Simulate store update: ptyId changes to 42
-    rerender({ ptyId: 42 });
-    await act(async () => {
-      await flushPromises();
-    });
+    onDataCb('a');
 
-    // Effect must NOT have re-run
-    expect(vi.mocked(Terminal).mock.instances.length).toBe(1);
+    const { writeToPty } = await import('../src/pty');
+    expect(vi.mocked(writeToPty)).toHaveBeenCalledWith(42, 'a');
+    unmount();
+  });
+});
 
-    // Advance past 100ms sigwinch timer
-    await act(async () => {
-      vi.advanceTimersByTime(150);
-      await flushPromises();
-    });
+describe('useTerminal — fresh session (isNew=true)', () => {
+  it('uses connectPtyOutputFresh for fresh sessions', async () => {
+    const container = makeContainer();
+    const { unmount } = renderHook(() =>
+      useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
+    );
 
-    // SIGWINCH was sent — resizePty called with the spawned ptyId
-    expect(vi.mocked(resizePty)).toHaveBeenCalledWith(42, expect.any(Number), expect.any(Number));
+    await act(flushPromises);
 
-    vi.useRealTimers();
+    expect(connectPtyOutputFresh).toHaveBeenCalledWith(42, expect.any(Function));
+    expect(connectPtyOutput).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('typing works for fresh sessions (ptrRef.ptyId set after spawn)', async () => {
+    const container = makeContainer();
+    const { unmount } = renderHook(() =>
+      useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
+    );
+
+    await act(flushPromises);
+
+    const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
+    const onDataCb = termInstance.onData.mock.calls[0]?.[0];
+    expect(onDataCb).toBeDefined();
+
+    onDataCb('a');
+
+    const { writeToPty } = await import('../src/pty');
+    expect(vi.mocked(writeToPty)).toHaveBeenCalledWith(42, 'a');
     unmount();
   });
 });
