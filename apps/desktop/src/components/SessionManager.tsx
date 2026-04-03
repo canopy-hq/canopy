@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
+import { useNavigate } from '@tanstack/react-router';
 
-import { useTabs } from '../hooks/useCollections';
+import { useTabs, useWorkspaces } from '../hooks/useCollections';
 import { killPaneInTab } from '../lib/tab-actions';
+import { switchTab } from '../lib/tab-actions';
 import { closePty, listPtySessions } from '@superagent/terminal';
 
-import type { Tab } from '@superagent/db';
+import type { Tab, Workspace } from '@superagent/db';
 import type { PtySessionInfo } from '@superagent/terminal';
 import type { PaneNode } from '../lib/pane-tree-ops';
 
@@ -25,9 +27,22 @@ function treeContainsPty(node: PaneNode, ptyId: number): boolean {
   return node.children.some((c) => treeContainsPty(c, ptyId));
 }
 
+function findWorkspaceForTab(tab: Tab, workspaces: Workspace[]): Workspace | null {
+  return (
+    workspaces.find(
+      (w) =>
+        w.id === tab.workspaceItemId ||
+        w.branches.some((b) => b.name === tab.workspaceItemId) ||
+        w.worktrees.some((wt) => wt.name === tab.workspaceItemId),
+    ) ?? null
+  );
+}
+
 interface SessionRow {
   info: PtySessionInfo;
   tab: Tab | null;
+  workspaceName: string;
+  workspaceItemId: string;
 }
 
 /**
@@ -35,6 +50,8 @@ interface SessionRow {
  */
 export function SessionManager({ onClose }: SessionManagerProps) {
   const tabs = useTabs();
+  const workspaces = useWorkspaces();
+  const navigate = useNavigate();
   const [sessions, setSessions] = useState<PtySessionInfo[]>([]);
   const [killing, setKilling] = useState<Set<number>>(new Set());
 
@@ -57,6 +74,41 @@ export function SessionManager({ onClose }: SessionManagerProps) {
       clearInterval(interval);
     };
   }, []);
+
+  const rows: SessionRow[] = useMemo(
+    () =>
+      sessions.map((info) => {
+        const tab = findTabForPtyId(tabs, info.ptyId);
+        const ws = tab ? findWorkspaceForTab(tab, workspaces) : null;
+        return {
+          info,
+          tab,
+          workspaceName: ws?.name ?? 'Unknown',
+          workspaceItemId: tab?.workspaceItemId ?? '',
+        };
+      }),
+    [sessions, tabs, workspaces],
+  );
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, SessionRow[]>();
+    for (const row of rows) {
+      const group = map.get(row.workspaceName) ?? [];
+      group.push(row);
+      map.set(row.workspaceName, group);
+    }
+    return map;
+  }, [rows]);
+
+  const handleJump = useCallback(
+    (row: SessionRow) => {
+      if (!row.tab) return;
+      void navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: row.workspaceItemId } });
+      switchTab(row.tab.id);
+      onClose();
+    },
+    [navigate, onClose],
+  );
 
   const handleKill = useCallback(async (row: SessionRow) => {
     if (!row.tab) return;
@@ -85,11 +137,6 @@ export function SessionManager({ onClose }: SessionManagerProps) {
     [onClose],
   );
 
-  const rows: SessionRow[] = sessions.map((info) => ({
-    info,
-    tab: findTabForPtyId(tabs, info.ptyId),
-  }));
-
   return (
     <div
       className="fixed inset-0 z-50 bg-black/30"
@@ -99,7 +146,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
       role="presentation"
     >
       <div
-        className="fixed top-1/2 left-1/2 flex max-h-[60vh] w-[580px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-border font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+        className="fixed top-1/2 left-1/2 flex max-h-[60vh] w-[600px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-border font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
         style={{
           background: 'color-mix(in srgb, var(--bg-secondary) 85%, transparent)',
           WebkitBackdropFilter: 'blur(12px)',
@@ -107,9 +154,9 @@ export function SessionManager({ onClose }: SessionManagerProps) {
         }}
         onKeyDown={handleKeyDown}
       >
-        <Dialog className="flex flex-col outline-none" aria-label="PTY Session Manager">
+        <Dialog className="flex min-h-0 flex-col outline-none" aria-label="PTY Session Manager">
           {/* Header */}
-          <div className="flex items-center gap-2 border-b border-border p-4">
+          <div className="flex shrink-0 items-center gap-2 border-b border-border p-4">
             <Heading slot="title" className="m-0 text-sm font-semibold text-text-primary">
               PTY Sessions
             </Heading>
@@ -120,8 +167,8 @@ export function SessionManager({ onClose }: SessionManagerProps) {
             )}
           </div>
 
-          {/* Body */}
-          <div className="scrollbar-none flex-1 overflow-y-auto">
+          {/* Body — scrollable */}
+          <div className="min-h-0 flex-1 overflow-y-auto py-2">
             {rows.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 px-4 py-8">
                 <span className="text-sm font-semibold text-text-muted">No active sessions</span>
@@ -130,45 +177,72 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                 </span>
               </div>
             ) : (
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="border-b border-border text-left text-[11px] text-text-muted">
-                    <th className="px-4 py-2 font-medium">Tab</th>
-                    <th className="px-3 py-2 font-medium tabular-nums">PID</th>
-                    <th className="px-3 py-2 font-medium tabular-nums">CPU%</th>
-                    <th className="px-3 py-2 font-medium tabular-nums">Mem</th>
-                    <th className="px-3 py-2 font-medium" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr
+              Array.from(grouped.entries()).map(([wsName, groupRows]) => (
+                <div key={wsName}>
+                  {/* Group header */}
+                  <div className="px-4 pt-2 pb-1 text-[11px] font-semibold tracking-wide text-text-muted uppercase opacity-60">
+                    {wsName}
+                  </div>
+
+                  {/* Session rows */}
+                  {groupRows.map((row) => (
+                    <div
                       key={row.info.ptyId}
-                      className="border-b border-border/50 last:border-0 hover:bg-bg-tertiary/50"
+                      className="flex items-center gap-2 px-4 py-2 hover:bg-bg-tertiary/50"
                     >
-                      <td className="max-w-[200px] truncate px-4 py-2 text-text-primary">
+                      {/* Tab label */}
+                      <span className="min-w-0 flex-1 truncate text-[13px] text-text-primary">
                         {row.tab?.label ?? '—'}
-                      </td>
-                      <td className="px-3 py-2 tabular-nums text-text-muted">{row.info.ptyId}</td>
-                      <td className="px-3 py-2 tabular-nums text-text-muted">
+                      </span>
+
+                      {/* Stats */}
+                      <span className="shrink-0 tabular-nums text-[11px] text-text-muted">
+                        PID {row.info.ptyId}
+                      </span>
+                      <span className="w-[48px] shrink-0 text-right tabular-nums text-[11px] text-text-muted">
                         {row.info.cpuPercent.toFixed(1)}%
-                      </td>
-                      <td className="px-3 py-2 tabular-nums text-text-muted">
+                      </span>
+                      <span className="w-[44px] shrink-0 text-right tabular-nums text-[11px] text-text-muted">
                         {row.info.memoryMb}MB
-                      </td>
-                      <td className="px-3 py-2">
-                        <button
-                          onClick={() => void handleKill(row)}
-                          disabled={killing.has(row.info.ptyId) || !row.tab}
-                          className="cursor-pointer rounded px-2 py-0.5 text-[11px] text-red-400 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      </span>
+
+                      {/* Jump */}
+                      <button
+                        onClick={() => handleJump(row)}
+                        disabled={!row.tab}
+                        aria-label="Go to tab"
+                        title="Go to tab"
+                        className="shrink-0 cursor-pointer rounded p-1 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <svg
+                          width="13"
+                          height="13"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
                         >
-                          Kill
-                        </button>
-                      </td>
-                    </tr>
+                          <path d="M6 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-3" />
+                          <path d="M10 2h4v4" />
+                          <line x1="14" y1="2" x2="7" y2="9" />
+                        </svg>
+                      </button>
+
+                      {/* Kill */}
+                      <button
+                        onClick={() => void handleKill(row)}
+                        disabled={killing.has(row.info.ptyId) || !row.tab}
+                        className="shrink-0 cursor-pointer rounded px-2 py-0.5 text-[11px] text-red-400 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Kill
+                      </button>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              ))
             )}
           </div>
         </Dialog>
