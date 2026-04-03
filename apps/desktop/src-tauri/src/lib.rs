@@ -1,4 +1,3 @@
-pub mod daemon;
 mod daemon_client;
 mod agent_watcher;
 mod git;
