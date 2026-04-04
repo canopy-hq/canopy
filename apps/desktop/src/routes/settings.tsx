@@ -67,11 +67,11 @@ function SettingsRoute() {
 
         {/* Back link */}
         <button
-          className="flex items-center gap-1 px-5 text-[11px] text-text-muted transition-colors hover:text-text-primary"
+          className="flex items-center gap-1.5 px-5 pt-1 pb-0.5 text-[12px] text-text-muted transition-colors hover:text-text-primary"
           onClick={handleBack}
           aria-label="Back to app"
         >
-          <ChevronLeft size={12} strokeWidth={1.8} />
+          <ChevronLeft size={14} strokeWidth={1.8} />
           <span>Back</span>
         </button>
 
