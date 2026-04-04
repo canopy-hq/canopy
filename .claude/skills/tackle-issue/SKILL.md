@@ -1,6 +1,7 @@
 ---
 name: tackle-issue
 description: "Tackle a GitHub issue end-to-end: fetch it, analyze it, create a branch, plan the implementation, and execute. Use this skill whenever the user wants to work on a GitHub issue, fix a bug from an issue, implement a feature from an issue, or mentions an issue number/URL. Also triggers on phrases like 'tackle issue', 'work on issue', 'pick up issue', 'start issue', 'grab an issue', or 'what issues do I have'."
+argument-hint: "[issue-number-or-url]"
 ---
 
 # Tackle Issue
