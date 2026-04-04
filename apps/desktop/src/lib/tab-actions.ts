@@ -182,6 +182,85 @@ export function closePane(paneId: PaneId): void {
   });
 }
 
+/** Close a pane in a specific tab (not necessarily the active one). */
+export function closePaneInTab(tabId: string, paneId: PaneId): void {
+  const col = getTabCollection();
+  const tab = col.toArray.find((t) => t.id === tabId);
+  if (!tab) return;
+  const result = removeNode(tab.paneRoot, paneId);
+  col.update(tab.id, (draft) => {
+    if (result === null) {
+      const newId = crypto.randomUUID();
+      draft.paneRoot = { type: 'leaf', id: newId, ptyId: -1 };
+      draft.focusedPaneId = newId;
+    } else {
+      draft.paneRoot = result;
+      if (draft.focusedPaneId === paneId) {
+        const firstLeaf = findFirstLeaf(result);
+        draft.focusedPaneId = firstLeaf?.id ?? null;
+      }
+    }
+  });
+}
+
+/**
+ * Mark a pane as killed (ptyId = -2). The pane stays in the tree but shows
+ * a "session terminated" screen instead of spawning a new terminal.
+ */
+export function killPaneInTab(tabId: string, paneId: PaneId): void {
+  const col = getTabCollection();
+  const tab = col.toArray.find((t) => t.id === tabId);
+  if (!tab) return;
+  col.update(tab.id, (draft) => {
+    function markKilled(node: Tab['paneRoot']): void {
+      if (node.type === 'leaf') {
+        if (node.id === paneId) node.ptyId = -2;
+        return;
+      }
+      for (const child of node.children) markKilled(child);
+    }
+    markKilled(draft.paneRoot);
+  });
+}
+
+/**
+ * Navigate to a specific workspace → tab → pane from anywhere in the app.
+ *
+ * - Same context: switchTab direct — no route change, no re-render.
+ * - Cross context: pre-populates contextActiveTabIds before navigating so that
+ *   setActiveContext (triggered by the route's useEffect) picks the right tab.
+ * - Pane: focusedPaneId is set directly on the tab, independent of active context.
+ *
+ * Always calls navigate() to handle the case where the user is on a different
+ * route (e.g. /settings) even when the workspace context is already correct.
+ */
+export function jumpToPane(
+  navigate: (opts: { to: string; params?: Record<string, string> }) => void,
+  workspaceItemId: string,
+  tabId?: string,
+  paneId?: string,
+): void {
+  const ui = getUiState();
+
+  if (tabId && paneId) {
+    getTabCollection().update(tabId, (draft) => {
+      draft.focusedPaneId = paneId;
+    });
+  }
+
+  if (ui.activeContextId !== workspaceItemId && tabId) {
+    uiCollection.update('ui', (draft) => {
+      draft.contextActiveTabIds[workspaceItemId] = tabId;
+    });
+  }
+
+  navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: workspaceItemId } });
+
+  if (ui.activeContextId === workspaceItemId && tabId) {
+    switchTab(tabId);
+  }
+}
+
 export function setFocus(paneId: PaneId): void {
   const ui = getUiState();
   const tab = getTabCollection().toArray.find((t) => t.id === ui.activeTabId);
@@ -218,6 +297,23 @@ export function setPtyId(paneId: PaneId, ptyId: number): void {
   const tab = getTabCollection().toArray.find((t) => t.id === ui.activeTabId);
   if (!tab) return;
   getTabCollection().update(tab.id, (draft) => {
+    function setInTree(node: Tab['paneRoot']): void {
+      if (node.type === 'leaf') {
+        if (node.id === paneId) node.ptyId = ptyId;
+        return;
+      }
+      for (const child of node.children) setInTree(child);
+    }
+    setInTree(draft.paneRoot);
+  });
+}
+
+/** Set ptyId in a specific tab (not necessarily the active one). Used for startup session restore. */
+export function setPtyIdInTab(tabId: string, paneId: PaneId, ptyId: number): void {
+  const col = getTabCollection();
+  const tab = col.toArray.find((t) => t.id === tabId);
+  if (!tab) return;
+  col.update(tab.id, (draft) => {
     function setInTree(node: Tab['paneRoot']): void {
       if (node.type === 'leaf') {
         if (node.id === paneId) node.ptyId = ptyId;

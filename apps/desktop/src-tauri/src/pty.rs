@@ -2,19 +2,23 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicU64;
 
+use sysinfo::{System, Pid, ProcessesToUpdate};
+
 use tauri::ipc::Channel;
 
 use crate::agent_watcher::{self, AgentWatcherState, now_millis};
 use crate::daemon_client::DaemonClient;
 
-/// Maps ptyId (child PID) → paneId for routing write/resize/close through the daemon.
-pub struct PtyProxy {
+/// PTY session state: maps ptyId (child PID) → paneId for IPC routing,
+/// and owns the sysinfo System for targeted per-PID resource queries.
+pub struct PtyState {
     sessions: HashMap<u32, String>,
+    sys: System,
 }
 
-impl PtyProxy {
+impl PtyState {
     pub fn new() -> Self {
-        Self { sessions: HashMap::new() }
+        Self { sessions: HashMap::new(), sys: System::new() }
     }
 }
 
@@ -32,15 +36,15 @@ pub async fn spawn_terminal(
     cols: Option<u16>,
     on_output: Channel<Vec<u8>>,
     app: tauri::AppHandle,
-    proxy: tauri::State<'_, Mutex<PtyProxy>>,
+    state: tauri::State<'_, Mutex<PtyState>>,
     daemon: tauri::State<'_, DaemonClient>,
     watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
 ) -> Result<SpawnResult, String> {
     let (pid, is_new) = daemon.spawn(&pane_id, cwd.as_deref(), rows.unwrap_or(24), cols.unwrap_or(80)).await?;
 
     {
-        let mut p = proxy.lock().map_err(|e| e.to_string())?;
-        p.sessions.insert(pid, pane_id.clone());
+        let mut s = state.lock().map_err(|e| e.to_string())?;
+        s.sessions.insert(pid, pane_id.clone());
     }
 
     let last_output = Arc::new(AtomicU64::new(now_millis()));
@@ -62,12 +66,12 @@ pub async fn spawn_terminal(
 pub async fn write_to_pty(
     pty_id: u32,
     data: Vec<u8>,
-    proxy: tauri::State<'_, Mutex<PtyProxy>>,
+    state: tauri::State<'_, Mutex<PtyState>>,
     daemon: tauri::State<'_, DaemonClient>,
 ) -> Result<(), String> {
     let pane_id = {
-        let p = proxy.lock().map_err(|e| e.to_string())?;
-        p.sessions.get(&pty_id).cloned().ok_or_else(|| format!("PTY {pty_id} not found"))?
+        let s = state.lock().map_err(|e| e.to_string())?;
+        s.sessions.get(&pty_id).cloned().ok_or_else(|| format!("PTY {pty_id} not found"))?
     };
     daemon.write(&pane_id, &data).await
 }
@@ -77,12 +81,12 @@ pub async fn resize_pty(
     pty_id: u32,
     rows: u16,
     cols: u16,
-    proxy: tauri::State<'_, Mutex<PtyProxy>>,
+    state: tauri::State<'_, Mutex<PtyState>>,
     daemon: tauri::State<'_, DaemonClient>,
 ) -> Result<(), String> {
     let pane_id = {
-        let p = proxy.lock().map_err(|e| e.to_string())?;
-        p.sessions.get(&pty_id).cloned().ok_or_else(|| format!("PTY {pty_id} not found"))?
+        let s = state.lock().map_err(|e| e.to_string())?;
+        s.sessions.get(&pty_id).cloned().ok_or_else(|| format!("PTY {pty_id} not found"))?
     };
     daemon.resize(&pane_id, rows, cols).await
 }
@@ -90,13 +94,13 @@ pub async fn resize_pty(
 #[tauri::command]
 pub async fn close_pty(
     pty_id: u32,
-    proxy: tauri::State<'_, Mutex<PtyProxy>>,
+    state: tauri::State<'_, Mutex<PtyState>>,
     daemon: tauri::State<'_, DaemonClient>,
     watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
 ) -> Result<(), String> {
     let pane_id = {
-        let mut p = proxy.lock().map_err(|e| e.to_string())?;
-        p.sessions.remove(&pty_id).ok_or_else(|| format!("PTY {pty_id} not found"))?
+        let mut s = state.lock().map_err(|e| e.to_string())?;
+        s.sessions.remove(&pty_id).ok_or_else(|| format!("PTY {pty_id} not found"))?
     };
 
     {
@@ -108,6 +112,40 @@ pub async fn close_pty(
     }
 
     daemon.close(&pane_id).await
+}
+
+/// Info about a single active PTY session, including live resource usage.
+#[derive(serde::Serialize)]
+pub struct PtySessionInfo {
+    pub pty_id: u32,
+    pub pane_id: String,
+    pub cpu_percent: f32,
+    pub memory_mb: u64,
+}
+
+/// List all active PTY sessions with live CPU/memory stats.
+/// Refreshes only the tracked PIDs (not the entire process table).
+#[tauri::command]
+pub fn list_pty_sessions(
+    state: tauri::State<'_, Mutex<PtyState>>,
+) -> Result<Vec<PtySessionInfo>, String> {
+    let mut s = state.lock().map_err(|e| e.to_string())?;
+
+    let pids: Vec<Pid> = s.sessions.keys().map(|&id| Pid::from_u32(id)).collect();
+    if !pids.is_empty() {
+        s.sys.refresh_processes(ProcessesToUpdate::Some(&pids), true);
+    }
+
+    Ok(s.sessions
+        .iter()
+        .map(|(&pid, pane_id)| {
+            let (cpu_percent, memory_mb) = s.sys
+                .process(Pid::from_u32(pid))
+                .map(|p| (p.cpu_usage(), p.memory() / 1024 / 1024))
+                .unwrap_or((0.0, 0));
+            PtySessionInfo { pty_id: pid, pane_id: pane_id.clone(), cpu_percent, memory_mb }
+        })
+        .collect())
 }
 
 /// Get the CWD of the shell process. Since ptyId = child PID, we call libproc directly.
@@ -123,13 +161,13 @@ mod tests {
 
     #[test]
     fn test_pty_proxy_new() {
-        let proxy = PtyProxy::new();
+        let proxy = PtyState::new();
         assert!(proxy.sessions.is_empty());
     }
 
     #[test]
     fn test_pty_proxy_insert_lookup() {
-        let mut proxy = PtyProxy::new();
+        let mut proxy = PtyState::new();
         proxy.sessions.insert(1234, "pane-abc".to_string());
         assert_eq!(proxy.sessions.get(&1234), Some(&"pane-abc".to_string()));
         assert!(proxy.sessions.get(&9999).is_none());
@@ -137,7 +175,7 @@ mod tests {
 
     #[test]
     fn test_pty_proxy_remove() {
-        let mut proxy = PtyProxy::new();
+        let mut proxy = PtyState::new();
         proxy.sessions.insert(42, "pane-xyz".to_string());
         let removed = proxy.sessions.remove(&42);
         assert_eq!(removed, Some("pane-xyz".to_string()));

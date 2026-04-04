@@ -13,9 +13,7 @@ vi.mock('@superagent/db', async () => {
   return createDbMock();
 });
 
-vi.mock('../src/ghostty-init', () => ({
-  ensureGhosttyInit: vi.fn().mockResolvedValue(undefined),
-}));
+vi.mock('../src/ghostty-init', () => ({ ensureGhosttyInit: vi.fn().mockResolvedValue(undefined) }));
 
 vi.mock('../src/pty', () => ({
   spawnTerminal: vi.fn().mockResolvedValue({ ptyId: 42, isNew: true }),
@@ -37,6 +35,7 @@ vi.mock('../src/terminal-cache', () => ({
 // ─── Imports (after mocks are registered) ────────────────────────────────────
 
 import { Terminal, FitAddon } from 'ghostty-web';
+
 import {
   connectPtyOutput,
   connectPtyOutputFresh,
@@ -46,9 +45,7 @@ import {
 } from '../src/pty';
 import { getCached, setCached } from '../src/terminal-cache';
 import { useTerminal } from '../src/useTerminal';
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
 import { flushPromises, makeContainer } from './helpers';
 
 // ─── Setup ───────────────────────────────────────────────────────────────────
@@ -75,7 +72,12 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
     );
     await act(flushPromises);
 
-    expect(spawnTerminal).toHaveBeenCalledWith('pane-abc', '/workspace', expect.any(Number), expect.any(Number));
+    expect(spawnTerminal).toHaveBeenCalledWith(
+      'pane-abc',
+      '/workspace',
+      expect.any(Number),
+      expect.any(Number),
+    );
     unmount();
   });
 
@@ -129,7 +131,9 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
     const overlay = wrapper.firstElementChild as HTMLElement;
 
     const freshHandler = vi.mocked(connectPtyOutputFresh).mock.calls[0]![1];
-    act(() => { freshHandler(new Uint8Array([65])); });
+    act(() => {
+      freshHandler(new Uint8Array([65]));
+    });
 
     expect(overlay.parentNode).toBeNull();
     unmount();
@@ -138,7 +142,9 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
   it('unmount before spawn resolves cancels — connectPtyOutputFresh not called', async () => {
     let resolveSpawn!: (result: { ptyId: number; isNew: boolean }) => void;
     vi.mocked(spawnTerminal).mockReturnValueOnce(
-      new Promise<{ ptyId: number; isNew: boolean }>((resolve) => { resolveSpawn = resolve; }),
+      new Promise<{ ptyId: number; isNew: boolean }>((resolve) => {
+        resolveSpawn = resolve;
+      }),
     );
 
     const container = makeContainer();
@@ -222,7 +228,9 @@ describe('useTerminal — reconnect path (ptyId > 0)', () => {
     expect(overlay).toBeTruthy();
 
     const handler = vi.mocked(connectPtyOutput).mock.calls[0]![1];
-    act(() => { handler(new Uint8Array([65])); });
+    act(() => {
+      handler(new Uint8Array([65]));
+    });
 
     expect(overlay.parentNode).toBeNull();
     unmount();

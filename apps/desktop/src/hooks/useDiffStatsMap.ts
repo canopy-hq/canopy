@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+
 import { getAllDiffStats } from '../lib/git';
+
 import type { DiffStat } from '../lib/git';
 import type { Workspace } from '@superagent/db';
 
@@ -50,10 +52,7 @@ export function useDiffStatsMap(
   }, [workspaces]);
 
   const workspaceKey = useMemo(
-    () =>
-      workspaces
-        .map((ws) => `${ws.id}:${ws.expanded ? 1 : 0}`)
-        .join(','),
+    () => workspaces.map((ws) => `${ws.id}:${ws.expanded ? 1 : 0}`).join(','),
     [workspaces],
   );
 
