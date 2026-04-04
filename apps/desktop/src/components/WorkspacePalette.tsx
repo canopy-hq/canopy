@@ -26,7 +26,7 @@ export interface WorkspacePaletteProps {
 type Tab = 'all' | 'worktrees';
 
 const tabButton = tv({
-  base: 'flex flex-1 cursor-pointer items-center justify-center gap-1 rounded border-none px-2 py-[5px] text-[12px]',
+  base: 'flex flex-1 items-center justify-center gap-1 rounded border-none px-2 py-[5px] text-[12px]',
   variants: {
     active: { true: 'bg-bg-tertiary text-text-primary', false: 'bg-transparent text-text-muted' },
   },
@@ -35,7 +35,7 @@ const tabButton = tv({
 const branchItemRow = tv({
   base: 'flex items-center gap-[7px] rounded-[5px] px-2 py-[6px]',
   variants: {
-    disabled: { true: 'opacity-50 cursor-default', false: 'cursor-pointer' },
+    disabled: { true: 'opacity-50', false: '' },
     isConfirming: { true: 'bg-accent/[0.08]', false: '' },
   },
 });
@@ -205,7 +205,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
               <span className="text-[11px] text-text-muted">from</span>
               <button
                 onClick={() => setPickingBase(true)}
-                className="flex cursor-pointer items-center gap-1 rounded-[5px] border border-border bg-bg-tertiary px-2 py-0.5 text-[11px]"
+                className="flex items-center gap-1 rounded-[5px] border border-border bg-bg-tertiary px-2 py-0.5 text-[11px]"
               >
                 <svg
                   width="9"
@@ -323,7 +323,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
                 .map((b) => (
                   <div
                     key={b.name}
-                    className={`flex cursor-pointer items-center gap-[7px] rounded-[5px] px-2 py-[6px] hover:bg-accent/[0.06] ${b.name === baseBranch ? 'bg-accent/[0.06]' : ''}`}
+                    className={`flex items-center gap-[7px] rounded-[5px] px-2 py-[6px] hover:bg-accent/[0.06] ${b.name === baseBranch ? 'bg-accent/[0.06]' : ''}`}
                     onClick={() => {
                       setBaseBranch(b.name);
                       setPickingBase(false);
@@ -439,7 +439,7 @@ function BranchItem({
             {branch.is_head ? 'checked out' : 'in use'}
           </span>
         ) : !isConfirming ? (
-          <Button variant="accent" size="sm" className="ml-auto py-0.5" onPress={onCreateWT}>
+          <Button variant="accent" size="sm" className="ml-auto" onPress={onCreateWT}>
             Create WT
           </Button>
         ) : null}
@@ -454,13 +454,10 @@ function BranchItem({
             {branch.is_local ? branch.name : `origin/${branch.name}`}
           </div>
           <div className="flex justify-end gap-1.5">
-            <button
-              onClick={onCancelConfirm}
-              className="cursor-pointer rounded border border-border bg-transparent px-2.5 py-1 text-[11px] text-text-muted"
-            >
+            <Button variant="secondary" size="sm" onPress={onCancelConfirm}>
               Cancel
-            </button>
-            <Button variant="primary" size="sm" className="py-1" onPress={onConfirmCreate}>
+            </Button>
+            <Button variant="primary" size="sm" onPress={onConfirmCreate}>
               Create
             </Button>
           </div>
@@ -483,7 +480,7 @@ function WorktreeItem({
 }) {
   return (
     <div
-      className={`flex items-center gap-[7px] rounded-[5px] px-2 py-[6px] hover:bg-accent/[0.06] ${isInSidebar ? 'cursor-default opacity-50' : 'cursor-pointer'}`}
+      className={`flex items-center gap-[7px] rounded-[5px] px-2 py-[6px] hover:bg-accent/[0.06] ${isInSidebar ? 'opacity-50' : ''}`}
     >
       <svg
         width="11"
@@ -506,15 +503,13 @@ function WorktreeItem({
       {isInSidebar ? (
         <span className="ml-auto text-[11px] text-text-muted">opened</span>
       ) : (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpen();
-          }}
-          className="ml-auto cursor-pointer rounded border-none bg-[rgba(34,197,94,0.08)] px-2 py-0.5 text-[11px] text-(--agent-idle)"
+        <Button
+          size="sm"
+          className="ml-auto bg-(--agent-idle)/[0.08] text-(--agent-idle) hover:bg-(--agent-idle)/[0.14]"
+          onPress={onOpen}
         >
           Open
-        </button>
+        </Button>
       )}
     </div>
   );

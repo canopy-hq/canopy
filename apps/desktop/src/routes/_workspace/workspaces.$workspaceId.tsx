@@ -4,6 +4,7 @@ import { createFileRoute } from '@tanstack/react-router';
 
 import { PaneContainer } from '../../components/PaneContainer';
 import { TabBar } from '../../components/TabBar';
+import { Button } from '../../components/ui';
 import { useUiState, useTabs } from '../../hooks/useCollections';
 import { setActiveContext, addTab } from '../../lib/tab-actions';
 import { toggleSidebar } from '../../lib/workspace-actions';
@@ -53,9 +54,10 @@ function EmptyState() {
         {'{ }'}
       </div>
 
-      <button
-        onClick={addTab}
-        className="flex w-80 cursor-pointer items-center gap-3 rounded-lg border-none bg-transparent px-4 py-2.5 text-sm text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary"
+      <Button
+        variant="ghost"
+        onPress={addTab}
+        className="w-80 justify-start gap-3 px-4 py-2.5 text-sm"
       >
         <svg
           width="16"
@@ -77,11 +79,12 @@ function EmptyState() {
           <KbdBadge>⌘</KbdBadge>
           <KbdBadge>T</KbdBadge>
         </div>
-      </button>
+      </Button>
 
-      <button
-        onClick={() => toggleSidebar()}
-        className="flex w-80 cursor-pointer items-center gap-3 rounded-lg border-none bg-transparent px-4 py-2.5 text-sm text-text-muted transition-colors hover:bg-bg-secondary hover:text-text-primary"
+      <Button
+        variant="ghost"
+        onPress={() => toggleSidebar()}
+        className="w-80 justify-start gap-3 px-4 py-2.5 text-sm"
       >
         <svg
           width="16"
@@ -102,7 +105,7 @@ function EmptyState() {
           <KbdBadge>⌘</KbdBadge>
           <KbdBadge>B</KbdBadge>
         </div>
-      </button>
+      </Button>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { toggleSidebar } from '../lib/workspace-actions';
 import { DevBranchBadge } from './DevBranchBadge';
-import { Button, Tooltip } from './ui';
+import { Button, Kbd, Tooltip } from './ui';
 
 interface HeaderProps {
   onSessionsClick?: () => void;
@@ -36,13 +36,8 @@ export function Header({ onSessionsClick }: HeaderProps = {}) {
         <Tooltip
           label={
             <>
-              Toggle sidebar{' '}
-              <kbd className="rounded bg-bg-secondary px-1 py-0.5 text-[10px] leading-none text-text-muted">
-                ⌘
-              </kbd>
-              <kbd className="rounded bg-bg-secondary px-1 py-0.5 text-[10px] leading-none text-text-muted">
-                B
-              </kbd>
+              Toggle sidebar <Kbd>⌘</Kbd>
+              <Kbd>B</Kbd>
             </>
           }
           placement="right"
