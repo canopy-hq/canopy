@@ -118,7 +118,10 @@ export default SettingsRoute;
 
 export const Route = createFileRoute('/settings')({
   component: SettingsRoute,
-  validateSearch: (search: Record<string, unknown>) => ({
-    section: (search.section as string) in SECTIONS ? (search.section as SectionId) : undefined,
+  validateSearch: (search: Record<string, unknown>): { section?: SectionId } => ({
+    section:
+      typeof search.section === 'string' && search.section in SECTIONS
+        ? (search.section as SectionId)
+        : undefined,
   }),
 });
