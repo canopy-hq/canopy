@@ -36,8 +36,9 @@ function RootLayout() {
   const navigate = useNavigate();
   const booted = useRef(false);
 
-  // Boot: restore last active workspace from DB (routing is source of truth after this)
-  // Also refresh all workspaces so branches reflect current HEAD (cleans stale data).
+  // Boot: restore last active workspace, refresh branches, and reset stale PTY IDs.
+  // PTY process IDs don't survive restart — resetting them forces each terminal pane
+  // to spawn at correct container dimensions on mount (avoids 24×80 SIGWINCH).
   useEffect(() => {
     if (booted.current) return;
     booted.current = true;
@@ -48,12 +49,6 @@ function RootLayout() {
     for (const ws of getWorkspaceCollection().toArray) {
       void refreshRepo(ws.id);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Reset stale PTY IDs from previous session — process IDs don't survive restart.
-  // Each terminal pane will spawn/reconnect at correct container dimensions on mount,
-  // avoiding the 24×80 hardcoded mismatch that caused SIGWINCH during shell init.
-  useEffect(() => {
     const tabCol = getTabCollection();
     for (const tab of tabCol.toArray) {
       tabCol.update(tab.id, (draft) => {

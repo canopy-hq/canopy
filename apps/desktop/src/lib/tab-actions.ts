@@ -7,8 +7,10 @@ import {
   insertTabAndActivate,
   deleteTabAndUpdateActive,
 } from '@superagent/db';
+import { closePtysForPanes } from '@superagent/terminal';
 
 import {
+  collectAllLeafPaneIds,
   splitNode,
   removeNode,
   findFirstLeaf,
@@ -94,6 +96,11 @@ export function closeTab(tabId: string): void {
   const col = getTabCollection();
   const tab = col.toArray.find((t) => t.id === tabId);
   if (!tab) return;
+
+  // Catch-all: close any PTYs spawned for these panes that weren't in the
+  // pane tree yet (e.g. startup restore race). Uses pane IDs, not pty IDs.
+  void closePtysForPanes(collectAllLeafPaneIds(tab.paneRoot));
+
   const contextId = tab.workspaceItemId;
   const contextTabs = col.toArray.filter((t) => t.workspaceItemId === contextId);
   const ui = getUiState();

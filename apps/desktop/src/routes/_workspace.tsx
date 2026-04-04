@@ -6,7 +6,7 @@ import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { Sidebar } from '../components/Sidebar';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { toggleManualOverride } from '../lib/agent-actions';
-import { collectAllLeafPaneIds, findLeaf } from '../lib/pane-tree-ops';
+import { findLeaf } from '../lib/pane-tree-ops';
 import {
   addTab,
   closeTab,
@@ -44,8 +44,6 @@ function WorkspaceLayout() {
           /* PTY may be dead */
         }
       }
-      // Catch-all: close PTYs by pane ID for the race condition case
-      void closePtysForPanes(collectAllLeafPaneIds(activeTab.paneRoot));
       closeTab(activeTab.id);
     } else {
       const leaf = findLeaf(activeTab.paneRoot, activeTab.focusedPaneId);

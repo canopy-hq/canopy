@@ -95,13 +95,14 @@ export function useTerminal(
 
   useEffect(() => {
     const container = containerRef.current;
+    // Compute theme background once — used for early container paint, overlay, and wrapper.
+    const themeBg =
+      terminalThemes[getSetting(getSettingCollection().toArray, 'theme', 'obsidian') as ThemeName]
+        .background;
     if (container) {
       // Set terminal background early so the container isn't a blank hole
       // while WASM loads or the PTY spawns.
-      container.style.background =
-        terminalThemes[
-          getSetting(getSettingCollection().toArray, 'theme', 'obsidian') as ThemeName
-        ].background;
+      container.style.background = themeBg;
     }
     if (!wasmReady) return;
 
@@ -118,11 +119,6 @@ export function useTerminal(
     const cached = getCached(ptyId);
     let term: Terminal;
     let fitAddon: FitAddon;
-
-    // Compute theme background early — needed for overlay in the new-terminal path.
-    const themeBg =
-      terminalThemes[getSetting(getSettingCollection().toArray, 'theme', 'obsidian') as ThemeName]
-        .background;
 
     if (cached) {
       // === CACHED PATH: remount after pane restructure — re-parent existing terminal ===
