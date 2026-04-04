@@ -44,7 +44,7 @@ vi.mock('@superagent/db', () => ({
 }));
 
 // Import AFTER mock is set up
-import { closeTab, setActiveContext } from '../tab-actions';
+import { closeTab, setActiveContext, setPtyIdInTab } from '../tab-actions';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -162,5 +162,76 @@ describe('closeTab', () => {
 
     expect(_tabs).toHaveLength(1);
     expect(_uiState.activeTabId).toBe('tab-2');
+  });
+});
+
+describe('setPtyIdInTab', () => {
+  beforeEach(resetState);
+
+  it('sets ptyId on a single-leaf root tab', () => {
+    const tab = makeTab({ id: 'tab-1', workspaceItemId: 'ctx-a' });
+    _tabs.push(tab);
+
+    setPtyIdInTab('tab-1', 'pane-1', 999);
+
+    const updated = _tabs.find((t) => t.id === 'tab-1')!;
+    expect(updated.paneRoot.type).toBe('leaf');
+    expect((updated.paneRoot as { ptyId: number }).ptyId).toBe(999);
+  });
+
+  it('sets ptyId on the correct leaf in a split (branch) tab', () => {
+    const tab = makeTab({
+      id: 'tab-1',
+      workspaceItemId: 'ctx-a',
+      paneRoot: {
+        type: 'branch',
+        id: 'branch-1',
+        direction: 'horizontal',
+        ratios: [0.5, 0.5],
+        children: [
+          { type: 'leaf', id: 'pane-left', ptyId: -1 },
+          { type: 'leaf', id: 'pane-right', ptyId: -1 },
+        ],
+      },
+    });
+    _tabs.push(tab);
+
+    setPtyIdInTab('tab-1', 'pane-right', 42);
+
+    const updated = _tabs.find((t) => t.id === 'tab-1')!;
+    const branch = updated.paneRoot as { children: { id: string; ptyId: number }[] };
+    expect(branch.children[0]!.ptyId).toBe(-1);
+    expect(branch.children[1]!.ptyId).toBe(42);
+  });
+
+  it('is a no-op for an unknown tabId', () => {
+    const tab = makeTab({ id: 'tab-1', workspaceItemId: 'ctx-a' });
+    _tabs.push(tab);
+
+    setPtyIdInTab('does-not-exist', 'pane-1', 99);
+
+    const unchanged = _tabs.find((t) => t.id === 'tab-1')!;
+    expect((unchanged.paneRoot as { ptyId: number }).ptyId).toBe(-1);
+  });
+
+  it('is a no-op for an unknown paneId within a valid tab', () => {
+    const tab = makeTab({ id: 'tab-1', workspaceItemId: 'ctx-a' });
+    _tabs.push(tab);
+
+    setPtyIdInTab('tab-1', 'does-not-exist', 77);
+
+    const unchanged = _tabs.find((t) => t.id === 'tab-1')!;
+    expect((unchanged.paneRoot as { ptyId: number }).ptyId).toBe(-1);
+  });
+
+  it('does not affect sibling tabs', () => {
+    const tab1 = makeTab({ id: 'tab-1', workspaceItemId: 'ctx-a' });
+    const tab2 = makeTab({ id: 'tab-2', workspaceItemId: 'ctx-a', paneRoot: { type: 'leaf', id: 'pane-2', ptyId: -1 }, focusedPaneId: 'pane-2' });
+    _tabs.push(tab1, tab2);
+
+    setPtyIdInTab('tab-1', 'pane-1', 55);
+
+    const sibling = _tabs.find((t) => t.id === 'tab-2')!;
+    expect((sibling.paneRoot as { ptyId: number }).ptyId).toBe(-1);
   });
 });

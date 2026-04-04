@@ -61,7 +61,7 @@ export function getTabCollection() {
 }
 
 function resetPtyIds(node: PaneNode): PaneNode {
-  if (node.type === 'leaf') return { ...node, ptyId: -1 };
+  if (node.type === 'leaf') return { ...node, ptyId: node.ptyId === -2 ? -2 : -1 };
   return { ...node, children: node.children.map(resetPtyIds) };
 }
 

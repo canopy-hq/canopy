@@ -263,6 +263,12 @@ export function collectLeafPtyIds(node: PaneNode): number[] {
   return node.children.flatMap(collectLeafPtyIds);
 }
 
+/** Returns IDs of leaf panes that should reconnect at startup (excludes killed panes). */
+export function collectRestorablePaneIds(node: PaneNode): string[] {
+  if (node.type === 'leaf') return node.ptyId !== -2 ? [node.id] : [];
+  return node.children.flatMap(collectRestorablePaneIds);
+}
+
 function applyRatioUpdate(
   node: PaneNode,
   branchId: string,

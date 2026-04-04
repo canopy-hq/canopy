@@ -23,6 +23,7 @@ import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
 import { toggleSidebar } from '../lib/workspace-actions';
 
+import { collectRestorablePaneIds } from '../lib/pane-tree-ops';
 import type { PaneNode } from '../lib/pane-tree-ops';
 
 function containsPtyId(node: PaneNode, ptyId: number): boolean {
@@ -46,19 +47,36 @@ function RootLayout() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Startup session restore: eagerly reconnect all persisted PTY sessions so they
+  // Startup session restore: eagerly reconnect all panes across all tabs so they
   // appear in the Session Manager and the IPC output channels are ready before the
-  // user navigates to each tab.
+  // user navigates to each tab. Uses tabs (always complete) as source of truth,
+  // not the sessions table (which only covers visited tabs).
   useEffect(() => {
-    const sessions = getSessionCollection().toArray;
-    if (sessions.length === 0) return;
+    const tabs = getTabCollection().toArray;
+    if (tabs.length === 0) return;
     void (async () => {
-      for (const session of sessions) {
-        try {
-          const { ptyId } = await spawnTerminal(session.paneId, session.cwd || undefined, 24, 80);
-          setPtyIdInTab(session.tabId, session.paneId, ptyId);
-        } catch {
-          // Daemon unavailable or session gone — pane stays at ptyId -1, fresh shell on visit
+      const settings = getSettingCollection().toArray;
+      for (const tab of tabs) {
+        for (const paneId of collectRestorablePaneIds(tab.paneRoot)) {
+          const cwd = getSetting(settings, `cwd:${paneId}`, '') as string || undefined;
+          try {
+            const { ptyId } = await spawnTerminal(paneId, cwd, 24, 80);
+            setPtyIdInTab(tab.id, paneId, ptyId);
+            // Write session to DB — onPtySpawned never fires for the reconnect path
+            const col = getSessionCollection();
+            const existing = col.toArray.find((s) => s.paneId === paneId);
+            if (existing) {
+              col.update(existing.id, (draft) => {
+                draft.tabId = tab.id;
+                draft.workspaceId = tab.workspaceItemId;
+                draft.cwd = cwd ?? '';
+              });
+            } else {
+              col.insert({ id: paneId, paneId, tabId: tab.id, workspaceId: tab.workspaceItemId, cwd: cwd ?? '', shell: '' });
+            }
+          } catch {
+            // Daemon unavailable — pane stays at ptyId -1, fresh shell on visit
+          }
         }
       }
     })();
