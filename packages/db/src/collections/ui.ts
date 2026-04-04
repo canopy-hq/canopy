@@ -1,5 +1,8 @@
 import { createCollection, localOnlyCollectionOptions } from '@tanstack/db';
 
+export const SIDEBAR_WIDTH_MIN = 180;
+export const SIDEBAR_WIDTH_MAX = 400;
+
 export interface UiState {
   id: 'ui';
   // Sidebar

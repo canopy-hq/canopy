@@ -4,6 +4,8 @@ import {
   uiCollection,
   getUiState,
   setSetting,
+  SIDEBAR_WIDTH_MIN,
+  SIDEBAR_WIDTH_MAX,
 } from '@superagent/db';
 import { closePty, disposeCached } from '@superagent/terminal';
 
@@ -142,8 +144,12 @@ export function toggleSidebar(): void {
 
 export function setSidebarWidth(width: number): void {
   uiCollection.update('ui', (draft) => {
-    draft.sidebarWidth = Math.max(180, Math.min(400, width));
+    draft.sidebarWidth = Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, width));
   });
+}
+
+export function persistSidebarWidth(width: number): void {
+  setSetting('sidebarWidth', width);
 }
 
 export async function createBranch(workspaceId: string, name: string, base: string): Promise<void> {
