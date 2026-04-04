@@ -8,11 +8,12 @@ import {
   getSettingCollection,
   getSetting,
 } from '@superagent/db';
+import { FpsOverlay } from '@superagent/fps';
 import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 
 import { AgentOverlay } from '../components/AgentOverlay';
-import { Header } from '../components/Header';
 import { AgentToastRegion } from '../components/AgentToastRegion';
+import { Header } from '../components/Header';
 import { ErrorToastRegion } from '../components/ToastProvider';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { initAgentListener } from '../lib/agent-actions';
@@ -29,6 +30,7 @@ function containsPtyId(node: PaneNode, ptyId: number): boolean {
 
 function RootLayout() {
   const [overlayOpen, setOverlayOpen] = useState(false);
+  const [fpsVisible, setFpsVisible] = useState(false);
   const navigate = useNavigate();
   const booted = useRef(false);
 
@@ -44,17 +46,40 @@ function RootLayout() {
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
+    let cancelled = false;
     void import('@tauri-apps/api/event').then(({ listen }) => {
+      if (cancelled) return;
       void listen('menu:settings', () => {
         void navigate({ to: '/settings' });
       }).then((fn) => {
-        unlisten = fn;
+        if (cancelled) fn();
+        else unlisten = fn;
       });
     });
     return () => {
+      cancelled = true;
       unlisten?.();
     };
   }, [navigate]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    void import('@tauri-apps/api/event').then(({ listen }) => {
+      if (cancelled) return;
+      void listen('menu:fps-overlay', () => {
+        setFpsVisible((prev) => !prev);
+      }).then((fn) => {
+        if (cancelled) fn();
+        else unlisten = fn;
+      });
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -114,6 +139,7 @@ function RootLayout() {
       <ErrorToastRegion />
       <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
       <AgentToastRegion />
+      {import.meta.env.DEV && <FpsOverlay visible={fpsVisible} />}
     </div>
   );
 }
