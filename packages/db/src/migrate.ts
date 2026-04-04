@@ -24,6 +24,10 @@ export async function runMigrations(): Promise<void> {
   `);
 
   await db.run(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_workspaces_path ON workspaces(path)
+  `);
+
+  await db.run(sql`
     CREATE TABLE IF NOT EXISTS tabs (
       id TEXT PRIMARY KEY,
       label TEXT NOT NULL DEFAULT 'Terminal',
