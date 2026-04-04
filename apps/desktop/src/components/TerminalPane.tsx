@@ -185,7 +185,8 @@ function TerminalPaneInner({
       if (!isFocused) return;
       const tab = getTabCollection().toArray.find((t) => containsPane(t.paneRoot, paneId));
       if (tab && !tab.labelIsManual) {
-        renameTab(tab.id, cmd, false);
+        const label = cmd.length > 10 ? `${cmd.slice(0, 10)}...` : cmd;
+        renameTab(tab.id, label, false);
       }
     },
     [paneId, isFocused],

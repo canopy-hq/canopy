@@ -98,7 +98,7 @@ function TabItemComponent({
       {editing ? (
         <input
           ref={inputRef}
-          className="min-w-0 flex-1 bg-transparent text-xs text-text-primary outline-none"
+          className="w-full min-w-0 bg-transparent text-xs text-text-primary outline-none"
           value={draft}
           maxLength={20}
           onChange={(e) => setDraft(e.target.value)}
@@ -115,7 +115,7 @@ function TabItemComponent({
               e.stopPropagation();
             }
           }}
-          onBlur={confirmRename}
+          onBlur={cancelRename}
           onClick={(e) => e.stopPropagation()}
         />
       ) : (
