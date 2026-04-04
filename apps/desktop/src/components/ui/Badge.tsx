@@ -8,6 +8,8 @@ const badge = tv({
       accent: 'bg-accent/10 text-accent',
       warning: 'bg-amber-600/10 text-amber-600',
       error: 'bg-destructive/[0.08] text-destructive',
+      success: 'bg-emerald-500/10 text-emerald-500',
+      merged: 'bg-purple-500/10 text-purple-500',
     },
     size: { sm: 'rounded-[3px] px-1.25 py-px text-2xs', md: 'rounded px-1.5 py-0.5 text-xs' },
     pill: { true: 'rounded-full' },
