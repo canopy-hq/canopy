@@ -1,5 +1,12 @@
 import { getSetting, getSettingCollection, setSetting } from '@superagent/db';
-import { themes, themeNames, type ThemeName, type CssThemeProperties } from '@superagent/terminal';
+import {
+  themes,
+  themeNames,
+  applyFontSizeToAll,
+  DEFAULT_TERMINAL_FONT_SIZE,
+  type ThemeName,
+  type CssThemeProperties,
+} from '@superagent/terminal';
 import { useLiveQuery } from '@tanstack/react-db';
 import { tv } from 'tailwind-variants';
 
@@ -52,14 +59,25 @@ function ThemePreview({ css }: { css: CssThemeProperties }) {
 export function AppearanceSection() {
   const { data: settings = [] } = useLiveQuery(() => getSettingCollection());
   const currentTheme = getSetting<ThemeName>(settings, 'theme', 'obsidian');
+  const currentFontSize = getSetting<number>(
+    settings,
+    'terminalFontSize',
+    DEFAULT_TERMINAL_FONT_SIZE,
+  );
 
   const handleSelect = (name: ThemeName) => {
     setSetting('theme', name);
     document.documentElement.setAttribute('data-theme', name);
   };
 
+  const handleFontSizeChange = (size: number) => {
+    const clamped = Math.max(10, Math.min(24, size));
+    setSetting('terminalFontSize', clamped);
+    applyFontSizeToAll(clamped);
+  };
+
   return (
-    <section>
+    <section className="space-y-8">
       <h2 className="mb-1 text-ui-base font-semibold text-text-primary">Theme</h2>
       <p className="mb-4 text-ui-md text-text-muted">Choose a theme for the application.</p>
       <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label="Theme selection">
@@ -83,6 +101,28 @@ export function AppearanceSection() {
             <span className="text-ui-sm font-medium text-text-primary">{capitalize(name)}</span>
           </div>
         ))}
+      </div>
+
+      <div>
+        <h2 className="mb-1 text-ui-base font-semibold text-text-primary">Terminal Font Size</h2>
+        <p className="mb-3 text-ui-md text-text-muted">
+          Adjust the font size used in terminal panes.
+        </p>
+        <div className="flex items-center gap-3">
+          <input
+            type="range"
+            min={10}
+            max={24}
+            step={1}
+            value={currentFontSize}
+            onChange={(e) => handleFontSizeChange(Number(e.target.value))}
+            className="h-1 w-40 cursor-pointer appearance-none rounded-full bg-border accent-accent"
+            aria-label="Terminal font size"
+          />
+          <span className="min-w-[3ch] text-center text-ui-base text-text-primary tabular-nums">
+            {currentFontSize}
+          </span>
+        </div>
       </div>
     </section>
   );
