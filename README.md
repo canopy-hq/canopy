@@ -2,6 +2,20 @@
 
 Monorepo for the Superagent desktop app.
 
+## Dev Setup
+
+### Prerequisites
+
+- [Bun](https://bun.sh/) — package manager and runtime
+- [Rust](https://rustup.rs/) — backend toolchain
+- [sccache](https://github.com/mozilla/sccache) — shared Rust compilation cache (recommended)
+
+```bash
+brew install sccache
+```
+
+sccache is configured in `.cargo/config.toml` and caches compiled artifacts across git worktrees, cutting rebuild times by ~50%. No extra setup needed — Cargo picks it up automatically.
+
 ## Commands
 
 ```bash
