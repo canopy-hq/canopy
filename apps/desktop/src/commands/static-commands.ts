@@ -1,10 +1,8 @@
 import { addTab } from '../lib/tab-actions';
 import { importRepo, toggleSidebar } from '../lib/workspace-actions';
 
-import type { CommandItem } from '@superagent/command-palette';
+import type { Nav, CommandItem } from '@superagent/command-palette';
 import type { UiState } from '@superagent/db';
-
-type Nav = (opts: { to: string; params?: Record<string, string> }) => void;
 
 export function buildStaticCommands(navigate: Nav, uiState: UiState): CommandItem[] {
   const inProject = !!uiState.activeContextId;

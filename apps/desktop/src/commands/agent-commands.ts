@@ -1,11 +1,10 @@
 import { toggleManualOverride } from '../lib/agent-actions';
 import { containsPtyId } from '../lib/pane-tree-ops';
 import { jumpToPane } from '../lib/tab-actions';
+import { resolveWorkspaceForTab } from './utils';
 
-import type { CommandItem } from '@superagent/command-palette';
+import type { Nav, CommandItem } from '@superagent/command-palette';
 import type { AgentInfo, Tab, Workspace } from '@superagent/db';
-
-type Nav = (opts: { to: string; params?: Record<string, string> }) => void;
 
 export function buildAgentCommands(
   agents: AgentInfo[],
@@ -15,7 +14,7 @@ export function buildAgentCommands(
 ): CommandItem[] {
   return agents.map((agent): CommandItem => {
     const tab = tabs.find((t) => containsPtyId(t.paneRoot, agent.ptyId));
-    const ws = tab ? workspaces.find((w) => tab.workspaceItemId.startsWith(w.id)) : null;
+    const ws = tab ? resolveWorkspaceForTab(tab, workspaces) : undefined;
     const label = ws ? `${agent.agentName} — ${ws.name}` : agent.agentName;
 
     return {

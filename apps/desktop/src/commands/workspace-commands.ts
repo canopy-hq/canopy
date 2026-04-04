@@ -2,10 +2,8 @@ import { getSetting } from '@superagent/db';
 
 import { selectWorkspaceItem } from '../lib/workspace-actions';
 
-import type { CommandItem } from '@superagent/command-palette';
+import type { Nav, CommandItem } from '@superagent/command-palette';
 import type { Setting, Workspace } from '@superagent/db';
-
-type Nav = (opts: { to: string; params?: Record<string, string> }) => void;
 
 export function buildWorkspaceCommands(
   workspaces: Workspace[],
@@ -14,7 +12,6 @@ export function buildWorkspaceCommands(
 ): CommandItem[] {
   const recentIds = getSetting<string[]>(settings, 'recentWorkspaceIds', []);
 
-  // Sort: recent workspaces first (by recency), then by position
   const sorted = [...workspaces].sort((a, b) => {
     const ai = recentIds.indexOf(a.id);
     const bi = recentIds.indexOf(b.id);
@@ -35,9 +32,7 @@ export function buildWorkspaceCommands(
       icon: 'folder',
       children: () => buildWorkspaceChildren(ws, navigate),
       action: ({ close }) => {
-        if (headBranch) {
-          selectWorkspaceItem(`${ws.id}-branch-${headBranch.name}`, navigate);
-        }
+        if (headBranch) selectWorkspaceItem(`${ws.id}-branch-${headBranch.name}`, navigate);
         close();
       },
     };

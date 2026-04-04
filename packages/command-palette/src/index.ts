@@ -5,4 +5,5 @@ export type {
   CommandCategory,
   CommandIcon,
   CommandMenuProps,
+  Nav,
 } from './types';

@@ -80,7 +80,6 @@ export function CommandMenu({ isOpen, onClose, items, activeContextId }: Command
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  // Reset + focus on open
   useEffect(() => {
     if (isOpen) {
       dispatch({ type: 'RESET' });
@@ -88,7 +87,6 @@ export function CommandMenu({ isOpen, onClose, items, activeContextId }: Command
     }
   }, [isOpen, dispatch]);
 
-  // Scroll selected item into view
   useEffect(() => {
     if (!selectedId) return;
     listRef.current

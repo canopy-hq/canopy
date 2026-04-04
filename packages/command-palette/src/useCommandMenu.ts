@@ -129,10 +129,9 @@ function groupByField(items: CommandItem[]): SectionData[] {
 
 export function useCommandMenu(items: CommandItem[], activeContextId?: string | null) {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+  const { query, section, drillStack, selectedId: selectedIdState } = state;
 
   const sections = useMemo((): SectionData[] => {
-    const { query, section, drillStack } = state;
-
     if (drillStack.length > 0) {
       const parent = drillStack[drillStack.length - 1]!;
       const children = parent.children?.() ?? [];
@@ -158,17 +157,18 @@ export function useCommandMenu(items: CommandItem[], activeContextId?: string | 
     }
 
     return buildDefaultSections(items, activeContextId);
-  }, [state, items, activeContextId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // selectedIdState excluded — section content is independent of which item is highlighted
+  }, [query, section, drillStack, items, activeContextId]);
 
   const flatItems = useMemo(() => sections.flatMap((s) => s.items), [sections]);
 
-  // Auto-select first item when selectedId is null or no longer in the list
   const selectedId = useMemo(() => {
-    if (state.selectedId !== null && flatItems.some((i) => i.id === state.selectedId)) {
-      return state.selectedId;
+    if (selectedIdState !== null && flatItems.some((i) => i.id === selectedIdState)) {
+      return selectedIdState;
     }
     return flatItems[0]?.id ?? null;
-  }, [state.selectedId, flatItems]);
+  }, [selectedIdState, flatItems]);
 
   return {
     query: state.query,

@@ -33,6 +33,8 @@ export interface CommandContext {
   close: () => void;
 }
 
+export type Nav = (opts: { to: string; params?: Record<string, string> }) => void;
+
 export interface CommandMenuProps {
   isOpen: boolean;
   onClose: () => void;

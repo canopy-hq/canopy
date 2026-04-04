@@ -1,11 +1,10 @@
 import { containsPtyId } from '../lib/pane-tree-ops';
 import { jumpToPane } from '../lib/tab-actions';
+import { resolveWorkspaceForTab } from './utils';
 
-import type { CommandItem } from '@superagent/command-palette';
+import type { Nav, CommandItem } from '@superagent/command-palette';
 import type { Tab, Workspace } from '@superagent/db';
 import type { PtySessionInfo } from '@superagent/terminal';
-
-type Nav = (opts: { to: string; params?: Record<string, string> }) => void;
 
 export function buildPtyCommands(
   sessions: PtySessionInfo[],
@@ -15,7 +14,7 @@ export function buildPtyCommands(
 ): CommandItem[] {
   return sessions.map((session): CommandItem => {
     const tab = tabs.find((t) => containsPtyId(t.paneRoot, session.ptyId));
-    const ws = tab ? workspaces.find((w) => tab.workspaceItemId.startsWith(w.id)) : null;
+    const ws = tab ? resolveWorkspaceForTab(tab, workspaces) : undefined;
 
     const cpu = session.cpuPercent.toFixed(1);
     const mem =
