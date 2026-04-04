@@ -1,0 +1,30 @@
+{
+  "name": "@superagent/command-palette",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run --reporter=verbose"
+  },
+  "devDependencies": {
+    "@superagent/tsconfig": "workspace:*",
+    "@testing-library/react": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "^19.2.3",
+    "happy-dom": "catalog:",
+    "react": "catalog:",
+    "react-aria-components": "^1.16.0",
+    "react-dom": "^19.2.4",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "lucide-react": "*",
+    "react": "catalog:",
+    "react-aria-components": "^1.16.0",
+    "react-dom": "^19.2.4"
+  }
+}

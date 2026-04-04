@@ -1,8 +1,8 @@
 pre-commit:
   commands:
     lint:
-      glob: "*.{ts,tsx,js,jsx}"
+      glob: '*.{ts,tsx,js,jsx}'
       run: bunx oxlint {staged_files}
     format:
-      glob: "*.{ts,tsx,js,jsx}"
+      glob: '*.{ts,tsx,js,jsx}'
       run: bunx oxfmt --check {staged_files}
