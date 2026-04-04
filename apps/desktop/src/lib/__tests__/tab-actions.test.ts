@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { Tab } from '@superagent/db';
+import type { Tab, Workspace } from '@superagent/db';
 import type { UiState } from '@superagent/db';
 
 // ── In-memory mock for @superagent/db ────────────────────────────────────────
@@ -16,7 +16,26 @@ let _uiState: UiState = {
   contextActiveTabIds: {},
 };
 
+const _workspaces: Workspace[] = [
+  {
+    id: 'ws-1',
+    path: '/repos/my-project',
+    name: 'my-project',
+    branches: [{ name: 'main', is_head: true, ahead: 0, behind: 0 }],
+    worktrees: [{ name: 'feature-x', path: '/worktrees/feature-x', branch: 'feature-x' }],
+    expanded: true,
+    position: 0,
+  },
+];
+
+const mockSetSetting = vi.fn();
+
 vi.mock('@superagent/db', () => ({
+  getWorkspaceCollection: () => ({
+    get toArray() {
+      return [..._workspaces];
+    },
+  }),
   getTabCollection: () => ({
     get toArray() {
       return [..._tabs];
@@ -38,10 +57,18 @@ vi.mock('@superagent/db', () => ({
     },
   },
   getUiState: () => _uiState,
+  setSetting: (...args: unknown[]) => mockSetSetting(...args),
 }));
 
 // Import AFTER mock is set up
-import { closeTab, setActiveContext, setPtyIdInTab } from '../tab-actions';
+import {
+  closeTab,
+  setActiveContext,
+  setPtyIdInTab,
+  addTab,
+  splitPane,
+  resolveWorkspaceItemCwd,
+} from '../tab-actions';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -66,6 +93,7 @@ function resetState() {
     activeContextId: '',
     contextActiveTabIds: {},
   };
+  mockSetSetting.mockClear();
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -234,5 +262,88 @@ describe('setPtyIdInTab', () => {
 
     const sibling = _tabs.find((t) => t.id === 'tab-2')!;
     expect((sibling.paneRoot as { ptyId: number }).ptyId).toBe(-1);
+  });
+});
+
+describe('resolveWorkspaceItemCwd', () => {
+  it('returns workspace path for bare workspace ID', () => {
+    expect(resolveWorkspaceItemCwd('ws-1')).toBe('/repos/my-project');
+  });
+
+  it('returns workspace path for branch context', () => {
+    expect(resolveWorkspaceItemCwd('ws-1-branch-main')).toBe('/repos/my-project');
+  });
+
+  it('returns worktree path for worktree context', () => {
+    expect(resolveWorkspaceItemCwd('ws-1-wt-feature-x')).toBe('/worktrees/feature-x');
+  });
+
+  it('returns undefined for unknown workspace item ID', () => {
+    expect(resolveWorkspaceItemCwd('unknown-id')).toBeUndefined();
+  });
+
+  it('returns undefined for "default"', () => {
+    expect(resolveWorkspaceItemCwd('default')).toBeUndefined();
+  });
+
+  it('falls back to workspace path for unknown worktree name', () => {
+    expect(resolveWorkspaceItemCwd('ws-1-wt-nonexistent')).toBe('/repos/my-project');
+  });
+});
+
+describe('addTab', () => {
+  beforeEach(resetState);
+
+  it('stores cwd setting for the new pane', () => {
+    _uiState.activeContextId = 'ws-1-wt-feature-x';
+
+    addTab();
+
+    const cwdCall = mockSetSetting.mock.calls.find(
+      ([key]: [string]) => typeof key === 'string' && key.startsWith('cwd:'),
+    );
+    expect(cwdCall).toBeDefined();
+    expect(cwdCall![1]).toBe('/worktrees/feature-x');
+  });
+
+  it('stores repo root as cwd for branch context', () => {
+    _uiState.activeContextId = 'ws-1-branch-main';
+
+    addTab();
+
+    const cwdCall = mockSetSetting.mock.calls.find(
+      ([key]: [string]) => typeof key === 'string' && key.startsWith('cwd:'),
+    );
+    expect(cwdCall).toBeDefined();
+    expect(cwdCall![1]).toBe('/repos/my-project');
+  });
+
+  it('does not store cwd for unknown context', () => {
+    _uiState.activeContextId = 'unknown-ctx';
+
+    addTab();
+
+    const cwdCall = mockSetSetting.mock.calls.find(
+      ([key]: [string]) => typeof key === 'string' && key.startsWith('cwd:'),
+    );
+    expect(cwdCall).toBeUndefined();
+  });
+});
+
+describe('splitPane', () => {
+  beforeEach(resetState);
+
+  it('stores cwd setting for the new split pane', () => {
+    const tab = makeTab({ id: 'tab-1', workspaceItemId: 'ws-1-wt-feature-x' });
+    _tabs.push(tab);
+    _uiState.activeTabId = 'tab-1';
+
+    splitPane('pane-1', 'horizontal', -1);
+
+    const cwdCall = mockSetSetting.mock.calls.find(
+      ([key]: [string]) => typeof key === 'string' && key.startsWith('cwd:'),
+    );
+    expect(cwdCall).toBeDefined();
+    expect(cwdCall![1]).toBe('/worktrees/feature-x');
   });
 });
