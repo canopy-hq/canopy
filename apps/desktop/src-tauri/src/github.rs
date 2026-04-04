@@ -180,9 +180,18 @@ async fn execute_graphql(
         return Err(format!("GraphQL HTTP {}", status.as_u16()));
     }
 
-    resp.json::<serde_json::Value>()
+    let value: serde_json::Value = resp
+        .json()
         .await
-        .map_err(|e| format!("GraphQL parse error: {e}"))
+        .map_err(|e| format!("GraphQL parse error: {e}"))?;
+
+    // GitHub GraphQL returns 200 even for errors — check the errors field
+    if let Some(errors) = value.get("errors") {
+        let msg = errors.to_string();
+        eprintln!("github_get_pr_statuses: GraphQL errors: {msg}");
+    }
+
+    Ok(value)
 }
 
 async fn execute_graphql_with_retry(

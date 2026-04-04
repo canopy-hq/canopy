@@ -1,10 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from "react";
 
-import { getSetting, getSettingCollection, setSetting } from '@superagent/db';
-import { useLiveQuery } from '@tanstack/react-db';
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { getSetting, getSettingCollection, setSetting } from "@superagent/db";
+import { useLiveQuery } from "@tanstack/react-db";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
-import { DEFAULT_WORKTREE_BASE, WORKTREE_BASE_DIR_KEY } from '../../lib/git';
+import { DEFAULT_WORKTREE_BASE, WORKTREE_BASE_DIR_KEY } from "../../lib/git";
 import {
   getConnection,
   disconnect,
@@ -14,23 +14,24 @@ import {
   GITHUB_CONNECTION_KEY,
   type GitHubConnection,
   type DeviceCodeInfo,
-} from '../../lib/github';
-import { showErrorToast } from '../../lib/toast';
-import { Button } from '../ui';
+} from "../../lib/github";
+import { showErrorToast } from "../../lib/toast";
+import { Button } from "../ui";
 
 function friendlyError(raw: string): string {
-  if (raw.includes('keychain')) return 'Could not access the system keychain.';
-  if (raw.includes('github_api_error')) return 'GitHub rejected the request. Please try again.';
-  if (raw.includes('device flow request failed'))
-    return 'Could not reach GitHub. Check your connection.';
+  if (raw.includes("keychain")) return "Could not access the system keychain.";
+  if (raw.includes("github_api_error"))
+    return "GitHub rejected the request. Please try again.";
+  if (raw.includes("device flow request failed"))
+    return "Could not reach GitHub. Check your connection.";
   return raw;
 }
 
 type AuthState =
-  | { status: 'loading' }
-  | { status: 'disconnected' }
-  | { status: 'connecting'; deviceCode: DeviceCodeInfo }
-  | { status: 'connected'; connection: GitHubConnection };
+  | { status: "loading" }
+  | { status: "disconnected" }
+  | { status: "connecting"; deviceCode: DeviceCodeInfo }
+  | { status: "connected"; connection: GitHubConnection };
 
 function getCachedConnection(): GitHubConnection | null {
   return getSetting<GitHubConnection | null>(
@@ -42,7 +43,9 @@ function getCachedConnection(): GitHubConnection | null {
 
 function initialAuthState(): AuthState {
   const cached = getCachedConnection();
-  return cached ? { status: 'connected', connection: cached } : { status: 'loading' };
+  return cached
+    ? { status: "connected", connection: cached }
+    : { status: "loading" };
 }
 
 export function ConnectionSection() {
@@ -54,10 +57,14 @@ export function ConnectionSection() {
       .then((conn) => {
         if (cancelled) return;
         setSetting(GITHUB_CONNECTION_KEY, conn);
-        setAuth(conn ? { status: 'connected', connection: conn } : { status: 'disconnected' });
+        setAuth(
+          conn
+            ? { status: "connected", connection: conn }
+            : { status: "disconnected" },
+        );
       })
       .catch(() => {
-        if (!cancelled) setAuth({ status: 'disconnected' });
+        if (!cancelled) setAuth({ status: "disconnected" });
       });
     return () => {
       cancelled = true;
@@ -67,7 +74,7 @@ export function ConnectionSection() {
   const handleConnect = useCallback(async () => {
     try {
       const deviceCode = await startDeviceFlow();
-      setAuth({ status: 'connecting', deviceCode });
+      setAuth({ status: "connecting", deviceCode });
       await openUrl(deviceCode.verificationUri);
       const connection = await pollToken(
         deviceCode.deviceCode,
@@ -75,13 +82,13 @@ export function ConnectionSection() {
         deviceCode.expiresIn,
       );
       setSetting(GITHUB_CONNECTION_KEY, connection);
-      setAuth({ status: 'connected', connection });
+      setAuth({ status: "connected", connection });
     } catch (e) {
       const raw = e instanceof Error ? e.message : String(e);
-      if (!raw.includes('cancelled')) {
-        showErrorToast('GitHub authentication failed', friendlyError(raw));
+      if (!raw.includes("cancelled")) {
+        showErrorToast("GitHub authentication failed", friendlyError(raw));
       }
-      setAuth({ status: 'disconnected' });
+      setAuth({ status: "disconnected" });
     }
   }, []);
 
@@ -89,16 +96,16 @@ export function ConnectionSection() {
     try {
       await disconnect();
       setSetting(GITHUB_CONNECTION_KEY, null);
-      setAuth({ status: 'disconnected' });
+      setAuth({ status: "disconnected" });
     } catch (e) {
       const raw = e instanceof Error ? e.message : String(e);
-      showErrorToast('Disconnect failed', friendlyError(raw));
+      showErrorToast("Disconnect failed", friendlyError(raw));
     }
   }, []);
 
   const handleCancel = useCallback(() => {
     void cancelPoll();
-    setAuth({ status: 'disconnected' });
+    setAuth({ status: "disconnected" });
   }, []);
 
   return (
@@ -122,18 +129,22 @@ export function ConnectionSection() {
 
 function WorktreeBaseDir() {
   const { data: settings = [] } = useLiveQuery(() => getSettingCollection());
-  const currentDir = getSetting<string>(settings, WORKTREE_BASE_DIR_KEY, DEFAULT_WORKTREE_BASE);
+  const currentDir = getSetting<string>(
+    settings,
+    WORKTREE_BASE_DIR_KEY,
+    DEFAULT_WORKTREE_BASE,
+  );
 
   async function handleChoose() {
-    const { open } = await import('@tauri-apps/plugin-dialog');
+    const { open } = await import("@tauri-apps/plugin-dialog");
     const selected = await open({
       directory: true,
       multiple: false,
-      title: 'Select Worktree Base Directory',
-      defaultPath: currentDir.startsWith('~') ? undefined : currentDir,
+      title: "Select Worktree Base Directory",
+      defaultPath: currentDir.startsWith("~") ? undefined : currentDir,
     });
     if (selected) {
-      setSetting(WORKTREE_BASE_DIR_KEY, selected.replace(/\/+$/, ''));
+      setSetting(WORKTREE_BASE_DIR_KEY, selected.replace(/\/+$/, ""));
     }
   }
 
@@ -181,7 +192,7 @@ function GitHubAuth({
     return <div className="text-md text-text-muted">Checking connection...</div>;
   }
 
-  if (auth.status === 'connected') {
+  if (auth.status === "connected") {
     return (
       <div className="flex items-center gap-3 rounded-lg bg-bg-secondary px-4 py-3">
         <img
@@ -199,14 +210,16 @@ function GitHubAuth({
     );
   }
 
-  if (auth.status === 'connecting') {
+  if (auth.status === "connecting") {
     return (
       <div className="space-y-3 rounded-lg bg-bg-secondary px-4 py-3">
         <div className="flex items-center justify-between">
           <span className="text-md text-text-muted">Enter this code on GitHub:</span>
           <Button
             size="sm"
-            onPress={() => void navigator.clipboard.writeText(auth.deviceCode.userCode)}
+            onPress={() =>
+              void navigator.clipboard.writeText(auth.deviceCode.userCode)
+            }
           >
             Copy code
           </Button>
