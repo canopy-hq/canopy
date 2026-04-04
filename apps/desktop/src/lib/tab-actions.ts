@@ -1,4 +1,10 @@
-import { getTabCollection, uiCollection, getUiState } from '@superagent/db';
+import {
+  getTabCollection,
+  getWorkspaceCollection,
+  uiCollection,
+  getUiState,
+  setSetting,
+} from '@superagent/db';
 
 import {
   splitNode,
@@ -11,6 +17,29 @@ import {
 } from './pane-tree-ops';
 
 import type { Tab } from '@superagent/db';
+
+/** Resolve a workspaceItemId composite key to a filesystem path. */
+export function resolveWorkspaceItemCwd(workspaceItemId: string): string | undefined {
+  for (const ws of getWorkspaceCollection().toArray) {
+    if (workspaceItemId === ws.id) return ws.path;
+
+    const branchPrefix = `${ws.id}-branch-`;
+    if (workspaceItemId.startsWith(branchPrefix)) return ws.path;
+
+    const wtPrefix = `${ws.id}-wt-`;
+    if (workspaceItemId.startsWith(wtPrefix)) {
+      const wtName = workspaceItemId.slice(wtPrefix.length);
+      const wt = ws.worktrees.find((w) => w.name === wtName);
+      return wt?.path ?? ws.path;
+    }
+  }
+  return undefined;
+}
+
+function storePaneCwd(paneId: string, workspaceItemId: string): void {
+  const cwd = resolveWorkspaceItemCwd(workspaceItemId);
+  if (cwd) setSetting(`cwd:${paneId}`, cwd);
+}
 
 function makeTab(opts?: { workspaceItemId?: string; label?: string }): Tab {
   const id = crypto.randomUUID();
@@ -29,6 +58,7 @@ export function addTab(): void {
   const ui = getUiState();
   if (!ui.activeContextId) return;
   const tab = makeTab({ workspaceItemId: ui.activeContextId });
+  storePaneCwd(tab.paneRoot.id, ui.activeContextId);
   getTabCollection().insert(tab);
   uiCollection.update('ui', (draft) => {
     draft.activeTabId = tab.id;
@@ -146,6 +176,7 @@ export function splitPane(paneId: PaneId, direction: SplitDirection, newPtyId: n
   const tab = getTabCollection().toArray.find((t) => t.id === ui.activeTabId);
   if (!tab) return;
   const [newTree, newLeafId] = splitNode(tab.paneRoot, paneId, direction, newPtyId);
+  storePaneCwd(newLeafId, tab.workspaceItemId);
   getTabCollection().update(tab.id, (draft) => {
     draft.paneRoot = newTree;
     draft.focusedPaneId = newLeafId;
