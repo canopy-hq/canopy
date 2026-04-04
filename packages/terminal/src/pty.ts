@@ -4,6 +4,7 @@ import { createChannelEntry, type ChannelEntry } from './channel-manager';
 
 // Global registry: PTY output channels keyed by ptyId (child PID).
 const outputRegistry = new Map<number, ChannelEntry>();
+const encoder = new TextEncoder();
 
 export async function spawnTerminal(
   paneId: string,
@@ -41,7 +42,7 @@ export function connectPtyOutputFresh(ptyId: number, handler: (data: Uint8Array)
 }
 
 export async function writeToPty(ptyId: number, data: string): Promise<void> {
-  const bytes = Array.from(new TextEncoder().encode(data));
+  const bytes = Array.from(encoder.encode(data));
   return invoke('write_to_pty', { ptyId, data: bytes });
 }
 

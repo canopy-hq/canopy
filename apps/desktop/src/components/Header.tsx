@@ -52,7 +52,7 @@ export function Header({ onSessionsClick }: HeaderProps = {}) {
         </Tooltip>
       </div>
 
-      {/* Center zone — reserved for future search */}
+      {/* Center zone */}
       <div data-tauri-drag-region className="h-full flex-1" />
 
       {/* Right zone */}

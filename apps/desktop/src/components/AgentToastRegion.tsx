@@ -12,8 +12,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { containsPtyId } from '../lib/pane-tree-ops';
 import { switchTab } from '../lib/tab-actions';
 import { agentToastQueue } from '../lib/toast';
-import { StatusDot } from './StatusDot';
-import { Button } from './ui';
+import { Button, StatusDot } from './ui';
 
 import type { AgentToastContent } from '../lib/toast';
 

@@ -1,9 +1,9 @@
-import type React from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { TooltipTrigger, Tooltip as AriaTooltip } from 'react-aria-components';
 
 export interface TooltipProps {
-  children: React.ReactElement;
-  label: React.ReactNode;
+  children: ReactElement;
+  label: ReactNode;
   placement?: 'top' | 'bottom' | 'left' | 'right';
   delay?: number;
 }
