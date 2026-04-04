@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { getWorkspaceCollection } from '@superagent/db';
 
 import { pollAllWorkspaceStates } from '../lib/git';
+import { getExpandedWorkspacePaths } from '../lib/workspace-utils';
 
 import type { DiffStat, WorkspacePollState } from '../lib/git';
 import type { Workspace } from '@superagent/db';
@@ -111,15 +112,11 @@ export function useWorkspacePolling(
 
     function poll() {
       const current = workspacesRef.current;
-      const expandedWs = current.filter((ws) => ws.expanded);
-      const pathToId = new Map(expandedWs.map((ws) => [ws.path, ws.id]));
-      const paths = expandedWs.map((ws) => ws.path);
+      const { paths, pathToId, expandedIds } = getExpandedWorkspacePaths(current);
       if (paths.length === 0) {
         timer = setTimeout(poll, getInterval(noChangeCountRef.current));
         return;
       }
-
-      const expandedIds = new Set(expandedWs.map((ws) => ws.id));
 
       pollAllWorkspaceStates(paths)
         .then(async (result) => {
