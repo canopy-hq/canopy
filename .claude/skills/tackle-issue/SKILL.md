@@ -35,6 +35,8 @@ Ask user: "Ready to plan the implementation?"
 Enter plan mode with issue context
       ▼
 Execute plan
+      ▼
+Link PR to issue (Development field)
 ```
 
 ## Step 1: Resolve the Issue
@@ -177,6 +179,24 @@ After the plan is approved, execute it following the plan phases. After completi
 1. Run every command from the Verification section
 2. Fix any failures and re-verify
 3. Only report completion after all verification passes
+
+## Step 7: Link PR to Issue
+
+After verification passes, check if a PR already exists on the current branch:
+
+```bash
+gh pr view --json url --jq '.url' 2>/dev/null
+```
+
+- **PR exists:** Link it to the issue's Development field:
+  ```bash
+  gh issue develop <number> --name <branch-name>
+  ```
+  Report: "Linked PR <url> to #<number>."
+
+- **No PR yet:** Tell the user:
+  > "No PR found on this branch yet. When you create one, I'll link it — or you can run:
+  > `gh issue develop <number> --name <branch-name>`"
 
 ## Notes
 

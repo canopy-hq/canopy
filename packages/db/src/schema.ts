@@ -2,7 +2,7 @@ import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const workspaces = sqliteTable('workspaces', {
   id: text('id').primaryKey(),
-  path: text('path').notNull(),
+  path: text('path').notNull().unique(),
   name: text('name').notNull(),
   // JSON: BranchInfo[]
   branches: text('branches').notNull().default('[]'),
