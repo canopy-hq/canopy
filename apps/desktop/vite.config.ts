@@ -1,9 +1,22 @@
+import { execSync } from 'node:child_process';
+
 import tailwindcss from '@tailwindcss/vite';
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 const host = process.env.TAURI_DEV_HOST;
+
+// Expose current git branch to the frontend as import.meta.env.VITE_GIT_BRANCH (dev only)
+if (!process.env.VITE_GIT_BRANCH) {
+  try {
+    process.env.VITE_GIT_BRANCH = execSync('git rev-parse --abbrev-ref HEAD', {
+      encoding: 'utf-8',
+    }).trim();
+  } catch {
+    process.env.VITE_GIT_BRANCH = 'unknown';
+  }
+}
 
 export default defineConfig({
   plugins: [

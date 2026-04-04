@@ -1,4 +1,5 @@
 import { toggleSidebar } from '../lib/workspace-actions';
+import { DevBranchBadge } from './DevBranchBadge';
 
 interface HeaderProps {
   onSessionsClick?: () => void;
@@ -53,7 +54,8 @@ export function Header({ onSessionsClick }: HeaderProps = {}) {
       <div data-tauri-drag-region className="h-full flex-1" />
 
       {/* Right zone */}
-      <div className="flex h-full items-center px-3">
+      <div className="flex h-full items-center gap-2 px-3">
+        <DevBranchBadge />
         <button
           onClick={onSessionsClick}
           aria-label="PTY sessions"
