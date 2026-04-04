@@ -104,7 +104,7 @@ export function closeTab(tabId: string): void {
     disposeCached(ptyId);
     void closePty(ptyId).catch(() => {});
   }
-  void closePtysForPanes(collectAllLeafPaneIds(tab.paneRoot));
+  void closePtysForPanes(collectAllLeafPaneIds(tab.paneRoot)).catch(() => {});
 
   const contextId = tab.workspaceItemId;
   const contextTabs = col.toArray.filter((t) => t.workspaceItemId === contextId);
@@ -251,7 +251,7 @@ export function closePane(paneId: PaneId): void {
     disposeCached(leaf.ptyId);
     void closePty(leaf.ptyId).catch(() => {});
   }
-  void closePtysForPanes([paneId]);
+  void closePtysForPanes([paneId]).catch(() => {});
   closePaneInTab(tab.id, paneId);
 }
 
