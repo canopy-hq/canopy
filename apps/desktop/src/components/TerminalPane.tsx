@@ -1,11 +1,19 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
 
-import { getSettingCollection, getSetting, setSetting } from '@superagent/db';
+import { getSettingCollection, getSetting, setSetting, getSessionCollection } from '@superagent/db';
 import { useTerminal, getPtyCwd } from '@superagent/terminal';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
 import { setFocus, setPtyId } from '../lib/tab-actions';
+
 import { PaneHeader } from './PaneHeader';
+
+import type { PaneNode } from '../lib/pane-tree-ops';
+
+function containsPane(node: PaneNode, paneId: string): boolean {
+  if (node.type === 'leaf') return node.id === paneId;
+  return node.children.some((c) => containsPane(c, paneId));
+}
 
 interface TerminalPaneProps {
   paneId: string;
@@ -64,6 +72,22 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
     };
   }, [realPtyId, paneId]);
 
+  // Delete session record when killed (ptyId → -2) or when pane is removed from tree.
+  useEffect(() => {
+    if (ptyId !== -2) return;
+    const col = getSessionCollection();
+    const session = col.toArray.find((s) => s.paneId === paneId);
+    if (session) col.delete(session.id);
+  }, [ptyId, paneId]);
+
+  useEffect(() => {
+    return () => {
+      const col = getSessionCollection();
+      const session = col.toArray.find((s) => s.paneId === paneId);
+      if (session) col.delete(session.id);
+    };
+  }, [paneId]);
+
   if (ptyId === -2) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-bg-primary">
@@ -104,6 +128,25 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
       onPtySpawned={(id) => {
         setRealPtyId(id);
         setPtyId(paneId, id);
+        const col = getSessionCollection();
+        const tab = tabs.find((t) => containsPane(t.paneRoot, paneId));
+        const existing = col.toArray.find((s) => s.paneId === paneId);
+        if (existing) {
+          col.update(existing.id, (draft) => {
+            draft.tabId = tab?.id ?? '';
+            draft.workspaceId = tab?.workspaceItemId ?? null;
+            draft.cwd = savedCwd ?? '';
+          });
+        } else {
+          col.insert({
+            id: paneId,
+            paneId,
+            tabId: tab?.id ?? '',
+            workspaceId: tab?.workspaceItemId ?? null,
+            cwd: savedCwd ?? '',
+            shell: '',
+          });
+        }
       }}
     />
   );

@@ -229,7 +229,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                     const flatIndex = flatRows.indexOf(row);
                     const isSelected = flatIndex === selectedIndex;
                     const isWaiting = row.agent.status === 'waiting';
-                    const state = (isWaiting ? 'waiting' : isSelected ? 'selected' : 'idle') as const;
+                    const state: 'waiting' | 'selected' | 'idle' = isWaiting ? 'waiting' : isSelected ? 'selected' : 'idle';
 
                     return (
                       <div
