@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { getSettingCollection, getSetting } from '@superagent/db';
 import { Terminal, FitAddon } from 'ghostty-web';
 
-import { ensureGhosttyInit } from './ghostty-init';
+import { ensureGhosttyInit, isGhosttyReady } from './ghostty-init';
 import {
   writeToPty,
   resizePty,
@@ -43,13 +43,24 @@ export function useTerminal(
   onCommand?: (cmd: string) => void,
 ): React.MutableRefObject<Terminal | null> {
   const termRef = useRef<Terminal | null>(null);
-  const [wasmReady, setWasmReady] = useState(false);
+  // Sync check: if WASM was pre-initialized (ensureGhosttyInit called at app startup),
+  // skip the extra render cycle where wasmReady transitions false → true.
+  const [wasmReady, setWasmReady] = useState(() => isGhosttyReady());
   const onCommandRef = useRef(onCommand);
   onCommandRef.current = onCommand;
 
   useEffect(() => {
-    void ensureGhosttyInit().then(() => setWasmReady(true));
-  }, []);
+    if (!wasmReady) {
+      void ensureGhosttyInit().then(() => setWasmReady(true));
+    }
+  }, [wasmReady]);
+
+  // Freeze ptyId for the main effect: the spawn path manages the -1 → realId
+  // transition internally via ptrRef. Only fresh mounts (cached remount or
+  // reconnect) need the real ptyId, which is captured at mount time.
+  // This prevents the destructive effect re-run that removes and re-adds the
+  // terminal element to the DOM, causing flicker.
+  const effectPtyId = useRef(ptyId);
 
   useEffect(() => {
     if (isFocused && termRef.current) {
@@ -87,6 +98,10 @@ export function useTerminal(
 
     const container = containerRef.current;
     if (!container) return;
+
+    // Read the frozen ptyId — for spawn this is -1 (captured at mount);
+    // for cached remount / reconnect it is the real ptyId.
+    const ptyId = effectPtyId.current;
 
     let spawnCancelled = false;
     let sigwinchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -136,15 +151,20 @@ export function useTerminal(
       // make term.element === container, causing container.appendChild(container)
       // (HierarchyRequestError) in the cached remount path. Use a wrapper div so
       // term.element is always a separate, moveable element.
+      //
+      // Defensive CSS: ghostty's open() sets contenteditable="true" on this
+      // wrapper, which can cause browsers to apply implicit padding/outline.
       const wrapper = document.createElement('div');
-      wrapper.style.cssText = 'position:relative;width:100%;height:100%';
+      wrapper.style.cssText =
+        'position:relative;width:100%;height:100%;outline:none;padding:0;margin:0;border:none';
       wrapper.style.background = themeBg;
       container.appendChild(wrapper);
-      term.open(wrapper);
-      // Clear any stale WASM state that may persist from a previously disposed
-      // terminal instance (ghostty-web WASM allocator may reuse heap memory).
-      term.reset();
+
       // Opaque overlay covering the canvas until the first LIVE PTY byte arrives.
+      // MUST be appended BEFORE term.open() — ghostty's open() internally calls
+      // renderer.render(), startRenderLoop(), and focus(), which paint the cursor
+      // on the canvas immediately. Without the overlay already in place, the cursor
+      // flashes for 1-2 frames before being covered.
       //
       // "Live" is defined as post-sentinel: the daemon sends a zero-length sentinel
       // frame after replaying scrollback (see daemon.rs attach handler). The
@@ -154,6 +174,11 @@ export function useTerminal(
       const overlay = document.createElement('div');
       overlay.style.cssText = `position:absolute;inset:0;background:${themeBg};z-index:1;pointer-events:none`;
       wrapper.appendChild(overlay);
+
+      term.open(wrapper);
+      // Clear any stale WASM state that may persist from a previously disposed
+      // terminal instance (ghostty-web WASM allocator may reuse heap memory).
+      term.reset();
       let overlayRemoved = false;
       removeOverlay = () => {
         if (!overlayRemoved) {
@@ -364,8 +389,11 @@ export function useTerminal(
         container.removeChild(el);
       }
     };
+    // effectPtyId is a ref (stable identity) — intentionally excluded.
+    // The spawn path manages the ptyId transition internally; only wasmReady
+    // (and unmount/remount via containerRef) should trigger this effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerRef, ptyId, wasmReady]);
+  }, [containerRef, wasmReady]);
 
   return termRef;
 }

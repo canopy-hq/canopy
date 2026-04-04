@@ -10,7 +10,7 @@ import {
   getSessionCollection,
 } from '@superagent/db';
 import { FpsOverlay } from '@superagent/fps';
-import { spawnTerminal } from '@superagent/terminal';
+import { ensureGhosttyInit, spawnTerminal } from '@superagent/terminal';
 import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 
 import { AgentOverlay } from '../components/AgentOverlay';
@@ -25,6 +25,10 @@ import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
 import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
 import { toggleSidebar, refreshRepo } from '../lib/workspace-actions';
+
+// Pre-initialize ghostty-web WASM at module load so it's ready before the user
+// opens their first terminal — eliminates the empty-container frame on first use.
+void ensureGhosttyInit();
 
 function RootLayout() {
   const [overlayOpen, setOverlayOpen] = useState(false);
