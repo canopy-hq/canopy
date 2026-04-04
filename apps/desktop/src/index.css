@@ -40,6 +40,14 @@
   --color-git-ahead: var(--git-ahead);
   --color-git-behind: var(--git-behind);
   --color-destructive: var(--destructive);
+
+  /* UI text size scale */
+  --text-2xs: 9px;
+  --text-ui-xs: 10px;
+  --text-ui-sm: 11px;
+  --text-ui-md: 12px;
+  --text-ui-base: 13px;
+  --text-ui-lg: 14px;
 }
 
 /* Default theme: Obsidian (matches previous hardcoded values) */
