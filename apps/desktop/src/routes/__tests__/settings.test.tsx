@@ -1,21 +1,24 @@
-import { render, cleanup } from '@testing-library/react';
-import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest';
-
-const mockGetConnection = vi.fn();
-const mockDisconnect = vi.fn();
-const mockStartDeviceFlow = vi.fn();
-const mockPollToken = vi.fn();
+import { render, cleanup, fireEvent } from '@testing-library/react';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 
 vi.mock('../../lib/github', () => ({
-  getConnection: () => mockGetConnection(),
-  disconnect: () => mockDisconnect(),
-  startDeviceFlow: () => mockStartDeviceFlow(),
-  pollToken: (...args: unknown[]) => mockPollToken(...args),
+  getConnection: vi.fn().mockResolvedValue(null),
+  disconnect: vi.fn().mockResolvedValue(undefined),
+  startDeviceFlow: vi.fn(),
+  pollToken: vi.fn(),
   cancelPoll: vi.fn().mockResolvedValue(undefined),
   GITHUB_CONNECTION_KEY: 'github:connection',
 }));
 
-vi.mock('@superagent/db', () => ({ setSetting: vi.fn() }));
+vi.mock('@superagent/db', () => ({
+  setSetting: vi.fn(),
+  getSetting: (_s: unknown[], _k: string, fallback: unknown) => fallback,
+  getSettingCollection: () => ({ toArray: [] }),
+  getUiState: () => ({ activeContextId: 'ws-1' }),
+}));
+
+vi.mock('@tanstack/react-db', () => ({ useLiveQuery: () => ({ data: [] }) }));
+
 vi.mock('../../lib/toast', () => ({ showErrorToast: vi.fn() }));
 vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: vi.fn() }));
 
@@ -23,41 +26,47 @@ const mockNavigate = vi.fn();
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ component: () => null }),
   useNavigate: () => mockNavigate,
+  useSearch: () => ({}),
 }));
 
 import SettingsRoute from '../settings';
 
-describe('Settings — GitHub section', () => {
-  beforeEach(() => {
-    mockGetConnection.mockReset();
-    mockDisconnect.mockReset();
-    mockStartDeviceFlow.mockReset();
-    mockPollToken.mockReset();
-  });
+describe('Settings route', () => {
   afterEach(cleanup);
 
-  it('shows "Connect GitHub" button when not connected', async () => {
-    mockGetConnection.mockResolvedValue(null);
-    const { findByText } = render(<SettingsRoute />);
-    expect(await findByText('Connect GitHub')).toBeInTheDocument();
+  it('renders sidebar with section headers', () => {
+    const { getByText } = render(<SettingsRoute />);
+    expect(getByText('Personal')).toBeInTheDocument();
+    expect(getByText('Editor & Workflow')).toBeInTheDocument();
   });
 
-  it('shows username and avatar when connected', async () => {
-    mockGetConnection.mockResolvedValue({
-      username: 'octocat',
-      avatarUrl: 'https://example.com/avatar.png',
-    });
-    const { findByText, findByAltText } = render(<SettingsRoute />);
-    expect(await findByText('octocat')).toBeInTheDocument();
-    expect(await findByAltText('octocat')).toBeInTheDocument();
+  it('renders Appearance nav item as active by default', () => {
+    const { getByText } = render(<SettingsRoute />);
+    expect(getByText('Appearance')).toBeInTheDocument();
   });
 
-  it('shows Disconnect button when connected', async () => {
-    mockGetConnection.mockResolvedValue({
-      username: 'octocat',
-      avatarUrl: 'https://example.com/avatar.png',
+  it('renders Git nav item', () => {
+    const { getByText } = render(<SettingsRoute />);
+    expect(getByText('Git')).toBeInTheDocument();
+  });
+
+  it('shows AppearanceSection content by default', () => {
+    const { getByText } = render(<SettingsRoute />);
+    expect(getByText('Theme')).toBeInTheDocument();
+  });
+
+  it('navigates to Git section when Git is clicked', () => {
+    const { getByText } = render(<SettingsRoute />);
+    fireEvent.click(getByText('Git'));
+    expect(mockNavigate).toHaveBeenCalledWith({ to: '/settings', search: { section: 'git' } });
+  });
+
+  it('navigates home on back link click', () => {
+    const { getByLabelText } = render(<SettingsRoute />);
+    fireEvent.click(getByLabelText('Back to app'));
+    expect(mockNavigate).toHaveBeenCalledWith({
+      to: '/workspaces/$workspaceId',
+      params: { workspaceId: 'ws-1' },
     });
-    const { findByText } = render(<SettingsRoute />);
-    expect(await findByText('Disconnect')).toBeInTheDocument();
   });
 });

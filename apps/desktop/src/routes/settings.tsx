@@ -1,215 +1,127 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 
-import { setSetting } from '@superagent/db';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { openUrl } from '@tauri-apps/plugin-opener';
-import { X } from 'lucide-react';
+import { getUiState } from '@superagent/db';
+import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router';
+import { ChevronLeft, Palette, GitBranch } from 'lucide-react';
+import { tv } from 'tailwind-variants';
 
-import { Button, Kbd, Tooltip } from '../components/ui';
-import {
-  getConnection,
-  disconnect,
-  startDeviceFlow,
-  pollToken,
-  cancelPoll,
-  GITHUB_CONNECTION_KEY,
-  type GitHubConnection,
-  type DeviceCodeInfo,
-} from '../lib/github';
-import { showErrorToast } from '../lib/toast';
+import { AppearanceSection } from '../components/settings/AppearanceSection';
+import { ConnectionSection } from '../components/settings/ConnectionSection';
 
-function friendlyError(raw: string): string {
-  if (raw.includes('keychain')) return 'Could not access the system keychain.';
-  if (raw.includes('github_api_error')) return 'GitHub rejected the request. Please try again.';
-  if (raw.includes('device flow request failed'))
-    return 'Could not reach GitHub. Check your connection.';
-  return raw;
+type SectionId = 'appearance' | 'git';
+
+interface NavItem {
+  id: SectionId;
+  label: string;
+  icon: typeof Palette;
 }
 
-type AuthState =
-  | { status: 'loading' }
-  | { status: 'disconnected' }
-  | { status: 'connecting'; deviceCode: DeviceCodeInfo }
-  | { status: 'connected'; connection: GitHubConnection };
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const NAV: NavGroup[] = [
+  { label: 'Personal', items: [{ id: 'appearance', label: 'Appearance', icon: Palette }] },
+  { label: 'Editor & Workflow', items: [{ id: 'git', label: 'Git', icon: GitBranch }] },
+];
+
+const SECTIONS: Record<SectionId, () => React.JSX.Element> = {
+  appearance: AppearanceSection,
+  git: ConnectionSection,
+};
+
+const navItem = tv({
+  base: 'flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12px] transition-colors',
+  variants: {
+    active: {
+      true: 'bg-bg-tertiary text-text-primary',
+      false: 'text-text-muted hover:bg-bg-tertiary/50 hover:text-text-primary',
+    },
+  },
+});
 
 function SettingsRoute() {
   const navigate = useNavigate();
-  const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
+  const { section } = useSearch({ from: '/settings' });
+  const activeSection: SectionId = section ?? 'appearance';
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') void navigate({ to: '/' });
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+  const navigateBack = useCallback(() => {
+    const { activeContextId } = getUiState();
+    if (activeContextId) {
+      void navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: activeContextId } });
+    } else {
+      void navigate({ to: '/' });
+    }
   }, [navigate]);
 
   useEffect(() => {
-    let cancelled = false;
-    getConnection()
-      .then((conn) => {
-        if (cancelled) return;
-        setSetting(GITHUB_CONNECTION_KEY, conn);
-        setAuth(conn ? { status: 'connected', connection: conn } : { status: 'disconnected' });
-      })
-      .catch(() => {
-        if (!cancelled) setAuth({ status: 'disconnected' });
-      });
-    return () => {
-      cancelled = true;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') navigateBack();
     };
-  }, []);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [navigateBack]);
 
-  const handleConnect = useCallback(async () => {
-    try {
-      const deviceCode = await startDeviceFlow();
-      setAuth({ status: 'connecting', deviceCode });
-      await openUrl(deviceCode.verificationUri);
-
-      const connection = await pollToken(
-        deviceCode.deviceCode,
-        deviceCode.interval,
-        deviceCode.expiresIn,
-      );
-      setSetting(GITHUB_CONNECTION_KEY, connection);
-      setAuth({ status: 'connected', connection });
-    } catch (e) {
-      const raw = e instanceof Error ? e.message : String(e);
-      if (!raw.includes('cancelled')) {
-        showErrorToast('GitHub authentication failed', friendlyError(raw));
-      }
-      setAuth({ status: 'disconnected' });
-    }
-  }, []);
-
-  const handleDisconnect = useCallback(async () => {
-    try {
-      await disconnect();
-      setSetting(GITHUB_CONNECTION_KEY, null);
-      setAuth({ status: 'disconnected' });
-    } catch (e) {
-      const raw = e instanceof Error ? e.message : String(e);
-      showErrorToast('Disconnect failed', friendlyError(raw));
-    }
-  }, []);
-
-  const handleCancel = useCallback(() => {
-    void cancelPoll();
-    setAuth({ status: 'disconnected' });
-  }, []);
+  const ActiveComponent = SECTIONS[activeSection];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-bg-primary">
-      {/* Header */}
-      <div className="flex h-12 flex-shrink-0 items-center justify-between border-b border-border px-5">
-        <span className="text-sm font-semibold text-text-primary">Settings</span>
-        <Tooltip
-          label={
-            <>
-              Close <Kbd>Esc</Kbd>
-            </>
-          }
-          placement="left"
+    <div className="fixed inset-0 z-50 flex bg-bg-primary">
+      <div className="flex w-[220px] flex-shrink-0 flex-col border-r border-border bg-bg-secondary">
+        <div data-tauri-drag-region className="h-[38px] flex-shrink-0" />
+
+        <button
+          className="flex items-center gap-1.5 px-5 py-2 text-[13px] text-text-muted transition-colors hover:text-text-primary"
+          onClick={navigateBack}
+          aria-label="Back to app"
         >
-          <Button
-            iconOnly
-            variant="ghost"
-            aria-label="Close settings"
-            onPress={() => void navigate({ to: '/' })}
-          >
-            <X size={13} strokeWidth={1.8} />
-          </Button>
-        </Tooltip>
+          <ChevronLeft size={14} strokeWidth={1.8} />
+          <span>Back</span>
+        </button>
+
+        <div className="px-5 pt-3 pb-4 text-[15px] font-bold text-text-primary">Settings</div>
+
+        <nav className="flex-1 space-y-4 px-3">
+          {NAV.map((group) => (
+            <div key={group.label}>
+              <div className="mb-1 px-2 text-[11px] font-semibold tracking-wider text-text-muted/60 uppercase">
+                {group.label}
+              </div>
+              <div className="space-y-0.5">
+                {group.items.map((item) => (
+                  <button
+                    key={item.id}
+                    className={navItem({ active: activeSection === item.id })}
+                    onClick={() => void navigate({ to: '/settings', search: { section: item.id } })}
+                  >
+                    <item.icon size={13} strokeWidth={1.8} />
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-8 py-6">
-        <div className="mx-auto max-w-lg space-y-8">
-          {/* GitHub Section */}
-          <section>
-            <h2 className="mb-1 text-[13px] font-semibold text-text-primary">GitHub</h2>
-            <p className="mb-4 text-[12px] text-text-muted">
-              Connect your GitHub account for PR status, CI checks, and more.
-            </p>
-            <GitHubAuth
-              auth={auth}
-              onConnect={handleConnect}
-              onDisconnect={handleDisconnect}
-              onCancel={handleCancel}
-            />
-          </section>
+      <div className="flex-1 overflow-y-auto">
+        <div data-tauri-drag-region className="h-[38px] flex-shrink-0" />
+        <div className="max-w-lg px-8 pb-6">
+          <ActiveComponent />
         </div>
       </div>
     </div>
   );
 }
 
-function GitHubAuth({
-  auth,
-  onConnect,
-  onDisconnect,
-  onCancel,
-}: {
-  auth: AuthState;
-  onConnect: () => void;
-  onDisconnect: () => void;
-  onCancel: () => void;
-}) {
-  if (auth.status === 'loading') {
-    return <div className="text-[12px] text-text-muted">Checking connection...</div>;
-  }
-
-  if (auth.status === 'connected') {
-    return (
-      <div className="flex items-center gap-3 rounded-lg bg-bg-secondary px-4 py-3">
-        <img
-          src={auth.connection.avatarUrl}
-          alt={auth.connection.username}
-          className="h-8 w-8 rounded-full"
-        />
-        <span className="flex-1 text-[13px] font-medium text-text-primary">
-          {auth.connection.username}
-        </span>
-        <Button variant="destructive-ghost" size="sm" onPress={onDisconnect}>
-          Disconnect
-        </Button>
-      </div>
-    );
-  }
-
-  if (auth.status === 'connecting') {
-    return (
-      <div className="space-y-3 rounded-lg bg-bg-secondary px-4 py-3">
-        <div className="flex items-center justify-between">
-          <span className="text-[12px] text-text-muted">Enter this code on GitHub:</span>
-          <Button
-            size="sm"
-            onPress={() => void navigator.clipboard.writeText(auth.deviceCode.userCode)}
-          >
-            Copy code
-          </Button>
-        </div>
-        <div className="text-center font-mono text-2xl font-bold tracking-widest text-text-primary select-all">
-          {auth.deviceCode.userCode}
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-[12px] text-text-muted">Waiting for authorization...</span>
-          <Button variant="ghost" size="sm" onPress={onCancel}>
-            Cancel
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // disconnected
-  return (
-    <Button variant="primary" size="sm" onPress={onConnect}>
-      Connect GitHub
-    </Button>
-  );
-}
-
 export default SettingsRoute;
 
-export const Route = createFileRoute('/settings')({ component: SettingsRoute });
+export const Route = createFileRoute('/settings')({
+  component: SettingsRoute,
+  validateSearch: (search: Record<string, unknown>): { section?: SectionId } => ({
+    section:
+      typeof search.section === 'string' && search.section in SECTIONS
+        ? (search.section as SectionId)
+        : undefined,
+  }),
+});
