@@ -265,6 +265,11 @@
   --agent-waiting-inset: rgba(239, 68, 68, 0.06);
 }
 
+/* Native app feel — default cursor everywhere, use cursor-pointer explicitly where needed */
+* {
+  cursor: default;
+}
+
 html,
 body,
 #root {
@@ -277,6 +282,8 @@ body,
   font-family: theme(--font-sans);
   user-select: none;
   -webkit-user-select: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Suppress all transitions during window resize to avoid layout contention. */

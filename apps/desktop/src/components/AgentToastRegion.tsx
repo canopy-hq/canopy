@@ -3,11 +3,11 @@ import {
   UNSTABLE_Toast as Toast,
   UNSTABLE_ToastContent as ToastContentSlot,
   Text,
-  Button as AriaButton,
 } from 'react-aria-components';
 
 import { getTabCollection } from '@superagent/db';
 import { useNavigate } from '@tanstack/react-router';
+import { X } from 'lucide-react';
 
 import { containsPtyId } from '../lib/pane-tree-ops';
 import { switchTab } from '../lib/tab-actions';
@@ -57,13 +57,15 @@ export function AgentToastRegion() {
               <span className="min-w-0 flex-1 truncate text-right text-[11px] text-text-muted">
                 {toast.content.workspace}/{toast.content.branch}
               </span>
-              <AriaButton
+              <Button
                 slot="close"
+                iconOnly
+                variant="ghost"
                 aria-label="Close notification"
-                className="cursor-pointer bg-transparent px-[2px] py-0 text-[10px] leading-none text-text-muted outline-none"
+                className="h-5 w-5"
               >
-                x
-              </AriaButton>
+                <X size={10} strokeWidth={2} />
+              </Button>
             </div>
 
             <Text slot="description" className="mt-1 block text-[11px] text-text-muted">

@@ -47,7 +47,7 @@ export function RemoveWorktreeModal({
             workspace palette.
           </p>
 
-          <label className="mt-4 flex cursor-pointer items-center gap-2">
+          <label className="mt-4 flex items-center gap-2">
             <input
               type="checkbox"
               checked={deleteGit}

@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { X } from 'lucide-react';
+
+import { Button, Kbd, Tooltip } from '../components/ui';
 
 function SettingsRoute() {
   const navigate = useNavigate();
@@ -18,23 +21,23 @@ function SettingsRoute() {
       {/* Header */}
       <div className="flex h-12 flex-shrink-0 items-center justify-between border-b border-border px-5">
         <span className="text-sm font-semibold text-text-primary">Settings</span>
-        <button
-          onClick={() => navigate({ to: '/' })}
-          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary"
-          title="Close (Esc)"
+        <Tooltip
+          label={
+            <>
+              Close <Kbd>Esc</Kbd>
+            </>
+          }
+          placement="left"
         >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
+          <Button
+            iconOnly
+            variant="ghost"
+            aria-label="Close settings"
+            onPress={() => void navigate({ to: '/' })}
           >
-            <path d="M1 1l10 10M11 1L1 11" />
-          </svg>
-        </button>
+            <X size={13} strokeWidth={1.8} />
+          </Button>
+        </Tooltip>
       </div>
 
       {/* Content */}
