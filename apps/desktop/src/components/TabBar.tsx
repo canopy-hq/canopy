@@ -26,7 +26,7 @@ const tabItem = tv({
 });
 
 const closeButton = tv({
-  base: 'flex h-4 w-4 items-center justify-center rounded-sm hover:bg-bg-tertiary',
+  base: 'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm hover:bg-bg-tertiary [will-change:opacity]',
   variants: {
     active: {
       true: 'opacity-60 hover:opacity-100',
@@ -171,15 +171,27 @@ const TabItemComponent = memo(
           </span>
         )}
         {!editing && (
-          <Button
-            iconOnly
-            variant="ghost"
-            tabIndex={-1}
-            className={closeButton({ active: isActive })}
-            onPress={() => void handleClose()}
+          <Tooltip
+            label={
+              <>
+                Close Tab{' '}
+                <kbd className="rounded bg-bg-secondary px-1 py-0.5 text-[10px] leading-none text-text-muted">
+                  ⌘W
+                </kbd>
+              </>
+            }
+            placement="bottom"
           >
-            <X size={10} strokeWidth={2} />
-          </Button>
+            <Button
+              iconOnly
+              variant="ghost"
+              tabIndex={-1}
+              className={closeButton({ active: isActive })}
+              onPress={() => void handleClose()}
+            >
+              <X size={10} strokeWidth={2} />
+            </Button>
+          </Tooltip>
         )}
       </button>
     );
