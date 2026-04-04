@@ -227,8 +227,8 @@ const RepoHeader = memo(
         >
           {workspace.name}
         </span>
-        {/* Always show agent dots when expanded */}
-        {workspace.expanded && agentSummary && agentSummary.length > 0 && (
+        {/* Show agent summary dots when collapsed (individual dots are hidden) */}
+        {!workspace.expanded && agentSummary && agentSummary.length > 0 && (
           <span className="ml-1 flex items-center gap-[3px]">
             {agentSummary.slice(0, 3).map((status, i) => (
               <StatusDot key={i} status={status} size={5} />
