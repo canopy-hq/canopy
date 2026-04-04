@@ -40,9 +40,12 @@ export function useTerminal(
   ptyId: number,
   isFocused: boolean,
   onPtySpawned: (id: number) => void,
+  onCommand?: (cmd: string) => void,
 ): React.MutableRefObject<Terminal | null> {
   const termRef = useRef<Terminal | null>(null);
   const [wasmReady, setWasmReady] = useState(false);
+  const onCommandRef = useRef(onCommand);
+  onCommandRef.current = onCommand;
 
   useEffect(() => {
     void ensureGhosttyInit().then(() => setWasmReady(true));
@@ -226,8 +229,18 @@ export function useTerminal(
         return false;
       });
 
+      let lineBuffer = '';
       term.onData((data: string) => {
         if (ptrRef.ptyId > 0) void writeToPty(ptrRef.ptyId, data);
+        if (data === '\r' || data === '\n') {
+          const cmd = lineBuffer.trim();
+          if (cmd) onCommandRef.current?.(cmd);
+          lineBuffer = '';
+        } else if (data === '\x7f' || data === '\b') {
+          lineBuffer = lineBuffer.slice(0, -1);
+        } else if (!data.startsWith('\x1b') && /^[\x20-\x7e]+$/.test(data)) {
+          lineBuffer += data;
+        }
       });
 
       // Fit terminal to container to obtain exact grid dimensions.

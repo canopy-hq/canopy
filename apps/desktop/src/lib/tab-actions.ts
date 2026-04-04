@@ -43,17 +43,43 @@ function storePaneCwd(paneId: string, workspaceItemId: string): void {
   if (cwd) setSetting(`cwd:${paneId}`, cwd);
 }
 
+function getNextTabIndex(workspaceItemId: string): number {
+  const usedNumbers = new Set(
+    getTabCollection()
+      .toArray.filter((t) => t.workspaceItemId === workspaceItemId && !t.labelIsManual)
+      .map((t) => {
+        const match = /^Terminal (\d+)$/.exec(t.label);
+        return match ? parseInt(match[1]!, 10) : null;
+      })
+      .filter((n): n is number => n !== null),
+  );
+  let i = 1;
+  while (usedNumbers.has(i)) i++;
+  return i;
+}
+
 function makeTab(opts?: { workspaceItemId?: string; label?: string }): Tab {
   const id = crypto.randomUUID();
   const paneId = crypto.randomUUID();
+  const workspaceItemId = opts?.workspaceItemId ?? 'default';
   return {
     id,
-    label: opts?.label ?? 'Terminal',
-    workspaceItemId: opts?.workspaceItemId ?? 'default',
+    label: opts?.label ?? `Terminal ${getNextTabIndex(workspaceItemId)}`,
+    labelIsManual: false,
+    workspaceItemId,
     paneRoot: { type: 'leaf', id: paneId, ptyId: -1 },
     focusedPaneId: paneId,
-    position: getTabCollection().toArray.length,
+    position: Math.max(-1, ...getTabCollection().toArray.map((t) => t.position)) + 1,
   };
+}
+
+export function renameTab(id: string, label: string, manual: boolean): void {
+  const trimmed = label.trim().slice(0, 20);
+  if (!trimmed) return;
+  getTabCollection().update(id, (draft) => {
+    draft.label = trimmed;
+    draft.labelIsManual = manual;
+  });
 }
 
 export function addTab(): void {
@@ -81,9 +107,13 @@ export function closeTab(tabId: string): void {
     return;
   }
 
+  const sorted = contextTabs.sort((a, b) => a.position - b.position);
+  const closedIndex = sorted.findIndex((t) => t.id === tabId);
+  const remaining = sorted.filter((t) => t.id !== tabId);
+
   if (ui.activeTabId === tabId) {
-    const remaining = contextTabs.filter((t) => t.id !== tabId);
-    deleteTabAndUpdateActive(tabId, remaining[0]!.id);
+    const newTab = remaining[Math.max(0, closedIndex - 1)] ?? null;
+    deleteTabAndUpdateActive(tabId, newTab?.id ?? '');
   } else {
     deleteTabAndUpdateActive(tabId, null);
   }
