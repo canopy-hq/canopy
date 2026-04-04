@@ -185,10 +185,17 @@ async fn execute_graphql(
         .await
         .map_err(|e| format!("GraphQL parse error: {e}"))?;
 
-    // GitHub GraphQL returns 200 even for errors — check the errors field
-    if let Some(errors) = value.get("errors") {
-        let msg = errors.to_string();
-        eprintln!("github_get_pr_statuses: GraphQL errors: {msg}");
+    // GitHub GraphQL returns 200 even for errors — log unique error types once
+    if let Some(serde_json::Value::Array(errors)) = value.get("errors") {
+        // Deduplicate by error type to avoid spamming console every poll cycle
+        let mut seen = std::collections::HashSet::new();
+        for err in errors {
+            let err_type = err.get("type").and_then(|t| t.as_str()).unwrap_or("UNKNOWN");
+            if seen.insert(err_type.to_string()) {
+                let msg = err.get("message").and_then(|m| m.as_str()).unwrap_or("(no message)");
+                eprintln!("github_get_pr_statuses: {err_type}: {msg}");
+            }
+        }
     }
 
     Ok(value)
