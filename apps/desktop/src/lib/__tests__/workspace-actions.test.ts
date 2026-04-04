@@ -128,8 +128,8 @@ describe('importRepo', () => {
     // No new workspace inserted
     expect(_workspaces).toHaveLength(1);
 
-    // Selected the existing workspace
-    expect(_uiState.selectedItemId).toBe('ws-1');
+    // Selection not changed (workspace-level selection was removed)
+    expect(_uiState.selectedItemId).toBeNull();
 
     // Sidebar opened
     expect(_uiState.sidebarVisible).toBe(true);
