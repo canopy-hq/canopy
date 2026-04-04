@@ -16,12 +16,7 @@ import type { DotStatus } from './StatusDot';
 
 const wrapper = tv({
   base: 'absolute top-0 right-0 z-10 rounded-bl-[6px] px-4 py-1 font-mono text-[12px] leading-none pointer-events-none flex items-center gap-1 backdrop-blur-[4px]',
-  variants: {
-    focused: {
-      true: 'text-text-primary',
-      false: 'text-text-muted',
-    },
-  },
+  variants: { focused: { true: 'text-text-primary', false: 'text-text-muted' } },
 });
 
 export function PaneHeader({

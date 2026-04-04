@@ -16,6 +16,7 @@ Styling and component conventions for `apps/desktop/`.
 Use utility classes as the default. `style={{}}` has two accepted uses:
 
 **a) CSS variable injection** — passing a dynamic JS value into a Tailwind class via a CSS variable:
+
 ```tsx
 // Pass a dynamic size prop into Tailwind via CSS variable
 <span
@@ -28,6 +29,7 @@ Use utility classes as the default. `style={{}}` has two accepted uses:
 ```
 
 **b) Vendor-prefixed properties and unrepresentable CSS** — properties Tailwind doesn't cover:
+
 ```tsx
 // webkit prefix (no Tailwind equivalent)
 <div style={{ WebkitBackdropFilter: 'blur(12px)' }} />
@@ -37,6 +39,7 @@ Use utility classes as the default. `style={{}}` has two accepted uses:
 ```
 
 Everything else must use Tailwind classes. In particular, **never** reference a CSS var via `style=`:
+
 ```tsx
 // BAD
 <div style={{ backgroundColor: 'var(--bg-primary)' }} />
@@ -66,39 +69,24 @@ const tab = tv({
       true: 'border-t-accent bg-tab-active-bg text-text-primary',
       false: 'border-t-transparent bg-tab-inactive-bg text-text-muted hover:bg-bg-secondary',
     },
-    agentWaiting: {
-      true: 'bg-(--agent-waiting-glow)',
-    },
+    agentWaiting: { true: 'bg-(--agent-waiting-glow)' },
   },
-  defaultVariants: {
-    active: false,
-    agentWaiting: false,
-  },
+  defaultVariants: { active: false, agentWaiting: false },
 });
 
 // Usage
-<button className={tab({ active: isActive, agentWaiting: agentStatus === 'waiting' })} />
+<button className={tab({ active: isActive, agentWaiting: agentStatus === 'waiting' })} />;
 ```
 
 For components with multiple styled sub-elements, use **slots**:
 
 ```tsx
 const alert = tv({
-  slots: {
-    root: 'rounded-lg border p-4',
-    title: 'text-sm font-semibold',
-    message: 'text-xs',
-  },
+  slots: { root: 'rounded-lg border p-4', title: 'text-sm font-semibold', message: 'text-xs' },
   variants: {
     severity: {
-      error: {
-        root: 'border-destructive bg-destructive/10',
-        title: 'text-destructive',
-      },
-      success: {
-        root: 'border-accent bg-accent/10',
-        title: 'text-accent',
-      },
+      error: { root: 'border-destructive bg-destructive/10', title: 'text-destructive' },
+      success: { root: 'border-accent bg-accent/10', title: 'text-accent' },
     },
   },
 });
@@ -108,7 +96,7 @@ const { root, title, message } = alert({ severity: 'error' });
 <div className={root()}>
   <h3 className={title()}>Error</h3>
   <p className={message()}>Something went wrong.</p>
-</div>
+</div>;
 ```
 
 ### 3. React ARIA data-attribute variants
@@ -126,6 +114,7 @@ With the `tailwindcss-react-aria-components` plugin, use data-attribute variants
 ```
 
 Available data-attribute variants from the plugin:
+
 - `data-[selected]:` — selected state
 - `data-[focused]:` — keyboard focus
 - `data-[hovered]:` — hover state

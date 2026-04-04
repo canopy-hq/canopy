@@ -18,19 +18,10 @@ describe('pty', () => {
     MockChannel = class {
       onmessage: ((data: number[]) => void) | null = null;
     };
-    vi.doMock('@tauri-apps/api/core', () => ({
-      invoke: invokeFn,
-      Channel: MockChannel,
-    }));
+    vi.doMock('@tauri-apps/api/core', () => ({ invoke: invokeFn, Channel: MockChannel }));
 
-    mockEntry = {
-      onData: vi.fn(),
-      setHandler: vi.fn(),
-      setHandlerFresh: vi.fn(),
-    };
-    vi.doMock('../src/channel-manager', () => ({
-      createChannelEntry: vi.fn(() => mockEntry),
-    }));
+    mockEntry = { onData: vi.fn(), setHandler: vi.fn(), setHandlerFresh: vi.fn() };
+    vi.doMock('../src/channel-manager', () => ({ createChannelEntry: vi.fn(() => mockEntry) }));
 
     pty = await import('../src/pty');
   });

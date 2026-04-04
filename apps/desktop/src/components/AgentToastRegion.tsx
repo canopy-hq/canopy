@@ -9,11 +9,11 @@ import {
 import { getTabCollection } from '@superagent/db';
 import { useNavigate } from '@tanstack/react-router';
 
+import { containsPtyId } from '../lib/pane-tree-ops';
 import { switchTab } from '../lib/tab-actions';
 import { agentToastQueue } from '../lib/toast';
 import { StatusDot } from './StatusDot';
 
-import { containsPtyId } from '../lib/pane-tree-ops';
 import type { AgentToastContent } from '../lib/toast';
 
 function eventDescription(type: AgentToastContent['type']): string {
@@ -38,7 +38,7 @@ export function AgentToastRegion() {
   return (
     <ToastRegion
       queue={agentToastQueue}
-      className="fixed bottom-6 right-6 z-100 flex w-80 flex-col gap-2"
+      className="fixed right-6 bottom-6 z-100 flex w-80 flex-col gap-2"
     >
       {({ toast }) => (
         <Toast
@@ -52,10 +52,7 @@ export function AgentToastRegion() {
                 status={toast.content.type === 'agent-waiting' ? 'waiting' : 'idle'}
                 size={8}
               />
-              <Text
-                slot="title"
-                className="text-[13px] font-semibold text-text-primary"
-              >
+              <Text slot="title" className="text-[13px] font-semibold text-text-primary">
                 {toast.content.agentName}
               </Text>
               <span className="min-w-0 flex-1 truncate text-right text-[11px] text-text-muted">
@@ -71,10 +68,7 @@ export function AgentToastRegion() {
             </div>
 
             {/* Row 2: Event description */}
-            <Text
-              slot="description"
-              className="mt-1 block text-[11px] text-text-muted"
-            >
+            <Text slot="description" className="mt-1 block text-[11px] text-text-muted">
               {eventDescription(toast.content.type)}
             </Text>
 

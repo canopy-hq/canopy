@@ -29,9 +29,5 @@ export function createGhosttyWebMock() {
     this.proposeDimensions = vi.fn(() => ({ rows: 24, cols: 80 }));
   });
 
-  return {
-    Terminal,
-    FitAddon,
-    init: vi.fn().mockResolvedValue(undefined),
-  };
+  return { Terminal, FitAddon, init: vi.fn().mockResolvedValue(undefined) };
 }

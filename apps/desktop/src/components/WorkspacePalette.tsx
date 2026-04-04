@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
+
 import { tv } from 'tailwind-variants';
 
 import {
@@ -25,24 +26,15 @@ type Tab = 'all' | 'worktrees';
 const tabButton = tv({
   base: 'flex flex-1 cursor-pointer items-center justify-center gap-1 rounded border-none px-2 py-[5px] text-[12px]',
   variants: {
-    active: {
-      true: 'bg-bg-tertiary text-text-primary',
-      false: 'bg-transparent text-text-muted',
-    },
+    active: { true: 'bg-bg-tertiary text-text-primary', false: 'bg-transparent text-text-muted' },
   },
 });
 
 const branchItemRow = tv({
   base: 'flex items-center gap-[7px] rounded-[5px] px-2 py-[6px]',
   variants: {
-    disabled: {
-      true: 'opacity-50 cursor-default',
-      false: 'cursor-pointer',
-    },
-    isConfirming: {
-      true: 'bg-accent/[0.08]',
-      false: '',
-    },
+    disabled: { true: 'opacity-50 cursor-default', false: 'cursor-pointer' },
+    isConfirming: { true: 'bg-accent/[0.08]', false: '' },
   },
 });
 
@@ -242,7 +234,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
         <div className="max-h-[320px] overflow-y-auto px-2 pb-2">
           {tab === 'all' && !pickingBase && (
             <>
-              <div className="px-2 pb-1 pt-1.5 text-[10px] uppercase tracking-[0.5px] text-text-muted">
+              <div className="px-2 pt-1.5 pb-1 text-[10px] tracking-[0.5px] text-text-muted uppercase">
                 Branches
               </div>
               {filteredBranches.length === 0 && (
@@ -264,7 +256,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
                   onCancelConfirm={() => setConfirmBranch(null)}
                 />
               ))}
-              <div className="mt-1 border-t border-border px-2 pb-1 pt-1.5 text-[10px] uppercase tracking-[0.5px] text-text-muted">
+              <div className="mt-1 border-t border-border px-2 pt-1.5 pb-1 text-[10px] tracking-[0.5px] text-text-muted uppercase">
                 Worktrees
               </div>
               {filteredWorktrees.length === 0 && (
@@ -308,7 +300,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
 
           {pickingBase && (
             <>
-              <div className="px-2 pb-1 pt-1.5 text-[10px] uppercase tracking-[0.5px] text-text-muted">
+              <div className="px-2 pt-1.5 pb-1 text-[10px] tracking-[0.5px] text-text-muted uppercase">
                 Select base branch
               </div>
               {branches
@@ -408,9 +400,7 @@ function BranchItem({
   return (
     <div
       className={
-        isConfirming
-          ? 'my-0.5 overflow-hidden rounded-[6px] border border-accent/20'
-          : undefined
+        isConfirming ? 'my-0.5 overflow-hidden rounded-[6px] border border-accent/20' : undefined
       }
     >
       <div className={branchItemRow({ disabled, isConfirming })}>
@@ -468,8 +458,7 @@ function BranchItem({
       {isConfirming && (
         <div className="border-t border-accent/10 bg-accent/[0.03] px-2.5 py-2">
           <div className="mb-1.5 text-[11px] text-text-muted">
-            Create worktree for{' '}
-            <strong className="text-text-primary">{branch.name}</strong>
+            Create worktree for <strong className="text-text-primary">{branch.name}</strong>
           </div>
           <div className="mb-2 flex items-center gap-1.5 rounded bg-bg-primary px-2 py-1 font-mono text-[11px] text-text-muted">
             git worktree add ~/.superagent/worktrees/{workspace.name}-{branch.name}{' '}
@@ -523,7 +512,7 @@ function WorktreeItem({
       <div className="min-w-0 flex-1">
         <div className="text-[13px] text-text-primary">{worktree.name}</div>
         {showPath && (
-          <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] text-text-muted">
+          <div className="overflow-hidden text-[10px] text-ellipsis whitespace-nowrap text-text-muted">
             {worktree.path}
           </div>
         )}
