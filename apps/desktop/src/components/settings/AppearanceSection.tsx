@@ -60,8 +60,8 @@ export function AppearanceSection() {
 
   return (
     <section>
-      <h2 className="mb-1 text-[13px] font-semibold text-text-primary">Theme</h2>
-      <p className="mb-4 text-[12px] text-text-muted">Choose a theme for the application.</p>
+      <h2 className="mb-1 text-ui-base font-semibold text-text-primary">Theme</h2>
+      <p className="mb-4 text-ui-md text-text-muted">Choose a theme for the application.</p>
       <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label="Theme selection">
         {themeNames.map((name) => (
           <div
@@ -80,7 +80,7 @@ export function AppearanceSection() {
             tabIndex={0}
           >
             <ThemePreview css={themes[name].css} />
-            <span className="text-[11px] font-medium text-text-primary">{capitalize(name)}</span>
+            <span className="text-ui-sm font-medium text-text-primary">{capitalize(name)}</span>
           </div>
         ))}
       </div>
