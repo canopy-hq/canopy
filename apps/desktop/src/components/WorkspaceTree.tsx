@@ -13,6 +13,7 @@ import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import {
   toggleExpanded,
   selectWorkspaceItem,
+  isSelectableWorkspaceItem,
   closeProject,
   hideWorktree,
   removeWorktree,
@@ -37,8 +38,10 @@ const DiffPill = memo(function DiffPill({
   if (additions === 0 && deletions === 0) return null;
   return (
     <span className="inline-flex flex-shrink-0 gap-1 rounded bg-white/5 px-1.5 py-px text-[11px] font-medium whitespace-nowrap">
-      {additions > 0 && <span style={{ color: 'var(--git-ahead)' }}>+{additions}</span>}
-      {deletions > 0 && <span style={{ color: 'var(--git-behind)' }}>&minus;{deletions}</span>}
+      {additions > 0 && <span className="text-(--git-ahead) tabular-nums">+{additions}</span>}
+      {deletions > 0 && (
+        <span className="text-(--git-behind) tabular-nums">&minus;{deletions}</span>
+      )}
     </span>
   );
 });
@@ -225,22 +228,19 @@ const RepoHeader = memo(
         >
           {workspace.name}
         </span>
-        {/* Collapsed: show inline branch + count */}
-        {!workspace.expanded && (
-          <>
-            {agentSummary && agentSummary.length > 0 && (
-              <span className="ml-1 flex items-center gap-[3px]">
-                {agentSummary.slice(0, 3).map((status, i) => (
-                  <StatusDot key={i} status={status} size={5} />
-                ))}
-              </span>
-            )}
-            {childCount > 0 && (
-              <span className="rounded-lg bg-bg-tertiary px-[6px] py-px font-mono text-[11px] text-text-muted tabular-nums">
-                {childCount}
-              </span>
-            )}
-          </>
+        {/* Show agent summary dots when collapsed (individual dots are hidden) */}
+        {!workspace.expanded && agentSummary && agentSummary.length > 0 && (
+          <span className="ml-1 flex items-center gap-[3px]">
+            {agentSummary.slice(0, 3).map((status, i) => (
+              <StatusDot key={i} status={status} size={5} />
+            ))}
+          </span>
+        )}
+        {/* Always show branch/worktree count */}
+        {childCount > 0 && (
+          <span className="rounded-lg bg-bg-tertiary px-[6px] py-px font-mono text-[11px] text-text-muted tabular-nums">
+            {childCount}
+          </span>
         )}
         {/* Collapse/expand chevron indicator */}
         <svg
@@ -371,20 +371,19 @@ export function WorkspaceTree() {
     [workspaces],
   );
 
-  const selectedKeys = useMemo<Selection>(
-    () => (selectedItemId ? new Set([selectedItemId]) : new Set<Key>()),
-    [selectedItemId],
-  );
+  const selectedKeys = useMemo<Selection>(() => {
+    if (!selectedItemId || !isSelectableWorkspaceItem(selectedItemId)) return new Set<Key>();
+    return new Set([selectedItemId]);
+  }, [selectedItemId]);
 
   const handleSelectionChange = useCallback(
     (keys: Selection) => {
       if (keys === 'all') return;
       const selected = [...keys][0];
-      if (!selected) {
-        selectWorkspaceItem(null, navigate);
-        return;
-      }
-      selectWorkspaceItem(String(selected), navigate);
+      if (!selected) return;
+      const key = String(selected);
+      if (!isSelectableWorkspaceItem(key)) return;
+      selectWorkspaceItem(key, navigate);
     },
     [navigate],
   );

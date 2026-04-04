@@ -4,6 +4,8 @@ import {
   uiCollection,
   getUiState,
   setSetting,
+  insertTabAndActivate,
+  deleteTabAndUpdateActive,
 } from '@superagent/db';
 
 import {
@@ -85,10 +87,7 @@ export function addTab(): void {
   if (!ui.activeContextId) return;
   const tab = makeTab({ workspaceItemId: ui.activeContextId });
   storePaneCwd(tab.paneRoot.id, ui.activeContextId);
-  getTabCollection().insert(tab);
-  uiCollection.update('ui', (draft) => {
-    draft.activeTabId = tab.id;
-  });
+  insertTabAndActivate(tab);
 }
 
 export function closeTab(tabId: string): void {
@@ -97,31 +96,26 @@ export function closeTab(tabId: string): void {
   if (!tab) return;
   const contextId = tab.workspaceItemId;
   const contextTabs = col.toArray.filter((t) => t.workspaceItemId === contextId);
+  const ui = getUiState();
 
   if (contextTabs.length === 1) {
-    col.delete(tabId);
+    deleteTabAndUpdateActive(tabId, '');
     uiCollection.update('ui', (draft) => {
-      draft.activeTabId = '';
       const { [contextId]: _, ...rest } = draft.contextActiveTabIds;
       draft.contextActiveTabIds = rest;
     });
     return;
   }
 
-  const sorted = col.toArray
-    .filter((t) => t.workspaceItemId === contextId)
-    .sort((a, b) => a.position - b.position);
+  const sorted = contextTabs.sort((a, b) => a.position - b.position);
   const closedIndex = sorted.findIndex((t) => t.id === tabId);
+  const remaining = sorted.filter((t) => t.id !== tabId);
 
-  col.delete(tabId);
-
-  const ui = getUiState();
   if (ui.activeTabId === tabId) {
-    const remaining = sorted.filter((t) => t.id !== tabId);
     const newTab = remaining[Math.max(0, closedIndex - 1)] ?? null;
-    uiCollection.update('ui', (draft) => {
-      draft.activeTabId = newTab?.id ?? '';
-    });
+    deleteTabAndUpdateActive(tabId, newTab?.id ?? '');
+  } else {
+    deleteTabAndUpdateActive(tabId, null);
   }
 }
 
@@ -286,11 +280,12 @@ export function jumpToPane(
     });
   }
 
-  if (ui.activeContextId !== workspaceItemId && tabId) {
-    uiCollection.update('ui', (draft) => {
+  uiCollection.update('ui', (draft) => {
+    draft.selectedItemId = workspaceItemId;
+    if (ui.activeContextId !== workspaceItemId && tabId) {
       draft.contextActiveTabIds[workspaceItemId] = tabId;
-    });
-  }
+    }
+  });
 
   navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: workspaceItemId } });
 

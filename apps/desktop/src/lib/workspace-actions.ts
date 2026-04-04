@@ -1,4 +1,11 @@
-import { getWorkspaceCollection, getTabCollection, uiCollection, getUiState } from '@superagent/db';
+import {
+  getWorkspaceCollection,
+  getTabCollection,
+  uiCollection,
+  getUiState,
+  SIDEBAR_WIDTH_MIN,
+  SIDEBAR_WIDTH_MAX,
+} from '@superagent/db';
 import { closePty, disposeCached } from '@superagent/terminal';
 
 import * as gitApi from './git';
@@ -6,6 +13,11 @@ import { collectLeafPtyIds } from './pane-tree-ops';
 import { showErrorToast, showInfoToast } from './toast';
 
 import type { Workspace } from '@superagent/db';
+
+/** Returns true for branch/worktree IDs — the only items that carry selection state. */
+export function isSelectableWorkspaceItem(id: string): boolean {
+  return id.includes('-branch-') || id.includes('-wt-');
+}
 
 /** All sidebar item IDs for a workspace (repo root + branches + worktrees). */
 export function getWorkspaceItemIds(ws: Workspace): Set<string> {
@@ -23,7 +35,6 @@ export async function importRepo(path: string): Promise<void> {
 
     const existing = collection.toArray.find((w) => w.path === info.path);
     if (existing) {
-      setSelectedItem(existing.id);
       showInfoToast(`"${existing.name}" is already imported`);
     } else {
       collection.insert({
@@ -131,7 +142,7 @@ export function toggleSidebar(): void {
 
 export function setSidebarWidth(width: number): void {
   uiCollection.update('ui', (draft) => {
-    draft.sidebarWidth = Math.max(180, Math.min(400, width));
+    draft.sidebarWidth = Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, width));
   });
 }
 
