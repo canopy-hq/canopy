@@ -29,15 +29,15 @@ export const uiCollection = createCollection(
     getKey: () => 'ui',
     initialData: [INITIAL_UI_STATE],
     onUpdate: async ({ transaction }) => {
-      for (const m of transaction.mutations) {
-        const old = m.original as UiState;
-        const next = m.modified as UiState;
-        if (old.activeTabId !== next.activeTabId) setSetting('activeTabId', next.activeTabId);
-        if (old.activeContextId !== next.activeContextId)
-          setSetting('activeContextId', next.activeContextId);
-        if (old.sidebarVisible !== next.sidebarVisible)
-          setSetting('sidebarVisible', next.sidebarVisible);
-      }
+      const m = transaction.mutations[0];
+      if (!m) return;
+      const old = m.original as UiState;
+      const next = m.modified as UiState;
+      if (old.activeTabId !== next.activeTabId) setSetting('activeTabId', next.activeTabId);
+      if (old.activeContextId !== next.activeContextId)
+        setSetting('activeContextId', next.activeContextId);
+      if (old.sidebarVisible !== next.sidebarVisible)
+        setSetting('sidebarVisible', next.sidebarVisible);
     },
   }),
 );
