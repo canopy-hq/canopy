@@ -56,6 +56,8 @@ pub fn run() {
             app.manage(DaemonClient::new(socket));
             app.manage(Mutex::new(pty::PtyState::new()));
             app.manage(Mutex::new(agent_watcher::AgentWatcherState::new()));
+            app.manage(github::PollCancelFlag(std::sync::atomic::AtomicBool::new(false)));
+            app.manage(github::HttpClient(github::build_http_client()));
 
             Ok(())
         })
@@ -86,6 +88,7 @@ pub fn run() {
             github::github_start_device_flow,
             github::github_poll_token,
             github::github_get_connection,
+            github::github_cancel_poll,
             github::github_disconnect,
         ])
         .on_menu_event(|app, event| {

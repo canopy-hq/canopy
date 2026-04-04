@@ -31,6 +31,10 @@ export function getConnection(): Promise<GitHubConnection | null> {
   return invoke<GitHubConnection | null>('github_get_connection');
 }
 
+export function cancelPoll(): Promise<void> {
+  return invoke<void>('github_cancel_poll');
+}
+
 export function disconnect(): Promise<void> {
   return invoke<void>('github_disconnect');
 }

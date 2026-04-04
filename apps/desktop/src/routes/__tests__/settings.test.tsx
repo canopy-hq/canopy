@@ -11,6 +11,7 @@ vi.mock('../../lib/github', () => ({
   disconnect: () => mockDisconnect(),
   startDeviceFlow: () => mockStartDeviceFlow(),
   pollToken: (...args: unknown[]) => mockPollToken(...args),
+  cancelPoll: vi.fn().mockResolvedValue(undefined),
   GITHUB_CONNECTION_KEY: 'github:connection',
 }));
 

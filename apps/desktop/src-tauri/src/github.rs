@@ -1,9 +1,17 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use serde::{Deserialize, Serialize};
 
 // ── Constants ─────────────────────────────────────────────────────────
 
 const KEYCHAIN_SERVICE: &str = "com.superagent.app";
 const KEYCHAIN_USER: &str = "github-oauth-token";
+
+// ── Shared state ─────────────────────────────────────────────────────
+
+pub struct PollCancelFlag(pub AtomicBool);
+
+pub struct HttpClient(pub reqwest::Client);
 
 fn client_id() -> Result<String, String> {
     option_env!("SUPERAGENT_GITHUB_CLIENT_ID")
@@ -75,21 +83,20 @@ fn delete_token() -> Result<(), String> {
 
 // ── HTTP helpers ──────────────────────────────────────────────────────
 
-fn http_client() -> Result<reqwest::Client, String> {
+pub fn build_http_client() -> reqwest::Client {
     reqwest::Client::builder()
         .user_agent("Superagent-Desktop/0.1")
         .build()
-        .map_err(|e| format!("http client error: {e}"))
+        .expect("failed to build HTTP client")
 }
 
-async fn fetch_github_user(token: &str) -> Result<GitHubConnection, String> {
+async fn fetch_github_user(client: &reqwest::Client, token: &str) -> Result<GitHubConnection, String> {
     #[derive(Deserialize)]
     struct GhUser {
         login: String,
         avatar_url: String,
     }
 
-    let client = http_client()?;
     let resp = client
         .get("https://api.github.com/user")
         .header("Authorization", format!("Bearer {token}"))
@@ -118,14 +125,13 @@ fn is_auth_error(e: &str) -> bool {
 // ── Tauri commands ────────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn github_start_device_flow() -> Result<DeviceCodeResponse, String> {
+pub async fn github_start_device_flow(http: tauri::State<'_, HttpClient>) -> Result<DeviceCodeResponse, String> {
     let cid = client_id()?;
-    let client = http_client()?;
 
-    let resp = client
+    let resp = http.0
         .post("https://github.com/login/device/code")
         .header("Accept", "application/json")
-        .form(&[("client_id", cid.as_str()), ("scope", "repo")])
+        .form(&[("client_id", cid.as_str()), ("scope", "repo:status read:user")])
         .send()
         .await
         .map_err(|e| format!("device flow request failed: {e}"))?;
@@ -142,19 +148,28 @@ pub async fn github_start_device_flow() -> Result<DeviceCodeResponse, String> {
 }
 
 #[tauri::command]
-pub async fn github_poll_token(device_code: String, interval: u64, expires_in: u64) -> Result<GitHubConnection, String> {
+pub async fn github_cancel_poll(flag: tauri::State<'_, PollCancelFlag>) -> Result<(), String> {
+    flag.0.store(true, Ordering::Relaxed);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn github_poll_token(device_code: String, interval: u64, expires_in: u64, flag: tauri::State<'_, PollCancelFlag>, http: tauri::State<'_, HttpClient>) -> Result<GitHubConnection, String> {
+    flag.0.store(false, Ordering::Relaxed);
     let cid = client_id()?;
-    let client = http_client()?;
     let mut poll_interval = std::time::Duration::from_secs(interval.max(5));
     let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(expires_in);
 
     loop {
+        if flag.0.load(Ordering::Relaxed) {
+            return Err("Polling cancelled.".into());
+        }
         if tokio::time::Instant::now() >= deadline {
             return Err("Device code expired. Please try again.".into());
         }
         tokio::time::sleep(poll_interval).await;
 
-        let resp = client
+        let resp = http.0
             .post("https://github.com/login/oauth/access_token")
             .header("Accept", "application/json")
             .form(&[
@@ -170,7 +185,7 @@ pub async fn github_poll_token(device_code: String, interval: u64, expires_in: u
 
         if let Ok(success) = serde_json::from_str::<TokenSuccessResponse>(&body) {
             store_token(&success.access_token)?;
-            return fetch_github_user(&success.access_token).await;
+            return fetch_github_user(&http.0, &success.access_token).await;
         }
 
         let error: TokenErrorResponse =
@@ -190,13 +205,13 @@ pub async fn github_poll_token(device_code: String, interval: u64, expires_in: u
 }
 
 #[tauri::command]
-pub async fn github_get_connection() -> Result<Option<GitHubConnection>, String> {
+pub async fn github_get_connection(http: tauri::State<'_, HttpClient>) -> Result<Option<GitHubConnection>, String> {
     let token = match load_token()? {
         Some(t) => t,
         None => return Ok(None),
     };
 
-    match fetch_github_user(&token).await {
+    match fetch_github_user(&http.0, &token).await {
         Ok(conn) => Ok(Some(conn)),
         Err(e) => {
             if is_auth_error(&e) {

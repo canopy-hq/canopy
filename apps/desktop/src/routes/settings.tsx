@@ -1,39 +1,47 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from 'react';
 
-import { setSetting } from "@superagent/db";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { X } from "lucide-react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { setSetting } from '@superagent/db';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { openUrl } from '@tauri-apps/plugin-opener';
+import { X } from 'lucide-react';
 
-import { Button, Kbd, Tooltip } from "../components/ui";
-
+import { Button, Kbd, Tooltip } from '../components/ui';
 import {
   getConnection,
   disconnect,
   startDeviceFlow,
   pollToken,
+  cancelPoll,
   GITHUB_CONNECTION_KEY,
   type GitHubConnection,
   type DeviceCodeInfo,
-} from "../lib/github";
-import { showErrorToast } from "../lib/toast";
+} from '../lib/github';
+import { showErrorToast } from '../lib/toast';
+
+function friendlyError(raw: string): string {
+  if (raw.includes('keychain')) return 'Could not access the system keychain.';
+  if (raw.includes('github_api_error')) return 'GitHub rejected the request. Please try again.';
+  if (raw.includes('device flow request failed'))
+    return 'Could not reach GitHub. Check your connection.';
+  return raw;
+}
 
 type AuthState =
-  | { status: "loading" }
-  | { status: "disconnected" }
-  | { status: "connecting"; deviceCode: DeviceCodeInfo }
-  | { status: "connected"; connection: GitHubConnection };
+  | { status: 'loading' }
+  | { status: 'disconnected' }
+  | { status: 'connecting'; deviceCode: DeviceCodeInfo }
+  | { status: 'connected'; connection: GitHubConnection };
 
 function SettingsRoute() {
   const navigate = useNavigate();
-  const [auth, setAuth] = useState<AuthState>({ status: "loading" });
+  const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") void navigate({ to: "/" });
+      if (e.key === 'Escape') void navigate({ to: '/' });
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [navigate]);
 
   useEffect(() => {
@@ -42,14 +50,10 @@ function SettingsRoute() {
       .then((conn) => {
         if (cancelled) return;
         setSetting(GITHUB_CONNECTION_KEY, conn);
-        setAuth(
-          conn
-            ? { status: "connected", connection: conn }
-            : { status: "disconnected" },
-        );
+        setAuth(conn ? { status: 'connected', connection: conn } : { status: 'disconnected' });
       })
       .catch(() => {
-        if (!cancelled) setAuth({ status: "disconnected" });
+        if (!cancelled) setAuth({ status: 'disconnected' });
       });
     return () => {
       cancelled = true;
@@ -59,7 +63,7 @@ function SettingsRoute() {
   const handleConnect = useCallback(async () => {
     try {
       const deviceCode = await startDeviceFlow();
-      setAuth({ status: "connecting", deviceCode });
+      setAuth({ status: 'connecting', deviceCode });
       await openUrl(deviceCode.verificationUri);
 
       const connection = await pollToken(
@@ -68,13 +72,13 @@ function SettingsRoute() {
         deviceCode.expiresIn,
       );
       setSetting(GITHUB_CONNECTION_KEY, connection);
-      setAuth({ status: "connected", connection });
+      setAuth({ status: 'connected', connection });
     } catch (e) {
-      showErrorToast(
-        "GitHub authentication failed",
-        e instanceof Error ? e.message : String(e),
-      );
-      setAuth({ status: "disconnected" });
+      const raw = e instanceof Error ? e.message : String(e);
+      if (!raw.includes('cancelled')) {
+        showErrorToast('GitHub authentication failed', friendlyError(raw));
+      }
+      setAuth({ status: 'disconnected' });
     }
   }, []);
 
@@ -82,26 +86,23 @@ function SettingsRoute() {
     try {
       await disconnect();
       setSetting(GITHUB_CONNECTION_KEY, null);
-      setAuth({ status: "disconnected" });
+      setAuth({ status: 'disconnected' });
     } catch (e) {
-      showErrorToast(
-        "Disconnect failed",
-        e instanceof Error ? e.message : String(e),
-      );
+      const raw = e instanceof Error ? e.message : String(e);
+      showErrorToast('Disconnect failed', friendlyError(raw));
     }
   }, []);
 
   const handleCancel = useCallback(() => {
-    setAuth({ status: "disconnected" });
+    void cancelPoll();
+    setAuth({ status: 'disconnected' });
   }, []);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-bg-primary">
       {/* Header */}
       <div className="flex h-12 flex-shrink-0 items-center justify-between border-b border-border px-5">
-        <span className="text-sm font-semibold text-text-primary">
-          Settings
-        </span>
+        <span className="text-sm font-semibold text-text-primary">Settings</span>
         <Tooltip
           label={
             <>
@@ -114,7 +115,7 @@ function SettingsRoute() {
             iconOnly
             variant="ghost"
             aria-label="Close settings"
-            onPress={() => void navigate({ to: "/" })}
+            onPress={() => void navigate({ to: '/' })}
           >
             <X size={13} strokeWidth={1.8} />
           </Button>
@@ -126,9 +127,7 @@ function SettingsRoute() {
         <div className="mx-auto max-w-lg space-y-8">
           {/* GitHub Section */}
           <section>
-            <h2 className="mb-1 text-[13px] font-semibold text-text-primary">
-              GitHub
-            </h2>
+            <h2 className="mb-1 text-[13px] font-semibold text-text-primary">GitHub</h2>
             <p className="mb-4 text-[12px] text-text-muted">
               Connect your GitHub account for PR status, CI checks, and more.
             </p>
@@ -156,13 +155,11 @@ function GitHubAuth({
   onDisconnect: () => void;
   onCancel: () => void;
 }) {
-  if (auth.status === "loading") {
-    return (
-      <div className="text-[12px] text-text-muted">Checking connection...</div>
-    );
+  if (auth.status === 'loading') {
+    return <div className="text-[12px] text-text-muted">Checking connection...</div>;
   }
 
-  if (auth.status === "connected") {
+  if (auth.status === 'connected') {
     return (
       <div className="flex items-center gap-3 rounded-lg bg-bg-secondary px-4 py-3">
         <img
@@ -180,18 +177,14 @@ function GitHubAuth({
     );
   }
 
-  if (auth.status === "connecting") {
+  if (auth.status === 'connecting') {
     return (
       <div className="space-y-3 rounded-lg bg-bg-secondary px-4 py-3">
         <div className="flex items-center justify-between">
-          <span className="text-[12px] text-text-muted">
-            Enter this code on GitHub:
-          </span>
+          <span className="text-[12px] text-text-muted">Enter this code on GitHub:</span>
           <Button
             size="sm"
-            onPress={() =>
-              void navigator.clipboard.writeText(auth.deviceCode.userCode)
-            }
+            onPress={() => void navigator.clipboard.writeText(auth.deviceCode.userCode)}
           >
             Copy code
           </Button>
@@ -200,9 +193,7 @@ function GitHubAuth({
           {auth.deviceCode.userCode}
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-[12px] text-text-muted">
-            Waiting for authorization...
-          </span>
+          <span className="text-[12px] text-text-muted">Waiting for authorization...</span>
           <Button variant="ghost" size="sm" onPress={onCancel}>
             Cancel
           </Button>
@@ -221,4 +212,4 @@ function GitHubAuth({
 
 export default SettingsRoute;
 
-export const Route = createFileRoute("/settings")({ component: SettingsRoute });
+export const Route = createFileRoute('/settings')({ component: SettingsRoute });

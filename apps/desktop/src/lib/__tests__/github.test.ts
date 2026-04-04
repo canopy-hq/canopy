@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockInvoke = vi.fn();
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...args: unknown[]) => mockInvoke(...args) }));
 
-import { startDeviceFlow, pollToken, getConnection, disconnect } from '../github';
+import { startDeviceFlow, pollToken, getConnection, cancelPoll, disconnect } from '../github';
 
 describe('github', () => {
   beforeEach(() => {
@@ -44,6 +44,13 @@ describe('github', () => {
     const result = await getConnection();
     expect(mockInvoke).toHaveBeenCalledWith('github_get_connection');
     expect(result).toBeNull();
+  });
+
+  it('cancelPoll calls the correct command', async () => {
+    mockInvoke.mockResolvedValue(undefined);
+
+    await cancelPoll();
+    expect(mockInvoke).toHaveBeenCalledWith('github_cancel_poll');
   });
 
   it('disconnect calls the correct command', async () => {
