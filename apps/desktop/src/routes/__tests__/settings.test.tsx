@@ -55,10 +55,10 @@ describe('Settings route', () => {
     expect(getByText('Theme')).toBeInTheDocument();
   });
 
-  it('switches to Git section when Git is clicked', async () => {
-    const { getByText, findByText } = render(<SettingsRoute />);
+  it('navigates to Git section when Git is clicked', () => {
+    const { getByText } = render(<SettingsRoute />);
     fireEvent.click(getByText('Git'));
-    expect(await findByText('GitHub')).toBeInTheDocument();
+    expect(mockNavigate).toHaveBeenCalledWith({ to: '/settings', search: { section: 'git' } });
   });
 
   it('navigates home on back link click', () => {

@@ -17,7 +17,6 @@ function capitalize(s: string): string {
 function ThemePreview({ css }: { css: CssThemeProperties }) {
   return (
     <div className="flex h-16 overflow-hidden rounded" style={{ backgroundColor: css.bgPrimary }}>
-      {/* Sidebar strip */}
       <div
         className="w-1/4 border-r"
         style={{ backgroundColor: css.bgSecondary, borderColor: css.border }}
@@ -33,7 +32,6 @@ function ThemePreview({ css }: { css: CssThemeProperties }) {
           />
         </div>
       </div>
-      {/* Content area */}
       <div className="flex-1 p-2" style={{ backgroundColor: css.bgTertiary }}>
         <div className="space-y-1.5">
           <div

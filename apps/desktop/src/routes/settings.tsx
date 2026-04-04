@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 
 import { getUiState } from '@superagent/db';
 import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router';
@@ -44,7 +44,7 @@ const navItem = tv({
 function SettingsRoute() {
   const navigate = useNavigate();
   const { section } = useSearch({ from: '/settings' });
-  const [activeSection, setActiveSection] = useState<SectionId>(section ?? 'appearance');
+  const activeSection: SectionId = section ?? 'appearance';
 
   const navigateBack = useCallback(() => {
     const { activeContextId } = getUiState();
@@ -67,12 +67,9 @@ function SettingsRoute() {
 
   return (
     <div className="fixed inset-0 z-50 flex bg-bg-primary">
-      {/* Sidebar */}
       <div className="flex w-[220px] flex-shrink-0 flex-col border-r border-border bg-bg-secondary">
-        {/* Traffic lights spacer + drag region */}
         <div data-tauri-drag-region className="h-[38px] flex-shrink-0" />
 
-        {/* Back link */}
         <button
           className="flex items-center gap-1.5 px-5 py-2 text-[13px] text-text-muted transition-colors hover:text-text-primary"
           onClick={navigateBack}
@@ -82,10 +79,8 @@ function SettingsRoute() {
           <span>Back</span>
         </button>
 
-        {/* Settings title */}
         <div className="px-5 pt-3 pb-4 text-[15px] font-bold text-text-primary">Settings</div>
 
-        {/* Nav sections */}
         <nav className="flex-1 space-y-4 px-3">
           {NAV.map((group) => (
             <div key={group.label}>
@@ -97,7 +92,7 @@ function SettingsRoute() {
                   <button
                     key={item.id}
                     className={navItem({ active: activeSection === item.id })}
-                    onClick={() => setActiveSection(item.id)}
+                    onClick={() => void navigate({ to: '/settings', search: { section: item.id } })}
                   >
                     <item.icon size={13} strokeWidth={1.8} />
                     {item.label}
@@ -109,9 +104,7 @@ function SettingsRoute() {
         </nav>
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {/* Drag region spacer aligned with sidebar traffic lights zone */}
         <div data-tauri-drag-region className="h-[38px] flex-shrink-0" />
         <div className="max-w-lg px-8 pb-6">
           <ActiveComponent />
@@ -126,6 +119,6 @@ export default SettingsRoute;
 export const Route = createFileRoute('/settings')({
   component: SettingsRoute,
   validateSearch: (search: Record<string, unknown>) => ({
-    section: (search.section as SectionId) || undefined,
+    section: (search.section as string) in SECTIONS ? (search.section as SectionId) : undefined,
   }),
 });

@@ -47,9 +47,6 @@ export function ConnectionSection() {
   const [auth, setAuth] = useState<AuthState>(initialAuthState);
 
   useEffect(() => {
-    // Skip background refresh if we already know there's no cached connection
-    // and we're in loading state — we still need to check the backend.
-    // If cached, refresh silently in background to validate token.
     let cancelled = false;
     getConnection()
       .then((conn) => {

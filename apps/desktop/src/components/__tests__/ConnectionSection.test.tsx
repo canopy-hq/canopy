@@ -12,7 +12,11 @@ vi.mock('../../lib/github', () => ({
   GITHUB_CONNECTION_KEY: 'github:connection',
 }));
 
-vi.mock('@superagent/db', () => ({ setSetting: vi.fn() }));
+vi.mock('@superagent/db', () => ({
+  setSetting: vi.fn(),
+  getSetting: (_s: unknown[], _k: string, fallback: unknown) => fallback,
+  getSettingCollection: () => ({ toArray: [] }),
+}));
 vi.mock('../../lib/toast', () => ({ showErrorToast: vi.fn() }));
 vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: vi.fn() }));
 
