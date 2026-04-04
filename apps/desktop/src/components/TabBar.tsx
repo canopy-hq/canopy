@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Plus, X } from 'lucide-react';
 import { tv } from 'tailwind-variants';
@@ -49,7 +49,7 @@ const closeButton = tv({
 });
 
 function useTabAgentStatus(tab: Tab): DotStatus {
-  const ptyIds = collectLeafPtyIds(tab.paneRoot);
+  const ptyIds = useMemo(() => collectLeafPtyIds(tab.paneRoot), [tab.paneRoot]);
   const agents = useAgents();
   let hasRunning = false;
   for (const id of ptyIds) {
@@ -130,6 +130,7 @@ const TabItemComponent = memo(
             void handleClose();
           }
         }}
+        title={tab.label}
       >
         {agentStatus !== 'idle' && !editing && <StatusDot status={agentStatus} size={8} />}
         {editing ? (
@@ -195,9 +196,13 @@ export function TabBar() {
   const allTabs = useTabs();
   const ui = useUiState();
   const activeContextId = ui.activeContextId;
-  const tabs = allTabs
-    .filter((t) => t.workspaceItemId === activeContextId)
-    .sort((a, b) => a.position - b.position);
+  const tabs = useMemo(
+    () =>
+      allTabs
+        .filter((t) => t.workspaceItemId === activeContextId)
+        .sort((a, b) => a.position - b.position),
+    [allTabs, activeContextId],
+  );
   const activeTabId = ui.activeTabId;
 
   const scrollRef = useRef<HTMLDivElement>(null);

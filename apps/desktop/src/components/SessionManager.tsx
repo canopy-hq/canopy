@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
+import { createPortal } from 'react-dom';
 
 import { closePty, listPtySessions } from '@superagent/terminal';
 import { useNavigate } from '@tanstack/react-router';
@@ -167,7 +168,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
     [onClose],
   );
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 bg-black/30"
       onClick={(e) => {
@@ -303,6 +304,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
           </div>
         </Dialog>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
