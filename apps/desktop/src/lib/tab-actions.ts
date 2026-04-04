@@ -1,8 +1,10 @@
 import {
   getTabCollection,
   getWorkspaceCollection,
+  getSettingCollection,
   uiCollection,
   getUiState,
+  getSetting,
   setSetting,
 } from '@superagent/db';
 
@@ -41,17 +43,34 @@ function storePaneCwd(paneId: string, workspaceItemId: string): void {
   if (cwd) setSetting(`cwd:${paneId}`, cwd);
 }
 
+function getNextTabIndex(): number {
+  const current = getSetting(getSettingCollection().toArray, 'tabIndexCounter', 0);
+  const next = (current as number) + 1;
+  setSetting('tabIndexCounter', next);
+  return next;
+}
+
 function makeTab(opts?: { workspaceItemId?: string; label?: string }): Tab {
   const id = crypto.randomUUID();
   const paneId = crypto.randomUUID();
   return {
     id,
-    label: opts?.label ?? 'Terminal',
+    label: opts?.label ?? `Terminal ${getNextTabIndex()}`,
+    labelIsManual: false,
     workspaceItemId: opts?.workspaceItemId ?? 'default',
     paneRoot: { type: 'leaf', id: paneId, ptyId: -1 },
     focusedPaneId: paneId,
     position: getTabCollection().toArray.length,
   };
+}
+
+export function renameTab(id: string, label: string, manual: boolean): void {
+  const trimmed = label.trim().slice(0, 20);
+  if (!trimmed) return;
+  getTabCollection().update(id, (draft) => {
+    draft.label = trimmed;
+    draft.labelIsManual = manual;
+  });
 }
 
 export function addTab(): void {

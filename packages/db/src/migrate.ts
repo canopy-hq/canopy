@@ -30,13 +30,20 @@ export async function runMigrations(): Promise<void> {
   await db.run(sql`
     CREATE TABLE IF NOT EXISTS tabs (
       id TEXT PRIMARY KEY,
-      label TEXT NOT NULL DEFAULT 'Terminal',
+      label TEXT NOT NULL DEFAULT 'Terminal 1',
+      label_is_manual INTEGER NOT NULL DEFAULT 0,
       workspace_item_id TEXT NOT NULL DEFAULT 'default',
       pane_root TEXT NOT NULL,
       focused_pane_id TEXT,
       position INTEGER NOT NULL DEFAULT 0
     )
   `);
+
+  // Idempotent column migration for existing databases
+  const tabCols = await db.all<{ name: string }>(sql`PRAGMA table_info(tabs)`);
+  if (!tabCols.some((c) => c.name === 'label_is_manual')) {
+    await db.run(sql`ALTER TABLE tabs ADD COLUMN label_is_manual INTEGER NOT NULL DEFAULT 0`);
+  }
 
   await db.run(sql`
     CREATE TABLE IF NOT EXISTS sessions (

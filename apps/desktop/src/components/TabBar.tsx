@@ -5,7 +5,7 @@ import { tv } from 'tailwind-variants';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
-import { addTab, closeTab, switchTab } from '../lib/tab-actions';
+import { addTab, closeTab, switchTab, renameTab } from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
 
 import type { DotStatus } from './StatusDot';
@@ -59,43 +59,100 @@ function TabItemComponent({
   onClose: () => void;
 }) {
   const agentStatus = useTabAgentStatus(tab);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const startEditing = useCallback(() => {
+    setDraft(tab.label);
+    setEditing(true);
+  }, [tab.label]);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.select();
+  }, [editing]);
+
+  const confirmRename = useCallback(() => {
+    const trimmed = draft.trim();
+    if (trimmed) renameTab(tab.id, trimmed, true);
+    setEditing(false);
+  }, [draft, tab.id]);
+
+  const cancelRename = useCallback(() => {
+    setEditing(false);
+  }, []);
 
   return (
     <button
       className={tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}
-      onClick={onSwitch}
+      onClick={editing ? undefined : onSwitch}
       onMouseDown={(e) => {
         if (e.button === 1) {
           e.preventDefault();
           onClose();
         }
       }}
-      title={tab.label}
+      title={editing ? undefined : tab.label}
     >
-      {agentStatus !== 'idle' && <StatusDot status={agentStatus} size={8} />}
-      <span className="flex-1 truncate text-left text-xs">{tab.label}</span>
-      {agentStatus === 'waiting' && (
+      {agentStatus !== 'idle' && !editing && <StatusDot status={agentStatus} size={8} />}
+      {editing ? (
+        <input
+          ref={inputRef}
+          className="min-w-0 flex-1 bg-transparent text-xs text-text-primary outline-none"
+          value={draft}
+          maxLength={20}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              e.stopPropagation();
+              confirmRename();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              e.stopPropagation();
+              cancelRename();
+            } else {
+              e.stopPropagation();
+            }
+          }}
+          onBlur={confirmRename}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <span
+          className="flex-1 truncate text-left text-xs"
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            startEditing();
+          }}
+        >
+          {tab.label}
+        </span>
+      )}
+      {agentStatus === 'waiting' && !editing && (
         <span className="rounded-full bg-[rgba(251,191,36,0.25)] px-2 py-1 text-[10px] leading-none font-normal text-(--agent-waiting)">
           input
         </span>
       )}
-      <span
-        role="button"
-        tabIndex={-1}
-        className={closeButton({ active: isActive })}
-        onClick={(e) => {
-          e.stopPropagation();
-          onClose();
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
+      {!editing && (
+        <span
+          role="button"
+          tabIndex={-1}
+          className={closeButton({ active: isActive })}
+          onClick={(e) => {
             e.stopPropagation();
             onClose();
-          }
-        }}
-      >
-        x
-      </span>
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.stopPropagation();
+              onClose();
+            }
+          }}
+        >
+          x
+        </span>
+      )}
     </button>
   );
 }

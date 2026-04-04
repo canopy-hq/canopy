@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useMemo } from 'react';
+import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 
 import {
   getSettingCollection,
@@ -10,7 +10,7 @@ import {
 import { useTerminal, getPtyCwd } from '@superagent/terminal';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
-import { setFocus, setPtyId } from '../lib/tab-actions';
+import { setFocus, setPtyId, renameTab } from '../lib/tab-actions';
 import { PaneHeader } from './PaneHeader';
 
 import type { PaneNode } from '../lib/pane-tree-ops';
@@ -180,7 +180,26 @@ function TerminalPaneInner({
   containerRef: React.RefObject<HTMLDivElement | null>;
   onPtySpawned: (id: number) => void;
 }) {
-  const termRef = useTerminal(containerRef, paneId, savedCwd, ptyId, isFocused, onPtySpawned);
+  const handleCommand = useCallback(
+    (cmd: string) => {
+      if (!isFocused) return;
+      const tab = getTabCollection().toArray.find((t) => containsPane(t.paneRoot, paneId));
+      if (tab && !tab.labelIsManual) {
+        renameTab(tab.id, cmd, false);
+      }
+    },
+    [paneId, isFocused],
+  );
+
+  const termRef = useTerminal(
+    containerRef,
+    paneId,
+    savedCwd,
+    ptyId,
+    isFocused,
+    onPtySpawned,
+    handleCommand,
+  );
 
   const agents = useAgents();
   const agent = agents.find((a) => a.ptyId === ptyId);
