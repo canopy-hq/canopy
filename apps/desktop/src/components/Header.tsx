@@ -53,7 +53,6 @@ export function Header({ onSessionsClick }: HeaderProps = {}) {
 
       {/* Right zone */}
       <div className="flex h-full items-center gap-2 px-3">
-        <GitHubStatus />
         <DevBranchBadge />
         <Tooltip label="PTY Sessions" placement="left">
           <Button variant="ghost" iconOnly onPress={onSessionsClick} aria-label="PTY sessions">
@@ -75,6 +74,7 @@ export function Header({ onSessionsClick }: HeaderProps = {}) {
             </svg>
           </Button>
         </Tooltip>
+        <GitHubStatus />
       </div>
     </header>
   );
