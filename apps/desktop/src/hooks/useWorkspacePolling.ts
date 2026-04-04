@@ -4,7 +4,7 @@ import { getWorkspaceCollection } from '@superagent/db';
 
 import { listBranches, pollAllWorkspaceStates } from '../lib/git';
 
-import type { DiffStat, WorkspacePollState } from '../lib/git';
+import type { BranchInfo, DiffStat, WorkspacePollState } from '../lib/git';
 import type { Workspace } from '@superagent/db';
 
 const POLL_MS = 3_000;
@@ -13,6 +13,40 @@ export function getInterval(noChangeCount: number): number {
   if (noChangeCount >= 10) return 15_000;
   if (noChangeCount >= 5) return 10_000;
   return POLL_MS;
+}
+
+/**
+ * Merge fresh branches into the existing draft array in-place.
+ * Updates changed fields on existing branches, appends new ones, removes deleted ones.
+ * Minimizes object identity changes to prevent unnecessary React re-renders.
+ */
+export function mergeBranches(draft: BranchInfo[], fresh: BranchInfo[]): void {
+  const freshByName = new Map(fresh.map((b) => [b.name, b]));
+  const draftByName = new Map(draft.map((b) => [b.name, b]));
+
+  // Update existing branches in place
+  for (const existing of draft) {
+    const updated = freshByName.get(existing.name);
+    if (updated) {
+      existing.is_head = updated.is_head;
+      existing.ahead = updated.ahead;
+      existing.behind = updated.behind;
+    }
+  }
+
+  // Remove deleted branches (iterate backwards to safely splice)
+  for (let i = draft.length - 1; i >= 0; i--) {
+    if (!freshByName.has(draft[i].name)) {
+      draft.splice(i, 1);
+    }
+  }
+
+  // Append new branches
+  for (const b of fresh) {
+    if (!draftByName.has(b.name)) {
+      draft.push(b);
+    }
+  }
 }
 
 /** Shallow-compare two nested diff stats maps. */
@@ -214,7 +248,7 @@ export function useWorkspacePolling(
                   // Full refresh: get ahead/behind for the changed repo
                   const fullBranches = await listBranches(wsPath);
                   collection.update(wsId, (draft) => {
-                    draft.branches = fullBranches;
+                    mergeBranches(draft.branches, fullBranches);
                     // Update worktree branch names on existing entries only (preserve list + labels)
                     const wtBranches = mergedBranch[wsId]?.worktree_branches;
                     if (wtBranches) {
