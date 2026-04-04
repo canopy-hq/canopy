@@ -7,7 +7,6 @@ import { ensureGhosttyInit, isGhosttyReady } from './ghostty-init';
 import {
   writeToPty,
   resizePty,
-  closePty,
   connectPtyOutput,
   connectPtyOutputFresh,
   spawnTerminal,
@@ -177,9 +176,6 @@ export function useTerminal(
       wrapper.appendChild(overlay);
 
       term.open(wrapper);
-      // Clear any stale WASM state that may persist from a previously disposed
-      // terminal instance (ghostty-web WASM allocator may reuse heap memory).
-      term.reset();
       let overlayRemoved = false;
       removeOverlay = () => {
         if (!overlayRemoved) {
@@ -287,9 +283,10 @@ export function useTerminal(
         void spawnTerminal(paneId, savedCwd, term.rows, term.cols).then(
           ({ ptyId: newId, isNew }) => {
             if (spawnCancelled) {
-              // Component unmounted while spawn was in-flight — the PTY now
-              // exists in the daemon with no frontend owner. Clean it up.
-              void closePty(newId);
+              // Component unmounted while spawn was in-flight. Don't close the
+              // PTY — the daemon deduplicates by paneId, so a StrictMode remount
+              // (or tab revisit) will reuse it. Orphan PTYs from true unmounts
+              // are rare and can be cleaned up via the Session Manager.
               return;
             }
             ptrRef.ptyId = newId;
