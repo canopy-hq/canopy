@@ -1,5 +1,7 @@
 import { useCallback, useRef } from 'react';
 
+import { getUiState } from '@superagent/db';
+
 import { useUiState, useWorkspaces } from '../hooks/useCollections';
 import { importRepo, setSidebarWidth, persistSidebarWidth } from '../lib/workspace-actions';
 import { WorkspaceTree } from './WorkspaceTree';
@@ -68,10 +70,9 @@ export function Sidebar() {
         setSidebarWidth(newWidth);
       };
 
-      const handleMouseUp = (ev: MouseEvent) => {
+      const handleMouseUp = () => {
         if (dragRef.current) {
-          const finalWidth = dragRef.current.startWidth + (ev.clientX - dragRef.current.startX);
-          persistSidebarWidth(finalWidth);
+          persistSidebarWidth(getUiState().sidebarWidth);
         }
         dragRef.current = null;
         document.removeEventListener('mousemove', handleMouseMove);
