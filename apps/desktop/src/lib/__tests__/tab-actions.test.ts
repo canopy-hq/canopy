@@ -16,8 +16,6 @@ let _uiState: UiState = {
   contextActiveTabIds: {},
 };
 
-const mockSetSetting = vi.fn();
-
 vi.mock('@superagent/db', () => ({
   getTabCollection: () => ({
     get toArray() {
@@ -40,7 +38,6 @@ vi.mock('@superagent/db', () => ({
     },
   },
   getUiState: () => _uiState,
-  setSetting: (...args: unknown[]) => mockSetSetting(...args),
 }));
 
 // Import AFTER mock is set up
@@ -69,7 +66,6 @@ function resetState() {
     activeContextId: '',
     contextActiveTabIds: {},
   };
-  mockSetSetting.mockClear();
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -226,7 +222,12 @@ describe('setPtyIdInTab', () => {
 
   it('does not affect sibling tabs', () => {
     const tab1 = makeTab({ id: 'tab-1', workspaceItemId: 'ctx-a' });
-    const tab2 = makeTab({ id: 'tab-2', workspaceItemId: 'ctx-a', paneRoot: { type: 'leaf', id: 'pane-2', ptyId: -1 }, focusedPaneId: 'pane-2' });
+    const tab2 = makeTab({
+      id: 'tab-2',
+      workspaceItemId: 'ctx-a',
+      paneRoot: { type: 'leaf', id: 'pane-2', ptyId: -1 },
+      focusedPaneId: 'pane-2',
+    });
     _tabs.push(tab1, tab2);
 
     setPtyIdInTab('tab-1', 'pane-1', 55);
