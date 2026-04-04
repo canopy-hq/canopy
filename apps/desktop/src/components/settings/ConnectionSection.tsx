@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 
-import { setSetting } from '@superagent/db';
+import { getSetting, getSettingCollection, setSetting } from '@superagent/db';
 import { openUrl } from '@tauri-apps/plugin-opener';
 
 import {
@@ -30,10 +30,26 @@ type AuthState =
   | { status: 'connecting'; deviceCode: DeviceCodeInfo }
   | { status: 'connected'; connection: GitHubConnection };
 
+function getCachedConnection(): GitHubConnection | null {
+  return getSetting<GitHubConnection | null>(
+    getSettingCollection().toArray,
+    GITHUB_CONNECTION_KEY,
+    null,
+  );
+}
+
+function initialAuthState(): AuthState {
+  const cached = getCachedConnection();
+  return cached ? { status: 'connected', connection: cached } : { status: 'loading' };
+}
+
 export function ConnectionSection() {
-  const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
+  const [auth, setAuth] = useState<AuthState>(initialAuthState);
 
   useEffect(() => {
+    // Skip background refresh if we already know there's no cached connection
+    // and we're in loading state — we still need to check the backend.
+    // If cached, refresh silently in background to validate token.
     let cancelled = false;
     getConnection()
       .then((conn) => {
