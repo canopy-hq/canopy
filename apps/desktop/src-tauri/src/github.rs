@@ -1,6 +1,9 @@
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
+use tokio::sync::Semaphore;
 
 // ── Constants ─────────────────────────────────────────────────────────
 
@@ -140,6 +143,209 @@ pub fn parse_search_results(response: &serde_json::Value, alias: &str) -> Vec<Pr
         .collect()
 }
 
+// ── PR Status command ────────────────────────────────────────────────────────
+
+const MAX_ALIASES_PER_REQUEST: usize = 8;
+
+/// Build one GraphQL query body containing multiple aliased search calls.
+fn build_aliased_graphql(alias_queries: &[(String, String)]) -> String {
+    let mut body = String::from("{ ");
+    for (alias, search_query) in alias_queries {
+        let escaped = search_query.replace('"', "\\\"");
+        body.push_str(&format!(
+            r#"{alias}: search(query: "{escaped}", type: ISSUE, first: 100) {{ edges {{ node {{ ... on PullRequest {{ number state headRefName url isDraft }} }} }} }} "#
+        ));
+    }
+    body.push('}');
+    body
+}
+
+async fn execute_graphql(
+    client: &reqwest::Client,
+    token: &str,
+    query: &str,
+) -> Result<serde_json::Value, String> {
+    let body = serde_json::json!({ "query": query });
+    let resp = client
+        .post("https://api.github.com/graphql")
+        .header("Authorization", format!("Bearer {token}"))
+        .header("Accept", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("GraphQL request failed: {e}"))?;
+
+    let status = resp.status();
+    if !status.is_success() {
+        return Err(format!("GraphQL HTTP {}", status.as_u16()));
+    }
+
+    resp.json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("GraphQL parse error: {e}"))
+}
+
+async fn execute_graphql_with_retry(
+    client: &reqwest::Client,
+    token: &str,
+    query: &str,
+) -> Result<serde_json::Value, String> {
+    match execute_graphql(client, token, query).await {
+        Ok(v) => Ok(v),
+        Err(e) => {
+            if e.contains("403") || e.contains("429") || e.contains("request failed") {
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                execute_graphql(client, token, query).await
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn github_get_pr_statuses(
+    repo_paths: Vec<String>,
+    http: tauri::State<'_, HttpClient>,
+) -> Result<HashMap<String, Vec<PrInfo>>, String> {
+    let token = match load_token()? {
+        Some(t) => t,
+        None => return Ok(HashMap::new()),
+    };
+
+    // Phase 1: Parse remotes → group by owner/repo
+    let mut owner_repo_map: HashMap<String, Vec<(String, Vec<String>)>> = HashMap::new();
+    let sem = Arc::new(Semaphore::new(6));
+    let mut handles = Vec::new();
+
+    for path in &repo_paths {
+        let path = path.clone();
+        let sem = sem.clone();
+        handles.push(tokio::spawn(async move {
+            let _permit = sem.acquire().await.map_err(|e| e.to_string())?;
+            let p = path.clone();
+            let result = tokio::task::spawn_blocking(move || {
+                let github_remote = crate::git::parse_github_remote(&p);
+                let branches: Vec<String> = if let Ok(repo) = git2::Repository::open(&p) {
+                    repo.branches(Some(git2::BranchType::Local))
+                        .ok()
+                        .map(|iter| {
+                            iter.filter_map(|b| b.ok())
+                                .filter_map(|(b, _)| b.name().ok()?.map(String::from))
+                                .collect()
+                        })
+                        .unwrap_or_default()
+                } else {
+                    Vec::new()
+                };
+                (github_remote, branches)
+            })
+            .await
+            .map_err(|e| e.to_string())?;
+            Ok::<_, String>((path, result))
+        }));
+    }
+
+    for handle in handles {
+        match handle.await {
+            Ok(Ok((path, (Some((owner, repo)), branches)))) => {
+                let key = format!("{owner}/{repo}");
+                owner_repo_map.entry(key).or_default().push((path, branches));
+            }
+            Ok(Ok(_)) => {}
+            Ok(Err(e)) => eprintln!("github_get_pr_statuses: remote parse failed: {e}"),
+            Err(e) => eprintln!("github_get_pr_statuses: task panicked: {e}"),
+        }
+    }
+
+    if owner_repo_map.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    // Phase 2: Build search queries → aliased GraphQL batches
+    let mut all_aliases: Vec<(String, String, String)> = Vec::new();
+
+    for (owner_repo, repo_entries) in &owner_repo_map {
+        let mut all_branches: Vec<String> = repo_entries
+            .iter()
+            .flat_map(|(_, branches)| branches.iter().cloned())
+            .collect();
+        all_branches.sort();
+        all_branches.dedup();
+
+        let queries = build_search_queries(owner_repo, &all_branches);
+        for query in queries {
+            let alias = format!("s{}", all_aliases.len());
+            all_aliases.push((alias, query, owner_repo.clone()));
+        }
+    }
+
+    // Phase 3: Execute GraphQL
+    let gql_sem = Arc::new(Semaphore::new(2));
+    let mut gql_handles = Vec::new();
+
+    for chunk in all_aliases.chunks(MAX_ALIASES_PER_REQUEST) {
+        let alias_queries: Vec<(String, String)> = chunk
+            .iter()
+            .map(|(alias, query, _)| (alias.clone(), query.clone()))
+            .collect();
+        let aliases_in_chunk: Vec<(String, String)> = chunk
+            .iter()
+            .map(|(alias, _, owner_repo)| (alias.clone(), owner_repo.clone()))
+            .collect();
+        let client = http.0.clone();
+        let token = token.clone();
+        let sem = gql_sem.clone();
+
+        gql_handles.push(tokio::spawn(async move {
+            let _permit = sem.acquire().await.map_err(|e| e.to_string())?;
+            let query = build_aliased_graphql(&alias_queries);
+            let response = execute_graphql_with_retry(&client, &token, &query).await?;
+
+            let mut prs_by_owner_repo: HashMap<String, Vec<PrInfo>> = HashMap::new();
+            for (alias, owner_repo) in &aliases_in_chunk {
+                let prs = parse_search_results(&response, alias);
+                prs_by_owner_repo.entry(owner_repo.clone()).or_default().extend(prs);
+            }
+            Ok::<_, String>(prs_by_owner_repo)
+        }));
+    }
+
+    // Phase 4: Collect and map back to repo_paths
+    let mut prs_by_owner_repo: HashMap<String, Vec<PrInfo>> = HashMap::new();
+    for handle in gql_handles {
+        match handle.await {
+            Ok(Ok(batch)) => {
+                for (key, prs) in batch {
+                    prs_by_owner_repo.entry(key).or_default().extend(prs);
+                }
+            }
+            Ok(Err(e)) => eprintln!("github_get_pr_statuses: GraphQL request failed: {e}"),
+            Err(e) => eprintln!("github_get_pr_statuses: task panicked: {e}"),
+        }
+    }
+
+    let mut result: HashMap<String, Vec<PrInfo>> = HashMap::new();
+    for (owner_repo, repo_entries) in &owner_repo_map {
+        if let Some(all_prs) = prs_by_owner_repo.get(owner_repo) {
+            for (repo_path, branches) in repo_entries {
+                let branch_set: std::collections::HashSet<&str> =
+                    branches.iter().map(|s| s.as_str()).collect();
+                let matching: Vec<PrInfo> = all_prs
+                    .iter()
+                    .filter(|pr| branch_set.contains(pr.branch.as_str()))
+                    .cloned()
+                    .collect();
+                if !matching.is_empty() {
+                    result.insert(repo_path.clone(), matching);
+                }
+            }
+        }
+    }
+
+    Ok(result)
+}
+
 // ── Keychain helpers (via `security` CLI to avoid per-binary ACL prompts) ─
 
 fn store_token(token: &str) -> Result<(), String> {
@@ -252,7 +458,7 @@ pub async fn github_start_device_flow(http: tauri::State<'_, HttpClient>) -> Res
     let resp = http.0
         .post("https://github.com/login/device/code")
         .header("Accept", "application/json")
-        .form(&[("client_id", cid.as_str()), ("scope", "repo:status read:user")])
+        .form(&[("client_id", cid.as_str()), ("scope", "repo read:user")])
         .send()
         .await
         .map_err(|e| format!("device flow request failed: {e}"))?;
