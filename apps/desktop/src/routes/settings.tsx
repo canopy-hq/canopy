@@ -67,7 +67,7 @@ function SettingsRoute() {
 
         {/* Back link */}
         <button
-          className="flex items-center gap-1.5 px-5 pt-1 pb-0.5 text-[12px] text-text-muted transition-colors hover:text-text-primary"
+          className="flex items-center gap-1.5 px-5 py-2 text-[13px] text-text-muted transition-colors hover:text-text-primary"
           onClick={handleBack}
           aria-label="Back to app"
         >
