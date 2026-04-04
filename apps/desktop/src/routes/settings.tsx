@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
+import { getUiState } from '@superagent/db';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { ChevronLeft, Palette, GitBranch } from 'lucide-react';
 import { tv } from 'tailwind-variants';
@@ -44,17 +45,22 @@ function SettingsRoute() {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<SectionId>('appearance');
 
+  const navigateBack = useCallback(() => {
+    const { activeContextId } = getUiState();
+    if (activeContextId) {
+      void navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: activeContextId } });
+    } else {
+      void navigate({ to: '/' });
+    }
+  }, [navigate]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') void navigate({ to: '/' });
+      if (e.key === 'Escape') navigateBack();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [navigate]);
-
-  const handleBack = useCallback(() => {
-    void navigate({ to: '/' });
-  }, [navigate]);
+  }, [navigateBack]);
 
   const ActiveComponent = SECTIONS[activeSection];
 
@@ -68,7 +74,7 @@ function SettingsRoute() {
         {/* Back link */}
         <button
           className="flex items-center gap-1.5 px-5 py-2 text-[13px] text-text-muted transition-colors hover:text-text-primary"
-          onClick={handleBack}
+          onClick={navigateBack}
           aria-label="Back to app"
         >
           <ChevronLeft size={14} strokeWidth={1.8} />

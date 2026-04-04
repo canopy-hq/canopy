@@ -14,6 +14,7 @@ vi.mock('@superagent/db', () => ({
   setSetting: vi.fn(),
   getSetting: (_s: unknown[], _k: string, fallback: unknown) => fallback,
   getSettingCollection: () => ({ toArray: [] }),
+  getUiState: () => ({ activeContextId: 'ws-1' }),
 }));
 
 vi.mock('@tanstack/react-db', () => ({ useLiveQuery: () => ({ data: [] }) }));
@@ -62,6 +63,9 @@ describe('Settings route', () => {
   it('navigates home on back link click', () => {
     const { getByLabelText } = render(<SettingsRoute />);
     fireEvent.click(getByLabelText('Back to app'));
-    expect(mockNavigate).toHaveBeenCalledWith({ to: '/' });
+    expect(mockNavigate).toHaveBeenCalledWith({
+      to: '/workspaces/$workspaceId',
+      params: { workspaceId: 'ws-1' },
+    });
   });
 });
