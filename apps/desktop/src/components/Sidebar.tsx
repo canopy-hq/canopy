@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { Plus } from 'lucide-react';
 
@@ -50,6 +50,13 @@ export function Sidebar() {
     }
   }, []);
 
+  // Clean up forced cursor if component unmounts mid-drag
+  useEffect(() => {
+    return () => {
+      if (dragRef.current) document.body.style.cursor = '';
+    };
+  }, []);
+
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
@@ -93,7 +100,7 @@ export function Sidebar() {
         </div>
       </div>
       <div
-        className="relative w-px shrink-0 cursor-col-resize bg-border transition-colors after:absolute after:inset-y-0 after:-left-1 after:w-3 after:content-[''] hover:bg-accent"
+        className="relative w-px shrink-0 cursor-col-resize bg-border transition-colors after:absolute after:inset-y-0 after:-left-1 after:w-3 after:cursor-col-resize after:content-[''] hover:bg-accent"
         onMouseDown={handleMouseDown}
       />
     </div>

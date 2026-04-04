@@ -191,8 +191,8 @@ const repoHeader = tv({
   base: 'group flex items-center gap-[6px] border-l-[3px] py-[6px] pr-[6px] pl-[12px]',
   variants: {
     selected: {
-      true: 'border-accent bg-[rgba(59,130,246,0.04)]',
-      false: 'border-transparent hover:bg-[rgba(59,130,246,0.04)]',
+      true: 'border-accent bg-accent/[0.04]',
+      false: 'border-transparent hover:bg-accent/[0.04]',
     },
   },
   defaultVariants: { selected: false },

@@ -182,6 +182,7 @@ const TabItemComponent = memo(
             placement="bottom"
           >
             <Button
+              elementType="span"
               iconOnly
               variant="ghost"
               tabIndex={-1}
