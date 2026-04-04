@@ -28,10 +28,17 @@ const port = await new Promise<number>((resolve, reject) => {
 // Forward remaining Vite output
 vite.stdout!.on('data', (chunk: Buffer) => process.stdout.write(chunk));
 
+// Resolve the codesign runner script (signs dev binary to prevent Keychain prompts)
+const repoRoot = resolve(desktopDir, '../..');
+const codesignRunner = resolve(repoRoot, 'scripts/cargo-codesign.sh');
+
+// Use the codesign runner if it exists and is executable, otherwise plain cargo
+const runnerArgs = (await Bun.file(codesignRunner).exists()) ? ['--runner', codesignRunner] : [];
+
 // Start Tauri pointed at the actual port Vite bound.
 const tauri = spawn(
   'tauri',
-  ['dev', '--config', `{"build":{"devUrl":"http://localhost:${port}"}}`],
+  ['dev', ...runnerArgs, '--config', `{"build":{"devUrl":"http://localhost:${port}"}}`],
   { stdio: 'inherit', env: process.env },
 );
 

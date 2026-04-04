@@ -70,6 +70,7 @@ export function setSetting(key: string, value: unknown) {
   const existing = collection.toArray.find((s) => s.key === key);
   const encoded = JSON.stringify(value);
   if (existing) {
+    if (existing.value === encoded) return;
     collection.update(key, (draft) => {
       draft.value = encoded;
     });

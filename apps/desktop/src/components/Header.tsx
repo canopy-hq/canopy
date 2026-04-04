@@ -1,5 +1,6 @@
 import { toggleSidebar } from '../lib/workspace-actions';
 import { DevBranchBadge } from './DevBranchBadge';
+import { GitHubStatus } from './GitHubStatus';
 import { Button, Kbd, Tooltip } from './ui';
 
 interface HeaderProps {
@@ -73,6 +74,7 @@ export function Header({ onSessionsClick }: HeaderProps = {}) {
             </svg>
           </Button>
         </Tooltip>
+        <GitHubStatus />
       </div>
     </header>
   );

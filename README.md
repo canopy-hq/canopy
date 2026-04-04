@@ -16,6 +16,17 @@ brew install sccache
 
 sccache is configured in `.cargo/config.toml` and caches compiled artifacts across git worktrees, cutting rebuild times by ~50%. No extra setup needed — Cargo picks it up automatically.
 
+### macOS Keychain (code signing)
+
+The app stores GitHub tokens in the macOS Keychain. Unsigned dev builds trigger a system permission prompt on every launch. To fix this, create a local self-signed code-signing certificate (one-time):
+
+```bash
+chmod +x scripts/setup-dev-codesign.sh scripts/cargo-codesign.sh
+./scripts/setup-dev-codesign.sh
+```
+
+This creates a "Superagent Dev" certificate in your login keychain, trusted only for code signing — no impact on other apps. After setup, `bun run desktop:dev` automatically codesigns each build via `scripts/cargo-codesign.sh`.
+
 ## Commands
 
 ```bash
