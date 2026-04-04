@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 
 import { getSetting, getSettingCollection, setSetting } from '@superagent/db';
+import { useLiveQuery } from '@tanstack/react-db';
 import { openUrl } from '@tauri-apps/plugin-opener';
 
+import { WORKTREE_BASE_DIR_KEY } from '../../lib/git';
 import {
   getConnection,
   disconnect,
@@ -100,17 +102,68 @@ export function ConnectionSection() {
   }, []);
 
   return (
+    <div className="space-y-8">
+      <section>
+        <h2 className="mb-1 text-[13px] font-semibold text-text-primary">GitHub</h2>
+        <p className="mb-4 text-[12px] text-text-muted">
+          Connect your GitHub account for PR status, CI checks, and more.
+        </p>
+        <GitHubAuth
+          auth={auth}
+          onConnect={handleConnect}
+          onDisconnect={handleDisconnect}
+          onCancel={handleCancel}
+        />
+      </section>
+      <WorktreeBaseDir />
+    </div>
+  );
+}
+
+const DEFAULT_WORKTREE_BASE = '~/.superagent/worktrees';
+
+function WorktreeBaseDir() {
+  const { data: settings = [] } = useLiveQuery(() => getSettingCollection());
+  const currentDir = getSetting<string>(settings, WORKTREE_BASE_DIR_KEY, DEFAULT_WORKTREE_BASE);
+
+  const handleChoose = useCallback(async () => {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: 'Select Worktree Base Directory',
+      defaultPath: currentDir.startsWith('~') ? undefined : currentDir,
+    });
+    if (selected) {
+      setSetting(WORKTREE_BASE_DIR_KEY, selected);
+    }
+  }, [currentDir]);
+
+  const handleReset = useCallback(() => {
+    setSetting(WORKTREE_BASE_DIR_KEY, DEFAULT_WORKTREE_BASE);
+  }, []);
+
+  const isDefault = currentDir === DEFAULT_WORKTREE_BASE;
+
+  return (
     <section>
-      <h2 className="mb-1 text-[13px] font-semibold text-text-primary">GitHub</h2>
-      <p className="mb-4 text-[12px] text-text-muted">
-        Connect your GitHub account for PR status, CI checks, and more.
+      <h2 className="mb-1 text-[13px] font-semibold text-text-primary">Worktree Base Directory</h2>
+      <p className="mb-3 text-[12px] text-text-muted">
+        New worktrees will be created inside this directory.
       </p>
-      <GitHubAuth
-        auth={auth}
-        onConnect={handleConnect}
-        onDisconnect={handleDisconnect}
-        onCancel={handleCancel}
-      />
+      <div className="flex items-center gap-2 rounded-lg bg-bg-secondary px-4 py-3">
+        <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-text-primary">
+          {currentDir}
+        </span>
+        <Button variant="ghost" size="sm" onPress={handleChoose}>
+          Browse...
+        </Button>
+        {!isDefault && (
+          <Button variant="ghost" size="sm" onPress={handleReset}>
+            Reset
+          </Button>
+        )}
+      </div>
     </section>
   );
 }

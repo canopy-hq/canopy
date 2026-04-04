@@ -1,3 +1,4 @@
+import { getSetting, getSettingCollection } from '@superagent/db';
 import { invoke } from '@tauri-apps/api/core';
 
 export interface BranchInfo {
@@ -108,7 +109,15 @@ export function sanitizeWorktreeName(name: string): string {
   return name.trim().replace(/[\s_/]+/g, '-');
 }
 
-/** Build the default worktree disk path for a given workspace + worktree name. */
+export const WORKTREE_BASE_DIR_KEY = 'worktreeBaseDir';
+const DEFAULT_WORKTREE_BASE = '~/.superagent/worktrees';
+
+/** Build the worktree disk path, using the user-configured base dir or the default. */
 export function buildWorktreePath(workspaceName: string, wtName: string): string {
-  return `~/.superagent/worktrees/${workspaceName}-${wtName}`;
+  const baseDir = getSetting<string>(
+    getSettingCollection().toArray,
+    WORKTREE_BASE_DIR_KEY,
+    DEFAULT_WORKTREE_BASE,
+  );
+  return `${baseDir}/${workspaceName}-${wtName}`;
 }

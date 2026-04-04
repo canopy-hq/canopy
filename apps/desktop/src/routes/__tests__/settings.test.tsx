@@ -45,9 +45,9 @@ describe('Settings route', () => {
     expect(getByText('Appearance')).toBeInTheDocument();
   });
 
-  it('renders Git nav item', () => {
+  it('renders Git & Worktrees nav item', () => {
     const { getByText } = render(<SettingsRoute />);
-    expect(getByText('Git')).toBeInTheDocument();
+    expect(getByText('Git & Worktrees')).toBeInTheDocument();
   });
 
   it('shows AppearanceSection content by default', () => {
@@ -55,9 +55,9 @@ describe('Settings route', () => {
     expect(getByText('Theme')).toBeInTheDocument();
   });
 
-  it('navigates to Git section when Git is clicked', () => {
+  it('navigates to Git section when Git & Worktrees is clicked', () => {
     const { getByText } = render(<SettingsRoute />);
-    fireEvent.click(getByText('Git'));
+    fireEvent.click(getByText('Git & Worktrees'));
     expect(mockNavigate).toHaveBeenCalledWith({ to: '/settings', search: { section: 'git' } });
   });
 

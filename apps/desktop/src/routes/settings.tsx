@@ -23,7 +23,7 @@ interface NavGroup {
 
 const NAV: NavGroup[] = [
   { label: 'Personal', items: [{ id: 'appearance', label: 'Appearance', icon: Palette }] },
-  { label: 'Editor & Workflow', items: [{ id: 'git', label: 'Git', icon: GitBranch }] },
+  { label: 'Editor & Workflow', items: [{ id: 'git', label: 'Git & Worktrees', icon: GitBranch }] },
 ];
 
 const SECTIONS: Record<SectionId, () => React.JSX.Element> = {
