@@ -41,7 +41,8 @@
   --color-git-behind: var(--git-behind);
   --color-destructive: var(--destructive);
 
-  /* UI text size scale */
+  /* UI text size scale — "ui-" prefix avoids collisions with Tailwind's built-in
+     text-xs/sm/base/lg names (which map to different sizes, e.g. text-xs = 12px). */
   --text-2xs: 9px;
   --text-ui-xs: 10px;
   --text-ui-sm: 11px;
