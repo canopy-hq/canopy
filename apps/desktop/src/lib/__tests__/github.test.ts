@@ -3,7 +3,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockInvoke = vi.fn();
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...args: unknown[]) => mockInvoke(...args) }));
 
-import { startDeviceFlow, pollToken, getConnection, cancelPoll, disconnect } from '../github';
+import {
+  startDeviceFlow,
+  pollToken,
+  getConnection,
+  cancelPoll,
+  disconnect,
+  getPrStatuses,
+} from '../github';
 
 describe('github', () => {
   beforeEach(() => {
@@ -58,5 +65,25 @@ describe('github', () => {
 
     await disconnect();
     expect(mockInvoke).toHaveBeenCalledWith('github_disconnect');
+  });
+
+  it('getPrStatuses calls invoke with repo paths', async () => {
+    const response = {
+      '/path/to/repo': [
+        {
+          branch: 'feat/test',
+          number: 42,
+          state: 'OPEN',
+          url: 'https://github.com/nept/superagent/pull/42',
+        },
+      ],
+    };
+    mockInvoke.mockResolvedValue(response);
+
+    const result = await getPrStatuses(['/path/to/repo']);
+    expect(mockInvoke).toHaveBeenCalledWith('github_get_pr_statuses', {
+      repoPaths: ['/path/to/repo'],
+    });
+    expect(result).toEqual(response);
   });
 });

@@ -38,3 +38,18 @@ export function cancelPoll(): Promise<void> {
 export function disconnect(): Promise<void> {
   return invoke<void>('github_disconnect');
 }
+
+// ── PR Status types ──────────────────────────────────────────────────
+
+export type PrState = 'OPEN' | 'DRAFT' | 'MERGED' | 'CLOSED';
+
+export interface PrInfo {
+  branch: string;
+  number: number;
+  state: PrState;
+  url: string;
+}
+
+export function getPrStatuses(repoPaths: string[]): Promise<Record<string, PrInfo[]>> {
+  return invoke<Record<string, PrInfo[]>>('github_get_pr_statuses', { repoPaths });
+}
