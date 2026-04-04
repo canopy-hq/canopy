@@ -225,22 +225,19 @@ const RepoHeader = memo(
         >
           {workspace.name}
         </span>
-        {/* Collapsed: show inline branch + count */}
-        {!workspace.expanded && (
-          <>
-            {agentSummary && agentSummary.length > 0 && (
-              <span className="ml-1 flex items-center gap-[3px]">
-                {agentSummary.slice(0, 3).map((status, i) => (
-                  <StatusDot key={i} status={status} size={5} />
-                ))}
-              </span>
-            )}
-            {childCount > 0 && (
-              <span className="rounded-lg bg-bg-tertiary px-[6px] py-px font-mono text-[11px] text-text-muted tabular-nums">
-                {childCount}
-              </span>
-            )}
-          </>
+        {/* Always show agent dots when expanded */}
+        {workspace.expanded && agentSummary && agentSummary.length > 0 && (
+          <span className="ml-1 flex items-center gap-[3px]">
+            {agentSummary.slice(0, 3).map((status, i) => (
+              <StatusDot key={i} status={status} size={5} />
+            ))}
+          </span>
+        )}
+        {/* Always show branch/worktree count */}
+        {childCount > 0 && (
+          <span className="rounded-lg bg-bg-tertiary px-[6px] py-px font-mono text-[11px] text-text-muted tabular-nums">
+            {childCount}
+          </span>
         )}
         {/* Collapse/expand chevron indicator */}
         <svg
