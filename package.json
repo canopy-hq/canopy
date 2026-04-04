@@ -10,7 +10,8 @@
     "desktop:build": "bun --filter desktop tauri build",
     "lint": "oxlint apps/ packages/",
     "format": "oxfmt apps/ packages/",
-    "postinstall": "lefthook install"
+    "postinstall": "lefthook install",
+    "db:reset": "trash ~/.superagent/superagent.db && echo 'Database reset. Restart the app to recreate.'"
   },
   "catalog": {
     "@tauri-apps/api": "^2.10.1",
