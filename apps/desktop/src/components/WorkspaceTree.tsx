@@ -37,15 +37,9 @@ const DiffPill = memo(function DiffPill({
   if (additions === 0 && deletions === 0) return null;
   return (
     <span className="inline-flex flex-shrink-0 gap-1 rounded bg-white/5 px-1.5 py-px text-[11px] font-medium whitespace-nowrap">
-      {additions > 0 && (
-        <span className="tabular-nums" style={{ color: 'var(--git-ahead)' }}>
-          +{additions}
-        </span>
-      )}
+      {additions > 0 && <span className="text-(--git-ahead) tabular-nums">+{additions}</span>}
       {deletions > 0 && (
-        <span className="tabular-nums" style={{ color: 'var(--git-behind)' }}>
-          &minus;{deletions}
-        </span>
+        <span className="text-(--git-behind) tabular-nums">&minus;{deletions}</span>
       )}
     </span>
   );
