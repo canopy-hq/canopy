@@ -7,6 +7,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { ChevronDown, ChevronRight, Laptop, FolderGit2, Plus } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
+import { makeWorkspacePaletteItem } from '../commands/workspace-commands';
 import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useCollections';
 import { usePageVisible } from '../hooks/usePageVisible';
 import { useWorkspacePolling } from '../hooks/useWorkspacePolling';
@@ -20,11 +21,11 @@ import {
   removeWorktree,
   renameWorktree,
 } from '../lib/workspace-actions';
+import { openWorkspacePalette } from '../lib/workspace-palette-bridge';
 import { CloseProjectModal } from './CloseProjectModal';
 import { RemoveWorktreeModal } from './RemoveWorktreeModal';
 import { StatusDot } from './StatusDot';
 import { Button, Tooltip } from './ui';
-import { WorkspacePalette } from './WorkspacePalette';
 
 import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
 import type { DotStatus } from './StatusDot';
@@ -350,8 +351,7 @@ function getRepoAgentSummary(
 
 export function WorkspaceTree() {
   const workspaces = useWorkspaces();
-  const { selectedItemId, sidebarVisible } = useUiState();
-  const [modalWorkspace, setModalWorkspace] = useState<Workspace | null>(null);
+  const { selectedItemId, activeContextId, sidebarVisible } = useUiState();
   const [closeTarget, setCloseTarget] = useState<Workspace | null>(null);
   const [removeWtTarget, setRemoveWtTarget] = useState<{
     workspaceId: string;
@@ -415,10 +415,11 @@ export function WorkspaceTree() {
             ws={ws}
             agentMap={agentMap}
             diffStats={diffStatsMap[ws.id]}
-            setModalWorkspace={setModalWorkspace}
+            onRequestOpenPalette={(ws) => openWorkspacePalette(makeWorkspacePaletteItem(ws))}
             onRequestClose={setCloseTarget}
             onRequestRemoveWt={(name) => setRemoveWtTarget({ workspaceId: ws.id, name })}
             selectedItemId={selectedItemId}
+            activeContextId={activeContextId}
             hasSeparator={i > 0}
           />
         ))}
@@ -446,13 +447,6 @@ export function WorkspaceTree() {
             hideWorktree(removeWtTarget.workspaceId, removeWtTarget.name);
             setRemoveWtTarget(null);
           }}
-        />
-      )}
-      {modalWorkspace && (
-        <WorkspacePalette
-          isOpen
-          onClose={() => setModalWorkspace(null)}
-          workspace={modalWorkspace}
         />
       )}
     </>
@@ -548,19 +542,21 @@ function RepoTreeItem({
   ws,
   agentMap,
   diffStats,
-  setModalWorkspace,
+  onRequestOpenPalette,
   onRequestClose,
   onRequestRemoveWt,
   selectedItemId,
+  activeContextId,
   hasSeparator,
 }: {
   ws: Workspace;
   agentMap: Record<string, DotStatus>;
   diffStats?: Record<string, DiffStat>;
-  setModalWorkspace: (ws: Workspace) => void;
+  onRequestOpenPalette: (ws: Workspace) => void;
   onRequestClose: (ws: Workspace) => void;
   onRequestRemoveWt: (name: string) => void;
   selectedItemId: string | null;
+  activeContextId: string;
   hasSeparator: boolean;
 }) {
   const agentSummary = useMemo(() => getRepoAgentSummary(ws, agentMap), [ws, agentMap]);
@@ -570,8 +566,8 @@ function RepoTreeItem({
   const wtMenuPos = useRef({ x: 0, y: 0 });
 
   const handlePlusClick = useCallback(() => {
-    setModalWorkspace(ws);
-  }, [ws, setModalWorkspace]);
+    onRequestOpenPalette(ws);
+  }, [ws, onRequestOpenPalette]);
 
   const handleRowClick = useCallback(() => {
     toggleExpanded(ws.id);
@@ -599,7 +595,7 @@ function RepoTreeItem({
             <RepoHeader
               workspace={ws}
               agentSummary={agentSummary}
-              isSelected={!!selectedItemId?.startsWith(ws.id)}
+              isSelected={!!selectedItemId?.startsWith(ws.id) || activeContextId.startsWith(ws.id)}
               onPlusClick={handlePlusClick}
               onRowClick={handleRowClick}
             />

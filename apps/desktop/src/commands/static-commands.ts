@@ -27,7 +27,7 @@ export function buildStaticCommands(navigate: Nav, uiState: UiState): CommandIte
     {
       id: 'action:add-project',
       label: 'Add Project',
-      category: 'action',
+      category: 'global',
       keywords: ['import', 'repository', 'repo', 'open', 'folder'],
       icon: 'folder',
       action: async ({ close }) => {
@@ -48,7 +48,7 @@ export function buildStaticCommands(navigate: Nav, uiState: UiState): CommandIte
     {
       id: 'action:toggle-sidebar',
       label: 'Toggle Sidebar',
-      category: 'action',
+      category: 'global',
       keywords: ['show', 'hide', 'sidebar', 'panel'],
       shortcut: '⌘B',
       icon: 'sidebar',
@@ -60,7 +60,7 @@ export function buildStaticCommands(navigate: Nav, uiState: UiState): CommandIte
     {
       id: 'action:settings',
       label: 'Open Settings',
-      category: 'action',
+      category: 'global',
       keywords: ['preferences', 'config', 'theme'],
       icon: 'settings',
       action: ({ close }) => {

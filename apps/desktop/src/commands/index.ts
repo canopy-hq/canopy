@@ -69,7 +69,7 @@ export function useAllCommands(): CommandItem[] {
   return useMemo(
     () => [
       ...buildStaticCommands(navigate, uiState),
-      ...buildWorkspaceCommands(workspaces, settings, navigate),
+      ...buildWorkspaceCommands(workspaces, settings, navigate, uiState.activeContextId),
       ...buildTabCommands(tabs, uiState, navigate, workspaces),
       ...buildAgentCommands(agents, tabs, workspaces, navigate),
       ...buildPtyCommands(ptySessions, tabs, workspaces, navigate),

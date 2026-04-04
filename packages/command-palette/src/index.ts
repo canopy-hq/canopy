@@ -1,4 +1,5 @@
-export { CommandMenu } from './CommandMenu';
+export { CommandMenu, Kbd } from './CommandMenu';
+export { fuzzyFilter, fuzzyScore } from './fuzzy';
 export type {
   CommandItem,
   CommandContext,
@@ -6,4 +7,5 @@ export type {
   CommandIcon,
   CommandMenuProps,
   Nav,
+  PanelContext,
 } from './types';
