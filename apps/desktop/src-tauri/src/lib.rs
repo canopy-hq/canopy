@@ -1,6 +1,7 @@
 mod daemon_client;
 mod agent_watcher;
 mod git;
+mod github;
 mod menu;
 mod pty;
 
@@ -21,6 +22,7 @@ fn get_db_path() -> Result<String, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_sql::Builder::new().build())
@@ -54,6 +56,8 @@ pub fn run() {
             app.manage(DaemonClient::new(socket));
             app.manage(Mutex::new(pty::PtyState::new()));
             app.manage(Mutex::new(agent_watcher::AgentWatcherState::new()));
+            app.manage(github::PollCancelFlag(std::sync::atomic::AtomicBool::new(false)));
+            app.manage(github::HttpClient(github::build_http_client()));
 
             Ok(())
         })
@@ -81,6 +85,11 @@ pub fn run() {
             agent_watcher::start_agent_watching,
             agent_watcher::stop_agent_watching,
             agent_watcher::toggle_agent_manual,
+            github::github_start_device_flow,
+            github::github_poll_token,
+            github::github_get_connection,
+            github::github_cancel_poll,
+            github::github_disconnect,
         ])
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
