@@ -4,6 +4,8 @@ import {
   uiCollection,
   getUiState,
   setSetting,
+  insertTabAndActivate,
+  deleteTabAndUpdateActive,
 } from '@superagent/db';
 
 import {
@@ -59,10 +61,7 @@ export function addTab(): void {
   if (!ui.activeContextId) return;
   const tab = makeTab({ workspaceItemId: ui.activeContextId });
   storePaneCwd(tab.paneRoot.id, ui.activeContextId);
-  getTabCollection().insert(tab);
-  uiCollection.update('ui', (draft) => {
-    draft.activeTabId = tab.id;
-  });
+  insertTabAndActivate(tab);
 }
 
 export function closeTab(tabId: string): void {
@@ -71,26 +70,22 @@ export function closeTab(tabId: string): void {
   if (!tab) return;
   const contextId = tab.workspaceItemId;
   const contextTabs = col.toArray.filter((t) => t.workspaceItemId === contextId);
+  const ui = getUiState();
 
   if (contextTabs.length === 1) {
-    col.delete(tabId);
+    deleteTabAndUpdateActive(tabId, '');
     uiCollection.update('ui', (draft) => {
-      draft.activeTabId = '';
       const { [contextId]: _, ...rest } = draft.contextActiveTabIds;
       draft.contextActiveTabIds = rest;
     });
     return;
   }
 
-  col.delete(tabId);
-
-  const ui = getUiState();
   if (ui.activeTabId === tabId) {
-    const remaining = col.toArray.filter((t) => t.workspaceItemId === contextId);
-    const newTabId = remaining.length > 0 ? remaining[0]!.id : '';
-    uiCollection.update('ui', (draft) => {
-      draft.activeTabId = newTabId;
-    });
+    const remaining = contextTabs.filter((t) => t.id !== tabId);
+    deleteTabAndUpdateActive(tabId, remaining[0]!.id);
+  } else {
+    deleteTabAndUpdateActive(tabId, null);
   }
 }
 

@@ -1,8 +1,9 @@
-import { createCollection, localOnlyCollectionOptions } from '@tanstack/db';
+import { createCollection, createTransaction, localOnlyCollectionOptions } from '@tanstack/db';
 import { asc, eq } from 'drizzle-orm';
 
 import { getDb } from '../client';
 import { tabs as table } from '../schema';
+import { uiCollection } from './ui';
 
 import type { Tab, PaneNode } from '../types';
 
@@ -70,5 +71,44 @@ export async function hydrateTabCollection(): Promise<void> {
   const rows = await db.select().from(table).orderBy(asc(table.position));
   _collection = makeCollection(
     rows.map(deserialize).map((t) => ({ ...t, paneRoot: resetPtyIds(t.paneRoot) })),
+  );
+}
+
+function commitTabAndUi(dbFn: () => Promise<void>, mutateFn: () => void): void {
+  const tabCol = getTabCollection();
+  const tx = createTransaction({
+    mutationFn: async ({ transaction }) => {
+      await dbFn();
+      tabCol.utils.acceptMutations(transaction);
+      uiCollection.utils.acceptMutations(transaction);
+    },
+  });
+  tx.mutate(mutateFn);
+  tx.commit().catch(() => undefined);
+}
+
+export function insertTabAndActivate(tab: Tab): void {
+  commitTabAndUi(
+    () => getDb().insert(table).values(serialize(tab)),
+    () => {
+      getTabCollection().insert(tab);
+      uiCollection.update('ui', (draft) => {
+        draft.activeTabId = tab.id;
+      });
+    },
+  );
+}
+
+export function deleteTabAndUpdateActive(tabId: string, newActiveTabId: string | null): void {
+  commitTabAndUi(
+    () => getDb().delete(table).where(eq(table.id, tabId)),
+    () => {
+      getTabCollection().delete(tabId);
+      if (newActiveTabId !== null) {
+        uiCollection.update('ui', (draft) => {
+          draft.activeTabId = newActiveTabId;
+        });
+      }
+    },
   );
 }
