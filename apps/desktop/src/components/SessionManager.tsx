@@ -120,6 +120,37 @@ export function SessionManager({ onClose }: SessionManagerProps) {
     }
   }, []);
 
+  const handleKillGroup = useCallback(async (groupRows: SessionRow[]) => {
+    const killable = groupRows.filter((row) => row.tab);
+    if (killable.length === 0) return;
+    const killedPtyIds = new Set(killable.map((r) => r.info.ptyId));
+    setKilling((prev) => {
+      const next = new Set(prev);
+      killedPtyIds.forEach((id) => next.add(id));
+      return next;
+    });
+    await Promise.all(
+      killable.map(async (row) => {
+        try {
+          await closePty(row.info.ptyId);
+          killPaneInTab(row.tab!.id, row.info.paneId);
+        } catch {
+          // ignore individual errors
+        }
+      }),
+    );
+    setSessions((prev) => prev.filter((s) => !killedPtyIds.has(s.ptyId)));
+    setKilling((prev) => {
+      const next = new Set(prev);
+      killedPtyIds.forEach((id) => next.delete(id));
+      return next;
+    });
+  }, []);
+
+  const handleKillAll = useCallback(async () => {
+    await handleKillGroup(rows);
+  }, [handleKillGroup, rows]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -158,6 +189,16 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                 {rows.length} {rows.length === 1 ? 'session' : 'sessions'}
               </span>
             )}
+            <div className="flex-1" />
+            {rows.some((r) => r.tab) && (
+              <button
+                onClick={() => void handleKillAll()}
+                disabled={rows.every((r) => !r.tab || killing.has(r.info.ptyId))}
+                className="shrink-0 cursor-pointer rounded px-2 py-0.5 text-[11px] text-red-400 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Kill all
+              </button>
+            )}
           </div>
 
           {/* Body — scrollable */}
@@ -173,8 +214,19 @@ export function SessionManager({ onClose }: SessionManagerProps) {
               Array.from(grouped.entries()).map(([wsName, groupRows]) => (
                 <div key={wsName}>
                   {/* Group header */}
-                  <div className="px-4 pt-2 pb-1 text-[11px] font-semibold tracking-wide text-text-muted uppercase opacity-60">
-                    {wsName}
+                  <div className="flex items-center px-4 pt-2 pb-1">
+                    <span className="flex-1 text-[11px] font-semibold tracking-wide text-text-muted uppercase opacity-60">
+                      {wsName}
+                    </span>
+                    {groupRows.some((r) => r.tab) && (
+                      <button
+                        onClick={() => void handleKillGroup(groupRows)}
+                        disabled={groupRows.every((r) => !r.tab || killing.has(r.info.ptyId))}
+                        className="cursor-pointer rounded px-2 py-0.5 text-[11px] text-red-400 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Kill all
+                      </button>
+                    )}
                   </div>
 
                   {/* Session rows */}
