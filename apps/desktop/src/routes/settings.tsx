@@ -65,15 +65,18 @@ function SettingsRoute() {
         {/* Traffic lights spacer + drag region */}
         <div data-tauri-drag-region className="h-[38px] flex-shrink-0" />
 
-        {/* Back link — below traffic lights, no border */}
+        {/* Back link */}
         <button
-          className="flex items-center gap-1.5 px-4 pb-3 text-[13px] text-text-muted transition-colors hover:text-text-primary"
+          className="flex items-center gap-1 px-4 text-[11px] text-text-muted transition-colors hover:text-text-primary"
           onClick={handleBack}
           aria-label="Back to app"
         >
-          <ChevronLeft size={14} strokeWidth={1.8} />
-          <span>Settings</span>
+          <ChevronLeft size={12} strokeWidth={1.8} />
+          <span>Back</span>
         </button>
+
+        {/* Settings title */}
+        <div className="px-4 pt-3 pb-4 text-[15px] font-bold text-text-primary">Settings</div>
 
         {/* Nav sections */}
         <nav className="flex-1 space-y-4 px-3">
