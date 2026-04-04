@@ -3,6 +3,8 @@
   "private": true,
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
+    "desktop:dev": "VITE_PORT=$(bun apps/desktop/scripts/find-port.ts) bun --filter desktop tauri dev",
+    "desktop:build": "bun --filter desktop tauri build",
     "lint": "oxlint apps/ packages/",
     "format": "oxfmt apps/ packages/",
     "postinstall": "lefthook install"

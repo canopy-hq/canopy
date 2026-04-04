@@ -4,7 +4,7 @@
   "identifier": "com.superagent.app",
   "build": {
     "beforeDevCommand": "test -f ../../target/debug/superagent-pty-daemon || cargo build --bin superagent-pty-daemon --manifest-path ../../packages/pty-daemon/Cargo.toml; bun run dev",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://localhost:$VITE_PORT",
     "beforeBuildCommand": "cargo build --release --bin superagent-pty-daemon --manifest-path ../../packages/pty-daemon/Cargo.toml && bun run build",
     "frontendDist": "../dist"
   },
