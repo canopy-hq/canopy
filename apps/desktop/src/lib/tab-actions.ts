@@ -1,4 +1,4 @@
-import { getTabCollection, uiCollection, getUiState, setSetting } from '@superagent/db';
+import { getTabCollection, uiCollection, getUiState } from '@superagent/db';
 
 import {
   splitNode,
@@ -33,7 +33,6 @@ export function addTab(): void {
   uiCollection.update('ui', (draft) => {
     draft.activeTabId = tab.id;
   });
-  setSetting('activeTabId', tab.id);
 }
 
 export function closeTab(tabId: string): void {
@@ -50,7 +49,6 @@ export function closeTab(tabId: string): void {
       const { [contextId]: _, ...rest } = draft.contextActiveTabIds;
       draft.contextActiveTabIds = rest;
     });
-    setSetting('activeTabId', '');
     return;
   }
 
@@ -63,7 +61,6 @@ export function closeTab(tabId: string): void {
     uiCollection.update('ui', (draft) => {
       draft.activeTabId = newTabId;
     });
-    setSetting('activeTabId', newTabId);
   }
 }
 
@@ -72,7 +69,6 @@ export function switchTab(tabId: string): void {
     uiCollection.update('ui', (draft) => {
       draft.activeTabId = tabId;
     });
-    setSetting('activeTabId', tabId);
   }
 }
 
@@ -86,7 +82,6 @@ export function switchTabByIndex(index: number): void {
     uiCollection.update('ui', (draft) => {
       draft.activeTabId = tabId;
     });
-    setSetting('activeTabId', tabId);
   }
 }
 
@@ -105,7 +100,6 @@ export function switchTabRelative(direction: 'prev' | 'next'): void {
   uiCollection.update('ui', (draft) => {
     draft.activeTabId = tabId;
   });
-  setSetting('activeTabId', tabId);
 }
 
 export function setActiveContext(contextId: string): void {
@@ -128,16 +122,12 @@ export function setActiveContext(contextId: string): void {
       draft.activeContextId = contextId;
       draft.activeTabId = newActiveTabId;
     });
-    setSetting('activeContextId', contextId);
-    setSetting('activeTabId', newActiveTabId);
   } else {
     uiCollection.update('ui', (draft) => {
       draft.contextActiveTabIds = updatedContextActiveTabIds;
       draft.activeContextId = contextId;
       draft.activeTabId = '';
     });
-    setSetting('activeContextId', contextId);
-    setSetting('activeTabId', '');
   }
 }
 

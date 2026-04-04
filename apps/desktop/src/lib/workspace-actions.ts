@@ -1,10 +1,4 @@
-import {
-  getWorkspaceCollection,
-  getTabCollection,
-  uiCollection,
-  getUiState,
-  setSetting,
-} from '@superagent/db';
+import { getWorkspaceCollection, getTabCollection, uiCollection, getUiState } from '@superagent/db';
 import { closePty, disposeCached } from '@superagent/terminal';
 
 import * as gitApi from './git';
@@ -46,7 +40,6 @@ export async function importRepo(path: string): Promise<void> {
     uiCollection.update('ui', (draft) => {
       draft.sidebarVisible = true;
     });
-    setSetting('sidebarVisible', true);
   } catch (err) {
     showErrorToast('Import failed', String(err));
   }
@@ -83,8 +76,6 @@ export async function closeProject(
       draft.activeTabId = '';
       draft.selectedItemId = null;
     });
-    setSetting('activeContextId', '');
-    setSetting('activeTabId', '');
     navigate({ to: '/' });
   }
 
@@ -133,11 +124,9 @@ export function selectWorkspaceItem(
 }
 
 export function toggleSidebar(): void {
-  const newVisible = !getUiState().sidebarVisible;
   uiCollection.update('ui', (draft) => {
-    draft.sidebarVisible = newVisible;
+    draft.sidebarVisible = !draft.sidebarVisible;
   });
-  setSetting('sidebarVisible', newVisible);
 }
 
 export function setSidebarWidth(width: number): void {
