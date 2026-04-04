@@ -188,7 +188,7 @@ const WorktreeRow = memo(
 );
 
 const repoHeader = tv({
-  base: 'group flex items-center gap-[6px] border-l-[3px] py-[6px] pr-[6px] pl-[12px]',
+  base: 'flex items-center gap-[6px] border-l-[3px] py-[6px] pr-[6px] pl-[12px]',
   variants: {
     selected: {
       true: 'border-accent bg-accent/[0.04]',
@@ -215,7 +215,7 @@ const RepoHeader = memo(
     const childCount = workspace.branches.length + workspace.worktrees.length;
 
     return (
-      <div className={repoHeader({ selected: isSelected })} onClick={() => onRowClick()}>
+      <div className={repoHeader({ selected: isSelected })} onClick={onRowClick}>
         {/* Hidden chevron for React ARIA Tree expand/collapse */}
         <AriaButton slot="chevron" className="hidden" />
         <svg

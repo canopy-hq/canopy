@@ -8,10 +8,24 @@ import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import { addTab, closeTab, switchTab, renameTab } from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
-import { Button, Tooltip } from './ui';
+import { Button, Kbd, Tooltip } from './ui';
 
 import type { DotStatus } from './StatusDot';
 import type { Tab } from '@superagent/db';
+
+const closeTabLabel = (
+  <>
+    Close Tab <Kbd>⌘</Kbd>
+    <Kbd>W</Kbd>
+  </>
+);
+
+const newTabLabel = (
+  <>
+    New Tab <Kbd>⌘</Kbd>
+    <Kbd>T</Kbd>
+  </>
+);
 
 const tabItem = tv({
   base: 'group relative flex h-full max-w-[240px] min-w-[120px] shrink items-center gap-1.5 px-3 transition-colors',
@@ -170,17 +184,7 @@ const TabItemComponent = memo(
           </span>
         )}
         {!editing && (
-          <Tooltip
-            label={
-              <>
-                Close Tab{' '}
-                <kbd className="rounded bg-bg-secondary px-1 py-0.5 text-[10px] leading-none text-text-muted">
-                  ⌘W
-                </kbd>
-              </>
-            }
-            placement="bottom"
-          >
+          <Tooltip label={closeTabLabel} placement="bottom">
             <Button
               elementType="span"
               iconOnly
@@ -274,17 +278,7 @@ export function TabBar() {
           <TabItemComponent key={tab.id} tab={tab} isActive={tab.id === activeTabId} />
         ))}
       </div>
-      <Tooltip
-        label={
-          <>
-            New Tab{' '}
-            <kbd className="rounded bg-bg-secondary px-1 py-0.5 text-[10px] leading-none text-text-muted">
-              ⌘T
-            </kbd>
-          </>
-        }
-        placement="bottom"
-      >
+      <Tooltip label={newTabLabel} placement="bottom">
         <Button
           iconOnly
           size="sm"

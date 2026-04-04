@@ -4,6 +4,8 @@ export type { ButtonProps, ButtonVariants } from './Button';
 export { Badge } from './Badge';
 export type { BadgeProps, BadgeVariants } from './Badge';
 
+export { Kbd } from './Kbd';
+
 export { Tooltip } from './Tooltip';
 export type { TooltipProps } from './Tooltip';
 

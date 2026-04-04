@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { X } from 'lucide-react';
 
-import { Button, Tooltip } from '../components/ui';
+import { Button, Kbd, Tooltip } from '../components/ui';
 
 function SettingsRoute() {
   const navigate = useNavigate();
@@ -24,10 +24,7 @@ function SettingsRoute() {
         <Tooltip
           label={
             <>
-              Close{' '}
-              <kbd className="rounded bg-bg-secondary px-1 py-0.5 text-[10px] leading-none text-text-muted">
-                Esc
-              </kbd>
+              Close <Kbd>Esc</Kbd>
             </>
           }
           placement="left"

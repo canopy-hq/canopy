@@ -439,7 +439,7 @@ function BranchItem({
             {branch.is_head ? 'checked out' : 'in use'}
           </span>
         ) : !isConfirming ? (
-          <Button variant="accent" size="sm" className="ml-auto py-0.5" onPress={onCreateWT}>
+          <Button variant="accent" size="sm" className="ml-auto" onPress={onCreateWT}>
             Create WT
           </Button>
         ) : null}
@@ -457,7 +457,7 @@ function BranchItem({
             <Button variant="secondary" size="sm" onPress={onCancelConfirm}>
               Cancel
             </Button>
-            <Button variant="primary" size="sm" className="py-1" onPress={onConfirmCreate}>
+            <Button variant="primary" size="sm" onPress={onConfirmCreate}>
               Create
             </Button>
           </div>
@@ -505,7 +505,7 @@ function WorktreeItem({
       ) : (
         <Button
           size="sm"
-          className="ml-auto bg-[rgba(34,197,94,0.08)] text-(--agent-idle) hover:bg-[rgba(34,197,94,0.14)]"
+          className="ml-auto bg-(--agent-idle)/[0.08] text-(--agent-idle) hover:bg-(--agent-idle)/[0.14]"
           onPress={onOpen}
         >
           Open

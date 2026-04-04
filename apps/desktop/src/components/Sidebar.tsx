@@ -50,10 +50,9 @@ export function Sidebar() {
     }
   }, []);
 
-  // Clean up forced cursor if component unmounts mid-drag
   useEffect(() => {
     return () => {
-      if (dragRef.current) document.body.style.cursor = '';
+      document.body.style.cursor = '';
     };
   }, []);
 
