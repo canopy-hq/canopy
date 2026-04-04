@@ -2,9 +2,9 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 
 import { getWorkspaceCollection } from '@superagent/db';
 
-import { listBranches, pollAllWorkspaceStates } from '../lib/git';
+import { pollAllWorkspaceStates } from '../lib/git';
 
-import type { BranchInfo, DiffStat, WorkspacePollState } from '../lib/git';
+import type { DiffStat, WorkspacePollState } from '../lib/git';
 import type { Workspace } from '@superagent/db';
 
 const POLL_MS = 3_000;
@@ -13,40 +13,6 @@ export function getInterval(noChangeCount: number): number {
   if (noChangeCount >= 10) return 15_000;
   if (noChangeCount >= 5) return 10_000;
   return POLL_MS;
-}
-
-/**
- * Merge fresh branches into the existing draft array in-place.
- * Updates changed fields on existing branches, appends new ones, removes deleted ones.
- * Minimizes object identity changes to prevent unnecessary React re-renders.
- */
-export function mergeBranches(draft: BranchInfo[], fresh: BranchInfo[]): void {
-  const freshByName = new Map(fresh.map((b) => [b.name, b]));
-  const draftByName = new Map(draft.map((b) => [b.name, b]));
-
-  // Update existing branches in place
-  for (const existing of draft) {
-    const updated = freshByName.get(existing.name);
-    if (updated) {
-      existing.is_head = updated.is_head;
-      existing.ahead = updated.ahead;
-      existing.behind = updated.behind;
-    }
-  }
-
-  // Remove deleted branches (iterate backwards to safely splice)
-  for (let i = draft.length - 1; i >= 0; i--) {
-    if (!freshByName.has(draft[i].name)) {
-      draft.splice(i, 1);
-    }
-  }
-
-  // Append new branches
-  for (const b of fresh) {
-    if (!draftByName.has(b.name)) {
-      draft.push(b);
-    }
-  }
 }
 
 /** Shallow-compare two nested diff stats maps. */
@@ -187,7 +153,6 @@ export function useWorkspacePolling(
       const current = workspacesRef.current;
       const expandedWs = current.filter((ws) => ws.expanded);
       const pathToId = new Map(expandedWs.map((ws) => [ws.path, ws.id]));
-      const idToPath = new Map(expandedWs.map((ws) => [ws.id, ws.path]));
       const paths = expandedWs.map((ws) => ws.path);
       if (paths.length === 0) {
         timer = setTimeout(poll, getInterval(noChangeCountRef.current));
@@ -240,31 +205,25 @@ export function useWorkspacePolling(
           // Update branch data for changed workspaces
           if (branchChanged) {
             const collection = getWorkspaceCollection();
-            await Promise.all(
-              changedWsIds.map(async (wsId) => {
-                const wsPath = idToPath.get(wsId);
-                if (!wsPath) return;
-                try {
-                  // Full refresh: get ahead/behind for the changed repo
-                  const fullBranches = await listBranches(wsPath);
-                  collection.update(wsId, (draft) => {
-                    mergeBranches(draft.branches, fullBranches);
-                    // Update worktree branch names on existing entries only (preserve list + labels)
-                    const wtBranches = mergedBranch[wsId]?.worktree_branches;
-                    if (wtBranches) {
-                      for (const wt of draft.worktrees) {
-                        const newBranch = wtBranches[wt.name];
-                        if (newBranch !== undefined) {
-                          wt.branch = newBranch;
-                        }
-                      }
-                    }
-                  });
-                } catch {
-                  // Skip failed repos — they'll retry next cycle
+            for (const wsId of changedWsIds) {
+              const state = mergedBranch[wsId];
+              if (!state) continue;
+              const head = state.branches.find((b) => b.is_head);
+              collection.update(wsId, (draft) => {
+                // Replace branches with just the current HEAD
+                if (head) {
+                  draft.branches = [head];
                 }
-              }),
-            );
+                // Update worktree branch names on existing entries only (preserve list + labels)
+                const wtBranches = state.worktree_branches;
+                for (const wt of draft.worktrees) {
+                  const newBranch = wtBranches[wt.name];
+                  if (newBranch !== undefined) {
+                    wt.branch = newBranch;
+                  }
+                }
+              });
+            }
           }
 
           prevBranchStateRef.current = mergedBranch;
