@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { closePty, disposeCached } from '@superagent/terminal';
 import { tv } from 'tailwind-variants';
@@ -47,140 +47,151 @@ function useTabAgentStatus(tab: Tab): DotStatus {
   return 'idle';
 }
 
-function TabItemComponent({
-  tab,
-  isActive,
-  onSwitch,
-  onClose,
-}: {
-  tab: Tab;
-  isActive: boolean;
-  onSwitch: () => void;
-  onClose: () => void;
-}) {
-  const agentStatus = useTabAgentStatus(tab);
-  const [editing, setEditing] = useState(false);
-  const [frozenWidth, setFrozenWidth] = useState<number | null>(null);
-  const [draft, setDraft] = useState('');
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const originalLabelRef = useRef('');
+const TabItemComponent = memo(
+  function TabItemComponent({ tab, isActive }: { tab: Tab; isActive: boolean }) {
+    const agentStatus = useTabAgentStatus(tab);
+    const [editing, setEditing] = useState(false);
+    const [frozenWidth, setFrozenWidth] = useState<number | null>(null);
+    const [draft, setDraft] = useState('');
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const originalLabelRef = useRef('');
+    const committedRef = useRef(false);
 
-  useEffect(() => {
-    if (isActive) buttonRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  }, [isActive]);
+    useEffect(() => {
+      if (isActive) buttonRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }, [isActive]);
 
-  const startEditing = useCallback(() => {
-    originalLabelRef.current = tab.label;
-    setFrozenWidth(buttonRef.current?.offsetWidth ?? null);
-    setDraft(tab.label);
-    setEditing(true);
-  }, [tab.label]);
+    const startEditing = useCallback(() => {
+      committedRef.current = false;
+      originalLabelRef.current = tab.label;
+      setFrozenWidth(buttonRef.current?.offsetWidth ?? null);
+      setDraft(tab.label);
+      setEditing(true);
+    }, [tab.label]);
 
-  useEffect(() => {
-    if (editing) inputRef.current?.select();
-  }, [editing]);
+    useEffect(() => {
+      if (editing) inputRef.current?.select();
+    }, [editing]);
 
-  const confirmRename = useCallback(() => {
-    const trimmed = draft.trim();
-    if (trimmed) renameTab(tab.id, trimmed, true);
-    setEditing(false);
-    setFrozenWidth(null);
-  }, [draft, tab.id]);
+    const confirmRename = useCallback(() => {
+      if (committedRef.current) return;
+      committedRef.current = true;
+      const trimmed = draft.trim();
+      if (trimmed) renameTab(tab.id, trimmed, true);
+      setEditing(false);
+      setFrozenWidth(null);
+    }, [draft, tab.id]);
 
-  const cancelRename = useCallback(() => {
-    setEditing(false);
-    setFrozenWidth(null);
-  }, []);
+    const cancelRename = useCallback(() => {
+      committedRef.current = false;
+      setEditing(false);
+      setFrozenWidth(null);
+    }, []);
 
-  const handleBlur = useCallback(() => {
-    if (draft.trim() !== originalLabelRef.current) {
-      confirmRename();
-    } else {
-      cancelRename();
-    }
-  }, [draft, confirmRename, cancelRename]);
-
-  return (
-    <button
-      ref={buttonRef}
-      className={tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}
-      style={
-        frozenWidth !== null
-          ? { width: frozenWidth, minWidth: frozenWidth, maxWidth: frozenWidth }
-          : undefined
+    const handleBlur = useCallback(() => {
+      if (draft.trim() !== originalLabelRef.current) {
+        confirmRename();
+      } else {
+        cancelRename();
       }
-      onClick={editing ? undefined : onSwitch}
-      onMouseDown={(e) => {
-        if (e.button === 1) {
-          e.preventDefault();
-          onClose();
+    }, [draft, confirmRename, cancelRename]);
+
+    const handleClose = useCallback(async () => {
+      const ptyIds = collectLeafPtyIds(tab.paneRoot);
+      for (const ptyId of ptyIds) {
+        disposeCached(ptyId);
+        try {
+          await closePty(ptyId);
+        } catch {
+          /* PTY may be dead */
         }
-      }}
-      title={editing ? undefined : tab.label}
-    >
-      {agentStatus !== 'idle' && !editing && <StatusDot status={agentStatus} size={8} />}
-      {editing ? (
-        <input
-          ref={inputRef}
-          className="w-full min-w-0 bg-transparent text-xs text-text-primary outline-none"
-          value={draft}
-          maxLength={20}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
+      }
+      closeTab(tab.id);
+    }, [tab]);
+
+    return (
+      <button
+        ref={buttonRef}
+        className={tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}
+        style={
+          frozenWidth !== null
+            ? { width: frozenWidth, minWidth: frozenWidth, maxWidth: frozenWidth }
+            : undefined
+        }
+        onClick={editing ? undefined : () => switchTab(tab.id)}
+        onMouseDown={(e) => {
+          if (e.button === 1) {
+            e.preventDefault();
+            void handleClose();
+          }
+        }}
+        title={editing ? undefined : tab.label}
+      >
+        {agentStatus !== 'idle' && !editing && <StatusDot status={agentStatus} size={8} />}
+        {editing ? (
+          <input
+            ref={inputRef}
+            className="w-full min-w-0 bg-transparent text-xs text-text-primary outline-none"
+            value={draft}
+            maxLength={20}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                confirmRename();
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                cancelRename();
+              } else {
+                e.stopPropagation();
+              }
+            }}
+            onBlur={handleBlur}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span
+            className="flex-1 truncate text-left text-xs"
+            onDoubleClick={(e) => {
               e.stopPropagation();
-              confirmRename();
-            } else if (e.key === 'Escape') {
-              e.preventDefault();
+              startEditing();
+            }}
+          >
+            {tab.label}
+          </span>
+        )}
+        {agentStatus === 'waiting' && !editing && (
+          <span className="rounded-full bg-[rgba(251,191,36,0.25)] px-2 py-1 text-[10px] leading-none font-normal text-(--agent-waiting)">
+            input
+          </span>
+        )}
+        {!editing && (
+          <span
+            role="button"
+            tabIndex={-1}
+            className={closeButton({ active: isActive })}
+            onClick={(e) => {
               e.stopPropagation();
-              cancelRename();
-            } else {
-              e.stopPropagation();
-            }
-          }}
-          onBlur={handleBlur}
-          onClick={(e) => e.stopPropagation()}
-        />
-      ) : (
-        <span
-          className="flex-1 truncate text-left text-xs"
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            startEditing();
-          }}
-        >
-          {tab.label}
-        </span>
-      )}
-      {agentStatus === 'waiting' && !editing && (
-        <span className="rounded-full bg-[rgba(251,191,36,0.25)] px-2 py-1 text-[10px] leading-none font-normal text-(--agent-waiting)">
-          input
-        </span>
-      )}
-      {!editing && (
-        <span
-          role="button"
-          tabIndex={-1}
-          className={closeButton({ active: isActive })}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose();
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.stopPropagation();
-              onClose();
-            }
-          }}
-        >
-          x
-        </span>
-      )}
-    </button>
-  );
-}
+              void handleClose();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.stopPropagation();
+                void handleClose();
+              }
+            }}
+          >
+            x
+          </span>
+        )}
+      </button>
+    );
+  },
+  (prev, next) => prev.tab === next.tab && prev.isActive === next.isActive,
+);
 
 export function TabBar() {
   const allTabs = useTabs();
@@ -190,19 +201,6 @@ export function TabBar() {
     .filter((t) => t.workspaceItemId === activeContextId)
     .sort((a, b) => a.position - b.position);
   const activeTabId = ui.activeTabId;
-
-  const handleClose = useCallback(async (tab: Tab) => {
-    const ptyIds = collectLeafPtyIds(tab.paneRoot);
-    for (const ptyId of ptyIds) {
-      disposeCached(ptyId);
-      try {
-        await closePty(ptyId);
-      } catch {
-        /* PTY may be dead */
-      }
-    }
-    closeTab(tab.id);
-  }, []);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollState, setScrollState] = useState<{ left: boolean; right: boolean }>({
@@ -267,13 +265,7 @@ export function TabBar() {
         style={{ maskImage, WebkitMaskImage: maskImage }}
       >
         {tabs.map((tab) => (
-          <TabItemComponent
-            key={tab.id}
-            tab={tab}
-            isActive={tab.id === activeTabId}
-            onSwitch={() => switchTab(tab.id)}
-            onClose={() => handleClose(tab)}
-          />
+          <TabItemComponent key={tab.id} tab={tab} isActive={tab.id === activeTabId} />
         ))}
       </div>
       <button

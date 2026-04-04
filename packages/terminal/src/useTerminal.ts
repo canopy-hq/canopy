@@ -238,7 +238,7 @@ export function useTerminal(
           lineBuffer = '';
         } else if (data === '\x7f' || data === '\b') {
           lineBuffer = lineBuffer.slice(0, -1);
-        } else if (data.length === 1 && data >= ' ' && !data.startsWith('\x1b')) {
+        } else if (!data.startsWith('\x1b') && /^[\x20-\x7e]+$/.test(data)) {
           lineBuffer += data;
         }
       });

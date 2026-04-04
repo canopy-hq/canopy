@@ -41,10 +41,10 @@ function storePaneCwd(paneId: string, workspaceItemId: string): void {
   if (cwd) setSetting(`cwd:${paneId}`, cwd);
 }
 
-function getNextTabIndex(): number {
+function getNextTabIndex(workspaceItemId: string): number {
   const usedNumbers = new Set(
     getTabCollection()
-      .toArray.filter((t) => !t.labelIsManual)
+      .toArray.filter((t) => t.workspaceItemId === workspaceItemId && !t.labelIsManual)
       .map((t) => {
         const match = /^Terminal (\d+)$/.exec(t.label);
         return match ? parseInt(match[1]!, 10) : null;
@@ -59,11 +59,12 @@ function getNextTabIndex(): number {
 function makeTab(opts?: { workspaceItemId?: string; label?: string }): Tab {
   const id = crypto.randomUUID();
   const paneId = crypto.randomUUID();
+  const workspaceItemId = opts?.workspaceItemId ?? 'default';
   return {
     id,
-    label: opts?.label ?? `Terminal ${getNextTabIndex()}`,
+    label: opts?.label ?? `Terminal ${getNextTabIndex(workspaceItemId)}`,
     labelIsManual: false,
-    workspaceItemId: opts?.workspaceItemId ?? 'default',
+    workspaceItemId,
     paneRoot: { type: 'leaf', id: paneId, ptyId: -1 },
     focusedPaneId: paneId,
     position: Math.max(-1, ...getTabCollection().toArray.map((t) => t.position)) + 1,
@@ -107,18 +108,16 @@ export function closeTab(tabId: string): void {
     return;
   }
 
-  const sortedBeforeDelete = col.toArray
+  const sorted = col.toArray
     .filter((t) => t.workspaceItemId === contextId)
     .sort((a, b) => a.position - b.position);
-  const closedIndex = sortedBeforeDelete.findIndex((t) => t.id === tabId);
+  const closedIndex = sorted.findIndex((t) => t.id === tabId);
 
   col.delete(tabId);
 
   const ui = getUiState();
   if (ui.activeTabId === tabId) {
-    const remaining = col.toArray
-      .filter((t) => t.workspaceItemId === contextId)
-      .sort((a, b) => a.position - b.position);
+    const remaining = sorted.filter((t) => t.id !== tabId);
     const newTab = remaining[Math.max(0, closedIndex - 1)] ?? null;
     uiCollection.update('ui', (draft) => {
       draft.activeTabId = newTab?.id ?? '';
