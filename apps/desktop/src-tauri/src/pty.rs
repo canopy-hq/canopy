@@ -148,6 +148,54 @@ pub fn list_pty_sessions(
         .collect())
 }
 
+/// Close all PTY sessions whose pane_id matches any in the given list.
+/// Catch-all cleanup for tab/project close — handles PTYs that were spawned
+/// (e.g. by startup restore) but whose ptyId never reached the frontend pane
+/// tree due to a race condition with the close operation.
+#[tauri::command]
+pub async fn close_ptys_for_panes(
+    pane_ids: Vec<String>,
+    state: tauri::State<'_, Mutex<PtyState>>,
+    daemon: tauri::State<'_, DaemonClient>,
+    watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
+) -> Result<(), String> {
+    let pane_set: std::collections::HashSet<&str> = pane_ids.iter().map(|s| s.as_str()).collect();
+
+    let to_close: Vec<(u32, String)> = {
+        let mut s = state.lock().map_err(|e| e.to_string())?;
+        let mut found = Vec::new();
+        s.sessions.retain(|&pty_id, pane_id| {
+            if pane_set.contains(pane_id.as_str()) {
+                found.push((pty_id, pane_id.clone()));
+                false // remove
+            } else {
+                true // keep
+            }
+        });
+        found
+    };
+
+    if to_close.is_empty() {
+        return Ok(());
+    }
+
+    {
+        let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
+        for &(pty_id, _) in &to_close {
+            if let Some(cancel) = ws.cancel_senders.remove(&pty_id) {
+                let _ = cancel.send(());
+            }
+            ws.last_outputs.remove(&pty_id);
+        }
+    }
+
+    for (_, pane_id) in to_close {
+        let _ = daemon.close(&pane_id).await;
+    }
+
+    Ok(())
+}
+
 /// Get the CWD of the shell process. Since ptyId = child PID, we call libproc directly.
 #[tauri::command]
 pub fn get_pty_cwd(pty_id: u32) -> Result<String, String> {

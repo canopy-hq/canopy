@@ -8,7 +8,9 @@ import {
   navigate,
   updateRatio,
   collectLeafPtyIds,
+  collectAllLeafPaneIds,
   collectRestorablePaneIds,
+  resetLeafPtyIds,
   type PaneNode,
   type LeafNode,
   type BranchNode,
@@ -256,6 +258,23 @@ describe('collectLeafPtyIds', () => {
   });
 });
 
+describe('collectAllLeafPaneIds', () => {
+  it('returns paneId from a single leaf regardless of ptyId', () => {
+    expect(collectAllLeafPaneIds(makeLeaf('p1', -1))).toEqual(['p1']);
+    expect(collectAllLeafPaneIds(makeLeaf('p2', 42))).toEqual(['p2']);
+    expect(collectAllLeafPaneIds(makeLeaf('p3', -2))).toEqual(['p3']);
+  });
+
+  it('collects all pane IDs from nested tree including uninitialized leaves', () => {
+    const tree = makeBranch('b1', 'horizontal', [
+      makeLeaf('l1', 5),
+      makeLeaf('l2', -1),
+      makeBranch('b2', 'vertical', [makeLeaf('l3', 15), makeLeaf('l4', -1)]),
+    ]);
+    expect(collectAllLeafPaneIds(tree)).toEqual(['l1', 'l2', 'l3', 'l4']);
+  });
+});
+
 describe('collectRestorablePaneIds', () => {
   it('returns paneId for unspawned leaf (ptyId -1)', () => {
     expect(collectRestorablePaneIds(makeLeaf('p1', -1))).toEqual(['p1']);
@@ -290,5 +309,38 @@ describe('collectRestorablePaneIds', () => {
   it('returns empty when all leaves are killed', () => {
     const tree = makeBranch('b1', 'horizontal', [makeLeaf('p1', -2), makeLeaf('p2', -2)]);
     expect(collectRestorablePaneIds(tree)).toEqual([]);
+  });
+});
+
+describe('resetLeafPtyIds', () => {
+  it('resets positive ptyId to -1', () => {
+    const leaf = makeLeaf('p1', 42);
+    resetLeafPtyIds(leaf);
+    expect(leaf.ptyId).toBe(-1);
+  });
+
+  it('preserves ptyId -1 (already uninitialized)', () => {
+    const leaf = makeLeaf('p1', -1);
+    resetLeafPtyIds(leaf);
+    expect(leaf.ptyId).toBe(-1);
+  });
+
+  it('preserves ptyId -2 (killed pane)', () => {
+    const leaf = makeLeaf('p1', -2);
+    resetLeafPtyIds(leaf);
+    expect(leaf.ptyId).toBe(-2);
+  });
+
+  it('resets all leaves in a nested tree, preserving killed panes', () => {
+    const tree = makeBranch('b1', 'horizontal', [
+      makeLeaf('p1', 100),
+      makeBranch('b2', 'vertical', [makeLeaf('p2', -2), makeLeaf('p3', 200)]),
+    ]);
+    resetLeafPtyIds(tree);
+    const b = tree as BranchNode;
+    expect((b.children[0] as LeafNode).ptyId).toBe(-1);
+    const sub = b.children[1] as BranchNode;
+    expect((sub.children[0] as LeafNode).ptyId).toBe(-2); // killed: preserved
+    expect((sub.children[1] as LeafNode).ptyId).toBe(-1);
   });
 });

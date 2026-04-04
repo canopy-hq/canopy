@@ -27,7 +27,10 @@ vi.mock('@superagent/db', async () => {
   return createDbMock();
 });
 
-vi.mock('../src/ghostty-init', () => ({ ensureGhosttyInit: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('../src/ghostty-init', () => ({
+  ensureGhosttyInit: vi.fn().mockResolvedValue(undefined),
+  isGhosttyReady: vi.fn().mockReturnValue(false),
+}));
 
 vi.mock('../src/pty', () => ({
   spawnTerminal: vi.fn().mockResolvedValue(42),
