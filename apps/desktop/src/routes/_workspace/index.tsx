@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { Button } from '../../components/ui';
+import { Button, Kbd } from '../../components/ui';
 import { toggleSidebar } from '../../lib/workspace-actions';
 
 function IndexRoute() {
@@ -10,8 +10,8 @@ function IndexRoute() {
       <span className="max-w-[280px] text-center text-sm">
         Import a git repository and select a branch or worktree to start working.
       </span>
-      <Button variant="secondary" className="mt-2" onPress={() => toggleSidebar()}>
-        Open Sidebar (⌘B)
+      <Button variant="secondary" className="mt-2 gap-2" onPress={() => toggleSidebar()}>
+        Open Sidebar <Kbd>⌘B</Kbd>
       </Button>
     </div>
   );

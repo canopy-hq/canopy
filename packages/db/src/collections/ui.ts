@@ -39,6 +39,8 @@ export const uiCollection = createCollection(
       if (old.activeTabId !== next.activeTabId) setSetting('activeTabId', next.activeTabId);
       if (old.activeContextId !== next.activeContextId)
         setSetting('activeContextId', next.activeContextId);
+      if (old.selectedItemId !== next.selectedItemId)
+        setSetting('selectedItemId', next.selectedItemId);
       if (old.sidebarVisible !== next.sidebarVisible)
         setSetting('sidebarVisible', next.sidebarVisible);
       if (old.sidebarWidth !== next.sidebarWidth) setSetting('sidebarWidth', next.sidebarWidth);

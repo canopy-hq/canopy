@@ -23,24 +23,41 @@ export async function hydrateCollections(): Promise<void> {
 
 function restoreUiState(): void {
   const settings = getSettingCollection().toArray;
-  const activeContextId = getSetting(settings, 'activeContextId', '');
-  const activeTabId = getSetting(settings, 'activeTabId', '');
+  const savedContextId = getSetting(settings, 'activeContextId', '');
+  const savedTabId = getSetting(settings, 'activeTabId', '');
+  const savedSelectedItemId = getSetting<string | null>(settings, 'selectedItemId', null);
   const sidebarVisible = getSetting(settings, 'sidebarVisible', true);
   const sidebarWidth = getSetting(settings, 'sidebarWidth', SIDEBAR_WIDTH_MAX);
 
-  const tab =
-    activeContextId && activeTabId
-      ? getTabCollection().toArray.find(
-          (t) => t.id === activeTabId && t.workspaceItemId === activeContextId,
-        )
+  const tabs = getTabCollection().toArray;
+
+  // 1. Exact match: saved tab belongs to saved context
+  let activeTab =
+    savedContextId && savedTabId
+      ? (tabs.find((t) => t.id === savedTabId && t.workspaceItemId === savedContextId) ?? null)
       : null;
+
+  // 2. Tab found but context mismatch → derive context from the tab
+  if (!activeTab && savedTabId) {
+    activeTab = tabs.find((t) => t.id === savedTabId) ?? null;
+  }
+
+  // 3. No matching tab → find any tab for the saved context
+  if (!activeTab && savedContextId) {
+    activeTab = tabs.find((t) => t.workspaceItemId === savedContextId) ?? null;
+  }
 
   uiCollection.update('ui', (draft) => {
     draft.sidebarVisible = sidebarVisible;
     draft.sidebarWidth = Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, sidebarWidth));
-    if (tab) {
-      draft.activeContextId = activeContextId;
-      draft.activeTabId = activeTabId;
+    if (activeTab) {
+      draft.activeContextId = activeTab.workspaceItemId;
+      draft.activeTabId = activeTab.id;
+      draft.selectedItemId = savedSelectedItemId ?? activeTab.workspaceItemId;
+    } else if (savedContextId) {
+      // Context saved but no tabs — still navigate to the workspace (shows EmptyState)
+      draft.activeContextId = savedContextId;
+      draft.selectedItemId = savedSelectedItemId ?? savedContextId;
     }
   });
 }
