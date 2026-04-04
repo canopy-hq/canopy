@@ -171,7 +171,9 @@ export function TabBar() {
   const allTabs = useTabs();
   const ui = useUiState();
   const activeContextId = ui.activeContextId;
-  const tabs = allTabs.filter((t) => t.workspaceItemId === activeContextId);
+  const tabs = allTabs
+    .filter((t) => t.workspaceItemId === activeContextId)
+    .sort((a, b) => a.position - b.position);
   const activeTabId = ui.activeTabId;
 
   const handleClose = useCallback(async (tab: Tab) => {

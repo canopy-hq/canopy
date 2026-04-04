@@ -66,7 +66,7 @@ function makeTab(opts?: { workspaceItemId?: string; label?: string }): Tab {
     workspaceItemId: opts?.workspaceItemId ?? 'default',
     paneRoot: { type: 'leaf', id: paneId, ptyId: -1 },
     focusedPaneId: paneId,
-    position: getTabCollection().toArray.length,
+    position: Math.max(-1, ...getTabCollection().toArray.map((t) => t.position)) + 1,
   };
 }
 
