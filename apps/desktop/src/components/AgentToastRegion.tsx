@@ -13,14 +13,8 @@ import { switchTab } from '../lib/tab-actions';
 import { agentToastQueue } from '../lib/toast';
 import { StatusDot } from './StatusDot';
 
-import type { PaneNode } from '../lib/pane-tree-ops';
+import { containsPtyId } from '../lib/pane-tree-ops';
 import type { AgentToastContent } from '../lib/toast';
-
-/** Recursively check if a pane tree contains a leaf with the given ptyId */
-function containsPtyId(node: PaneNode, ptyId: number): boolean {
-  if (node.type === 'leaf') return node.ptyId === ptyId;
-  return node.children.some((child) => containsPtyId(child, ptyId));
-}
 
 function eventDescription(type: AgentToastContent['type']): string {
   return type === 'agent-waiting' ? 'is waiting for input' : 'finished';

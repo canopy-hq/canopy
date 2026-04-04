@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
 
-import { getSettingCollection, getSetting, setSetting, getSessionCollection } from '@superagent/db';
+import { getSettingCollection, getSetting, setSetting, getSessionCollection, getTabCollection } from '@superagent/db';
 import { useTerminal, getPtyCwd } from '@superagent/terminal';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
@@ -28,6 +28,7 @@ interface TerminalPaneProps {
  */
 export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const killedRef = useRef(false);
   const tabs = useTabs();
   const ui = useUiState();
   const activeTab = tabs.find((t) => t.id === ui.activeTabId);
@@ -75,6 +76,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
   // Delete session record when killed (ptyId → -2) or when pane is removed from tree.
   useEffect(() => {
     if (ptyId !== -2) return;
+    killedRef.current = true;
     const col = getSessionCollection();
     const session = col.toArray.find((s) => s.paneId === paneId);
     if (session) col.delete(session.id);
@@ -82,6 +84,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
 
   useEffect(() => {
     return () => {
+      if (killedRef.current) return;
       const col = getSessionCollection();
       const session = col.toArray.find((s) => s.paneId === paneId);
       if (session) col.delete(session.id);
@@ -129,7 +132,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
         setRealPtyId(id);
         setPtyId(paneId, id);
         const col = getSessionCollection();
-        const tab = tabs.find((t) => containsPane(t.paneRoot, paneId));
+        const tab = getTabCollection().toArray.find((t) => containsPane(t.paneRoot, paneId));
         const existing = col.toArray.find((s) => s.paneId === paneId);
         if (existing) {
           col.update(existing.id, (draft) => {

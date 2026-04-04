@@ -8,7 +8,7 @@ import { useAgents, useWorkspaces, useTabs } from '../hooks/useCollections';
 import { jumpToPane } from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
 
-import type { PaneNode } from '../lib/pane-tree-ops';
+import { containsPtyId } from '../lib/pane-tree-ops';
 import type { AgentInfo } from '@superagent/db';
 
 export interface AgentOverlayProps {
@@ -21,12 +21,6 @@ function formatDuration(startedAt: number): string {
   if (elapsed < 60) return `${elapsed}s`;
   if (elapsed < 3600) return `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`;
   return `${Math.floor(elapsed / 3600)}h ${Math.floor((elapsed % 3600) / 60)}m`;
-}
-
-/** Recursively check if a pane tree contains a leaf with the given ptyId */
-function treeContainsPty(node: PaneNode, ptyId: number): boolean {
-  if (node.type === 'leaf') return node.ptyId === ptyId;
-  return node.children.some((child) => treeContainsPty(child, ptyId));
 }
 
 interface AgentRow {
@@ -84,7 +78,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
 
       // Find which tab contains this agent's ptyId
       for (const tab of tabs) {
-        if (treeContainsPty(tab.paneRoot, agent.ptyId)) {
+        if (containsPtyId(tab.paneRoot, agent.ptyId)) {
           tabId = tab.id;
           workspaceItemId = tab.workspaceItemId;
           // Look up workspace name from workspace store

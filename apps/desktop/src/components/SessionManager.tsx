@@ -7,10 +7,10 @@ import { killPaneInTab, jumpToPane } from '../lib/tab-actions';
 import { closePty, listPtySessions } from '@superagent/terminal';
 
 import { getWorkspaceItemIds } from '../lib/workspace-actions';
+import { containsPtyId } from '../lib/pane-tree-ops';
 
 import type { Tab, Workspace } from '@superagent/db';
 import type { PtySessionInfo } from '@superagent/terminal';
-import type { PaneNode } from '../lib/pane-tree-ops';
 
 export interface SessionManagerProps {
   onClose: () => void;
@@ -18,14 +18,9 @@ export interface SessionManagerProps {
 
 function findTabForPtyId(tabs: Tab[], ptyId: number): Tab | null {
   for (const tab of tabs) {
-    if (treeContainsPty(tab.paneRoot, ptyId)) return tab;
+    if (containsPtyId(tab.paneRoot, ptyId)) return tab;
   }
   return null;
-}
-
-function treeContainsPty(node: PaneNode, ptyId: number): boolean {
-  if (node.type === 'leaf') return node.ptyId === ptyId;
-  return node.children.some((c) => treeContainsPty(c, ptyId));
 }
 
 function findWorkspaceForTab(tab: Tab, workspaces: Workspace[]): Workspace | null {
@@ -222,6 +217,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                       <button
                         onClick={() => void handleKillGroup(groupRows)}
                         disabled={groupRows.every((r) => !r.tab || killing.has(r.info.ptyId))}
+                        aria-label={`Kill all sessions in ${wsName}`}
                         className="cursor-pointer rounded px-2 py-0.5 text-[11px] text-red-400 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         Kill all

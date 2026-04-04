@@ -23,13 +23,7 @@ import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
 import { toggleSidebar } from '../lib/workspace-actions';
 
-import { collectRestorablePaneIds } from '../lib/pane-tree-ops';
-import type { PaneNode } from '../lib/pane-tree-ops';
-
-function containsPtyId(node: PaneNode, ptyId: number): boolean {
-  if (node.type === 'leaf') return node.ptyId === ptyId;
-  return node.children.some((child) => containsPtyId(child, ptyId));
-}
+import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
 
 function RootLayout() {
   const [overlayOpen, setOverlayOpen] = useState(false);
@@ -54,32 +48,33 @@ function RootLayout() {
   useEffect(() => {
     const tabs = getTabCollection().toArray;
     if (tabs.length === 0) return;
-    void (async () => {
-      const settings = getSettingCollection().toArray;
-      for (const tab of tabs) {
-        for (const paneId of collectRestorablePaneIds(tab.paneRoot)) {
-          const cwd = getSetting(settings, `cwd:${paneId}`, '') as string || undefined;
-          try {
-            const { ptyId } = await spawnTerminal(paneId, cwd, 24, 80);
-            setPtyIdInTab(tab.id, paneId, ptyId);
-            // Write session to DB — onPtySpawned never fires for the reconnect path
-            const col = getSessionCollection();
-            const existing = col.toArray.find((s) => s.paneId === paneId);
-            if (existing) {
-              col.update(existing.id, (draft) => {
-                draft.tabId = tab.id;
-                draft.workspaceId = tab.workspaceItemId;
-                draft.cwd = cwd ?? '';
-              });
-            } else {
-              col.insert({ id: paneId, paneId, tabId: tab.id, workspaceId: tab.workspaceItemId, cwd: cwd ?? '', shell: '' });
-            }
-          } catch {
-            // Daemon unavailable — pane stays at ptyId -1, fresh shell on visit
+    const settings = getSettingCollection().toArray;
+    const paneEntries = tabs.flatMap((tab) =>
+      collectRestorablePaneIds(tab.paneRoot).map((paneId) => ({ tab, paneId })),
+    );
+    void Promise.all(
+      paneEntries.map(async ({ tab, paneId }) => {
+        const cwd = getSetting(settings, `cwd:${paneId}`, '') as string || undefined;
+        try {
+          const { ptyId } = await spawnTerminal(paneId, cwd, 24, 80);
+          setPtyIdInTab(tab.id, paneId, ptyId);
+          // Write session to DB — onPtySpawned never fires for the reconnect path
+          const col = getSessionCollection();
+          const existing = col.toArray.find((s) => s.paneId === paneId);
+          if (existing) {
+            col.update(existing.id, (draft) => {
+              draft.tabId = tab.id;
+              draft.workspaceId = tab.workspaceItemId;
+              draft.cwd = cwd ?? '';
+            });
+          } else {
+            col.insert({ id: paneId, paneId, tabId: tab.id, workspaceId: tab.workspaceItemId, cwd: cwd ?? '', shell: '' });
           }
+        } catch {
+          // Daemon unavailable — pane stays at ptyId -1, fresh shell on visit
         }
-      }
-    })();
+      }),
+    );
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
