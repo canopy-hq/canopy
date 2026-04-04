@@ -122,7 +122,14 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
     unmount();
   });
 
-  it('overlay removed on first live byte via connectPtyOutputFresh', async () => {
+  it('overlay debounced on fresh spawn — stays during output burst, removed after 150ms + double rAF', async () => {
+    vi.useFakeTimers();
+    // happy-dom's rAF uses setImmediate which fake timers don't control;
+    // replace with setTimeout(cb, 0) so vi.advanceTimersByTime flushes them.
+    const origRAF = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = (cb: FrameRequestCallback) =>
+      setTimeout(() => cb(performance.now()), 0) as unknown as number;
+
     const container = makeContainer();
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
@@ -134,11 +141,30 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
     const overlay = wrapper.firstElementChild as HTMLElement;
 
     const freshHandler = vi.mocked(connectPtyOutputFresh).mock.calls[0]![1];
+
+    // First byte: overlay should NOT be removed yet (debounced)
     act(() => {
       freshHandler(new Uint8Array([65]));
     });
+    expect(overlay.parentNode).not.toBeNull();
 
+    // More output at 100ms resets the debounce timer
+    act(() => {
+      vi.advanceTimersByTime(100);
+      freshHandler(new Uint8Array([66]));
+    });
+    expect(overlay.parentNode).not.toBeNull();
+
+    // 150ms after last byte: debounce fires, then double rAF flushes
+    act(() => {
+      vi.advanceTimersByTime(150); // fires debounce → schedules rAF #1
+      vi.advanceTimersByTime(1); // fires rAF #1 → schedules rAF #2
+      vi.advanceTimersByTime(1); // fires rAF #2 → removeOverlay()
+    });
     expect(overlay.parentNode).toBeNull();
+
+    globalThis.requestAnimationFrame = origRAF;
+    vi.useRealTimers();
     unmount();
   });
 
@@ -451,7 +477,7 @@ describe('useTerminal — restored session (isNew=false) [PHASE 2]', () => {
     unmount();
   });
 
-  it('overlay removed immediately for restored sessions', async () => {
+  it('overlay stays until first data byte for restored sessions', async () => {
     vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
 
     const container = makeContainer();
@@ -462,8 +488,17 @@ describe('useTerminal — restored session (isNew=false) [PHASE 2]', () => {
 
     const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
     const wrapper = termInstance.element as HTMLElement;
-    const overlay = wrapper.firstElementChild as HTMLElement | null;
-    expect(overlay === null || overlay.style.position !== 'absolute').toBe(true);
+    // Overlay should still be present (waiting for first data byte)
+    expect(wrapper.childElementCount).toBeGreaterThan(0);
+    const overlay = wrapper.firstElementChild as HTMLElement;
+    expect(overlay.style.position).toBe('absolute');
+
+    // Simulate first data byte — overlay should be removed
+    const handler = vi.mocked(connectPtyOutput).mock.calls[0]![1];
+    act(() => {
+      handler(new Uint8Array([65]));
+    });
+    expect(overlay.parentNode).toBeNull();
     unmount();
   });
 

@@ -10,6 +10,7 @@ import {
   collectLeafPtyIds,
   collectAllLeafPaneIds,
   collectRestorablePaneIds,
+  resetLeafPtyIds,
   type PaneNode,
   type LeafNode,
   type BranchNode,
@@ -308,5 +309,38 @@ describe('collectRestorablePaneIds', () => {
   it('returns empty when all leaves are killed', () => {
     const tree = makeBranch('b1', 'horizontal', [makeLeaf('p1', -2), makeLeaf('p2', -2)]);
     expect(collectRestorablePaneIds(tree)).toEqual([]);
+  });
+});
+
+describe('resetLeafPtyIds', () => {
+  it('resets positive ptyId to -1', () => {
+    const leaf = makeLeaf('p1', 42);
+    resetLeafPtyIds(leaf);
+    expect(leaf.ptyId).toBe(-1);
+  });
+
+  it('preserves ptyId -1 (already uninitialized)', () => {
+    const leaf = makeLeaf('p1', -1);
+    resetLeafPtyIds(leaf);
+    expect(leaf.ptyId).toBe(-1);
+  });
+
+  it('preserves ptyId -2 (killed pane)', () => {
+    const leaf = makeLeaf('p1', -2);
+    resetLeafPtyIds(leaf);
+    expect(leaf.ptyId).toBe(-2);
+  });
+
+  it('resets all leaves in a nested tree, preserving killed panes', () => {
+    const tree = makeBranch('b1', 'horizontal', [
+      makeLeaf('p1', 100),
+      makeBranch('b2', 'vertical', [makeLeaf('p2', -2), makeLeaf('p3', 200)]),
+    ]);
+    resetLeafPtyIds(tree);
+    const b = tree as BranchNode;
+    expect((b.children[0] as LeafNode).ptyId).toBe(-1);
+    const sub = b.children[1] as BranchNode;
+    expect((sub.children[0] as LeafNode).ptyId).toBe(-2); // killed: preserved
+    expect((sub.children[1] as LeafNode).ptyId).toBe(-1);
   });
 });

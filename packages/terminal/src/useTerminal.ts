@@ -61,6 +61,8 @@ export function useTerminal(
   // This prevents the destructive effect re-run that removes and re-adds the
   // terminal element to the DOM, causing flicker.
   const effectPtyId = useRef(ptyId);
+  // Track the previous ptyId to detect spawn-completion transitions (-1 → pid).
+  const prevPtyId = useRef(ptyId);
 
   useEffect(() => {
     if (isFocused && termRef.current) {
@@ -68,21 +70,19 @@ export function useTerminal(
     }
   }, [isFocused]);
 
-  // Synchronous resize before paint: when ptyId becomes a real pid (restored session
-  // or pane remount), fire fitAddon.fit() + resizePty in the layout phase — before
-  // the browser renders the first frame with the new ptyId.
+  // Synchronous resize before paint: when ptyId becomes a real pid (pane remount),
+  // fire fitAddon.fit() + resizePty in the layout phase — before the browser renders
+  // the first frame with the new ptyId.
   //
-  // Why not useEffect or ResizeObserver?
-  //   onPtySpawned(newId) triggers setRealPtyId → React re-render → effect cleanup
-  //   → clearTimeout cancels any setTimeout-based poll before it fires. The layout
-  //   phase cannot be cancelled this way: it runs synchronously in the same commit.
-  //
-  // Guard: only act if the terminal element is already in the container (i.e. the
-  // ptyId=-1 spawn effect placed it there). If it's not (e.g. pane restructure
-  // where the old component already unmounted), skip — the main useEffect + its
-  // ResizeObserver handle that case.
+  // Skip when ptyId transitions from ≤0 to >0 (spawn completion): the terminal was
+  // just created at exact container dimensions — sending resizePty here would deliver
+  // a redundant SIGWINCH that interrupts shell/Starship initialization, causing blank
+  // background artifacts in the prompt.
   useLayoutEffect(() => {
+    const wasSpawnTransition = prevPtyId.current <= 0 && ptyId > 0;
+    prevPtyId.current = ptyId;
     if (!wasmReady || ptyId <= 0) return;
+    if (wasSpawnTransition) return;
     const cached = getCached(ptyId);
     if (!cached) return;
     cached.fitAddon.fit();
@@ -94,9 +94,17 @@ export function useTerminal(
   }, [ptyId, wasmReady]);
 
   useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      // Set terminal background early so the container isn't a blank hole
+      // while WASM loads or the PTY spawns.
+      container.style.background =
+        terminalThemes[
+          getSetting(getSettingCollection().toArray, 'theme', 'obsidian') as ThemeName
+        ].background;
+    }
     if (!wasmReady) return;
 
-    const container = containerRef.current;
     if (!container) return;
 
     // Read the frozen ptyId — for spawn this is -1 (captured at mount);
@@ -104,7 +112,6 @@ export function useTerminal(
     const ptyId = effectPtyId.current;
 
     let spawnCancelled = false;
-    let sigwinchTimer: ReturnType<typeof setTimeout> | null = null;
     let ptyResizeTimer: ReturnType<typeof setTimeout> | null = null;
     // Hoisted so cleanup can always call it (no-op for the cached path).
     let removeOverlay = () => {};
@@ -177,11 +184,35 @@ export function useTerminal(
 
       term.open(wrapper);
       let overlayRemoved = false;
+      let overlayTimer: ReturnType<typeof setTimeout> | null = null;
       removeOverlay = () => {
         if (!overlayRemoved) {
           overlayRemoved = true;
+          if (overlayTimer !== null) {
+            clearTimeout(overlayTimer);
+            overlayTimer = null;
+          }
           overlay.remove();
         }
+      };
+      // Debounced removal: waits for output AND rendering to settle before
+      // revealing. The debounce covers Starship prompt output; the double-rAF
+      // ensures the WASM renderer has painted at least one full frame after the
+      // last write — critical on the first two terminals when the renderer is
+      // cold-starting (JIT, texture atlases, etc.).
+      const debouncedRemoveOverlay = () => {
+        if (overlayRemoved) return;
+        if (overlayTimer !== null) clearTimeout(overlayTimer);
+        overlayTimer = setTimeout(() => {
+          overlayTimer = null;
+          // Double rAF: first rAF queues work for the current frame's paint,
+          // second rAF fires after that paint completes → canvas is up-to-date.
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              removeOverlay();
+            });
+          });
+        }, 150);
       };
 
       if (term.element) {
@@ -221,9 +252,15 @@ export function useTerminal(
       // For the spawn path, lastSentSize is updated to the exact spawn dims after
       // spawnTerminal resolves, ensuring subsequent fits at the same size are no-ops.
       const lastSentSize = { rows: 0, cols: 0 };
+      // Grace period: suppress resize IPC for 500ms after spawn to let React
+      // re-renders and layout settle. Prevents spurious SIGWINCH that causes
+      // zsh/Starship to redraw the prompt (visible as flicker on version badges).
+      // After the grace period, one final sync resize is sent.
+      let resizeGraceUntil = 0;
       term.onResize(({ cols, rows }) => {
         if (ptrRef.ptyId <= 0) return; // suppress during pre-spawn phase
         if (rows === lastSentSize.rows && cols === lastSentSize.cols) return;
+        if (Date.now() < resizeGraceUntil) return; // suppress during grace period
         // Debounce PTY IPC (not the visual fit) to avoid flooding with SIGWINCHes.
         if (ptyResizeTimer !== null) clearTimeout(ptyResizeTimer);
         ptyResizeTimer = setTimeout(() => {
@@ -265,75 +302,79 @@ export function useTerminal(
         }
       });
 
-      // Fit terminal to container to obtain exact grid dimensions.
-      // onResize is suppressed here (ptrRef.ptyId <= 0 for spawn path;
-      // for reconnect, the first real resize fires via onResize automatically).
-      fitAddon.fit();
+      // Wait for the terminal font to load before fitting. On first use, the
+      // browser hasn't loaded "Geist Mono" yet — fitAddon.fit() would calculate
+      // grid dimensions using a fallback font (Menlo), and the later font-swap
+      // would change cell metrics, causing a resize → SIGWINCH → prompt redraw.
+      // By the 3rd terminal the font is cached, which is why only the first 1-2
+      // terminals exhibit the flicker.
+      const fontReady = document.fonts
+        ? document.fonts.load('14px "Geist Mono"')
+        : Promise.resolve();
+      void fontReady.then(() => {
+        if (spawnCancelled) return;
+        // Fit terminal to container to obtain exact grid dimensions.
+        // onResize is suppressed here (ptrRef.ptyId <= 0 for spawn path;
+        // for reconnect, the first real resize fires via onResize automatically).
+        fitAddon.fit();
+        startPtyConnection();
+      });
 
-      if (ptyId > 0) {
-        // Reconnect: PTY already running in daemon (cold app restart).
-        connectPtyOutput(ptyId, (data: Uint8Array) => {
-          removeOverlay();
-          term.write(data);
-        });
-        setCached(ptyId, term, fitAddon);
-      } else {
-        // Spawn: PTY started at exact fitted dimensions → lastSentSize = spawn dims
-        // → dedup guard suppresses any subsequent fit at the same size → 0 SIGWINCH.
-        void spawnTerminal(paneId, savedCwd, term.rows, term.cols).then(
-          ({ ptyId: newId, isNew }) => {
-            if (spawnCancelled) {
-              // Component unmounted while spawn was in-flight. Don't close the
-              // PTY — the daemon deduplicates by paneId, so a StrictMode remount
-              // (or tab revisit) will reuse it. Orphan PTYs from true unmounts
-              // are rare and can be cleaned up via the Session Manager.
-              return;
-            }
-            ptrRef.ptyId = newId;
-            lastSentSize.rows = term.rows;
-            lastSentSize.cols = term.cols;
-            if (isNew) {
-              // Fresh shell: discard scrollback replay, wait for first live byte.
-              connectPtyOutputFresh(newId, (data: Uint8Array) => {
-                removeOverlay();
-                term.write(data);
-              });
-            } else {
-              // Restored session: drain scrollback (includes previous prompt).
-              // Remove overlay immediately — setHandler flushes buffers synchronously.
-              connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
-              removeOverlay();
-            }
-            setCached(newId, term, fitAddon);
-            onPtySpawned(newId);
-
-            // Poll dimensions for 1s after spawn (every 200ms, up to 5 ticks).
-            // Handles layout-settling races (sidebars, borders, split panes) and
-            // ensures TUI apps like Claude Code fill the pane on first launch.
-            // Stops early once dims stabilize.
-            let ticks = 0;
-            const poll = () => {
-              sigwinchTimer = null;
-              if (spawnCancelled) return;
-              const dims = fitAddon.proposeDimensions();
-              const r = dims?.rows ?? lastSentSize.rows;
-              const c = dims?.cols ?? lastSentSize.cols;
-              const changed = r !== lastSentSize.rows || c !== lastSentSize.cols;
-              if (changed) {
-                term.resize(c, r); // ghostty-web API: resize(cols, rows)
-                lastSentSize.rows = r;
-                lastSentSize.cols = c;
-                void resizePty(newId, r, c);
-              } else if (ticks === 0) {
-                // First tick: always send SIGWINCH so TUI apps initialise.
-                void resizePty(newId, r, c);
+      function startPtyConnection() {
+        if (ptyId > 0) {
+          // Reconnect: PTY already running in daemon (cold app restart).
+          // Keep overlay until first scrollback byte to avoid empty-canvas flash.
+          connectPtyOutput(ptyId, (data: Uint8Array) => {
+            removeOverlay();
+            term.write(data);
+          });
+          setCached(ptyId, term, fitAddon);
+        } else {
+          // Spawn: PTY started at exact fitted dimensions → lastSentSize = spawn dims
+          // → dedup guard suppresses any subsequent fit at the same size → 0 SIGWINCH.
+          void spawnTerminal(paneId, savedCwd, term.rows, term.cols).then(
+            ({ ptyId: newId, isNew }) => {
+              if (spawnCancelled) {
+                // Component unmounted while spawn was in-flight. Don't close the
+                // PTY — the daemon deduplicates by paneId, so a StrictMode remount
+                // (or tab revisit) will reuse it. Orphan PTYs from true unmounts
+                // are rare and can be cleaned up via the Session Manager.
+                return;
               }
-              ticks++;
-              if (ticks < 5) sigwinchTimer = setTimeout(poll, 200);
-            };
-            sigwinchTimer = setTimeout(poll, 100);
-          },
-        );
+              ptrRef.ptyId = newId;
+              lastSentSize.rows = term.rows;
+              lastSentSize.cols = term.cols;
+
+              // Grace period: suppress all resize IPC for 500ms so React re-renders
+              // and layout settling don't send SIGWINCH during shell/Starship init.
+              resizeGraceUntil = Date.now() + 500;
+
+              if (isNew) {
+                // Fresh shell: discard scrollback replay. Use debounced overlay
+                // removal so the prompt output settles before revealing.
+                connectPtyOutputFresh(newId, (data: Uint8Array) => {
+                  debouncedRemoveOverlay();
+                  term.write(data);
+                });
+              } else {
+                // Restored session: remove overlay on first data byte (not immediately)
+                // to avoid flashing a blank terminal when the shell hasn't output yet.
+                connectPtyOutput(newId, (data: Uint8Array) => {
+                  removeOverlay();
+                  term.write(data);
+                });
+              }
+              setCached(newId, term, fitAddon);
+              onPtySpawned(newId);
+              // No deferred resize here — the terminal was spawned at exact
+              // container dimensions (after font load). Any layout shifts from
+              // React re-renders are handled by ResizeObserver + onResize after
+              // the grace period expires naturally. Sending an explicit resize
+              // here was the remaining source of SIGWINCH that caused Starship
+              // prompt flicker on the first two terminals.
+            },
+          );
+        }
       }
     }
 
@@ -385,7 +426,6 @@ export function useTerminal(
       if (resizingClassTimer !== null) clearTimeout(resizingClassTimer);
       document.body.classList.remove('resizing');
       if (ptyResizeTimer !== null) clearTimeout(ptyResizeTimer);
-      if (sigwinchTimer !== null) clearTimeout(sigwinchTimer);
       // DON'T dispose term — just detach from container. Cache keeps it alive.
       const el = term.element;
       if (el && el.parentNode === container) {
