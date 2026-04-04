@@ -7,6 +7,7 @@ import { ensureGhosttyInit, isGhosttyReady } from './ghostty-init';
 import {
   writeToPty,
   resizePty,
+  closePty,
   connectPtyOutput,
   connectPtyOutputFresh,
   spawnTerminal,
@@ -285,7 +286,12 @@ export function useTerminal(
         // → dedup guard suppresses any subsequent fit at the same size → 0 SIGWINCH.
         void spawnTerminal(paneId, savedCwd, term.rows, term.cols).then(
           ({ ptyId: newId, isNew }) => {
-            if (spawnCancelled) return;
+            if (spawnCancelled) {
+              // Component unmounted while spawn was in-flight — the PTY now
+              // exists in the daemon with no frontend owner. Clean it up.
+              void closePty(newId);
+              return;
+            }
             ptrRef.ptyId = newId;
             lastSentSize.rows = term.rows;
             lastSentSize.cols = term.cols;
