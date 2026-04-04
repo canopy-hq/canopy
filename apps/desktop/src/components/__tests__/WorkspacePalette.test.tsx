@@ -58,13 +58,13 @@ describe('WorkspacePalette', () => {
 
   it('closes on Escape', () => {
     render(<WorkspacePalette {...props} />);
-    fireEvent.keyDown(screen.getByRole('presentation'), { key: 'Escape' });
+    fireEvent.keyDown(screen.getByPlaceholderText(/Search or create/), { key: 'Escape' });
     expect(props.onClose).toHaveBeenCalledTimes(1);
   });
 
   it('closes on backdrop click', () => {
     render(<WorkspacePalette {...props} />);
-    fireEvent.click(screen.getByRole('presentation'));
+    fireEvent.click(screen.getByLabelText('Dismiss'));
     expect(props.onClose).toHaveBeenCalledTimes(1);
   });
 });

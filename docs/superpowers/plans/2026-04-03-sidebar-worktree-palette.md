@@ -15,24 +15,27 @@
 ## File Structure
 
 ### New Files
-| File | Responsibility |
-|------|---------------|
-| `apps/desktop/src/components/WorkspacePalette.tsx` | Command palette modal — search, tabs, branch list, create/open flows |
-| `apps/desktop/src/components/__tests__/WorkspacePalette.test.tsx` | Tests for palette states, filtering, create/open actions |
+
+| File                                                              | Responsibility                                                       |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `apps/desktop/src/components/WorkspacePalette.tsx`                | Command palette modal — search, tabs, branch list, create/open flows |
+| `apps/desktop/src/components/__tests__/WorkspacePalette.test.tsx` | Tests for palette states, filtering, create/open actions             |
 
 ### Modified Files
-| File | Changes |
-|------|---------|
-| `apps/desktop/src-tauri/src/git.rs` | Add `BranchDetail` struct + `list_all_branches` command; modify `import_repo` to return HEAD-only |
-| `apps/desktop/src-tauri/src/lib.rs` | Register `list_all_branches` in invoke handler |
-| `apps/desktop/src/lib/git.ts` | Add `BranchDetail` type + `listAllBranches` wrapper |
-| `apps/desktop/src/lib/workspace-actions.ts` | Filter `importRepo` to HEAD-only; add `openWorktree` action |
+
+| File                                            | Changes                                                                                                    |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `apps/desktop/src-tauri/src/git.rs`             | Add `BranchDetail` struct + `list_all_branches` command; modify `import_repo` to return HEAD-only          |
+| `apps/desktop/src-tauri/src/lib.rs`             | Register `list_all_branches` in invoke handler                                                             |
+| `apps/desktop/src/lib/git.ts`                   | Add `BranchDetail` type + `listAllBranches` wrapper                                                        |
+| `apps/desktop/src/lib/workspace-actions.ts`     | Filter `importRepo` to HEAD-only; add `openWorktree` action                                                |
 | `apps/desktop/src/components/WorkspaceTree.tsx` | Full restyle — accent bar, chevron, hover-reveal `+`, collapsed inline branch, remove old modal references |
-| `apps/desktop/src/components/Sidebar.tsx` | Restyle import button to dashed border |
+| `apps/desktop/src/components/Sidebar.tsx`       | Restyle import button to dashed border                                                                     |
 
 ### Deleted Files
-| File | Reason |
-|------|--------|
+
+| File                                          | Reason                         |
+| --------------------------------------------- | ------------------------------ |
 | `apps/desktop/src/components/CreateModal.tsx` | Replaced by `WorkspacePalette` |
 
 ---
@@ -40,6 +43,7 @@
 ## Task 1: Rust — `list_all_branches` command
 
 **Files:**
+
 - Modify: `apps/desktop/src-tauri/src/git.rs`
 - Modify: `apps/desktop/src-tauri/src/lib.rs`
 
@@ -222,6 +226,7 @@ git commit -m "feat: add list_all_branches command with worktree detection"
 ## Task 2: Rust — Modify `import_repo` to return HEAD-only
 
 **Files:**
+
 - Modify: `apps/desktop/src-tauri/src/git.rs`
 
 - [ ] **Step 1: Update the existing `test_import_repo` test**
@@ -295,6 +300,7 @@ git commit -m "feat: import_repo returns HEAD branch only, no worktrees"
 ## Task 3: Frontend — Add `listAllBranches` API + `openWorktree` action
 
 **Files:**
+
 - Modify: `apps/desktop/src/lib/git.ts`
 - Modify: `apps/desktop/src/lib/workspace-actions.ts`
 
@@ -368,6 +374,7 @@ git commit -m "feat: add listAllBranches API and openWorktree action"
 ## Task 4: Sidebar — Restyle `WorkspaceTree` (Linear "Accent + Inline + Hover")
 
 **Files:**
+
 - Modify: `apps/desktop/src/components/WorkspaceTree.tsx`
 - Modify: `apps/desktop/src/components/Sidebar.tsx`
 
@@ -382,7 +389,16 @@ Replace the import button section (lines 96-104 in `Sidebar.tsx`):
     style={{ fontSize: '12px', borderRadius: '6px', border: '1px dashed var(--border)' }}
     onClick={handleImport}
   >
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    >
+      <path d="M8 3v10M3 8h10" />
+    </svg>
     Import
   </button>
 </div>
@@ -396,7 +412,16 @@ Also update the `EmptyState` button to match (lines 21-28):
   style={{ fontSize: '12px', borderRadius: '6px', border: '1px dashed var(--border)' }}
   onClick={onImport}
 >
-  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 3v10M3 8h10"/></svg>
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+  >
+    <path d="M8 3v10M3 8h10" />
+  </svg>
   Import Repository
 </button>
 ```
@@ -434,22 +459,33 @@ function RepoHeader({
         style={{ fontSize: '10px', width: '10px', textAlign: 'center' }}
       >
         {workspace.expanded ? (
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M4 6l4 4 4-4z"/></svg>
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M4 6l4 4 4-4z" />
+          </svg>
         ) : (
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M6 4l4 4-4 4z"/></svg>
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M6 4l4 4-4 4z" />
+          </svg>
         )}
       </Button>
       <svg
-        width="14" height="14" viewBox="0 0 16 16" fill="none"
+        width="14"
+        height="14"
+        viewBox="0 0 16 16"
+        fill="none"
         stroke={isSelected ? 'var(--accent)' : '#555'}
         strokeWidth="1.5"
         style={isSelected ? { filter: 'drop-shadow(0 0 3px rgba(59,130,246,0.4))' } : undefined}
       >
-        <path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/>
+        <path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z" />
       </svg>
       <span
         className="font-medium truncate"
-        style={{ fontSize: '13px', flex: 1, color: isSelected ? 'var(--text-primary)' : 'var(--text-muted)' }}
+        style={{
+          fontSize: '13px',
+          flex: 1,
+          color: isSelected ? 'var(--text-primary)' : 'var(--text-muted)',
+        }}
       >
         {workspace.name}
       </span>
@@ -466,7 +502,15 @@ function RepoHeader({
             </span>
           )}
           {childCount > 0 && (
-            <span style={{ fontSize: '10px', color: '#444', background: '#1a1a2e', padding: '1px 6px', borderRadius: '8px' }}>
+            <span
+              style={{
+                fontSize: '10px',
+                color: '#444',
+                background: '#1a1a2e',
+                padding: '1px 6px',
+                borderRadius: '8px',
+              }}
+            >
               {childCount}
             </span>
           )}
@@ -475,14 +519,35 @@ function RepoHeader({
       {/* Hover-reveal + button */}
       <div
         className="opacity-0 group-hover:opacity-100 transition-opacity"
-        style={{ width: '20px', height: '20px', borderRadius: '4px', background: 'rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+        style={{
+          width: '20px',
+          height: '20px',
+          borderRadius: '4px',
+          background: 'rgba(59,130,246,0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          flexShrink: 0,
+        }}
         onClick={onPlusClick}
         role="button"
         aria-label="Add workspace"
         tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter') onPlusClick(e as unknown as React.MouseEvent); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') onPlusClick(e as unknown as React.MouseEvent);
+        }}
       >
-        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" strokeWidth="1.5"><path d="M8 3v10M3 8h10"/></svg>
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="1.5"
+        >
+          <path d="M8 3v10M3 8h10" />
+        </svg>
       </div>
     </div>
   );
@@ -496,24 +561,51 @@ Replace `BranchRow` (lines 20-40):
 ```tsx
 function BranchRow({ branch, agentStatus }: { branch: BranchInfo; agentStatus?: DotStatus }) {
   return (
-    <div className="flex items-center gap-[6px] py-[4px] px-[10px] rounded-[5px]"
-      style={{ marginLeft: '39px', marginRight: '6px', marginTop: '1px', marginBottom: '1px',
-        background: branch.is_head ? 'rgba(59,130,246,0.1)' : undefined }}>
-      <svg width="11" height="11" viewBox="0 0 16 16" fill="none"
-        stroke={branch.is_head ? 'var(--accent)' : '#555'} strokeWidth="2">
-        <circle cx="8" cy="8" r="3"/>
+    <div
+      className="flex items-center gap-[6px] py-[4px] px-[10px] rounded-[5px]"
+      style={{
+        marginLeft: '39px',
+        marginRight: '6px',
+        marginTop: '1px',
+        marginBottom: '1px',
+        background: branch.is_head ? 'rgba(59,130,246,0.1)' : undefined,
+      }}
+    >
+      <svg
+        width="11"
+        height="11"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke={branch.is_head ? 'var(--accent)' : '#555'}
+        strokeWidth="2"
+      >
+        <circle cx="8" cy="8" r="3" />
       </svg>
-      <span style={{ fontSize: '13px', fontWeight: branch.is_head ? 500 : 400,
-        color: branch.is_head ? 'var(--text-primary)' : 'var(--text-muted)', flex: 1 }}
-        className="truncate">
+      <span
+        style={{
+          fontSize: '13px',
+          fontWeight: branch.is_head ? 500 : 400,
+          color: branch.is_head ? 'var(--text-primary)' : 'var(--text-muted)',
+          flex: 1,
+        }}
+        className="truncate"
+      >
         {branch.name}
       </span>
       {branch.is_head && (
-        <span style={{ fontSize: '9px', color: 'var(--accent)', background: 'rgba(59,130,246,0.1)', padding: '1px 5px', borderRadius: '3px' }}>HEAD</span>
+        <span
+          style={{
+            fontSize: '9px',
+            color: 'var(--accent)',
+            background: 'rgba(59,130,246,0.1)',
+            padding: '1px 5px',
+            borderRadius: '3px',
+          }}
+        >
+          HEAD
+        </span>
       )}
-      {agentStatus && agentStatus !== 'idle' && (
-        <StatusDot status={agentStatus} size={6} />
-      )}
+      {agentStatus && agentStatus !== 'idle' && <StatusDot status={agentStatus} size={6} />}
       <span className="flex gap-1" style={{ fontSize: '11px' }}>
         {branch.ahead > 0 && <span style={{ color: 'var(--git-ahead)' }}>+{branch.ahead}</span>}
         {branch.behind > 0 && <span style={{ color: 'var(--git-behind)' }}>-{branch.behind}</span>}
@@ -526,19 +618,25 @@ function BranchRow({ branch, agentStatus }: { branch: BranchInfo; agentStatus?: 
 Replace `WorktreeRow` (lines 43-56):
 
 ```tsx
-function WorktreeRow({ worktree, agentStatus }: { worktree: WorktreeInfo; agentStatus?: DotStatus }) {
+function WorktreeRow({
+  worktree,
+  agentStatus,
+}: {
+  worktree: WorktreeInfo;
+  agentStatus?: DotStatus;
+}) {
   return (
-    <div className="flex items-center gap-[6px] py-[4px] px-[10px] rounded-[5px]"
-      style={{ marginLeft: '39px', marginRight: '6px', marginTop: '1px', marginBottom: '1px' }}>
+    <div
+      className="flex items-center gap-[6px] py-[4px] px-[10px] rounded-[5px]"
+      style={{ marginLeft: '39px', marginRight: '6px', marginTop: '1px', marginBottom: '1px' }}
+    >
       <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" strokeWidth="1.5">
-        <rect x="3" y="3" width="10" height="10" rx="2"/>
+        <rect x="3" y="3" width="10" height="10" rx="2" />
       </svg>
       <span style={{ fontSize: '13px', color: 'var(--text-muted)', flex: 1 }} className="truncate">
         {worktree.name}
       </span>
-      {agentStatus && agentStatus !== 'idle' && (
-        <StatusDot status={agentStatus} size={6} />
-      )}
+      {agentStatus && agentStatus !== 'idle' && <StatusDot status={agentStatus} size={6} />}
     </div>
   );
 }
@@ -587,7 +685,14 @@ function RepoTreeItem({
 Pass it from `WorkspaceTree`:
 
 ```tsx
-<RepoTreeItem key={ws.id} ws={ws} agentMap={agentMap} setModalWorkspace={setModalWorkspace} onRequestClose={setCloseTarget} selectedItemId={selectedItemId} />
+<RepoTreeItem
+  key={ws.id}
+  ws={ws}
+  agentMap={agentMap}
+  setModalWorkspace={setModalWorkspace}
+  onRequestClose={setCloseTarget}
+  selectedItemId={selectedItemId}
+/>
 ```
 
 Remove the `+ New Branch` TreeItem (lines 354-375 approximately — the last child TreeItem with `id={ws.id}-new-branch`).
@@ -613,19 +718,23 @@ return (
 In `WorkspaceTree`, replace the `CreateModal` import and usage:
 
 Change the import (line 17):
+
 ```tsx
 import { WorkspacePalette } from './WorkspacePalette';
 ```
 
 Replace the `CreateModal` render block (around line 224-230):
+
 ```tsx
-{modalWorkspace && (
-  <WorkspacePalette
-    isOpen={!!modalWorkspace}
-    onClose={() => setModalWorkspace(null)}
-    workspace={modalWorkspace}
-  />
-)}
+{
+  modalWorkspace && (
+    <WorkspacePalette
+      isOpen={!!modalWorkspace}
+      onClose={() => setModalWorkspace(null)}
+      workspace={modalWorkspace}
+    />
+  );
+}
 ```
 
 - [ ] **Step 7: Update `TreeItem` styling to remove old active styles**
@@ -639,8 +748,9 @@ className={({ isSelected }) =>
 ```
 
 Also update the repo-level `TreeItem`:
+
 ```tsx
-className="outline-none cursor-pointer"
+className = 'outline-none cursor-pointer';
 ```
 
 (The accent bar is now handled inside `RepoHeader`, not via TreeItem className.)
@@ -657,6 +767,7 @@ git commit -m "feat: restyle sidebar with Linear design — accent bar, hover-re
 ## Task 5: Build `WorkspacePalette` — Browse mode
 
 **Files:**
+
 - Create: `apps/desktop/src/components/WorkspacePalette.tsx`
 - Create: `apps/desktop/src/components/__tests__/WorkspacePalette.test.tsx`
 
@@ -680,10 +791,7 @@ vi.mock('../../lib/git', () => ({
   listBranches: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock('../../lib/workspace-actions', () => ({
-  createWorktree: vi.fn(),
-  openWorktree: vi.fn(),
-}));
+vi.mock('../../lib/workspace-actions', () => ({ createWorktree: vi.fn(), openWorktree: vi.fn() }));
 
 const baseWorkspace = {
   id: 'ws-1',
@@ -699,11 +807,7 @@ describe('WorkspacePalette', () => {
   let props: WorkspacePaletteProps;
 
   beforeEach(() => {
-    props = {
-      isOpen: true,
-      onClose: vi.fn(),
-      workspace: baseWorkspace,
-    };
+    props = { isOpen: true, onClose: vi.fn(), workspace: baseWorkspace };
   });
 
   it('renders nothing when isOpen is false', () => {
@@ -776,7 +880,9 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
     setTab('all');
     setConfirmBranch(null);
     setPickingBase(false);
-    listAllBranches(workspace.path).then(setBranches).catch(() => {});
+    listAllBranches(workspace.path)
+      .then(setBranches)
+      .catch(() => {});
     const head = workspace.branches.find((b) => b.is_head);
     setBaseBranch(head?.name ?? 'main');
     // Focus input after render
@@ -808,13 +914,12 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
   );
 
   // Does the query match an existing branch name exactly?
-  const exactMatch = branches.find(
-    (b) => b.name.toLowerCase() === query.trim().toLowerCase(),
-  );
+  const exactMatch = branches.find((b) => b.name.toLowerCase() === query.trim().toLowerCase());
 
   // Create mode: user typed something that doesn't match any branch
   const isCreateMode = query.trim().length > 0 && !exactMatch;
-  const isConflictMode = query.trim().length > 0 && exactMatch && !exactMatch.is_head && !exactMatch.is_in_worktree;
+  const isConflictMode =
+    query.trim().length > 0 && exactMatch && !exactMatch.is_head && !exactMatch.is_in_worktree;
 
   // Worktrees from workspace (already opened or on disk)
   const diskWorktrees = workspace.worktrees;
@@ -847,36 +952,84 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
     <div
       className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]"
       style={{ background: 'rgba(0,0,0,0.5)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       onKeyDown={handleKeyDown}
       role="presentation"
     >
       <div
         className="w-[440px] overflow-hidden"
-        style={{ background: '#161622', border: '1px solid #2a2a3e', borderRadius: '10px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
+        style={{
+          background: '#161622',
+          border: '1px solid #2a2a3e',
+          borderRadius: '10px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+        }}
       >
         {/* Search bar */}
-        <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid #1e1e2e' }}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" strokeWidth="1.5">
-            <circle cx="7" cy="7" r="4"/><path d="M10 10l3 3"/>
+        <div
+          className="flex items-center gap-2 px-4 py-3"
+          style={{ borderBottom: '1px solid #1e1e2e' }}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="var(--accent)"
+            strokeWidth="1.5"
+          >
+            <circle cx="7" cy="7" r="4" />
+            <path d="M10 10l3 3" />
           </svg>
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => { setQuery(e.target.value); setConfirmBranch(null); }}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setConfirmBranch(null);
+            }}
             placeholder="Search or create new branch..."
             className="flex-1 bg-transparent border-none outline-none text-[var(--text-primary)]"
             style={{ fontSize: '14px' }}
           />
-          <span style={{ fontSize: '10px', color: '#444', background: '#1a1a2e', padding: '2px 6px', borderRadius: '4px' }}>ESC</span>
+          <span
+            style={{
+              fontSize: '10px',
+              color: '#444',
+              background: '#1a1a2e',
+              padding: '2px 6px',
+              borderRadius: '4px',
+            }}
+          >
+            ESC
+          </span>
         </div>
 
         {/* Create card (when in create mode) */}
         {isCreateMode && !pickingBase && (
-          <div className="mx-2 mt-2 p-3 rounded-lg" style={{ background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.15)' }}>
+          <div
+            className="mx-2 mt-2 p-3 rounded-lg"
+            style={{
+              background: 'rgba(59,130,246,0.05)',
+              border: '1px solid rgba(59,130,246,0.15)',
+            }}
+          >
             <div className="flex items-center gap-2 mb-2">
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" strokeWidth="1.5"><path d="M8 3v10M3 8h10"/></svg>
-              <span style={{ fontWeight: 500, color: 'var(--accent)', flex: 1, fontSize: '13px' }}>Create "{query.trim()}"</span>
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="var(--accent)"
+                strokeWidth="1.5"
+              >
+                <path d="M8 3v10M3 8h10" />
+              </svg>
+              <span style={{ fontWeight: 500, color: 'var(--accent)', flex: 1, fontSize: '13px' }}>
+                Create "{query.trim()}"
+              </span>
               <span style={{ fontSize: '10px', color: '#555', fontFamily: 'monospace' }}>⌘↵</span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -884,31 +1037,78 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
               <button
                 onClick={() => setPickingBase(true)}
                 className="flex items-center gap-1 px-2 py-0.5 cursor-pointer"
-                style={{ background: '#1a1a2e', border: '1px solid #2a2a3e', borderRadius: '5px', fontSize: '11px' }}
+                style={{
+                  background: '#1a1a2e',
+                  border: '1px solid #2a2a3e',
+                  borderRadius: '5px',
+                  fontSize: '11px',
+                }}
               >
-                <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" strokeWidth="2"><circle cx="8" cy="8" r="3"/></svg>
+                <svg
+                  width="9"
+                  height="9"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="var(--accent)"
+                  strokeWidth="2"
+                >
+                  <circle cx="8" cy="8" r="3" />
+                </svg>
                 <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{baseBranch}</span>
-                <svg width="8" height="8" viewBox="0 0 16 16" fill="#555"><path d="M4 6l4 4 4-4z"/></svg>
+                <svg width="8" height="8" viewBox="0 0 16 16" fill="#555">
+                  <path d="M4 6l4 4 4-4z" />
+                </svg>
               </button>
             </div>
           </div>
         )}
 
         {/* Tab bar */}
-        <div className="flex gap-0.5 mx-2 mt-2 p-0.5 rounded-[6px]" style={{ background: '#0e0e16' }}>
+        <div
+          className="flex gap-0.5 mx-2 mt-2 p-0.5 rounded-[6px]"
+          style={{ background: '#0e0e16' }}
+        >
           <button
             onClick={() => setTab('all')}
             className="flex-1 flex items-center justify-center gap-1 py-[5px] px-2 rounded cursor-pointer border-none"
-            style={{ fontSize: '12px', background: tab === 'all' ? '#1a1a2e' : 'transparent', color: tab === 'all' ? 'var(--text-primary)' : 'var(--text-muted)' }}
+            style={{
+              fontSize: '12px',
+              background: tab === 'all' ? '#1a1a2e' : 'transparent',
+              color: tab === 'all' ? 'var(--text-primary)' : 'var(--text-muted)',
+            }}
           >
-            All <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.06)', padding: '0 5px', borderRadius: '8px' }}>{branches.length}</span>
+            All{' '}
+            <span
+              style={{
+                fontSize: '10px',
+                background: 'rgba(255,255,255,0.06)',
+                padding: '0 5px',
+                borderRadius: '8px',
+              }}
+            >
+              {branches.length}
+            </span>
           </button>
           <button
             onClick={() => setTab('worktrees')}
             className="flex-1 flex items-center justify-center gap-1 py-[5px] px-2 rounded cursor-pointer border-none"
-            style={{ fontSize: '12px', background: tab === 'worktrees' ? '#1a1a2e' : 'transparent', color: tab === 'worktrees' ? 'var(--text-primary)' : 'var(--text-muted)' }}
+            style={{
+              fontSize: '12px',
+              background: tab === 'worktrees' ? '#1a1a2e' : 'transparent',
+              color: tab === 'worktrees' ? 'var(--text-primary)' : 'var(--text-muted)',
+            }}
           >
-            Worktrees <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.06)', padding: '0 5px', borderRadius: '8px' }}>{diskWorktrees.length}</span>
+            Worktrees{' '}
+            <span
+              style={{
+                fontSize: '10px',
+                background: 'rgba(255,255,255,0.06)',
+                padding: '0 5px',
+                borderRadius: '8px',
+              }}
+            >
+              {diskWorktrees.length}
+            </span>
           </button>
         </div>
 
@@ -916,9 +1116,26 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
         <div className="px-2 pb-2" style={{ maxHeight: '320px', overflowY: 'auto' }}>
           {tab === 'all' && !pickingBase && (
             <>
-              <div style={{ fontSize: '10px', color: '#444', padding: '6px 8px 4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Branches</div>
+              <div
+                style={{
+                  fontSize: '10px',
+                  color: '#444',
+                  padding: '6px 8px 4px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                }}
+              >
+                Branches
+              </div>
               {filteredBranches.length === 0 && (
-                <div style={{ padding: '12px 8px', textAlign: 'center', color: '#333', fontSize: '12px' }}>
+                <div
+                  style={{
+                    padding: '12px 8px',
+                    textAlign: 'center',
+                    color: '#333',
+                    fontSize: '12px',
+                  }}
+                >
                   {query ? `No branches match "${query}"` : 'No branches'}
                 </div>
               )}
@@ -938,12 +1155,37 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
               ))}
 
               {/* Worktrees section */}
-              <div style={{ fontSize: '10px', color: '#444', padding: '6px 8px 4px', textTransform: 'uppercase', letterSpacing: '0.5px', borderTop: '1px solid #1e1e2e', marginTop: '4px' }}>Worktrees</div>
+              <div
+                style={{
+                  fontSize: '10px',
+                  color: '#444',
+                  padding: '6px 8px 4px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  borderTop: '1px solid #1e1e2e',
+                  marginTop: '4px',
+                }}
+              >
+                Worktrees
+              </div>
               {filteredWorktrees.length === 0 && (
-                <div style={{ padding: '12px 8px', textAlign: 'center', color: '#333', fontSize: '12px' }}>No worktrees</div>
+                <div
+                  style={{
+                    padding: '12px 8px',
+                    textAlign: 'center',
+                    color: '#333',
+                    fontSize: '12px',
+                  }}
+                >
+                  No worktrees
+                </div>
               )}
               {filteredWorktrees.map((wt) => (
-                <WorktreeItem key={wt.name} worktree={wt} onOpen={() => handleOpenWorktree(wt.name, wt.path)} />
+                <WorktreeItem
+                  key={wt.name}
+                  worktree={wt}
+                  onOpen={() => handleOpenWorktree(wt.name, wt.path)}
+                />
               ))}
             </>
           )}
@@ -952,15 +1194,33 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
             <>
               {filteredWorktrees.length === 0 && (
                 <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}>No worktrees</div>
+                  <div
+                    style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}
+                  >
+                    No worktrees
+                  </div>
                   <div style={{ fontSize: '12px', color: '#444' }}>Create one from the All tab</div>
                 </div>
               )}
               {filteredWorktrees.map((wt) => (
-                <WorktreeItem key={wt.name} worktree={wt} onOpen={() => handleOpenWorktree(wt.name, wt.path)} showPath />
+                <WorktreeItem
+                  key={wt.name}
+                  worktree={wt}
+                  onOpen={() => handleOpenWorktree(wt.name, wt.path)}
+                  showPath
+                />
               ))}
               {filteredWorktrees.length > 0 && (
-                <div style={{ padding: '8px', textAlign: 'center', color: '#333', fontSize: '12px', borderTop: '1px solid #1e1e2e', marginTop: '4px' }}>
+                <div
+                  style={{
+                    padding: '8px',
+                    textAlign: 'center',
+                    color: '#333',
+                    fontSize: '12px',
+                    borderTop: '1px solid #1e1e2e',
+                    marginTop: '4px',
+                  }}
+                >
                   Worktrees already on disk. Click Open to add to sidebar.
                 </div>
               )}
@@ -970,33 +1230,98 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
           {/* Base picker mode */}
           {pickingBase && (
             <>
-              <div style={{ fontSize: '10px', color: '#444', padding: '6px 8px 4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Select base branch</div>
-              {branches.filter((b) => !b.is_in_worktree).map((b) => (
-                <div
-                  key={b.name}
-                  className="flex items-center gap-[7px] py-[6px] px-2 rounded-[5px] cursor-pointer hover:bg-[rgba(59,130,246,0.06)]"
-                  style={b.name === baseBranch ? { background: 'rgba(59,130,246,0.06)' } : undefined}
-                  onClick={() => { setBaseBranch(b.name); setPickingBase(false); }}
-                >
-                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke={b.name === baseBranch ? 'var(--accent)' : '#555'} strokeWidth="2"><circle cx="8" cy="8" r="3"/></svg>
-                  <span style={{ fontSize: '13px', fontWeight: b.name === baseBranch ? 500 : 400, color: 'var(--text-primary)' }}>{b.name}</span>
-                  {b.is_head && <span style={{ fontSize: '9px', color: 'var(--accent)', background: 'rgba(59,130,246,0.1)', padding: '1px 5px', borderRadius: '3px' }}>HEAD</span>}
-                  {b.name === baseBranch && (
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="var(--accent)" style={{ marginLeft: 'auto' }}><path d="M6 10.8l-2.4-2.4L2 10l4 4 8-8-1.6-1.6z"/></svg>
-                  )}
-                </div>
-              ))}
+              <div
+                style={{
+                  fontSize: '10px',
+                  color: '#444',
+                  padding: '6px 8px 4px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                }}
+              >
+                Select base branch
+              </div>
+              {branches
+                .filter((b) => !b.is_in_worktree)
+                .map((b) => (
+                  <div
+                    key={b.name}
+                    className="flex items-center gap-[7px] py-[6px] px-2 rounded-[5px] cursor-pointer hover:bg-[rgba(59,130,246,0.06)]"
+                    style={
+                      b.name === baseBranch ? { background: 'rgba(59,130,246,0.06)' } : undefined
+                    }
+                    onClick={() => {
+                      setBaseBranch(b.name);
+                      setPickingBase(false);
+                    }}
+                  >
+                    <svg
+                      width="11"
+                      height="11"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke={b.name === baseBranch ? 'var(--accent)' : '#555'}
+                      strokeWidth="2"
+                    >
+                      <circle cx="8" cy="8" r="3" />
+                    </svg>
+                    <span
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: b.name === baseBranch ? 500 : 400,
+                        color: 'var(--text-primary)',
+                      }}
+                    >
+                      {b.name}
+                    </span>
+                    {b.is_head && (
+                      <span
+                        style={{
+                          fontSize: '9px',
+                          color: 'var(--accent)',
+                          background: 'rgba(59,130,246,0.1)',
+                          padding: '1px 5px',
+                          borderRadius: '3px',
+                        }}
+                      >
+                        HEAD
+                      </span>
+                    )}
+                    {b.name === baseBranch && (
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 16 16"
+                        fill="var(--accent)"
+                        style={{ marginLeft: 'auto' }}
+                      >
+                        <path d="M6 10.8l-2.4-2.4L2 10l4 4 8-8-1.6-1.6z" />
+                      </svg>
+                    )}
+                  </div>
+                ))}
             </>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-3 px-4 py-2" style={{ borderTop: '1px solid #1e1e2e', fontSize: '11px', color: '#444' }}>
+        <div
+          className="flex items-center gap-3 px-4 py-2"
+          style={{ borderTop: '1px solid #1e1e2e', fontSize: '11px', color: '#444' }}
+        >
           {isCreateMode ? (
             <>
               <span>⌘↵ create worktree</span>
-              <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: '11px', color: '#555' }}>
-                git worktree add -b <span style={{ color: 'var(--accent)' }}>{query.trim()}</span> … <span style={{ color: 'var(--text-muted)' }}>{baseBranch}</span>
+              <span
+                style={{
+                  marginLeft: 'auto',
+                  fontFamily: 'monospace',
+                  fontSize: '11px',
+                  color: '#555',
+                }}
+              >
+                git worktree add -b <span style={{ color: 'var(--accent)' }}>{query.trim()}</span> …{' '}
+                <span style={{ color: 'var(--text-muted)' }}>{baseBranch}</span>
               </span>
             </>
           ) : pickingBase ? (
@@ -1036,7 +1361,18 @@ function BranchItem({
   const disabled = branch.is_head || branch.is_in_worktree;
 
   return (
-    <div style={isConfirming ? { border: '1px solid rgba(59,130,246,0.2)', borderRadius: '6px', overflow: 'hidden', margin: '2px 0' } : undefined}>
+    <div
+      style={
+        isConfirming
+          ? {
+              border: '1px solid rgba(59,130,246,0.2)',
+              borderRadius: '6px',
+              overflow: 'hidden',
+              margin: '2px 0',
+            }
+          : undefined
+      }
+    >
       <div
         className="flex items-center gap-[7px] py-[6px] px-2 rounded-[5px]"
         style={{
@@ -1045,21 +1381,97 @@ function BranchItem({
           background: isConfirming ? 'rgba(59,130,246,0.08)' : undefined,
         }}
       >
-        <svg width="11" height="11" viewBox="0 0 16 16" fill="none"
-          stroke={branch.is_head ? 'var(--accent)' : '#555'} strokeWidth="2">
-          <circle cx="8" cy="8" r="3"/>
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke={branch.is_head ? 'var(--accent)' : '#555'}
+          strokeWidth="2"
+        >
+          <circle cx="8" cy="8" r="3" />
         </svg>
-        <span style={{ fontSize: '13px', fontWeight: branch.is_head ? 500 : 400, color: 'var(--text-primary)' }}>{branch.name}</span>
-        {branch.is_head && <span style={{ fontSize: '9px', color: 'var(--accent)', background: 'rgba(59,130,246,0.1)', padding: '1px 5px', borderRadius: '3px' }}>HEAD</span>}
-        {branch.is_local && !branch.is_head && <span style={{ fontSize: '9px', color: '#d97706', background: 'rgba(217,119,6,0.1)', padding: '1px 5px', borderRadius: '3px' }}>local</span>}
-        {!branch.is_local && <span style={{ fontSize: '9px', color: '#555', background: 'rgba(255,255,255,0.04)', padding: '1px 5px', borderRadius: '3px' }}>origin</span>}
-        {branch.is_in_worktree && <span style={{ fontSize: '9px', color: '#ef4444', background: 'rgba(239,68,68,0.08)', padding: '1px 5px', borderRadius: '3px' }}>in worktree</span>}
+        <span
+          style={{
+            fontSize: '13px',
+            fontWeight: branch.is_head ? 500 : 400,
+            color: 'var(--text-primary)',
+          }}
+        >
+          {branch.name}
+        </span>
+        {branch.is_head && (
+          <span
+            style={{
+              fontSize: '9px',
+              color: 'var(--accent)',
+              background: 'rgba(59,130,246,0.1)',
+              padding: '1px 5px',
+              borderRadius: '3px',
+            }}
+          >
+            HEAD
+          </span>
+        )}
+        {branch.is_local && !branch.is_head && (
+          <span
+            style={{
+              fontSize: '9px',
+              color: '#d97706',
+              background: 'rgba(217,119,6,0.1)',
+              padding: '1px 5px',
+              borderRadius: '3px',
+            }}
+          >
+            local
+          </span>
+        )}
+        {!branch.is_local && (
+          <span
+            style={{
+              fontSize: '9px',
+              color: '#555',
+              background: 'rgba(255,255,255,0.04)',
+              padding: '1px 5px',
+              borderRadius: '3px',
+            }}
+          >
+            origin
+          </span>
+        )}
+        {branch.is_in_worktree && (
+          <span
+            style={{
+              fontSize: '9px',
+              color: '#ef4444',
+              background: 'rgba(239,68,68,0.08)',
+              padding: '1px 5px',
+              borderRadius: '3px',
+            }}
+          >
+            in worktree
+          </span>
+        )}
         {disabled ? (
-          <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#444' }}>{branch.is_head ? 'checked out' : 'in use'}</span>
+          <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#444' }}>
+            {branch.is_head ? 'checked out' : 'in use'}
+          </span>
         ) : !isConfirming ? (
           <button
-            onClick={(e) => { e.stopPropagation(); onCreateWT(); }}
-            style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--accent)', background: 'rgba(59,130,246,0.08)', padding: '2px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onCreateWT();
+            }}
+            style={{
+              marginLeft: 'auto',
+              fontSize: '11px',
+              color: 'var(--accent)',
+              background: 'rgba(59,130,246,0.08)',
+              padding: '2px 8px',
+              borderRadius: '4px',
+              border: 'none',
+              cursor: 'pointer',
+            }}
           >
             Create WT
           </button>
@@ -1067,16 +1479,59 @@ function BranchItem({
       </div>
       {/* Inline confirmation */}
       {isConfirming && (
-        <div className="px-2.5 py-2" style={{ background: 'rgba(59,130,246,0.03)', borderTop: '1px solid rgba(59,130,246,0.1)' }}>
+        <div
+          className="px-2.5 py-2"
+          style={{
+            background: 'rgba(59,130,246,0.03)',
+            borderTop: '1px solid rgba(59,130,246,0.1)',
+          }}
+        >
           <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-            Create worktree for <strong style={{ color: 'var(--text-primary)' }}>{branch.name}</strong>
+            Create worktree for{' '}
+            <strong style={{ color: 'var(--text-primary)' }}>{branch.name}</strong>
           </div>
-          <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded" style={{ background: '#0e0e16', fontFamily: 'monospace', fontSize: '11px', color: '#555' }}>
-            git worktree add ~/.superagent/worktrees/{workspace.name}-{branch.name} {branch.is_local ? branch.name : `origin/${branch.name}`}
+          <div
+            className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded"
+            style={{
+              background: '#0e0e16',
+              fontFamily: 'monospace',
+              fontSize: '11px',
+              color: '#555',
+            }}
+          >
+            git worktree add ~/.superagent/worktrees/{workspace.name}-{branch.name}{' '}
+            {branch.is_local ? branch.name : `origin/${branch.name}`}
           </div>
           <div className="flex gap-1.5 justify-end">
-            <button onClick={onCancelConfirm} style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid #2a2a3e', fontSize: '11px', color: 'var(--text-muted)', cursor: 'pointer', background: 'transparent' }}>Cancel</button>
-            <button onClick={onConfirmCreate} style={{ padding: '4px 10px', borderRadius: '5px', border: 'none', fontSize: '11px', fontWeight: 500, cursor: 'pointer', background: 'var(--accent)', color: 'white' }}>Create</button>
+            <button
+              onClick={onCancelConfirm}
+              style={{
+                padding: '4px 10px',
+                borderRadius: '4px',
+                border: '1px solid #2a2a3e',
+                fontSize: '11px',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                background: 'transparent',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirmCreate}
+              style={{
+                padding: '4px 10px',
+                borderRadius: '5px',
+                border: 'none',
+                fontSize: '11px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                background: 'var(--accent)',
+                color: 'white',
+              }}
+            >
+              Create
+            </button>
           </div>
         </div>
       )}
@@ -1084,21 +1539,51 @@ function BranchItem({
   );
 }
 
-function WorktreeItem({ worktree, onOpen, showPath }: { worktree: { name: string; path: string }; onOpen: () => void; showPath?: boolean }) {
+function WorktreeItem({
+  worktree,
+  onOpen,
+  showPath,
+}: {
+  worktree: { name: string; path: string };
+  onOpen: () => void;
+  showPath?: boolean;
+}) {
   return (
     <div className="flex items-center gap-[7px] py-[6px] px-2 rounded-[5px] cursor-pointer hover:bg-[rgba(59,130,246,0.06)]">
       <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#555" strokeWidth="1.5">
-        <rect x="3" y="3" width="10" height="10" rx="2"/>
+        <rect x="3" y="3" width="10" height="10" rx="2" />
       </svg>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{worktree.name}</div>
         {showPath && (
-          <div style={{ fontSize: '10px', color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{worktree.path}</div>
+          <div
+            style={{
+              fontSize: '10px',
+              color: '#333',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {worktree.path}
+          </div>
         )}
       </div>
       <button
-        onClick={(e) => { e.stopPropagation(); onOpen(); }}
-        style={{ marginLeft: 'auto', fontSize: '11px', color: '#22c55e', background: 'rgba(34,197,94,0.08)', padding: '2px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpen();
+        }}
+        style={{
+          marginLeft: 'auto',
+          fontSize: '11px',
+          color: '#22c55e',
+          background: 'rgba(34,197,94,0.08)',
+          padding: '2px 8px',
+          borderRadius: '4px',
+          border: 'none',
+          cursor: 'pointer',
+        }}
       >
         Open
       </button>
@@ -1124,6 +1609,7 @@ git commit -m "feat: add WorkspacePalette command palette with browse, create, a
 ## Task 6: Delete `CreateModal` and verify
 
 **Files:**
+
 - Delete: `apps/desktop/src/components/CreateModal.tsx`
 
 - [ ] **Step 1: Delete the file**

@@ -9,6 +9,7 @@
       "name": "desktop",
       "version": "0.1.0",
       "dependencies": {
+        "@superagent/command-palette": "workspace:*",
         "@superagent/db": "workspace:*",
         "@superagent/fps": "workspace:*",
         "@superagent/terminal": "workspace:*",
@@ -52,6 +53,24 @@
         "typescript": "catalog:",
         "vite": "^8.0.3",
         "vitest": "catalog:",
+      },
+    },
+    "packages/command-palette": {
+      "name": "@superagent/command-palette",
+      "version": "0.0.1",
+      "devDependencies": {
+        "@superagent/tsconfig": "workspace:*",
+        "@types/react": "catalog:",
+        "@types/react-dom": "^19.2.3",
+        "react": "catalog:",
+        "react-aria-components": "^1.16.0",
+        "react-dom": "^19.2.4",
+        "typescript": "catalog:",
+      },
+      "peerDependencies": {
+        "react": "catalog:",
+        "react-aria-components": "^1.16.0",
+        "react-dom": "^19.2.4",
       },
     },
     "packages/db": {
@@ -619,6 +638,8 @@
     "@rolldown/pluginutils": ["@rolldown/pluginutils@1.0.0-rc.7", "", {}, "sha512-qujRfC8sFVInYSPPMLQByRh7zhwkGFS4+tyMQ83srV1qrxL4g8E2tyxVVyxd0+8QeBM1mIk9KbWxkegRr76XzA=="],
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
+
+    "@superagent/command-palette": ["@superagent/command-palette@workspace:packages/command-palette"],
 
     "@superagent/db": ["@superagent/db@workspace:packages/db"],
 

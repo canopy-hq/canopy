@@ -1,0 +1,24 @@
+{
+  "name": "@superagent/command-palette",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "devDependencies": {
+    "@superagent/tsconfig": "workspace:*",
+    "@types/react": "catalog:",
+    "@types/react-dom": "^19.2.3",
+    "react": "catalog:",
+    "react-aria-components": "^1.16.0",
+    "react-dom": "^19.2.4",
+    "typescript": "catalog:"
+  },
+  "peerDependencies": {
+    "lucide-react": "*",
+    "react": "catalog:",
+    "react-aria-components": "^1.16.0",
+    "react-dom": "^19.2.4"
+  }
+}

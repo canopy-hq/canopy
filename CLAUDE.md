@@ -38,14 +38,14 @@ bun run format                                       # oxfmt (root)
 
 Bun workspaces. Rust workspace for backend crates.
 
-| Package | Purpose |
-|---------|---------|
-| `apps/desktop/src/` | React frontend (components, hooks, lib, routes) |
-| `apps/desktop/src-tauri/` | Rust backend (git, PTY, agent detection) |
-| `packages/db/` | TanStack DB collections + Drizzle schema + SQLite persistence |
-| `packages/terminal/` | ghostty-web lifecycle, terminal cache, themes, PTY IPC |
-| `packages/pty-daemon/` | Standalone PTY daemon binary (unix socket, scrollback) |
-| `packages/tsconfig/` | Shared TypeScript configs |
+| Package                   | Purpose                                                       |
+| ------------------------- | ------------------------------------------------------------- |
+| `apps/desktop/src/`       | React frontend (components, hooks, lib, routes)               |
+| `apps/desktop/src-tauri/` | Rust backend (git, PTY, agent detection)                      |
+| `packages/db/`            | TanStack DB collections + Drizzle schema + SQLite persistence |
+| `packages/terminal/`      | ghostty-web lifecycle, terminal cache, themes, PTY IPC        |
+| `packages/pty-daemon/`    | Standalone PTY daemon binary (unix socket, scrollback)        |
+| `packages/tsconfig/`      | Shared TypeScript configs                                     |
 
 ## Architecture
 
@@ -69,13 +69,13 @@ See [`apps/desktop/FRONTEND.md`](apps/desktop/FRONTEND.md) for styling conventio
 
 ### Frontend layers
 
-| Layer | Pattern |
-|-------|---------|
-| **Collections** (`packages/db/collections/`) | Module-level singletons. Persisted collections write-through to SQLite. In-memory collections for ephemeral state (agents, UI). |
-| **Hooks** (`src/hooks/`) | `useCollections.ts` wraps `useLiveQuery` for reactive reads. `useWorkspacePolling` does adaptive polling with visibility gating. |
-| **Lib** (`src/lib/`) | Imperative action functions. Read state via `getUiState()`/`getTabCollection()` (non-reactive). Mutate collections directly. `git.ts` wraps Tauri `invoke()` with types. |
-| **Components** (`src/components/`) | Leaf components. `WorkspaceTree` uses `React.memo` + custom comparators for tree rows. |
-| **Routes** (`src/routes/`) | TanStack Router file-based. `__root.tsx` handles boot + global listeners. |
+| Layer                                        | Pattern                                                                                                                                                                  |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Collections** (`packages/db/collections/`) | Module-level singletons. Persisted collections write-through to SQLite. In-memory collections for ephemeral state (agents, UI).                                          |
+| **Hooks** (`src/hooks/`)                     | `useCollections.ts` wraps `useLiveQuery` for reactive reads. `useWorkspacePolling` does adaptive polling with visibility gating.                                         |
+| **Lib** (`src/lib/`)                         | Imperative action functions. Read state via `getUiState()`/`getTabCollection()` (non-reactive). Mutate collections directly. `git.ts` wraps Tauri `invoke()` with types. |
+| **Components** (`src/components/`)           | Leaf components. `WorkspaceTree` uses `React.memo` + custom comparators for tree rows.                                                                                   |
+| **Routes** (`src/routes/`)                   | TanStack Router file-based. `__root.tsx` handles boot + global listeners.                                                                                                |
 
 ## Performance
 

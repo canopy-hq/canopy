@@ -1,7 +1,7 @@
 name: Performance Issue
 description: Report slow rendering, high resource usage, or laggy behavior
-title: ""
-labels: ["performance"]
+title: ''
+labels: ['performance']
 body:
   - type: dropdown
     id: area
@@ -44,7 +44,7 @@ body:
     attributes:
       label: Expected Performance
       description: What would acceptable performance look like?
-      placeholder: "Tab switching should be instant (<100ms)"
+      placeholder: 'Tab switching should be instant (<100ms)'
     validations:
       required: true
 
@@ -53,7 +53,7 @@ body:
     attributes:
       label: Actual Performance
       description: What are you observing instead?
-      placeholder: "Tab switching takes 2-3 seconds, UI freezes briefly"
+      placeholder: 'Tab switching takes 2-3 seconds, UI freezes briefly'
     validations:
       required: true
 
@@ -61,8 +61,8 @@ body:
     id: version
     attributes:
       label: App Version
-      description: "Found in Superagent > About (e.g. 1.0.0)"
-      placeholder: "1.0.0"
+      description: 'Found in Superagent > About (e.g. 1.0.0)'
+      placeholder: '1.0.0'
     validations:
       required: true
 
@@ -70,7 +70,7 @@ body:
     id: macos-version
     attributes:
       label: macOS Version
-      placeholder: "e.g. 15.4 (Sequoia)"
+      placeholder: 'e.g. 15.4 (Sequoia)'
     validations:
       required: true
 

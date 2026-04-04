@@ -10,19 +10,20 @@ Create issues using the repo's issue form templates. The skill extracts as much 
 
 ## Issue Types
 
-| Type | Template | Label |
-|------|----------|-------|
-| Bug Report | bug-report.yml | `bug` |
-| Feature Request | feature-request.yml | `enhancement` |
-| Performance | performance.yml | `performance` |
-| UX Improvement | ux-improvement.yml | `ux` |
-| Developer Experience | developer-experience.yml | `dx` |
+| Type                 | Template                 | Label         |
+| -------------------- | ------------------------ | ------------- |
+| Bug Report           | bug-report.yml           | `bug`         |
+| Feature Request      | feature-request.yml      | `enhancement` |
+| Performance          | performance.yml          | `performance` |
+| UX Improvement       | ux-improvement.yml       | `ux`          |
+| Developer Experience | developer-experience.yml | `dx`          |
 
 ## Workflow
 
 ### Step 1: Determine Issue Type
 
 Look at the conversation context for clues:
+
 - Error reports, broken behavior → Bug
 - "Slow", "laggy", "high CPU/memory" → Performance
 - "Would be nice if", "I wish", new capability → Feature Request
@@ -36,25 +37,31 @@ If ambiguous, ask the user with AskUserQuestion (show all 5 types).
 Scan the conversation for information that maps to the template fields. Each type has different required fields:
 
 **Bug Report** (required: area, description, steps, app version, macOS version):
+
 - Look for error messages, stack traces, reproduction steps mentioned in chat
 - Check if version info was discussed
 
 **Feature Request** (required: area, problem/motivation, proposed solution):
+
 - Look for pain points the user described
 - Look for solutions they suggested
 
 **Performance** (required: area, description, steps, expected perf, actual perf, app version, macOS version):
+
 - Look for timing info, resource usage mentioned
 
 **UX Improvement** (required: area, current behavior, proposed improvement, why it matters):
+
 - Look for workflow descriptions and frustrations
 
 **Developer Experience** (required: area, description, proposed solution):
+
 - Look for build/CI/setup issues discussed
 
 ### Step 3: Ask for Missing Fields
 
 Use AskUserQuestion to collect anything not found in context. Always ask for:
+
 - **Area** — present as a dropdown with the relevant options for the issue type
 - **Title** — suggest one based on context, let the user confirm or change it
 
@@ -65,6 +72,7 @@ For fields you extracted from context, present them for confirmation: "I found t
 Format the body using `### Field Name` headers that match the template's field labels exactly. This is important because GitHub issue forms expect this format when created via the API.
 
 Example body for a bug report:
+
 ```
 ### Affected Area
 
@@ -100,6 +108,7 @@ _No response_
 For optional fields the user didn't provide, use `_No response_`.
 
 Use a HEREDOC for the body to preserve formatting:
+
 ```bash
 gh issue create \
   --label "<label>" \

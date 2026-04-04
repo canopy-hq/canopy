@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Dialog, Heading } from 'react-aria-components';
-import { createPortal } from 'react-dom';
+import { Dialog, Heading, Modal, ModalOverlay } from 'react-aria-components';
 
 import { closePty, listPtySessions } from '@superagent/terminal';
 import { useNavigate } from '@tanstack/react-router';
@@ -168,16 +167,18 @@ export function SessionManager({ onClose }: SessionManagerProps) {
     [onClose],
   );
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 bg-black/30"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+  return (
+    <ModalOverlay
+      isOpen
+      onOpenChange={(open) => {
+        if (!open) onClose();
       }}
-      role="presentation"
+      isDismissable
+      isKeyboardDismissDisabled
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
     >
-      <div
-        className="fixed top-1/2 left-1/2 flex max-h-[60vh] w-[600px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-border font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+      <Modal
+        className="flex max-h-[60vh] w-[600px] flex-col rounded-xl border border-border font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
         style={{
           background: 'color-mix(in srgb, var(--bg-secondary) 85%, transparent)',
           WebkitBackdropFilter: 'blur(12px)',
@@ -303,8 +304,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
             )}
           </div>
         </Dialog>
-      </div>
-    </div>,
-    document.body,
+      </Modal>
+    </ModalOverlay>
   );
 }

@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+@source '../../../packages/command-palette/src/**/*.{ts,tsx}';
+@source '../../../packages/fps/src/**/*.{ts,tsx}';
+
 @plugin 'tailwindcss-react-aria-components';
 
 @font-face {

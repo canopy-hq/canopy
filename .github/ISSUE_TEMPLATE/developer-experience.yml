@@ -1,7 +1,7 @@
 name: Developer Experience
 description: Report issues with build system, CI/CD, dev setup, or contributor workflow
-title: ""
-labels: ["dx"]
+title: ''
+labels: ['dx']
 body:
   - type: dropdown
     id: area

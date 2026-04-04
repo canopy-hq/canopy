@@ -1,5 +1,6 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
 
+import { CommandMenu } from '@superagent/command-palette';
 import {
   agentCollection,
   getUiState,
@@ -12,6 +13,7 @@ import { FpsOverlay } from '@superagent/fps';
 import { ensureGhosttyInit } from '@superagent/terminal';
 import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 
+import { useAllCommands } from '../commands';
 import { AgentOverlay } from '../components/AgentOverlay';
 import { AgentToastRegion } from '../components/AgentToastRegion';
 import { Header } from '../components/Header';
@@ -23,16 +25,18 @@ import { initAgentListener } from '../lib/agent-actions';
 import { containsPtyId, resetLeafPtyIds } from '../lib/pane-tree-ops';
 import { getActiveTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
-import { toggleSidebar, refreshRepo } from '../lib/workspace-actions';
+import { toggleSidebar, refreshRepo, switchWorkspaceItemByIndex } from '../lib/workspace-actions';
 
 // Pre-initialize ghostty-web WASM at module load so it's ready before the user
 // opens their first terminal — eliminates the empty-container frame on first use.
 void ensureGhosttyInit();
 
 function RootLayout() {
+  const [cmdMenuOpen, setCmdMenuOpen] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [sessionManagerOpen, setSessionManagerOpen] = useState(false);
   const [fpsVisible, setFpsVisible] = useState(false);
+  const cmdItems = useAllCommands();
   const navigate = useNavigate();
   const booted = useRef(false);
 
@@ -103,10 +107,16 @@ function RootLayout() {
 
   const bindings: Keybinding[] = useMemo(
     () => [
+      { key: 'k', meta: true, action: () => setCmdMenuOpen((prev) => !prev) },
       { key: 'b', meta: true, action: () => toggleSidebar() },
       { key: 'o', meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
+      ...([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map((n) => ({
+        key: String(n),
+        meta: true,
+        action: () => switchWorkspaceItemByIndex(n - 1, navigate),
+      })),
     ],
-    [],
+    [navigate],
   );
 
   useKeyboardRegistry(bindings);
@@ -116,6 +126,7 @@ function RootLayout() {
       <Header onSessionsClick={() => setSessionManagerOpen((prev) => !prev)} />
       <Outlet />
       <ErrorToastRegion />
+      <CommandMenu isOpen={cmdMenuOpen} onClose={() => setCmdMenuOpen(false)} items={cmdItems} />
       <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
       {sessionManagerOpen && <SessionManager onClose={() => setSessionManagerOpen(false)} />}
       <AgentToastRegion />

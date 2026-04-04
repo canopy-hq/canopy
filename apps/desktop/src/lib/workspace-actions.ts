@@ -3,6 +3,9 @@ import {
   getTabCollection,
   uiCollection,
   getUiState,
+  getSetting,
+  setSetting,
+  getSettingCollection,
   SIDEBAR_WIDTH_MIN,
   SIDEBAR_WIDTH_MAX,
 } from '@superagent/db';
@@ -125,6 +128,22 @@ export function setSelectedItem(itemId: string | null): void {
   });
 }
 
+const RECENT_MAX = 10;
+
+function trackRecentWorkspace(itemId: string): void {
+  // Extract workspace ID from composite item IDs (e.g. "ws-id-branch-main" → "ws-id")
+  const ws = getWorkspaceCollection().toArray.find(
+    (w) =>
+      itemId === w.id || itemId.startsWith(`${w.id}-branch-`) || itemId.startsWith(`${w.id}-wt-`),
+  );
+  if (!ws) return;
+
+  const settings = getSettingCollection().toArray;
+  const current = getSetting<string[]>(settings, 'recentWorkspaceIds', []);
+  const updated = [ws.id, ...current.filter((id) => id !== ws.id)].slice(0, RECENT_MAX);
+  setSetting('recentWorkspaceIds', updated);
+}
+
 export function selectWorkspaceItem(
   itemId: string | null,
   navigate: (opts: { to: string; params?: Record<string, string> }) => void,
@@ -133,10 +152,40 @@ export function selectWorkspaceItem(
     draft.selectedItemId = itemId;
   });
   if (itemId !== null) {
+    trackRecentWorkspace(itemId);
     navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: itemId } });
   } else {
     navigate({ to: '/' });
   }
+}
+
+/**
+ * Switch to the nth branch/worktree of the currently active workspace.
+ * Index is 0-based (Cmd+1 → 0, Cmd+2 → 1, …).
+ * Items are ordered: branches first (sidebar order), then worktrees.
+ */
+export function switchWorkspaceItemByIndex(
+  index: number,
+  navigate: (opts: { to: string; params?: Record<string, string> }) => void,
+): void {
+  const ui = getUiState();
+  if (!ui.activeContextId) return;
+
+  const ws = getWorkspaceCollection().toArray.find(
+    (w) =>
+      ui.activeContextId === w.id ||
+      ui.activeContextId.startsWith(`${w.id}-branch-`) ||
+      ui.activeContextId.startsWith(`${w.id}-wt-`),
+  );
+  if (!ws) return;
+
+  const items = [
+    ...ws.branches.map((b) => `${ws.id}-branch-${b.name}`),
+    ...ws.worktrees.map((wt) => `${ws.id}-wt-${wt.name}`),
+  ];
+
+  const itemId = items[index];
+  if (itemId) selectWorkspaceItem(itemId, navigate);
 }
 
 export function toggleSidebar(): void {
