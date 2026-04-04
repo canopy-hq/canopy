@@ -1,23 +1,48 @@
 import { spawn } from 'node:child_process';
-import { createServer } from 'node:net';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const preferred = parseInt(process.env.VITE_PORT ?? '5173');
+const desktopDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-const port = await new Promise<number>((resolve) => {
-  const s = createServer();
-  s.listen(preferred, '127.0.0.1', () => {
-    resolve((s.address() as { port: number }).port);
-    s.close();
-  });
-  s.on('error', () => {
-    s.listen(0, '127.0.0.1', () => {
-      resolve((s.address() as { port: number }).port);
-      s.close();
-    });
-  });
+// Start Vite directly so it picks its own port atomically — no probe/race condition.
+const vite = spawn('bun', ['run', 'dev'], {
+  cwd: desktopDir,
+  stdio: ['inherit', 'pipe', 'inherit'],
+  env: process.env,
 });
 
-spawn('tauri', ['dev', '--config', `{"build":{"devUrl":"http://localhost:${port}"}}`], {
-  stdio: 'inherit',
-  env: { ...process.env, VITE_PORT: String(port) },
-}).on('exit', (code) => process.exit(code ?? 0));
+// Sniff Vite's stdout for the bound port, forwarding output as we go.
+const port = await new Promise<number>((resolve, reject) => {
+  let buf = '';
+  vite.stdout!.on('data', (chunk: Buffer) => {
+    const text = chunk.toString();
+    process.stdout.write(text);
+    buf += text;
+    const match = buf.match(/localhost:(\d+)/);
+    if (match) resolve(parseInt(match[1]));
+  });
+  vite.on('error', reject);
+  vite.once('exit', (code) => reject(new Error(`Vite exited prematurely (code ${code})`)));
+});
+
+// Forward remaining Vite output
+vite.stdout!.on('data', (chunk: Buffer) => process.stdout.write(chunk));
+
+// Start Tauri pointed at the actual port Vite bound.
+const tauri = spawn(
+  'tauri',
+  ['dev', '--config', `{"build":{"devUrl":"http://localhost:${port}"}}`],
+  { stdio: 'inherit', env: process.env },
+);
+
+const cleanup = () => {
+  vite.kill();
+  tauri.kill();
+};
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
+
+tauri.on('exit', (code) => {
+  vite.kill();
+  process.exit(code ?? 0);
+});
