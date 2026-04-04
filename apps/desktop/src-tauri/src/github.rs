@@ -54,6 +54,92 @@ pub struct GitHubConnection {
     pub avatar_url: String,
 }
 
+// ── PR Status types ──────────────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum PrState {
+    Open,
+    Draft,
+    Merged,
+    Closed,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PrInfo {
+    pub branch: String,
+    pub number: u32,
+    pub state: PrState,
+    pub url: String,
+}
+
+// ── Search query builder ─────────────────────────────────────────────
+
+const SEARCH_QUERY_MAX_LEN: usize = 256;
+
+/// Build GitHub search queries for PR lookup. Chunks branch lists to stay under
+/// the ~256-char search query limit. Branch names are always quoted.
+pub fn build_search_queries(owner_repo: &str, branches: &[String]) -> Vec<String> {
+    if branches.is_empty() {
+        return Vec::new();
+    }
+
+    let prefix = format!("is:pr repo:{owner_repo} ");
+    let mut queries = Vec::new();
+    let mut current = prefix.clone();
+
+    for branch in branches {
+        let term = format!("head:\"{branch}\" ");
+        if current.len() + term.len() > SEARCH_QUERY_MAX_LEN && current.len() > prefix.len() {
+            queries.push(current.trim_end().to_string());
+            current = prefix.clone();
+        }
+        current.push_str(&term);
+    }
+
+    if current.len() > prefix.len() {
+        queries.push(current.trim_end().to_string());
+    }
+
+    queries
+}
+
+/// Parse PR nodes from a GraphQL search response alias (e.g., "s0").
+pub fn parse_search_results(response: &serde_json::Value, alias: &str) -> Vec<PrInfo> {
+    let edges = match response.pointer(&format!("/data/{alias}/edges")) {
+        Some(serde_json::Value::Array(arr)) => arr,
+        _ => return Vec::new(),
+    };
+
+    edges
+        .iter()
+        .filter_map(|edge| {
+            let node = edge.get("node")?;
+            let head_ref = node.get("headRefName")?.as_str()?;
+            let number = node.get("number")?.as_u64()? as u32;
+            let state_str = node.get("state")?.as_str()?;
+            let is_draft = node.get("isDraft").and_then(|v| v.as_bool()).unwrap_or(false);
+            let url = node.get("url")?.as_str()?.to_string();
+
+            let state = match (state_str, is_draft) {
+                ("OPEN", true) => PrState::Draft,
+                ("OPEN", false) => PrState::Open,
+                ("MERGED", _) => PrState::Merged,
+                ("CLOSED", _) => PrState::Closed,
+                _ => return None,
+            };
+
+            Some(PrInfo {
+                branch: head_ref.to_string(),
+                number,
+                state,
+                url,
+            })
+        })
+        .collect()
+}
+
 // ── Keychain helpers (via `security` CLI to avoid per-binary ACL prompts) ─
 
 fn store_token(token: &str) -> Result<(), String> {
@@ -311,6 +397,135 @@ mod tests {
         let resp: TokenErrorResponse = serde_json::from_str(json).unwrap();
         assert_eq!(resp.error, "slow_down");
         assert!(resp.error_description.is_none());
+    }
+
+    #[test]
+    fn pr_state_serializes_screaming_snake() {
+        assert_eq!(serde_json::to_string(&PrState::Open).unwrap(), "\"OPEN\"");
+        assert_eq!(serde_json::to_string(&PrState::Draft).unwrap(), "\"DRAFT\"");
+        assert_eq!(serde_json::to_string(&PrState::Merged).unwrap(), "\"MERGED\"");
+        assert_eq!(serde_json::to_string(&PrState::Closed).unwrap(), "\"CLOSED\"");
+    }
+
+    #[test]
+    fn pr_info_serializes_camel_case() {
+        let info = PrInfo {
+            branch: "feat/test".to_string(),
+            number: 42,
+            state: PrState::Open,
+            url: "https://github.com/nept/superagent/pull/42".to_string(),
+        };
+        let json: serde_json::Value = serde_json::to_value(&info).unwrap();
+        assert_eq!(json["branch"], "feat/test");
+        assert_eq!(json["number"], 42);
+        assert_eq!(json["state"], "OPEN");
+        assert_eq!(json["url"], "https://github.com/nept/superagent/pull/42");
+    }
+
+    #[test]
+    fn build_search_queries_single_branch() {
+        let queries = build_search_queries("nept/superagent", &["main".to_string()]);
+        assert_eq!(queries.len(), 1);
+        assert_eq!(queries[0], "is:pr repo:nept/superagent head:\"main\"");
+    }
+
+    #[test]
+    fn build_search_queries_multiple_branches() {
+        let branches: Vec<String> = (0..5).map(|i| format!("branch-{i}")).collect();
+        let queries = build_search_queries("nept/superagent", &branches);
+        assert_eq!(queries.len(), 1);
+        let q = &queries[0];
+        assert!(q.starts_with("is:pr repo:nept/superagent "));
+        for b in &branches {
+            assert!(q.contains(&format!("head:\"{b}\"")));
+        }
+    }
+
+    #[test]
+    fn build_search_queries_chunks_long_branch_lists() {
+        let branches: Vec<String> = (0..30).map(|i| format!("feature/very-long-branch-name-{i:03}")).collect();
+        let queries = build_search_queries("nept/superagent", &branches);
+        assert!(queries.len() > 1, "Should split into multiple queries");
+        let mut found: Vec<String> = Vec::new();
+        for q in &queries {
+            assert!(q.starts_with("is:pr repo:nept/superagent "));
+            for b in &branches {
+                if q.contains(&format!("head:\"{b}\"")) {
+                    found.push(b.clone());
+                }
+            }
+        }
+        found.sort();
+        let mut expected = branches.clone();
+        expected.sort();
+        assert_eq!(found, expected);
+    }
+
+    #[test]
+    fn build_search_queries_quotes_special_chars() {
+        let branches = vec!["feat/my-branch".to_string(), "fix/issue#42".to_string()];
+        let queries = build_search_queries("nept/superagent", &branches);
+        assert_eq!(queries.len(), 1);
+        assert!(queries[0].contains("head:\"feat/my-branch\""));
+        assert!(queries[0].contains("head:\"fix/issue#42\""));
+    }
+
+    #[test]
+    fn build_search_queries_empty_branches() {
+        let queries = build_search_queries("nept/superagent", &[]);
+        assert!(queries.is_empty());
+    }
+
+    #[test]
+    fn parse_graphql_pr_response() {
+        let json = r#"{
+            "data": {
+                "s0": {
+                    "edges": [
+                        {
+                            "node": {
+                                "number": 42,
+                                "state": "OPEN",
+                                "headRefName": "feat/dark-mode",
+                                "url": "https://github.com/nept/superagent/pull/42",
+                                "isDraft": false
+                            }
+                        },
+                        {
+                            "node": {
+                                "number": 43,
+                                "state": "OPEN",
+                                "headRefName": "feat/pr-badges",
+                                "url": "https://github.com/nept/superagent/pull/43",
+                                "isDraft": true
+                            }
+                        },
+                        {
+                            "node": {
+                                "number": 30,
+                                "state": "MERGED",
+                                "headRefName": "fix/sidebar",
+                                "url": "https://github.com/nept/superagent/pull/30",
+                                "isDraft": false
+                            }
+                        }
+                    ]
+                }
+            }
+        }"#;
+        let value: serde_json::Value = serde_json::from_str(json).unwrap();
+        let prs = parse_search_results(&value, "s0");
+        assert_eq!(prs.len(), 3);
+
+        assert_eq!(prs[0].branch, "feat/dark-mode");
+        assert_eq!(prs[0].number, 42);
+        assert_eq!(prs[0].state, PrState::Open);
+
+        assert_eq!(prs[1].branch, "feat/pr-badges");
+        assert_eq!(prs[1].state, PrState::Draft);
+
+        assert_eq!(prs[2].branch, "fix/sidebar");
+        assert_eq!(prs[2].state, PrState::Merged);
     }
 
     #[test]
