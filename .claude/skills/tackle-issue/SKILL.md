@@ -28,7 +28,7 @@ Analyze issue + codebase context
       ▼
 Assign me if not already assigned
       ▼
-git fetch origin → create branch from origin/main
+git fetch origin → create worktree (wt CLI or fallback)
       ▼
 Ask user: "Ready to plan the implementation?"
       ▼
@@ -106,26 +106,44 @@ Check if I'm already assigned. If not, assign me:
 gh issue edit <number> --add-assignee "@me"
 ```
 
-## Step 4: Create a Branch
+## Step 4: Create a Worktree
 
-Always branch from the latest `origin/main`:
+Create an isolated worktree for this issue. Determine the branch name first:
 
-```bash
-# Fetch latest from origin
-git fetch origin
+**Branch naming:** `<type>/<issue-number>-<short-slug>`
+- Type from labels: `bug` → `fix`, `enhancement`/`feature` → `feat`, otherwise → `chore`
+- Slug: lowercase, hyphens, max 50 chars, no trailing hyphens
 
-# Create branch from origin/main (not local main)
-# Branch naming: <type>/<issue-number>-<short-slug>
-# Type comes from labels: bug→fix, enhancement/feature→feat, otherwise→chore
-git checkout -b <type>/<number>-<slug> origin/main
-```
-
-Branch name examples:
+Examples:
 - Issue #42 "Add dark mode support" with label `enhancement` → `feat/42-add-dark-mode-support`
 - Issue #38 "Sidebar crash on 40+ workspaces" with label `bug` → `fix/38-sidebar-crash-on-40-workspaces`
 - Issue #45 "Update dependencies" → `chore/45-update-dependencies`
 
-Slug rules: lowercase, hyphens, max 50 chars, no trailing hyphens.
+### Path A: `wt` CLI available
+
+Check with `command -v wt`. If available, use it — it handles worktree directory, hooks, and setup automatically:
+
+```bash
+git fetch origin
+wt switch --create <type>/<number>-<slug> --base origin/main --no-cd -y
+```
+
+Then `cd` into the worktree path reported by `wt`.
+
+### Path B: Fallback (no `wt`)
+
+1. **Detect directory** — priority: `.worktrees/` > `worktrees/` > CLAUDE.md preference > ask user
+2. **Safety check** — `git check-ignore -q <dir>` for project-local dirs; add to `.gitignore` + commit if not ignored
+3. **Create worktree:**
+   ```bash
+   git fetch origin
+   git worktree add <dir>/<slug> -b <type>/<number>-<slug> origin/main
+   ```
+4. **cd into worktree**
+5. **Run project setup** — auto-detect from project files (`bun install`, `cargo build`, etc.)
+6. **Baseline tests** — run tests; report failures if any, ask whether to proceed
+
+All subsequent work (planning, implementation) happens inside the worktree.
 
 ## Step 5: Enter Plan Mode
 
