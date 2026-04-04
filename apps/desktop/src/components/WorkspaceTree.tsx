@@ -152,11 +152,10 @@ const BranchRow = memo(
           )}
         </div>
         {(prInfo || branch.is_head) && (
-          <div className="mt-0.5 flex items-center gap-1.5 truncate pl-[20px]">
+          <div className="mt-0.5 flex items-center pl-[20px]">
+            {branch.is_head && <span className="text-[11px] text-text-muted">local</span>}
+            <span className="flex-1" />
             {prInfo && <PrBadge pr={prInfo} />}
-            {branch.is_head && (
-              <span className="text-sm text-text-muted">local</span>
-            )}
           </div>
         )}
       </div>
@@ -246,11 +245,12 @@ const WorktreeRow = memo(
             />
           )}
         </div>
-        <div className="mt-0.5 flex items-center gap-1.5 truncate text-ui-sm">
-          {prInfo && <PrBadge pr={prInfo} />}
-          <span className="text-[11px] text-text-muted">
+        <div className="mt-0.5 flex items-center pl-[20px]">
+          <span className="truncate text-[11px] text-text-muted">
             {worktree.branch || worktree.name}
           </span>
+          <span className="flex-1" />
+          {prInfo && <PrBadge pr={prInfo} />}
         </div>
       </div>
     );
