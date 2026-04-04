@@ -5,7 +5,11 @@ export * from './schema';
 export * from './types';
 
 export { getWorkspaceCollection } from './collections/workspaces';
-export { getTabCollection } from './collections/tabs';
+export {
+  getTabCollection,
+  insertTabAndActivate,
+  deleteTabAndUpdateActive,
+} from './collections/tabs';
 export { getSessionCollection } from './collections/sessions';
 export { getSettingCollection, getSetting, setSetting } from './collections/settings';
 export { agentCollection } from './collections/agents';
