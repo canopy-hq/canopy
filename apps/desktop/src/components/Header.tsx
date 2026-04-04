@@ -1,5 +1,6 @@
 import { toggleSidebar } from '../lib/workspace-actions';
 import { DevBranchBadge } from './DevBranchBadge';
+import { GitHubStatus } from './GitHubStatus';
 import { Button, Kbd, Tooltip } from './ui';
 
 interface HeaderProps {
@@ -52,6 +53,7 @@ export function Header({ onSessionsClick }: HeaderProps = {}) {
 
       {/* Right zone */}
       <div className="flex h-full items-center gap-2 px-3">
+        <GitHubStatus />
         <DevBranchBadge />
         <Tooltip label="PTY Sessions" placement="left">
           <Button variant="ghost" iconOnly onPress={onSessionsClick} aria-label="PTY sessions">

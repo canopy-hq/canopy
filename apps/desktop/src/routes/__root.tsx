@@ -8,6 +8,8 @@ import {
   getWorkspaceCollection,
   getSettingCollection,
   getSetting,
+  setSetting,
+  getSessionCollection,
 } from '@superagent/db';
 import { FpsOverlay } from '@superagent/fps';
 import { ensureGhosttyInit } from '@superagent/terminal';
@@ -23,8 +25,9 @@ import { useUiState } from '../hooks/useCollections';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { useTauriMenuEvent } from '../hooks/useTauriMenuEvent';
 import { initAgentListener } from '../lib/agent-actions';
-import { containsPtyId, resetLeafPtyIds } from '../lib/pane-tree-ops';
-import { getActiveTab } from '../lib/tab-actions';
+import { getConnection } from '../lib/github';
+import { collectRestorablePaneIds, containsPtyId, resetLeafPtyIds } from '../lib/pane-tree-ops';
+import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
 import { toggleSidebar, refreshRepo, switchWorkspaceItemByIndex } from '../lib/workspace-actions';
 
@@ -105,6 +108,11 @@ function RootLayout() {
     const settings = getSettingCollection().toArray;
     const theme = getSetting(settings, 'theme', 'obsidian') as string;
     document.documentElement.setAttribute('data-theme', theme);
+  }, []);
+
+  // Hydrate GitHub connection status into settings for the header icon
+  useEffect(() => {
+    void getConnection().then((conn) => setSetting('github:connection', conn));
   }, []);
 
   const bindings: Keybinding[] = useMemo(
