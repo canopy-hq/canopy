@@ -3,6 +3,7 @@ import {
   themes,
   themeNames,
   applyFontSizeToAll,
+  DEFAULT_TERMINAL_FONT_SIZE,
   type ThemeName,
   type CssThemeProperties,
 } from '@superagent/terminal';
@@ -58,7 +59,11 @@ function ThemePreview({ css }: { css: CssThemeProperties }) {
 export function AppearanceSection() {
   const { data: settings = [] } = useLiveQuery(() => getSettingCollection());
   const currentTheme = getSetting<ThemeName>(settings, 'theme', 'obsidian');
-  const currentFontSize = getSetting<number>(settings, 'terminalFontSize', 13);
+  const currentFontSize = getSetting<number>(
+    settings,
+    'terminalFontSize',
+    DEFAULT_TERMINAL_FONT_SIZE,
+  );
 
   const handleSelect = (name: ThemeName) => {
     setSetting('theme', name);

@@ -12,6 +12,7 @@ import {
   spawnTerminal,
 } from './pty';
 import { getCached, setCached } from './terminal-cache';
+import { DEFAULT_TERMINAL_FONT_SIZE } from './terminal-font-size';
 import { terminalThemes, type ThemeName } from './themes';
 
 /**
@@ -138,7 +139,7 @@ export function useTerminal(
       const termFontSize = getSetting<number>(
         getSettingCollection().toArray,
         'terminalFontSize',
-        13,
+        DEFAULT_TERMINAL_FONT_SIZE,
       );
       const termFontFamily = '"Geist Mono", Menlo, Monaco, "Courier New", monospace';
       term = new Terminal({

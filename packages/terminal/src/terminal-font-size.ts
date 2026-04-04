@@ -1,6 +1,8 @@
 import { resizePty } from './pty';
 import { getAllCached } from './terminal-cache';
 
+export const DEFAULT_TERMINAL_FONT_SIZE = 13;
+
 /**
  * Apply a new font size to every cached terminal and refit the grid.
  */
