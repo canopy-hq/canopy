@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
+import { createPortal } from 'react-dom';
 
 import { closePty, listPtySessions } from '@superagent/terminal';
 import { useNavigate } from '@tanstack/react-router';
@@ -110,12 +111,13 @@ export function SessionManager({ onClose }: SessionManagerProps) {
   );
 
   const handleKill = useCallback(async (row: SessionRow) => {
-    if (!row.tab) return;
     const { ptyId, paneId } = row.info;
     setKilling((prev) => new Set(prev).add(ptyId));
     try {
       await closePty(ptyId);
-      killPaneInTab(row.tab.id, paneId);
+      // Only mark pane as killed if the tab still exists; orphan sessions
+      // (PTY alive in daemon but tab already deleted) just need closePty.
+      if (row.tab) killPaneInTab(row.tab.id, paneId);
       setSessions((prev) => prev.filter((s) => s.ptyId !== ptyId));
     } finally {
       setKilling((prev) => {
@@ -127,19 +129,18 @@ export function SessionManager({ onClose }: SessionManagerProps) {
   }, []);
 
   const handleKillGroup = useCallback(async (groupRows: SessionRow[]) => {
-    const killable = groupRows.filter((row) => row.tab);
-    if (killable.length === 0) return;
-    const killedPtyIds = new Set(killable.map((r) => r.info.ptyId));
+    if (groupRows.length === 0) return;
+    const killedPtyIds = new Set(groupRows.map((r) => r.info.ptyId));
     setKilling((prev) => {
       const next = new Set(prev);
       killedPtyIds.forEach((id) => next.add(id));
       return next;
     });
     await Promise.all(
-      killable.map(async (row) => {
+      groupRows.map(async (row) => {
         try {
           await closePty(row.info.ptyId);
-          killPaneInTab(row.tab!.id, row.info.paneId);
+          if (row.tab) killPaneInTab(row.tab.id, row.info.paneId);
         } catch {
           // ignore individual errors
         }
@@ -167,7 +168,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
     [onClose],
   );
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 bg-black/30"
       onClick={(e) => {
@@ -196,13 +197,13 @@ export function SessionManager({ onClose }: SessionManagerProps) {
               </span>
             )}
             <div className="flex-1" />
-            {rows.some((r) => r.tab) && (
+            {rows.length > 0 && (
               <Button
                 variant="destructive-ghost"
                 size="sm"
                 className="shrink-0"
                 onPress={() => void handleKillAll()}
-                isDisabled={rows.every((r) => !r.tab || killing.has(r.info.ptyId))}
+                isDisabled={rows.every((r) => killing.has(r.info.ptyId))}
               >
                 Kill all
               </Button>
@@ -226,17 +227,15 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                     <span className="flex-1 text-[11px] font-semibold tracking-wide text-text-muted uppercase opacity-60">
                       {wsName}
                     </span>
-                    {groupRows.some((r) => r.tab) && (
-                      <Button
-                        variant="destructive-ghost"
-                        size="sm"
-                        aria-label={`Kill all sessions in ${wsName}`}
-                        onPress={() => void handleKillGroup(groupRows)}
-                        isDisabled={groupRows.every((r) => !r.tab || killing.has(r.info.ptyId))}
-                      >
-                        Kill all
-                      </Button>
-                    )}
+                    <Button
+                      variant="destructive-ghost"
+                      size="sm"
+                      aria-label={`Kill all sessions in ${wsName}`}
+                      onPress={() => void handleKillGroup(groupRows)}
+                      isDisabled={groupRows.every((r) => killing.has(r.info.ptyId))}
+                    >
+                      Kill all
+                    </Button>
                   </div>
 
                   {/* Session rows */}
@@ -293,7 +292,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                         size="sm"
                         className="shrink-0"
                         onPress={() => void handleKill(row)}
-                        isDisabled={killing.has(row.info.ptyId) || !row.tab}
+                        isDisabled={killing.has(row.info.ptyId)}
                       >
                         Kill
                       </Button>
@@ -305,6 +304,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
           </div>
         </Dialog>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

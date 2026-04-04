@@ -190,7 +190,21 @@ describe('closeTab', () => {
     expect(_uiState.contextActiveTabIds).toHaveProperty('ctx-b', 'tab-other');
   });
 
-  it('switches to another tab when closing a non-last tab', () => {
+  it('switches to the tab to the left when closing the rightmost active tab', () => {
+    const tab1 = makeTab({ id: 'tab-1', workspaceItemId: 'ctx-a', position: 0 });
+    const tab2 = makeTab({ id: 'tab-2', workspaceItemId: 'ctx-a', position: 1 });
+    const tab3 = makeTab({ id: 'tab-3', workspaceItemId: 'ctx-a', position: 2 });
+    _tabs.push(tab1, tab2, tab3);
+    _uiState.activeContextId = 'ctx-a';
+    _uiState.activeTabId = 'tab-3';
+
+    closeTab('tab-3');
+
+    expect(_tabs).toHaveLength(2);
+    expect(_uiState.activeTabId).toBe('tab-2');
+  });
+
+  it('switches to the tab to the right when closing the first active tab', () => {
     const tab1 = makeTab({ id: 'tab-1', workspaceItemId: 'ctx-a', position: 0 });
     const tab2 = makeTab({ id: 'tab-2', workspaceItemId: 'ctx-a', position: 1 });
     _tabs.push(tab1, tab2);
@@ -201,6 +215,30 @@ describe('closeTab', () => {
 
     expect(_tabs).toHaveLength(1);
     expect(_uiState.activeTabId).toBe('tab-2');
+  });
+
+  it('closes 5 tabs right-to-left: 5→4→3→2→1', () => {
+    for (let i = 1; i <= 5; i++) {
+      _tabs.push(makeTab({ id: `tab-${i}`, workspaceItemId: 'ctx-a', position: i - 1 }));
+    }
+    _uiState.activeContextId = 'ctx-a';
+    _uiState.activeTabId = 'tab-5';
+
+    closeTab('tab-5');
+    expect(_uiState.activeTabId).toBe('tab-4');
+
+    closeTab('tab-4');
+    expect(_uiState.activeTabId).toBe('tab-3');
+
+    closeTab('tab-3');
+    expect(_uiState.activeTabId).toBe('tab-2');
+
+    closeTab('tab-2');
+    expect(_uiState.activeTabId).toBe('tab-1');
+
+    closeTab('tab-1');
+    expect(_uiState.activeTabId).toBe('');
+    expect(_tabs).toHaveLength(0);
   });
 });
 

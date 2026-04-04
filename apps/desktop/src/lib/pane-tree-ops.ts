@@ -269,10 +269,25 @@ export function collectLeafPtyIds(node: PaneNode): number[] {
   return node.children.flatMap(collectLeafPtyIds);
 }
 
+/** Collect all leaf pane IDs regardless of ptyId state. */
+export function collectAllLeafPaneIds(node: PaneNode): string[] {
+  if (node.type === 'leaf') return [node.id];
+  return node.children.flatMap(collectAllLeafPaneIds);
+}
+
 /** Returns IDs of leaf panes that should reconnect at startup (excludes killed panes). */
 export function collectRestorablePaneIds(node: PaneNode): string[] {
   if (node.type === 'leaf') return node.ptyId !== -2 ? [node.id] : [];
   return node.children.flatMap(collectRestorablePaneIds);
+}
+
+/** Reset stale ptyIds to -1 (in-place mutation for immer-style updaters). Preserves killed panes (-2). */
+export function resetLeafPtyIds(node: PaneNode): void {
+  if (node.type === 'leaf') {
+    if (node.ptyId > 0) node.ptyId = -1;
+  } else {
+    for (const child of node.children) resetLeafPtyIds(child);
+  }
 }
 
 function applyRatioUpdate(

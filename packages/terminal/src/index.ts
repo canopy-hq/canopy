@@ -6,6 +6,7 @@ export {
   writeToPty,
   resizePty,
   closePty,
+  closePtysForPanes,
   getPtyCwd,
   listPtySessions,
   type PtySessionInfo,
@@ -17,7 +18,7 @@ export {
   getAllCached,
   type CachedEntry,
 } from './terminal-cache';
-export { ensureGhosttyInit } from './ghostty-init';
+export { ensureGhosttyInit, isGhosttyReady } from './ghostty-init';
 export {
   themes,
   themeNames,

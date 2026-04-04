@@ -1,6 +1,5 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { closePty, disposeCached } from '@superagent/terminal';
 import { Plus, X } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
@@ -50,17 +49,15 @@ const closeButton = tv({
 });
 
 function useTabAgentStatus(tab: Tab): DotStatus {
-  const ptyIds = collectLeafPtyIds(tab.paneRoot);
+  const ptyIds = useMemo(() => collectLeafPtyIds(tab.paneRoot), [tab.paneRoot]);
   const agents = useAgents();
+  let hasRunning = false;
   for (const id of ptyIds) {
-    const agent = agents.find((a) => a.ptyId === id);
-    if (agent?.status === 'waiting') return 'waiting';
+    const status = agents.find((a) => a.ptyId === id)?.status;
+    if (status === 'waiting') return 'waiting';
+    if (status === 'running') hasRunning = true;
   }
-  for (const id of ptyIds) {
-    const agent = agents.find((a) => a.ptyId === id);
-    if (agent?.status === 'running') return 'running';
-  }
-  return 'idle';
+  return hasRunning ? 'running' : 'idle';
 }
 
 const TabItemComponent = memo(
@@ -113,16 +110,7 @@ const TabItemComponent = memo(
       }
     }, [draft, confirmRename, cancelRename]);
 
-    const handleClose = useCallback(async () => {
-      const ptyIds = collectLeafPtyIds(tab.paneRoot);
-      for (const ptyId of ptyIds) {
-        disposeCached(ptyId);
-        try {
-          await closePty(ptyId);
-        } catch {
-          /* PTY may be dead */
-        }
-      }
+    const handleClose = useCallback(() => {
       closeTab(tab.id);
     }, [tab]);
 
@@ -142,6 +130,7 @@ const TabItemComponent = memo(
             void handleClose();
           }
         }}
+        title={tab.label}
       >
         {agentStatus !== 'idle' && !editing && <StatusDot status={agentStatus} size={8} />}
         {editing ? (
@@ -207,9 +196,13 @@ export function TabBar() {
   const allTabs = useTabs();
   const ui = useUiState();
   const activeContextId = ui.activeContextId;
-  const tabs = allTabs
-    .filter((t) => t.workspaceItemId === activeContextId)
-    .sort((a, b) => a.position - b.position);
+  const tabs = useMemo(
+    () =>
+      allTabs
+        .filter((t) => t.workspaceItemId === activeContextId)
+        .sort((a, b) => a.position - b.position),
+    [allTabs, activeContextId],
+  );
   const activeTabId = ui.activeTabId;
 
   const scrollRef = useRef<HTMLDivElement>(null);
