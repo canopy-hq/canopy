@@ -1,11 +1,28 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  horizontalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Plus, X } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
-import { addTab, closeTab, switchTab, renameTab } from '../lib/tab-actions';
+import { addTab, closeTab, switchTab, renameTab, reorderTabs } from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
 import { Button, Kbd, Tooltip } from './ui';
 
@@ -60,6 +77,9 @@ function useTabAgentStatus(tab: Tab): DotStatus {
 
 const TabItemComponent = memo(
   function TabItemComponent({ tab, isActive }: { tab: Tab; isActive: boolean }) {
+    const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
+      id: tab.id,
+    });
     const agentStatus = useTabAgentStatus(tab);
     const [editing, setEditing] = useState(false);
     const [frozenWidth, setFrozenWidth] = useState<number | null>(null);
@@ -69,9 +89,19 @@ const TabItemComponent = memo(
     const originalLabelRef = useRef('');
     const committedRef = useRef(false);
 
+    const mergedRef = useCallback(
+      (node: HTMLButtonElement | null) => {
+        setNodeRef(node);
+        (buttonRef as React.MutableRefObject<HTMLButtonElement | null>).current = node;
+      },
+      [setNodeRef],
+    );
+
     useEffect(() => {
-      if (isActive) buttonRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    }, [isActive]);
+      if (isActive && !isDragging) {
+        buttonRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+    }, [isActive, isDragging]);
 
     const startEditing = useCallback(() => {
       committedRef.current = false;
@@ -112,14 +142,19 @@ const TabItemComponent = memo(
       closeTab(tab.id);
     }, [tab]);
 
+    const dndStyle: React.CSSProperties = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+    };
+
     return (
       <button
-        ref={buttonRef}
-        className={tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}
+        ref={mergedRef}
+        className={`${tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}${isDragging ? ' opacity-30' : ''}`}
         style={
           frozenWidth !== null
-            ? { width: frozenWidth, minWidth: frozenWidth, maxWidth: frozenWidth }
-            : undefined
+            ? { ...dndStyle, width: frozenWidth, minWidth: frozenWidth, maxWidth: frozenWidth }
+            : dndStyle
         }
         onClick={editing ? undefined : () => switchTab(tab.id)}
         onMouseDown={(e) => {
@@ -129,6 +164,8 @@ const TabItemComponent = memo(
           }
         }}
         title={tab.label}
+        {...listeners}
+        {...attributes}
       >
         {agentStatus !== 'idle' && !editing && <StatusDot status={agentStatus} size={8} />}
         {editing ? (
@@ -190,6 +227,19 @@ const TabItemComponent = memo(
   (prev, next) => prev.tab === next.tab && prev.isActive === next.isActive,
 );
 
+function TabDragGhost({ tab }: { tab: Tab }) {
+  return (
+    <div
+      className={`${tabItem({ active: true })} pointer-events-none cursor-grabbing opacity-90 shadow-md`}
+    >
+      <span className="flex-1 truncate text-left text-xs">{tab.label}</span>
+      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm opacity-60">
+        <X size={10} strokeWidth={2} />
+      </span>
+    </div>
+  );
+}
+
 export function TabBar() {
   const allTabs = useTabs();
   const ui = useUiState();
@@ -202,6 +252,35 @@ export function TabBar() {
     [allTabs, activeContextId],
   );
   const activeTabId = ui.activeTabId;
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const activeTab = useMemo(
+    () => (activeId ? tabs.find((t) => t.id === activeId) : null),
+    [activeId, tabs],
+  );
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const handleDragStart = useCallback(({ active }: DragStartEvent) => {
+    setActiveId(String(active.id));
+  }, []);
+
+  const handleDragEnd = useCallback(
+    ({ active, over }: DragEndEvent) => {
+      setActiveId(null);
+      if (!over || active.id === over.id) return;
+      const oldIndex = tabs.findIndex((t) => t.id === active.id);
+      const newIndex = tabs.findIndex((t) => t.id === over.id);
+      const reordered = arrayMove(tabs, oldIndex, newIndex);
+      reorderTabs(reordered.map((t) => t.id));
+    },
+    [tabs],
+  );
+
+  const handleDragCancel = useCallback(() => {
+    setActiveId(null);
+  }, []);
+
+  const tabIds = useMemo(() => tabs.map((t) => t.id), [tabs]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollState, setScrollState] = useState<{ left: boolean; right: boolean }>({
@@ -260,15 +339,28 @@ export function TabBar() {
 
   return (
     <div className="flex h-9 shrink-0 items-center border-b border-border bg-bg-primary">
-      <div
-        ref={scrollRef}
-        className="scrollbar-none flex h-full min-w-0 flex-1 items-stretch overflow-x-auto"
-        style={{ maskImage, WebkitMaskImage: maskImage }}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
       >
-        {tabs.map((tab) => (
-          <TabItemComponent key={tab.id} tab={tab} isActive={tab.id === activeTabId} />
-        ))}
-      </div>
+        <SortableContext items={tabIds} strategy={horizontalListSortingStrategy}>
+          <div
+            ref={scrollRef}
+            className="scrollbar-none flex h-full min-w-0 flex-1 items-stretch overflow-x-auto"
+            style={{ maskImage, WebkitMaskImage: maskImage }}
+          >
+            {tabs.map((tab) => (
+              <TabItemComponent key={tab.id} tab={tab} isActive={tab.id === activeTabId} />
+            ))}
+          </div>
+        </SortableContext>
+        <DragOverlay dropAnimation={null}>
+          {activeTab ? <TabDragGhost tab={activeTab} /> : null}
+        </DragOverlay>
+      </DndContext>
       <Tooltip label={newTabLabel} placement="bottom">
         <Button
           iconOnly

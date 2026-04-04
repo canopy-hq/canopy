@@ -284,3 +284,12 @@ export function renameWorktree(workspaceId: string, wtName: string, label: strin
     if (wt) wt.label = label || undefined;
   });
 }
+
+export function reorderWorkspaces(orderedIds: string[]): void {
+  const col = getWorkspaceCollection();
+  for (let i = 0; i < orderedIds.length; i++) {
+    col.update(orderedIds[i], (draft) => {
+      draft.position = i;
+    });
+  }
+}
