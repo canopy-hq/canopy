@@ -135,7 +135,11 @@ export function useTerminal(
       void resizePty(ptyId, term.rows, term.cols);
     } else {
       // === NEW TERMINAL: spawn (ptyId === -1) or reconnect (ptyId > 0) ===
-      const termFontSize = 14;
+      const termFontSize = getSetting<number>(
+        getSettingCollection().toArray,
+        'terminalFontSize',
+        13,
+      );
       const termFontFamily = '"Geist Mono", Menlo, Monaco, "Courier New", monospace';
       term = new Terminal({
         cursorBlink: true,
