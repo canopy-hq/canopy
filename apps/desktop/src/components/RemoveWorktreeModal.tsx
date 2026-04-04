@@ -5,12 +5,7 @@ import { tv } from 'tailwind-variants';
 
 const confirmButton = tv({
   base: 'h-8 cursor-pointer rounded-lg px-4 text-[13px] font-medium text-white hover:opacity-90',
-  variants: {
-    destructive: {
-      true: 'bg-destructive',
-      false: 'bg-accent',
-    },
-  },
+  variants: { destructive: { true: 'bg-destructive', false: 'bg-accent' } },
 });
 
 export interface RemoveWorktreeModalProps {
@@ -71,9 +66,8 @@ export function RemoveWorktreeModal({
 
           {deleteGit && (
             <p className="mt-2 text-[12px] leading-relaxed text-destructive">
-              This will run{' '}
-              <code className="rounded bg-bg-tertiary px-1">git worktree remove</code> and
-              delete the working directory. Uncommitted changes will be lost.
+              This will run <code className="rounded bg-bg-tertiary px-1">git worktree remove</code>{' '}
+              and delete the working directory. Uncommitted changes will be lost.
             </p>
           )}
 

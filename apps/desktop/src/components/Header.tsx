@@ -37,7 +37,7 @@ export function Header({ onSessionsClick }: HeaderProps = {}) {
           className="group relative flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary"
         >
           <SidebarToggleIcon />
-          <span className="pointer-events-none absolute left-full ml-2 flex items-center gap-1.5 whitespace-nowrap rounded-md bg-bg-tertiary px-2 py-1 text-xs leading-none text-text-primary opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+          <span className="pointer-events-none absolute left-full ml-2 flex items-center gap-1.5 rounded-md bg-bg-tertiary px-2 py-1 text-xs leading-none whitespace-nowrap text-text-primary opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
             Toggle sidebar
             <kbd className="rounded bg-bg-secondary px-1 py-0.5 text-[10px] leading-none text-text-muted">
               ⌘
@@ -75,7 +75,7 @@ export function Header({ onSessionsClick }: HeaderProps = {}) {
             <circle cx="12" cy="9.5" r="2" />
             <line x1="14" y1="11.5" x2="15" y2="12.5" />
           </svg>
-          <span className="pointer-events-none absolute right-full mr-2 flex items-center whitespace-nowrap rounded-md bg-bg-tertiary px-2 py-1 text-xs leading-none text-text-primary opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+          <span className="pointer-events-none absolute right-full mr-2 flex items-center rounded-md bg-bg-tertiary px-2 py-1 text-xs leading-none whitespace-nowrap text-text-primary opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
             PTY Sessions
           </span>
         </button>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { tv } from 'tailwind-variants';
 import { closePty, disposeCached } from '@superagent/terminal';
+import { tv } from 'tailwind-variants';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
@@ -18,14 +18,9 @@ const tabItem = tv({
       true: 'border-t-accent bg-tab-active-bg text-text-primary',
       false: 'border-t-transparent bg-tab-inactive-bg text-text-muted hover:bg-bg-secondary',
     },
-    agentWaiting: {
-      true: 'bg-(--agent-waiting-glow)',
-    },
+    agentWaiting: { true: 'bg-(--agent-waiting-glow)' },
   },
-  defaultVariants: {
-    active: false,
-    agentWaiting: false,
-  },
+  defaultVariants: { active: false, agentWaiting: false },
 });
 
 const closeButton = tv({
@@ -80,7 +75,7 @@ function TabItemComponent({
       {agentStatus !== 'idle' && <StatusDot status={agentStatus} size={8} />}
       <span className="flex-1 truncate text-left text-xs">{tab.label}</span>
       {agentStatus === 'waiting' && (
-        <span className="rounded-full bg-[rgba(251,191,36,0.25)] px-2 py-1 text-[10px] font-normal leading-none text-(--agent-waiting)">
+        <span className="rounded-full bg-[rgba(251,191,36,0.25)] px-2 py-1 text-[10px] leading-none font-normal text-(--agent-waiting)">
           input
         </span>
       )}

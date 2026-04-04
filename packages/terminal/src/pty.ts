@@ -66,9 +66,10 @@ export interface PtySessionInfo {
 }
 
 export async function listPtySessions(): Promise<PtySessionInfo[]> {
-  const raw = await invoke<{ pty_id: number; pane_id: string; cpu_percent: number; memory_mb: number }[]>(
-    'list_pty_sessions',
-  );
+  const raw =
+    await invoke<{ pty_id: number; pane_id: string; cpu_percent: number; memory_mb: number }[]>(
+      'list_pty_sessions',
+    );
   return raw.map((s) => ({
     ptyId: s.pty_id,
     paneId: s.pane_id,

@@ -9,12 +9,7 @@ import type { SplitDirection } from '../lib/pane-tree-ops';
 
 const splitContainer = tv({
   base: 'flex h-full w-full',
-  variants: {
-    direction: {
-      horizontal: 'flex-row',
-      vertical: 'flex-col',
-    },
-  },
+  variants: { direction: { horizontal: 'flex-row', vertical: 'flex-col' } },
 });
 
 interface SplitContainerProps {

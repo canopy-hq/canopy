@@ -19,15 +19,8 @@ const splitter = tv({
 const splitterLine = tv({
   base: 'transition-colors duration-150',
   variants: {
-    direction: {
-      horizontal: 'h-full w-[2px]',
-      vertical: 'h-[2px] w-full',
-    },
-    state: {
-      idle: 'bg-splitter-idle',
-      hovered: 'bg-splitter-hover',
-      dragging: 'bg-accent',
-    },
+    direction: { horizontal: 'h-full w-[2px]', vertical: 'h-[2px] w-full' },
+    state: { idle: 'bg-splitter-idle', hovered: 'bg-splitter-hover', dragging: 'bg-accent' },
   },
 });
 
@@ -48,7 +41,11 @@ export function Splitter({ nodeId, splitIndex, direction }: SplitterProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  const state = isDragging ? 'dragging' as const : isHovered ? 'hovered' as const : 'idle' as const;
+  const state = isDragging
+    ? ('dragging' as const)
+    : isHovered
+      ? ('hovered' as const)
+      : ('idle' as const);
 
   return (
     <div
