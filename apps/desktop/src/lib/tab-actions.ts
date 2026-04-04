@@ -107,14 +107,21 @@ export function closeTab(tabId: string): void {
     return;
   }
 
+  const sortedBeforeDelete = col.toArray
+    .filter((t) => t.workspaceItemId === contextId)
+    .sort((a, b) => a.position - b.position);
+  const closedIndex = sortedBeforeDelete.findIndex((t) => t.id === tabId);
+
   col.delete(tabId);
 
   const ui = getUiState();
   if (ui.activeTabId === tabId) {
-    const remaining = col.toArray.filter((t) => t.workspaceItemId === contextId);
-    const newTabId = remaining.length > 0 ? remaining[0]!.id : '';
+    const remaining = col.toArray
+      .filter((t) => t.workspaceItemId === contextId)
+      .sort((a, b) => a.position - b.position);
+    const newTab = remaining[Math.max(0, closedIndex - 1)] ?? null;
     uiCollection.update('ui', (draft) => {
-      draft.activeTabId = newTabId;
+      draft.activeTabId = newTab?.id ?? '';
     });
   }
 }
