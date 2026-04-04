@@ -162,26 +162,6 @@ export function splitPane(paneId: PaneId, direction: SplitDirection, newPtyId: n
   });
 }
 
-export function closePane(paneId: PaneId): void {
-  const ui = getUiState();
-  const tab = getTabCollection().toArray.find((t) => t.id === ui.activeTabId);
-  if (!tab) return;
-  const result = removeNode(tab.paneRoot, paneId);
-  getTabCollection().update(tab.id, (draft) => {
-    if (result === null) {
-      const newId = crypto.randomUUID();
-      draft.paneRoot = { type: 'leaf', id: newId, ptyId: -1 };
-      draft.focusedPaneId = newId;
-    } else {
-      draft.paneRoot = result;
-      if (draft.focusedPaneId === paneId) {
-        const firstLeaf = findFirstLeaf(result);
-        draft.focusedPaneId = firstLeaf?.id ?? null;
-      }
-    }
-  });
-}
-
 /** Close a pane in a specific tab (not necessarily the active one). */
 export function closePaneInTab(tabId: string, paneId: PaneId): void {
   const col = getTabCollection();
@@ -201,6 +181,12 @@ export function closePaneInTab(tabId: string, paneId: PaneId): void {
       }
     }
   });
+}
+
+export function closePane(paneId: PaneId): void {
+  const tab = getTabCollection().toArray.find((t) => t.id === getUiState().activeTabId);
+  if (!tab) return;
+  closePaneInTab(tab.id, paneId);
 }
 
 /**
@@ -292,22 +278,6 @@ export function updateRatio(branchId: string, splitIndex: number, delta: number)
   });
 }
 
-export function setPtyId(paneId: PaneId, ptyId: number): void {
-  const ui = getUiState();
-  const tab = getTabCollection().toArray.find((t) => t.id === ui.activeTabId);
-  if (!tab) return;
-  getTabCollection().update(tab.id, (draft) => {
-    function setInTree(node: Tab['paneRoot']): void {
-      if (node.type === 'leaf') {
-        if (node.id === paneId) node.ptyId = ptyId;
-        return;
-      }
-      for (const child of node.children) setInTree(child);
-    }
-    setInTree(draft.paneRoot);
-  });
-}
-
 /** Set ptyId in a specific tab (not necessarily the active one). Used for startup session restore. */
 export function setPtyIdInTab(tabId: string, paneId: PaneId, ptyId: number): void {
   const col = getTabCollection();
@@ -323,4 +293,10 @@ export function setPtyIdInTab(tabId: string, paneId: PaneId, ptyId: number): voi
     }
     setInTree(draft.paneRoot);
   });
+}
+
+export function setPtyId(paneId: PaneId, ptyId: number): void {
+  const tab = getTabCollection().toArray.find((t) => t.id === getUiState().activeTabId);
+  if (!tab) return;
+  setPtyIdInTab(tab.id, paneId, ptyId);
 }

@@ -7,6 +7,7 @@ vi.mock('../../lib/git', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../lib/git')>();
   return {
     ...actual,
+    fetchRemote: vi.fn().mockResolvedValue(undefined),
     listAllBranches: vi.fn().mockResolvedValue([
       { name: 'main', is_head: true, is_local: true, is_in_worktree: false },
       { name: 'develop', is_head: false, is_local: false, is_in_worktree: false },

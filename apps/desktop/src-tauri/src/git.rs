@@ -1,4 +1,4 @@
-use git2::{BranchType, Repository, WorktreeAddOptions, WorktreePruneOptions};
+use git2::{BranchType, FetchPrune, Repository, WorktreeAddOptions, WorktreePruneOptions};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::Path;
@@ -118,7 +118,7 @@ pub fn import_repo(path: String) -> Result<RepoInfo, String> {
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| path.clone());
-    let all_branches = enumerate_branches(&repo, false)?;
+    let all_branches = enumerate_branches(&repo, true)?;
     let head_only: Vec<BranchInfo> = all_branches.into_iter().filter(|b| b.is_head).collect();
     Ok(RepoInfo {
         path,
@@ -195,6 +195,82 @@ pub fn list_all_branches(repo_path: String) -> Result<Vec<BranchDetail>, String>
     }
 
     Ok(details)
+}
+
+fn fetch_remote_sync(repo_path: &str) -> Result<(), String> {
+    let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
+
+    let mut remote = repo
+        .find_remote("origin")
+        .map_err(|e| format!("no 'origin' remote: {e}"))?;
+
+    // Track attempts to avoid infinite retry loops from libgit2
+    let attempted = std::cell::Cell::new(false);
+
+    let mut callbacks = git2::RemoteCallbacks::new();
+    callbacks.credentials(|url, username_from_url, allowed_types| {
+        if attempted.get() {
+            return Err(git2::Error::from_str("no credentials available"));
+        }
+        attempted.set(true);
+
+        let username = username_from_url.unwrap_or("git");
+
+        if allowed_types.contains(git2::CredentialType::SSH_KEY) {
+            if let Ok(cred) = git2::Cred::ssh_key_from_agent(username) {
+                return Ok(cred);
+            }
+            let home = match std::env::var("HOME") {
+                Ok(h) => h,
+                Err(_) => return Err(git2::Error::from_str("HOME not set")),
+            };
+            for key_name in &["id_ed25519", "id_rsa"] {
+                let key_path = std::path::Path::new(&home).join(".ssh").join(key_name);
+                if key_path.exists() {
+                    let pub_path = key_path.with_extension("pub");
+                    let pub_key = if pub_path.exists() {
+                        Some(pub_path.as_path())
+                    } else {
+                        None
+                    };
+                    if let Ok(cred) =
+                        git2::Cred::ssh_key(username, pub_key, &key_path, None)
+                    {
+                        return Ok(cred);
+                    }
+                }
+            }
+        }
+
+        if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
+            if let Ok(cfg) = repo.config() {
+                if let Ok(cred) =
+                    git2::Cred::credential_helper(&cfg, url, username_from_url)
+                {
+                    return Ok(cred);
+                }
+            }
+        }
+
+        Err(git2::Error::from_str("no credentials available"))
+    });
+
+    let mut fetch_opts = git2::FetchOptions::new();
+    fetch_opts.remote_callbacks(callbacks);
+    fetch_opts.prune(FetchPrune::On);
+
+    remote
+        .fetch(&[] as &[&str], Some(&mut fetch_opts), None)
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn fetch_remote(repo_path: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || fetch_remote_sync(&repo_path))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -441,7 +517,10 @@ pub async fn get_all_diff_stats(
     Ok(result)
 }
 
-fn get_diff_stats_for_repo(repo: &Repository) -> Result<HashMap<String, DiffStat>, String> {
+fn get_diff_stats_for_repo(
+    repo: &Repository,
+    known_wt_branches: Option<&HashMap<String, String>>,
+) -> Result<HashMap<String, DiffStat>, String> {
     let base_tree = match find_default_branch_tree(repo) {
         Some(t) => t,
         None => return Ok(HashMap::new()),
@@ -489,26 +568,40 @@ fn get_diff_stats_for_repo(repo: &Repository) -> Result<HashMap<String, DiffStat
     }
 
     // Worktree HEADs not yet covered by the local branch loop (e.g. detached HEAD)
-    let wt_names = repo.worktrees().map_err(|e| e.to_string())?;
-    for wt_name in wt_names.iter() {
-        let wt_name = match wt_name {
-            Some(n) => n,
-            None => continue,
-        };
-        let wt = match repo.find_worktree(wt_name) {
-            Ok(wt) if wt.validate().is_ok() => wt,
-            _ => continue,
-        };
-        if let Some(branch_name) = resolve_worktree_branch(wt.path()) {
-            if stats_map.contains_key(&branch_name) {
-                continue;
+    // Use pre-computed map if available to avoid redundant Repository::open calls
+    let resolved: HashMap<String, String>;
+    let wt_branches = match known_wt_branches {
+        Some(m) => m,
+        None => {
+            let mut tmp = HashMap::new();
+            if let Ok(wt_names) = repo.worktrees() {
+                for wt_name in wt_names.iter() {
+                    let wt_name = match wt_name {
+                        Some(n) => n,
+                        None => continue,
+                    };
+                    let wt = match repo.find_worktree(wt_name) {
+                        Ok(wt) if wt.validate().is_ok() => wt,
+                        _ => continue,
+                    };
+                    if let Some(branch) = resolve_worktree_branch(wt.path()) {
+                        tmp.insert(wt_name.to_string(), branch);
+                    }
+                }
             }
-            if let Ok(branch) = repo.find_branch(&branch_name, BranchType::Local) {
-                if let Ok(commit) = branch.get().peel_to_commit() {
-                    if let Ok(wt_tree) = commit.tree() {
-                        if let Some(stat) = diff_stat_for_tree(repo, &base_tree, &wt_tree) {
-                            stats_map.insert(branch_name, stat);
-                        }
+            resolved = tmp;
+            &resolved
+        }
+    };
+    for branch_name in wt_branches.values() {
+        if stats_map.contains_key(branch_name) {
+            continue;
+        }
+        if let Ok(branch) = repo.find_branch(branch_name, BranchType::Local) {
+            if let Ok(commit) = branch.get().peel_to_commit() {
+                if let Ok(wt_tree) = commit.tree() {
+                    if let Some(stat) = diff_stat_for_tree(repo, &base_tree, &wt_tree) {
+                        stats_map.insert(branch_name.clone(), stat);
                     }
                 }
             }
@@ -520,7 +613,7 @@ fn get_diff_stats_for_repo(repo: &Repository) -> Result<HashMap<String, DiffStat
 
 fn get_diff_stats_sync(repo_path: &str) -> Result<HashMap<String, DiffStat>, String> {
     let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
-    get_diff_stats_for_repo(&repo)
+    get_diff_stats_for_repo(&repo, None)
 }
 
 #[derive(Serialize, Clone)]
@@ -559,7 +652,7 @@ fn poll_workspace_state_sync(repo_path: &str) -> Result<WorkspacePollState, Stri
         }
     }
 
-    let diff_stats = get_diff_stats_for_repo(&repo)?;
+    let diff_stats = get_diff_stats_for_repo(&repo, Some(&worktree_branches))?;
 
     Ok(WorkspacePollState {
         head_oid,
@@ -1009,5 +1102,61 @@ mod tests {
         assert_eq!(state2.branches.len(), 1);
         assert!(state2.diff_stats.is_empty());
         assert!(state2.worktree_branches.is_empty());
+    }
+
+    #[test]
+    fn test_fetch_remote_no_origin() {
+        let tmp = TempDir::new().unwrap();
+        let _repo = init_repo_with_commit(tmp.path());
+        let path = tmp.path().to_string_lossy().to_string();
+        let result = fetch_remote_sync(&path);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("origin"));
+    }
+
+    #[test]
+    fn test_fetch_remote_prunes_deleted_branch() {
+        // Set up a bare "remote" repo
+        let remote_dir = TempDir::new().unwrap();
+        let remote_repo = Repository::init_bare(remote_dir.path()).unwrap();
+        {
+            let sig = git2::Signature::now("Test", "test@test.com").unwrap();
+            let tree_id = remote_repo.treebuilder(None).unwrap().write().unwrap();
+            let tree = remote_repo.find_tree(tree_id).unwrap();
+            let oid = remote_repo
+                .commit(Some("refs/heads/main"), &sig, &sig, "init", &tree, &[])
+                .unwrap();
+            let commit = remote_repo.find_commit(oid).unwrap();
+            remote_repo
+                .branch("feature/stale", &commit, false)
+                .unwrap();
+        }
+
+        // Clone from the bare remote
+        let clone_dir = TempDir::new().unwrap();
+        let _clone = Repository::clone(
+            &remote_dir.path().to_string_lossy(),
+            clone_dir.path(),
+        )
+        .unwrap();
+        let clone_path = clone_dir.path().to_string_lossy().to_string();
+
+        // Verify remote branch exists in clone
+        let branches_before = list_all_branches(clone_path.clone()).unwrap();
+        assert!(branches_before.iter().any(|b| b.name == "feature/stale"));
+
+        // Delete the branch on the remote
+        remote_repo
+            .find_branch("feature/stale", BranchType::Local)
+            .unwrap()
+            .delete()
+            .unwrap();
+
+        // Fetch with prune
+        fetch_remote_sync(&clone_path).unwrap();
+
+        // Verify the stale remote tracking branch is gone
+        let branches_after = list_all_branches(clone_path).unwrap();
+        assert!(!branches_after.iter().any(|b| b.name == "feature/stale"));
     }
 }
