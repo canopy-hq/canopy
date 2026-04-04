@@ -112,6 +112,7 @@ export function closeTab(tabId: string): void {
   const remaining = sorted.filter((t) => t.id !== tabId);
 
   if (ui.activeTabId === tabId) {
+    // Prefer the tab to the left; fall back to the right if closing the first.
     const newTab = remaining[Math.max(0, closedIndex - 1)] ?? null;
     deleteTabAndUpdateActive(tabId, newTab?.id ?? '');
   } else {
