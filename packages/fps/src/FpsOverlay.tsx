@@ -3,11 +3,13 @@ import { useAnimationFPS } from './useAnimationFPS';
 const GRAPH_W = 200;
 const GRAPH_H = 48;
 const MAX_FPS = 65;
-const THRESHOLDS = [30, 55];
+const WARN_FPS = 30;
+const GOOD_FPS = 55;
+const THRESHOLDS = [WARN_FPS, GOOD_FPS];
 
 export function fpsColor(fps: number): string {
-  if (fps >= 55) return 'rgb(22 163 74)'; // green-600
-  if (fps >= 30) return 'rgb(234 179 8)'; // yellow-500
+  if (fps >= GOOD_FPS) return 'rgb(22 163 74)'; // green-600
+  if (fps >= WARN_FPS) return 'rgb(234 179 8)'; // yellow-500
   return 'rgb(220 38 38)'; // red-600
 }
 

@@ -16,6 +16,7 @@ import { AgentToastRegion } from '../components/AgentToastRegion';
 import { Header } from '../components/Header';
 import { ErrorToastRegion } from '../components/ToastProvider';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
+import { useTauriMenuEvent } from '../hooks/useTauriMenuEvent';
 import { initAgentListener } from '../lib/agent-actions';
 import { getActiveTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
@@ -44,42 +45,8 @@ function RootLayout() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    let cancelled = false;
-    void import('@tauri-apps/api/event').then(({ listen }) => {
-      if (cancelled) return;
-      void listen('menu:settings', () => {
-        void navigate({ to: '/settings' });
-      }).then((fn) => {
-        if (cancelled) fn();
-        else unlisten = fn;
-      });
-    });
-    return () => {
-      cancelled = true;
-      unlisten?.();
-    };
-  }, [navigate]);
-
-  useEffect(() => {
-    if (!import.meta.env.DEV) return;
-    let unlisten: (() => void) | undefined;
-    let cancelled = false;
-    void import('@tauri-apps/api/event').then(({ listen }) => {
-      if (cancelled) return;
-      void listen('menu:fps-overlay', () => {
-        setFpsVisible((prev) => !prev);
-      }).then((fn) => {
-        if (cancelled) fn();
-        else unlisten = fn;
-      });
-    });
-    return () => {
-      cancelled = true;
-      unlisten?.();
-    };
-  }, []);
+  useTauriMenuEvent('menu:settings', () => void navigate({ to: '/settings' }));
+  useTauriMenuEvent('menu:fps-overlay', () => setFpsVisible((prev) => !prev), import.meta.env.DEV);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
