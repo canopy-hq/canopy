@@ -17,8 +17,12 @@ export function startDeviceFlow(): Promise<DeviceCodeInfo> {
   return invoke<DeviceCodeInfo>('github_start_device_flow');
 }
 
-export function pollToken(deviceCode: string, interval: number): Promise<GitHubConnection> {
-  return invoke<GitHubConnection>('github_poll_token', { deviceCode, interval });
+export function pollToken(
+  deviceCode: string,
+  interval: number,
+  expiresIn: number,
+): Promise<GitHubConnection> {
+  return invoke<GitHubConnection>('github_poll_token', { deviceCode, interval, expiresIn });
 }
 
 export function getConnection(): Promise<GitHubConnection | null> {

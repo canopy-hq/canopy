@@ -25,14 +25,15 @@ describe('github', () => {
     expect(result).toEqual(response);
   });
 
-  it('pollToken passes deviceCode and interval', async () => {
+  it('pollToken passes deviceCode, interval and expiresIn', async () => {
     const connection = { username: 'octocat', avatarUrl: 'https://example.com/avatar.png' };
     mockInvoke.mockResolvedValue(connection);
 
-    const result = await pollToken('abc123', 5);
+    const result = await pollToken('abc123', 5, 900);
     expect(mockInvoke).toHaveBeenCalledWith('github_poll_token', {
       deviceCode: 'abc123',
       interval: 5,
+      expiresIn: 900,
     });
     expect(result).toEqual(connection);
   });

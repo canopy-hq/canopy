@@ -134,12 +134,16 @@ pub async fn github_start_device_flow() -> Result<DeviceCodeResponse, String> {
 }
 
 #[tauri::command]
-pub async fn github_poll_token(device_code: String, interval: u64) -> Result<GitHubConnection, String> {
+pub async fn github_poll_token(device_code: String, interval: u64, expires_in: u64) -> Result<GitHubConnection, String> {
     let cid = client_id()?;
     let client = http_client()?;
     let mut poll_interval = std::time::Duration::from_secs(interval.max(5));
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(expires_in);
 
     loop {
+        if tokio::time::Instant::now() >= deadline {
+            return Err("Device code expired. Please try again.".into());
+        }
         tokio::time::sleep(poll_interval).await;
 
         let resp = client
@@ -186,8 +190,11 @@ pub async fn github_get_connection() -> Result<Option<GitHubConnection>, String>
 
     match fetch_github_user(&token).await {
         Ok(conn) => Ok(Some(conn)),
-        Err(_) => {
-            let _ = delete_token();
+        Err(e) => {
+            // Only delete token on auth errors (401/403), not network failures
+            if e.contains("401") || e.contains("403") {
+                let _ = delete_token();
+            }
             Ok(None)
         }
     }
