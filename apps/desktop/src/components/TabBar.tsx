@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
-import { closePty, disposeCached } from '@superagent/terminal';
 import { Plus, X } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
@@ -52,15 +51,13 @@ const closeButton = tv({
 function useTabAgentStatus(tab: Tab): DotStatus {
   const ptyIds = collectLeafPtyIds(tab.paneRoot);
   const agents = useAgents();
+  let hasRunning = false;
   for (const id of ptyIds) {
-    const agent = agents.find((a) => a.ptyId === id);
-    if (agent?.status === 'waiting') return 'waiting';
+    const status = agents.find((a) => a.ptyId === id)?.status;
+    if (status === 'waiting') return 'waiting';
+    if (status === 'running') hasRunning = true;
   }
-  for (const id of ptyIds) {
-    const agent = agents.find((a) => a.ptyId === id);
-    if (agent?.status === 'running') return 'running';
-  }
-  return 'idle';
+  return hasRunning ? 'running' : 'idle';
 }
 
 const TabItemComponent = memo(
@@ -113,16 +110,7 @@ const TabItemComponent = memo(
       }
     }, [draft, confirmRename, cancelRename]);
 
-    const handleClose = useCallback(async () => {
-      const ptyIds = collectLeafPtyIds(tab.paneRoot);
-      for (const ptyId of ptyIds) {
-        disposeCached(ptyId);
-        try {
-          await closePty(ptyId);
-        } catch {
-          /* PTY may be dead */
-        }
-      }
+    const handleClose = useCallback(() => {
       closeTab(tab.id);
     }, [tab]);
 

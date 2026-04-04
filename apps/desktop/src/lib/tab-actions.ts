@@ -7,10 +7,12 @@ import {
   insertTabAndActivate,
   deleteTabAndUpdateActive,
 } from '@superagent/db';
-import { closePtysForPanes } from '@superagent/terminal';
+import { closePty, closePtysForPanes, disposeCached } from '@superagent/terminal';
 
 import {
   collectAllLeafPaneIds,
+  collectLeafPtyIds,
+  findLeaf,
   splitNode,
   removeNode,
   findFirstLeaf,
@@ -97,8 +99,11 @@ export function closeTab(tabId: string): void {
   const tab = col.toArray.find((t) => t.id === tabId);
   if (!tab) return;
 
-  // Catch-all: close any PTYs spawned for these panes that weren't in the
-  // pane tree yet (e.g. startup restore race). Uses pane IDs, not pty IDs.
+  // Clean up all PTYs for this tab — both known (by ptyId) and orphan (by paneId).
+  for (const ptyId of collectLeafPtyIds(tab.paneRoot)) {
+    disposeCached(ptyId);
+    void closePty(ptyId).catch(() => {});
+  }
   void closePtysForPanes(collectAllLeafPaneIds(tab.paneRoot));
 
   const contextId = tab.workspaceItemId;
@@ -240,6 +245,13 @@ export function closePaneInTab(tabId: string, paneId: PaneId): void {
 export function closePane(paneId: PaneId): void {
   const tab = getTabCollection().toArray.find((t) => t.id === getUiState().activeTabId);
   if (!tab) return;
+  // Clean up PTY for this pane before removing it from the tree.
+  const leaf = findLeaf(tab.paneRoot, paneId);
+  if (leaf && leaf.ptyId > 0) {
+    disposeCached(leaf.ptyId);
+    void closePty(leaf.ptyId).catch(() => {});
+  }
+  void closePtysForPanes([paneId]);
   closePaneInTab(tab.id, paneId);
 }
 

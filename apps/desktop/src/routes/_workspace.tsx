@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 
-import { closePty, closePtysForPanes, disposeCached } from '@superagent/terminal';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 
 import { Sidebar } from '../components/Sidebar';
@@ -30,35 +29,13 @@ function WorkspaceLayout() {
     }
   }, []);
 
-  const handleClose = useCallback(async () => {
+  const handleClose = useCallback(() => {
     const activeTab = getActiveTab();
     if (!activeTab?.focusedPaneId) return;
 
     if (activeTab.paneRoot.type === 'leaf') {
-      const leaf = activeTab.paneRoot;
-      if (leaf.ptyId > 0) {
-        disposeCached(leaf.ptyId);
-        try {
-          await closePty(leaf.ptyId);
-        } catch {
-          /* PTY may be dead */
-        }
-      }
       closeTab(activeTab.id);
     } else {
-      const leaf = findLeaf(activeTab.paneRoot, activeTab.focusedPaneId);
-      if (leaf) {
-        if (leaf.ptyId > 0) {
-          disposeCached(leaf.ptyId);
-          try {
-            await closePty(leaf.ptyId);
-          } catch {
-            /* PTY may be dead */
-          }
-        }
-        // Catch-all for this specific pane
-        void closePtysForPanes([leaf.id]);
-      }
       closePane(activeTab.focusedPaneId);
     }
   }, []);
