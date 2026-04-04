@@ -7,8 +7,8 @@ import { useNavigate } from '@tanstack/react-router';
 import { Laptop, FolderGit2 } from 'lucide-react';
 
 import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useCollections';
-import { useDiffStatsMap } from '../hooks/useDiffStatsMap';
 import { usePageVisible } from '../hooks/usePageVisible';
+import { useWorkspacePolling } from '../hooks/useWorkspacePolling';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import {
   toggleExpanded,
@@ -369,7 +369,7 @@ export function WorkspaceTree() {
   } | null>(null);
   const agentMap = useWorkspaceAgentMap();
   const pageVisible = usePageVisible();
-  const diffStatsMap = useDiffStatsMap(workspaces, sidebarVisible && pageVisible);
+  const diffStatsMap = useWorkspacePolling(workspaces, sidebarVisible && pageVisible);
   const navigate = useNavigate();
 
   const expandedKeys = useMemo(

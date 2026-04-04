@@ -86,6 +86,19 @@ export function getAllDiffStats(
   return invoke<Record<string, Record<string, DiffStat>>>('get_all_diff_stats', { repoPaths });
 }
 
+export interface WorkspacePollState {
+  head_oid: string;
+  branches: BranchInfo[];
+  worktree_branches: Record<string, string>;
+  diff_stats: Record<string, DiffStat>;
+}
+
+export function pollAllWorkspaceStates(
+  repoPaths: string[],
+): Promise<Record<string, WorkspacePollState>> {
+  return invoke<Record<string, WorkspacePollState>>('poll_all_workspace_states', { repoPaths });
+}
+
 /** Normalize a branch/worktree name to a safe identifier (spaces, underscores, slashes → dashes). */
 export function sanitizeWorktreeName(name: string): string {
   return name.trim().replace(/[\s_/]+/g, '-');

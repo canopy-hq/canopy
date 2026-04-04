@@ -42,7 +42,7 @@ pub struct BranchDetail {
     pub is_in_worktree: bool,
 }
 
-fn enumerate_branches(repo: &Repository) -> Result<Vec<BranchInfo>, String> {
+fn enumerate_branches(repo: &Repository, lightweight: bool) -> Result<Vec<BranchInfo>, String> {
     let mut branches = Vec::new();
     for branch_result in repo
         .branches(Some(BranchType::Local))
@@ -56,14 +56,18 @@ fn enumerate_branches(repo: &Repository) -> Result<Vec<BranchInfo>, String> {
             .to_string();
         let is_head = branch.is_head();
 
-        let (ahead, behind) = match branch.upstream() {
-            Ok(upstream) => {
-                let local_oid = branch.get().target().unwrap();
-                let upstream_oid = upstream.get().target().unwrap();
-                repo.graph_ahead_behind(local_oid, upstream_oid)
-                    .unwrap_or((0, 0))
+        let (ahead, behind) = if lightweight {
+            (0, 0)
+        } else {
+            match branch.upstream() {
+                Ok(upstream) => {
+                    let local_oid = branch.get().target().unwrap();
+                    let upstream_oid = upstream.get().target().unwrap();
+                    repo.graph_ahead_behind(local_oid, upstream_oid)
+                        .unwrap_or((0, 0))
+                }
+                Err(_) => (0, 0), // No upstream tracking
             }
-            Err(_) => (0, 0), // No upstream tracking
         };
 
         branches.push(BranchInfo {
@@ -114,7 +118,7 @@ pub fn import_repo(path: String) -> Result<RepoInfo, String> {
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| path.clone());
-    let all_branches = enumerate_branches(&repo)?;
+    let all_branches = enumerate_branches(&repo, false)?;
     let head_only: Vec<BranchInfo> = all_branches.into_iter().filter(|b| b.is_head).collect();
     Ok(RepoInfo {
         path,
@@ -127,7 +131,7 @@ pub fn import_repo(path: String) -> Result<RepoInfo, String> {
 #[tauri::command]
 pub fn list_branches(repo_path: String) -> Result<Vec<BranchInfo>, String> {
     let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
-    enumerate_branches(&repo)
+    enumerate_branches(&repo, false)
 }
 
 #[tauri::command]
@@ -437,10 +441,8 @@ pub async fn get_all_diff_stats(
     Ok(result)
 }
 
-fn get_diff_stats_sync(repo_path: &str) -> Result<HashMap<String, DiffStat>, String> {
-    let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
-
-    let base_tree = match find_default_branch_tree(&repo) {
+fn get_diff_stats_for_repo(repo: &Repository) -> Result<HashMap<String, DiffStat>, String> {
+    let base_tree = match find_default_branch_tree(repo) {
         Some(t) => t,
         None => return Ok(HashMap::new()),
     };
@@ -479,7 +481,7 @@ fn get_diff_stats_sync(repo_path: &str) -> Result<HashMap<String, DiffStat>, Str
 
         if let Ok(commit) = branch.get().peel_to_commit() {
             if let Ok(branch_tree) = commit.tree() {
-                if let Some(stat) = diff_stat_for_tree(&repo, &base_tree, &branch_tree) {
+                if let Some(stat) = diff_stat_for_tree(repo, &base_tree, &branch_tree) {
                     stats_map.insert(name, stat);
                 }
             }
@@ -504,7 +506,7 @@ fn get_diff_stats_sync(repo_path: &str) -> Result<HashMap<String, DiffStat>, Str
             if let Ok(branch) = repo.find_branch(&branch_name, BranchType::Local) {
                 if let Ok(commit) = branch.get().peel_to_commit() {
                     if let Ok(wt_tree) = commit.tree() {
-                        if let Some(stat) = diff_stat_for_tree(&repo, &base_tree, &wt_tree) {
+                        if let Some(stat) = diff_stat_for_tree(repo, &base_tree, &wt_tree) {
                             stats_map.insert(branch_name, stat);
                         }
                     }
@@ -514,6 +516,89 @@ fn get_diff_stats_sync(repo_path: &str) -> Result<HashMap<String, DiffStat>, Str
     }
 
     Ok(stats_map)
+}
+
+fn get_diff_stats_sync(repo_path: &str) -> Result<HashMap<String, DiffStat>, String> {
+    let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
+    get_diff_stats_for_repo(&repo)
+}
+
+#[derive(Serialize, Clone)]
+pub struct WorkspacePollState {
+    pub head_oid: String,
+    pub branches: Vec<BranchInfo>,
+    pub worktree_branches: HashMap<String, String>,
+    pub diff_stats: HashMap<String, DiffStat>,
+}
+
+fn poll_workspace_state_sync(repo_path: &str) -> Result<WorkspacePollState, String> {
+    let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
+
+    let branches = enumerate_branches(&repo, true)?;
+
+    let head_oid = repo
+        .head()
+        .ok()
+        .and_then(|h| h.target())
+        .map(|oid| oid.to_string())
+        .unwrap_or_default();
+
+    let mut worktree_branches = HashMap::new();
+    let wt_names = repo.worktrees().map_err(|e| e.to_string())?;
+    for wt_name in wt_names.iter() {
+        let wt_name = match wt_name {
+            Some(n) => n,
+            None => continue,
+        };
+        if let Ok(wt) = repo.find_worktree(wt_name) {
+            if wt.validate().is_ok() {
+                if let Some(branch) = resolve_worktree_branch(wt.path()) {
+                    worktree_branches.insert(wt_name.to_string(), branch);
+                }
+            }
+        }
+    }
+
+    let diff_stats = get_diff_stats_for_repo(&repo)?;
+
+    Ok(WorkspacePollState {
+        head_oid,
+        branches,
+        worktree_branches,
+        diff_stats,
+    })
+}
+
+#[tauri::command]
+pub async fn poll_all_workspace_states(
+    repo_paths: Vec<String>,
+) -> Result<HashMap<String, WorkspacePollState>, String> {
+    let semaphore = Arc::new(Semaphore::new(6));
+    let mut handles = Vec::with_capacity(repo_paths.len());
+
+    for path in repo_paths {
+        let sem = semaphore.clone();
+        let key = path.clone();
+        handles.push(tokio::spawn(async move {
+            let _permit = sem.acquire().await.map_err(|e| e.to_string())?;
+            let state = tokio::task::spawn_blocking(move || poll_workspace_state_sync(&path))
+                .await
+                .map_err(|e| e.to_string())??;
+            Ok::<_, String>((key, state))
+        }));
+    }
+
+    let mut result = HashMap::new();
+    for handle in handles {
+        match handle.await {
+            Ok(Ok((key, state))) => {
+                result.insert(key, state);
+            }
+            Ok(Err(e)) => eprintln!("poll_all_workspace_states: repo failed: {e}"),
+            Err(e) => eprintln!("poll_all_workspace_states: task panicked: {e}"),
+        }
+    }
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -860,5 +945,69 @@ mod tests {
         // Repo with only HEAD should have empty stats
         let stats3 = &result[&path3];
         assert!(stats3.is_empty(), "Repo 3 should have empty stats");
+    }
+
+    #[test]
+    fn test_enumerate_branches_lightweight() {
+        let tmp = TempDir::new().unwrap();
+        let repo = init_repo_with_commit(tmp.path());
+        let path = tmp.path().to_string_lossy().to_string();
+
+        let branches = list_branches(path.clone()).unwrap();
+        let default_branch = &branches[0].name;
+        create_branch(path.clone(), "feature/light".to_string(), default_branch.clone()).unwrap();
+
+        let full = enumerate_branches(&repo, false).unwrap();
+        let light = enumerate_branches(&repo, true).unwrap();
+
+        // Same branch names and is_head flags
+        assert_eq!(full.len(), light.len());
+        for (f, l) in full.iter().zip(light.iter()) {
+            assert_eq!(f.name, l.name);
+            assert_eq!(f.is_head, l.is_head);
+        }
+
+        // Lightweight always returns 0 for ahead/behind
+        for b in &light {
+            assert_eq!(b.ahead, 0);
+            assert_eq!(b.behind, 0);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_poll_all_workspace_states() {
+        let tmp1 = TempDir::new().unwrap();
+        let path1 = create_repo_with_feature_branch(tmp1.path());
+
+        let tmp2 = TempDir::new().unwrap();
+        let _repo2 = init_repo_with_commit(tmp2.path());
+        let path2 = tmp2.path().to_string_lossy().to_string();
+
+        let result = poll_all_workspace_states(vec![path1.clone(), path2.clone()])
+            .await
+            .unwrap();
+
+        assert_eq!(result.len(), 2);
+
+        // Repo 1: has feature branch + HEAD
+        let state1 = &result[&path1];
+        assert!(!state1.head_oid.is_empty());
+        assert!(state1.branches.len() >= 2);
+        assert!(state1.branches.iter().any(|b| b.is_head));
+        assert!(state1.branches.iter().any(|b| b.name == "feature/batch-test"));
+        // Lightweight: ahead/behind are 0
+        for b in &state1.branches {
+            assert_eq!(b.ahead, 0);
+            assert_eq!(b.behind, 0);
+        }
+        // Diff stats should be present for feature branch
+        assert!(state1.diff_stats.contains_key("feature/batch-test"));
+
+        // Repo 2: only HEAD, no extra branches
+        let state2 = &result[&path2];
+        assert!(!state2.head_oid.is_empty());
+        assert_eq!(state2.branches.len(), 1);
+        assert!(state2.diff_stats.is_empty());
+        assert!(state2.worktree_branches.is_empty());
     }
 }
