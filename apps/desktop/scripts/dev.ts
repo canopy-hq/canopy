@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 
 const preferred = parseInt(process.env.VITE_PORT ?? '5173');
@@ -16,4 +17,7 @@ const port = await new Promise<number>((resolve) => {
   });
 });
 
-process.stdout.write(String(port));
+spawn('tauri', ['dev', '--config', `{"build":{"devUrl":"http://localhost:${port}"}}`], {
+  stdio: 'inherit',
+  env: { ...process.env, VITE_PORT: String(port) },
+}).on('exit', (code) => process.exit(code ?? 0));
