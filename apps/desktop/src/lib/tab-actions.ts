@@ -256,6 +256,10 @@ export function jumpToPane(
     });
   }
 
+  uiCollection.update('ui', (draft) => {
+    draft.selectedItemId = workspaceItemId;
+  });
+
   navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: workspaceItemId } });
 
   if (ui.activeContextId === workspaceItemId && tabId) {

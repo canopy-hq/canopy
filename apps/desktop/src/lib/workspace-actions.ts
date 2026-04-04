@@ -30,7 +30,6 @@ export async function importRepo(path: string): Promise<void> {
 
     const existing = collection.toArray.find((w) => w.path === info.path);
     if (existing) {
-      setSelectedItem(existing.id);
       showInfoToast(`"${existing.name}" is already imported`);
     } else {
       collection.insert({

@@ -371,20 +371,21 @@ export function WorkspaceTree() {
     [workspaces],
   );
 
-  const selectedKeys = useMemo<Selection>(
-    () => (selectedItemId ? new Set([selectedItemId]) : new Set<Key>()),
-    [selectedItemId],
-  );
+  const selectedKeys = useMemo<Selection>(() => {
+    if (!selectedItemId) return new Set<Key>();
+    if (!selectedItemId.includes('-branch-') && !selectedItemId.includes('-wt-'))
+      return new Set<Key>();
+    return new Set([selectedItemId]);
+  }, [selectedItemId]);
 
   const handleSelectionChange = useCallback(
     (keys: Selection) => {
       if (keys === 'all') return;
       const selected = [...keys][0];
-      if (!selected) {
-        selectWorkspaceItem(null, navigate);
-        return;
-      }
-      selectWorkspaceItem(String(selected), navigate);
+      if (!selected) return; // no deselect
+      const key = String(selected);
+      if (!key.includes('-branch-') && !key.includes('-wt-')) return; // workspace rows not selectable
+      selectWorkspaceItem(key, navigate);
     },
     [navigate],
   );
