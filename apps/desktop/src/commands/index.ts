@@ -33,11 +33,14 @@ export function useAllCommands(): CommandItem[] {
 
     async function poll() {
       if (cancelled) return;
-      try {
-        const sessions = await listPtySessions();
-        if (!cancelled) setPtySessions(sessions);
-      } catch {
-        // PTY daemon may not be running yet
+      // Skip poll when window is hidden — consistent with useWorkspacePolling
+      if (document.visibilityState !== 'hidden') {
+        try {
+          const sessions = await listPtySessions();
+          if (!cancelled) setPtySessions(sessions);
+        } catch {
+          // PTY daemon may not be running yet
+        }
       }
       if (!cancelled) setTimeout(poll, 3000);
     }

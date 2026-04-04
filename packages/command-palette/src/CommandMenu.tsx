@@ -71,9 +71,11 @@ function AgentDot({ status }: { status: NonNullable<CommandItem['agentStatus']> 
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function CommandMenu({ isOpen, onClose, items }: CommandMenuProps) {
-  const { query, section, drillStack, selectedId, dispatch, sections, flatItems } =
-    useCommandMenu(items);
+export function CommandMenu({ isOpen, onClose, items, activeContextId }: CommandMenuProps) {
+  const { query, section, drillStack, selectedId, dispatch, sections, flatItems } = useCommandMenu(
+    items,
+    activeContextId,
+  );
 
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -103,7 +105,7 @@ export function CommandMenu({ isOpen, onClose, items }: CommandMenuProps) {
       }
       const ctx: CommandContext = { close: onClose };
       onClose();
-      item.action(ctx);
+      void item.action(ctx);
     },
     [dispatch, onClose],
   );

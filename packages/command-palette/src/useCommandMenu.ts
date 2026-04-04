@@ -54,15 +54,17 @@ function reducer(state: MenuState, action: MenuAction): MenuState {
 const MAX_DEFAULT_PER_SECTION = 5;
 const MAX_SEARCH_RESULTS = 50;
 
-function buildDefaultSections(items: CommandItem[]): SectionData[] {
+function buildDefaultSections(
+  items: CommandItem[],
+  activeContextId?: string | null,
+): SectionData[] {
   const sections: SectionData[] = [];
 
-  // buildTabCommands sorts current-context tabs first, so the first tab's group
-  // is the active project. Show only those tabs in the root view.
   const allTabs = items.filter((i) => i.category === 'tab');
-  const currentGroup = allTabs[0]?.group;
-  const currentTabs = currentGroup
-    ? allTabs.filter((i) => i.group === currentGroup)
+  // Filter to tabs belonging to the active project via their stable contextId.
+  // Falls back to all tabs (capped) when no context is active.
+  const currentTabs = activeContextId
+    ? allTabs.filter((i) => i.contextId === activeContextId)
     : allTabs.slice(0, MAX_DEFAULT_PER_SECTION);
 
   const newTabAction = items.find((i) => i.id === 'action:new-tab');
@@ -125,7 +127,7 @@ function groupByField(items: CommandItem[]): SectionData[] {
   return sections;
 }
 
-export function useCommandMenu(items: CommandItem[]) {
+export function useCommandMenu(items: CommandItem[], activeContextId?: string | null) {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
 
   const sections = useMemo((): SectionData[] => {
@@ -155,8 +157,8 @@ export function useCommandMenu(items: CommandItem[]) {
       return filtered.length > 0 ? [{ id: 'results', label: 'Results', items: filtered }] : [];
     }
 
-    return buildDefaultSections(items);
-  }, [state, items]);
+    return buildDefaultSections(items, activeContextId);
+  }, [state, items, activeContextId]);
 
   const flatItems = useMemo(() => sections.flatMap((s) => s.items), [sections]);
 

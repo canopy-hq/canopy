@@ -29,6 +29,7 @@ export function buildTabCommands(
       keywords: ['terminal', 'switch', 'pane'],
       icon: 'tab',
       group: ws?.name,
+      contextId: tab.workspaceItemId,
       action: ({ close }) => {
         jumpToPane(navigate, tab.workspaceItemId, tab.id);
         close();

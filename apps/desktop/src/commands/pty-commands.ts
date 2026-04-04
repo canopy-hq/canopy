@@ -30,7 +30,7 @@ export function buildPtyCommands(
       category: 'pty',
       keywords: ['pty', 'terminal', 'process', 'session'],
       icon: 'tab',
-      group: ws?.name,
+      group: ws?.name ?? 'Orphaned',
       action: ({ close }) => {
         if (tab) jumpToPane(navigate, tab.workspaceItemId, tab.id);
         close();

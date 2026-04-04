@@ -19,6 +19,7 @@ import { AgentToastRegion } from '../components/AgentToastRegion';
 import { Header } from '../components/Header';
 import { SessionManager } from '../components/SessionManager';
 import { ErrorToastRegion } from '../components/ToastProvider';
+import { useUiState } from '../hooks/useCollections';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { useTauriMenuEvent } from '../hooks/useTauriMenuEvent';
 import { initAgentListener } from '../lib/agent-actions';
@@ -37,6 +38,7 @@ function RootLayout() {
   const [sessionManagerOpen, setSessionManagerOpen] = useState(false);
   const [fpsVisible, setFpsVisible] = useState(false);
   const cmdItems = useAllCommands();
+  const { activeContextId } = useUiState();
   const navigate = useNavigate();
   const booted = useRef(false);
 
@@ -126,7 +128,12 @@ function RootLayout() {
       <Header onSessionsClick={() => setSessionManagerOpen((prev) => !prev)} />
       <Outlet />
       <ErrorToastRegion />
-      <CommandMenu isOpen={cmdMenuOpen} onClose={() => setCmdMenuOpen(false)} items={cmdItems} />
+      <CommandMenu
+        isOpen={cmdMenuOpen}
+        onClose={() => setCmdMenuOpen(false)}
+        items={cmdItems}
+        activeContextId={activeContextId}
+      />
       <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
       {sessionManagerOpen && <SessionManager onClose={() => setSessionManagerOpen(false)} />}
       <AgentToastRegion />

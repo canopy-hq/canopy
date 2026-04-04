@@ -22,9 +22,11 @@ export interface CommandItem {
   agentStatus?: 'running' | 'waiting' | 'idle';
   /** Group label for sectioned views (e.g. workspace name in the tabs section). */
   group?: string;
+  /** Stable context ID used to filter root-section tabs to the active project. */
+  contextId?: string;
   /** Lazy child items — presence enables drill-down for this item. */
   children?: () => CommandItem[];
-  action: (ctx: CommandContext) => void;
+  action: (ctx: CommandContext) => void | Promise<void>;
 }
 
 export interface CommandContext {
@@ -35,4 +37,5 @@ export interface CommandMenuProps {
   isOpen: boolean;
   onClose: () => void;
   items: CommandItem[];
+  activeContextId?: string | null;
 }
