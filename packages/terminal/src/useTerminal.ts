@@ -139,11 +139,13 @@ export function useTerminal(
       void resizePty(ptyId, term.rows, term.cols);
     } else {
       // === NEW TERMINAL: spawn (ptyId === -1) or reconnect (ptyId > 0) ===
+      const termFontSize = 14;
+      const termFontFamily = '"Geist Mono", Menlo, Monaco, "Courier New", monospace';
       term = new Terminal({
         cursorBlink: true,
         cursorStyle: 'bar',
-        fontSize: 14,
-        fontFamily: '"Geist Mono", Menlo, Monaco, "Courier New", monospace',
+        fontSize: termFontSize,
+        fontFamily: termFontFamily,
         theme:
           terminalThemes[
             getSetting(getSettingCollection().toArray, 'theme', 'obsidian') as ThemeName
@@ -303,13 +305,13 @@ export function useTerminal(
       });
 
       // Wait for the terminal font to load before fitting. On first use, the
-      // browser hasn't loaded "Geist Mono" yet — fitAddon.fit() would calculate
-      // grid dimensions using a fallback font (Menlo), and the later font-swap
-      // would change cell metrics, causing a resize → SIGWINCH → prompt redraw.
-      // By the 3rd terminal the font is cached, which is why only the first 1-2
-      // terminals exhibit the flicker.
+      // configured font may not be loaded yet — fitAddon.fit() would calculate
+      // grid dimensions using a fallback font, and the later font-swap would
+      // change cell metrics, causing a resize → SIGWINCH → prompt redraw.
+      // Uses the same fontSize + fontFamily from the Terminal config above so
+      // it adapts automatically if the user changes their font.
       const fontReady = document.fonts
-        ? document.fonts.load('14px "Geist Mono"')
+        ? document.fonts.load(`${termFontSize}px ${termFontFamily}`)
         : Promise.resolve();
       void fontReady.then(() => {
         if (spawnCancelled) return;
