@@ -50,6 +50,11 @@ export interface PrInfo {
   url: string;
 }
 
-export function getPrStatuses(repoPaths: string[]): Promise<Record<string, PrInfo[]>> {
-  return invoke<Record<string, PrInfo[]>>('github_get_pr_statuses', { repoPaths });
+export interface PrStatusResult {
+  prs: Record<string, PrInfo[]>;
+  inaccessiblePaths: string[];
+}
+
+export function getPrStatuses(repoPaths: string[]): Promise<PrStatusResult> {
+  return invoke<PrStatusResult>('github_get_pr_statuses', { repoPaths });
 }

@@ -77,6 +77,15 @@ pub struct PrInfo {
     pub url: String,
 }
 
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PrStatusResult {
+    pub prs: HashMap<String, Vec<PrInfo>>,
+    /// Repo paths where the GitHub API returned access errors (FORBIDDEN, NOT_FOUND).
+    /// Frontend should skip these on subsequent polls until re-auth.
+    pub inaccessible_paths: Vec<String>,
+}
+
 // ── Search query builder ─────────────────────────────────────────────
 
 const SEARCH_QUERY_MAX_LEN: usize = 256;
@@ -223,10 +232,15 @@ async fn execute_graphql_with_retry(
 pub async fn github_get_pr_statuses(
     repo_paths: Vec<String>,
     http: tauri::State<'_, HttpClient>,
-) -> Result<HashMap<String, Vec<PrInfo>>, String> {
+) -> Result<PrStatusResult, String> {
     let token = match load_token()? {
         Some(t) => t,
-        None => return Ok(HashMap::new()),
+        None => {
+            return Ok(PrStatusResult {
+                prs: HashMap::new(),
+                inaccessible_paths: Vec::new(),
+            });
+        }
     };
 
     // Phase 1: Parse remotes → group by owner/repo
@@ -262,6 +276,7 @@ pub async fn github_get_pr_statuses(
         }));
     }
 
+    // Non-GitHub repos are not inaccessible, just irrelevant — don't include them
     for handle in handles {
         match handle.await {
             Ok(Ok((path, (Some((owner, repo)), branches)))) => {
@@ -275,11 +290,17 @@ pub async fn github_get_pr_statuses(
     }
 
     if owner_repo_map.is_empty() {
-        return Ok(HashMap::new());
+        return Ok(PrStatusResult {
+            prs: HashMap::new(),
+            inaccessible_paths: Vec::new(),
+        });
     }
 
-    // Phase 2: Build search queries → aliased GraphQL batches
-    let mut all_aliases: Vec<(String, String, String)> = Vec::new();
+    // Phase 2: Build search queries per owner/repo (never mix repos in one batch)
+    // This ensures one inaccessible org doesn't poison queries for other repos.
+    let gql_sem = Arc::new(Semaphore::new(2));
+    let mut gql_handles = Vec::new();
+    let mut failed_owner_repos: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for (owner_repo, repo_entries) in &owner_repo_map {
         let mut all_branches: Vec<String> = repo_entries
@@ -290,59 +311,77 @@ pub async fn github_get_pr_statuses(
         all_branches.dedup();
 
         let queries = build_search_queries(owner_repo, &all_branches);
-        for query in queries {
-            let alias = format!("s{}", all_aliases.len());
-            all_aliases.push((alias, query, owner_repo.clone()));
+        let mut aliases: Vec<(String, String)> = Vec::new();
+        for (i, query) in queries.into_iter().enumerate() {
+            aliases.push((format!("s{i}"), query));
+        }
+
+        // Batch aliases for this owner/repo only
+        for chunk in aliases.chunks(MAX_ALIASES_PER_REQUEST) {
+            let alias_queries: Vec<(String, String)> = chunk.to_vec();
+            let client = http.0.clone();
+            let token = token.clone();
+            let sem = gql_sem.clone();
+            let owner_repo = owner_repo.clone();
+
+            gql_handles.push(tokio::spawn(async move {
+                let _permit = sem.acquire().await.map_err(|e| e.to_string())?;
+                let query = build_aliased_graphql(&alias_queries);
+                let response = execute_graphql_with_retry(&client, &token, &query).await?;
+
+                // Check for access errors (FORBIDDEN, NOT_FOUND) in the GraphQL response
+                let has_access_error = response
+                    .get("errors")
+                    .and_then(|e| e.as_array())
+                    .map(|errors| {
+                        errors.iter().any(|err| {
+                            matches!(
+                                err.get("type").and_then(|t| t.as_str()),
+                                Some("FORBIDDEN" | "NOT_FOUND")
+                            )
+                        })
+                    })
+                    .unwrap_or(false);
+
+                let mut prs = Vec::new();
+                for (alias, _) in &alias_queries {
+                    prs.extend(parse_search_results(&response, alias));
+                }
+                Ok::<_, String>((owner_repo, prs, has_access_error))
+            }));
         }
     }
 
-    // Phase 3: Execute GraphQL
-    let gql_sem = Arc::new(Semaphore::new(2));
-    let mut gql_handles = Vec::new();
-
-    for chunk in all_aliases.chunks(MAX_ALIASES_PER_REQUEST) {
-        let alias_queries: Vec<(String, String)> = chunk
-            .iter()
-            .map(|(alias, query, _)| (alias.clone(), query.clone()))
-            .collect();
-        let aliases_in_chunk: Vec<(String, String)> = chunk
-            .iter()
-            .map(|(alias, _, owner_repo)| (alias.clone(), owner_repo.clone()))
-            .collect();
-        let client = http.0.clone();
-        let token = token.clone();
-        let sem = gql_sem.clone();
-
-        gql_handles.push(tokio::spawn(async move {
-            let _permit = sem.acquire().await.map_err(|e| e.to_string())?;
-            let query = build_aliased_graphql(&alias_queries);
-            let response = execute_graphql_with_retry(&client, &token, &query).await?;
-
-            let mut prs_by_owner_repo: HashMap<String, Vec<PrInfo>> = HashMap::new();
-            for (alias, owner_repo) in &aliases_in_chunk {
-                let prs = parse_search_results(&response, alias);
-                prs_by_owner_repo.entry(owner_repo.clone()).or_default().extend(prs);
-            }
-            Ok::<_, String>(prs_by_owner_repo)
-        }));
-    }
-
-    // Phase 4: Collect and map back to repo_paths
+    // Phase 3: Collect results and track failures
     let mut prs_by_owner_repo: HashMap<String, Vec<PrInfo>> = HashMap::new();
     for handle in gql_handles {
         match handle.await {
-            Ok(Ok(batch)) => {
-                for (key, prs) in batch {
-                    prs_by_owner_repo.entry(key).or_default().extend(prs);
+            Ok(Ok((owner_repo, prs, has_access_error))) => {
+                if has_access_error {
+                    failed_owner_repos.insert(owner_repo.clone());
                 }
+                prs_by_owner_repo.entry(owner_repo).or_default().extend(prs);
             }
-            Ok(Err(e)) => eprintln!("github_get_pr_statuses: GraphQL request failed: {e}"),
+            Ok(Err(e)) => {
+                eprintln!("github_get_pr_statuses: GraphQL request failed: {e}");
+                // HTTP-level failures (403, etc.) — can't determine owner/repo here,
+                // but these are retried already. Treat as transient.
+            }
             Err(e) => eprintln!("github_get_pr_statuses: task panicked: {e}"),
         }
     }
 
+    // Phase 4: Map back to repo_paths + collect inaccessible paths
     let mut result: HashMap<String, Vec<PrInfo>> = HashMap::new();
+    let mut inaccessible_paths: Vec<String> = Vec::new();
+
     for (owner_repo, repo_entries) in &owner_repo_map {
+        if failed_owner_repos.contains(owner_repo) {
+            for (repo_path, _) in repo_entries {
+                inaccessible_paths.push(repo_path.clone());
+            }
+            continue;
+        }
         if let Some(all_prs) = prs_by_owner_repo.get(owner_repo) {
             for (repo_path, branches) in repo_entries {
                 let branch_set: std::collections::HashSet<&str> =
@@ -359,7 +398,10 @@ pub async fn github_get_pr_statuses(
         }
     }
 
-    Ok(result)
+    Ok(PrStatusResult {
+        prs: result,
+        inaccessible_paths,
+    })
 }
 
 // ── Keychain helpers (via `security` CLI to avoid per-binary ACL prompts) ─

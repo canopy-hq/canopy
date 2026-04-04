@@ -48,11 +48,17 @@ export function usePrPolling(
   const workspacesRef = useRef(workspaces);
   const noChangeCountRef = useRef(0);
   const prevPrMapRef = useRef(prMap);
+  const inaccessiblePathsRef = useRef(new Set<string>());
   prevPrMapRef.current = prMap;
 
   useEffect(() => {
     workspacesRef.current = workspaces;
   }, [workspaces]);
+
+  // Reset inaccessible paths when GitHub connection changes (user re-authed)
+  useEffect(() => {
+    inaccessiblePathsRef.current = new Set();
+  }, [githubConnected]);
 
   const workspaceKey = useMemo(
     () => workspaces.map((ws) => `${ws.id}:${ws.expanded ? 1 : 0}`).join(','),
@@ -70,17 +76,25 @@ export function usePrPolling(
       const current = workspacesRef.current;
       const { paths, pathToId, expandedIds } = getExpandedWorkspacePaths(current);
 
-      if (paths.length === 0) {
+      // Filter out paths we know are inaccessible
+      const accessiblePaths = paths.filter((p) => !inaccessiblePathsRef.current.has(p));
+
+      if (accessiblePaths.length === 0) {
         timer = setTimeout(poll, getPrInterval(noChangeCountRef.current));
         return;
       }
 
-      getPrStatuses(paths)
+      getPrStatuses(accessiblePaths)
         .then((result) => {
           if (cancelled) return;
 
+          // Track newly discovered inaccessible paths
+          for (const path of result.inaccessiblePaths) {
+            inaccessiblePathsRef.current.add(path);
+          }
+
           const nextPrMap: PrMap = {};
-          for (const [path, prs] of Object.entries(result)) {
+          for (const [path, prs] of Object.entries(result.prs)) {
             const id = pathToId.get(path);
             if (!id) continue;
             const byBranch: Record<string, PrInfo> = {};

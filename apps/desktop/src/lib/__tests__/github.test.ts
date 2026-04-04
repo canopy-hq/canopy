@@ -69,14 +69,17 @@ describe('github', () => {
 
   it('getPrStatuses calls invoke with repo paths', async () => {
     const response = {
-      '/path/to/repo': [
-        {
-          branch: 'feat/test',
-          number: 42,
-          state: 'OPEN',
-          url: 'https://github.com/nept/superagent/pull/42',
-        },
-      ],
+      prs: {
+        '/path/to/repo': [
+          {
+            branch: 'feat/test',
+            number: 42,
+            state: 'OPEN',
+            url: 'https://github.com/nept/superagent/pull/42',
+          },
+        ],
+      },
+      inaccessiblePaths: [],
     };
     mockInvoke.mockResolvedValue(response);
 
