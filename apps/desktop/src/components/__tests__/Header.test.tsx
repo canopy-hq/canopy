@@ -3,9 +3,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 
 import { Header } from '../Header';
 
-vi.mock('../../lib/workspace-actions', () => ({
-  toggleSidebar: vi.fn(),
-}));
+vi.mock('../../lib/workspace-actions', () => ({ toggleSidebar: vi.fn() }));
 
 describe('Header', () => {
   afterEach(cleanup);

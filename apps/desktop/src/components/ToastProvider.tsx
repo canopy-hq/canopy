@@ -14,7 +14,7 @@ export function ErrorToastRegion() {
       {({ toast }) => (
         <Toast
           toast={toast}
-          className="flex min-w-[320px] max-w-[420px] items-start gap-3 rounded-lg border border-red-500/30 bg-bg-tertiary px-4 py-3 shadow-lg shadow-red-500/10"
+          className="flex max-w-[420px] min-w-[320px] items-start gap-3 rounded-lg border border-red-500/30 bg-bg-tertiary px-4 py-3 shadow-lg shadow-red-500/10"
         >
           <ToastContent className="flex-1">
             <Text slot="title" className="block text-sm font-medium text-red-400">

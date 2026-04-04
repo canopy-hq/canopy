@@ -27,9 +27,7 @@ vi.mock('@superagent/db', async () => {
   return createDbMock();
 });
 
-vi.mock('../src/ghostty-init', () => ({
-  ensureGhosttyInit: vi.fn().mockResolvedValue(undefined),
-}));
+vi.mock('../src/ghostty-init', () => ({ ensureGhosttyInit: vi.fn().mockResolvedValue(undefined) }));
 
 vi.mock('../src/pty', () => ({
   spawnTerminal: vi.fn().mockResolvedValue(42),
@@ -51,9 +49,10 @@ vi.mock('../src/terminal-cache', () => ({
 // ─── Imports (after mocks) ────────────────────────────────────────────────────
 
 import { Terminal, FitAddon } from 'ghostty-web';
+
+import { createChannelEntry } from '../src/channel-manager';
 import { connectPtyOutput, connectPtyOutputFresh } from '../src/pty';
 import { getCached, setCached } from '../src/terminal-cache';
-import { createChannelEntry } from '../src/channel-manager';
 import { useTerminal } from '../src/useTerminal';
 
 // ─── ASCII art payload ────────────────────────────────────────────────────────

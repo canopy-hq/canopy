@@ -8,11 +8,7 @@ describe('ghostty-init — ensureGhosttyInit', () => {
   beforeEach(async () => {
     vi.resetModules();
     initFn = vi.fn().mockResolvedValue(undefined);
-    vi.doMock('ghostty-web', () => ({
-      Terminal: vi.fn(),
-      FitAddon: vi.fn(),
-      init: initFn,
-    }));
+    vi.doMock('ghostty-web', () => ({ Terminal: vi.fn(), FitAddon: vi.fn(), init: initFn }));
     const mod = await import('../src/ghostty-init');
     ensureGhosttyInit = mod.ensureGhosttyInit;
   });

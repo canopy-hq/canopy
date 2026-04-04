@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
+
+import { closePty, listPtySessions } from '@superagent/terminal';
 import { useNavigate } from '@tanstack/react-router';
 
 import { useTabs, useWorkspaces } from '../hooks/useCollections';
-import { killPaneInTab, jumpToPane } from '../lib/tab-actions';
-import { closePty, listPtySessions } from '@superagent/terminal';
-
-import { getWorkspaceItemIds } from '../lib/workspace-actions';
 import { containsPtyId } from '../lib/pane-tree-ops';
+import { killPaneInTab, jumpToPane } from '../lib/tab-actions';
+import { getWorkspaceItemIds } from '../lib/workspace-actions';
+import { Button } from './ui';
 
 import type { Tab, Workspace } from '@superagent/db';
 import type { PtySessionInfo } from '@superagent/terminal';
@@ -186,13 +187,15 @@ export function SessionManager({ onClose }: SessionManagerProps) {
             )}
             <div className="flex-1" />
             {rows.some((r) => r.tab) && (
-              <button
-                onClick={() => void handleKillAll()}
-                disabled={rows.every((r) => !r.tab || killing.has(r.info.ptyId))}
-                className="shrink-0 cursor-pointer rounded px-2 py-0.5 text-[11px] text-red-400 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+              <Button
+                variant="destructive-ghost"
+                size="sm"
+                className="shrink-0"
+                onPress={() => void handleKillAll()}
+                isDisabled={rows.every((r) => !r.tab || killing.has(r.info.ptyId))}
               >
                 Kill all
-              </button>
+              </Button>
             )}
           </div>
 
@@ -214,14 +217,15 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                       {wsName}
                     </span>
                     {groupRows.some((r) => r.tab) && (
-                      <button
-                        onClick={() => void handleKillGroup(groupRows)}
-                        disabled={groupRows.every((r) => !r.tab || killing.has(r.info.ptyId))}
+                      <Button
+                        variant="destructive-ghost"
+                        size="sm"
                         aria-label={`Kill all sessions in ${wsName}`}
-                        className="cursor-pointer rounded px-2 py-0.5 text-[11px] text-red-400 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                        onPress={() => void handleKillGroup(groupRows)}
+                        isDisabled={groupRows.every((r) => !r.tab || killing.has(r.info.ptyId))}
                       >
                         Kill all
-                      </button>
+                      </Button>
                     )}
                   </div>
 
@@ -237,23 +241,24 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                       </span>
 
                       {/* Stats */}
-                      <span className="shrink-0 tabular-nums text-[11px] text-text-muted">
+                      <span className="shrink-0 text-[11px] text-text-muted tabular-nums">
                         PID {row.info.ptyId}
                       </span>
-                      <span className="w-[48px] shrink-0 text-right tabular-nums text-[11px] text-text-muted">
+                      <span className="w-[48px] shrink-0 text-right text-[11px] text-text-muted tabular-nums">
                         {row.info.cpuPercent.toFixed(1)}%
                       </span>
-                      <span className="w-[44px] shrink-0 text-right tabular-nums text-[11px] text-text-muted">
+                      <span className="w-[44px] shrink-0 text-right text-[11px] text-text-muted tabular-nums">
                         {row.info.memoryMb}MB
                       </span>
 
                       {/* Jump */}
-                      <button
-                        onClick={() => handleJump(row)}
-                        disabled={!row.tab}
+                      <Button
+                        variant="ghost"
+                        iconOnly
+                        isDisabled={!row.tab}
                         aria-label="Go to tab"
-                        title="Go to tab"
-                        className="shrink-0 cursor-pointer rounded p-1 text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30"
+                        className="shrink-0 p-1"
+                        onPress={() => handleJump(row)}
                       >
                         <svg
                           width="13"
@@ -270,16 +275,18 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                           <path d="M10 2h4v4" />
                           <line x1="14" y1="2" x2="7" y2="9" />
                         </svg>
-                      </button>
+                      </Button>
 
                       {/* Kill */}
-                      <button
-                        onClick={() => void handleKill(row)}
-                        disabled={killing.has(row.info.ptyId) || !row.tab}
-                        className="shrink-0 cursor-pointer rounded px-2 py-0.5 text-[11px] text-red-400 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      <Button
+                        variant="destructive-ghost"
+                        size="sm"
+                        className="shrink-0"
+                        onPress={() => void handleKill(row)}
+                        isDisabled={killing.has(row.info.ptyId) || !row.tab}
                       >
                         Kill
-                      </button>
+                      </Button>
                     </div>
                   ))}
                 </div>

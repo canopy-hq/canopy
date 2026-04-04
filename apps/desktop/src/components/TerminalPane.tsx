@@ -1,11 +1,16 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
 
-import { getSettingCollection, getSetting, setSetting, getSessionCollection, getTabCollection } from '@superagent/db';
+import {
+  getSettingCollection,
+  getSetting,
+  setSetting,
+  getSessionCollection,
+  getTabCollection,
+} from '@superagent/db';
 import { useTerminal, getPtyCwd } from '@superagent/terminal';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
 import { setFocus, setPtyId } from '../lib/tab-actions';
-
 import { PaneHeader } from './PaneHeader';
 
 import type { PaneNode } from '../lib/pane-tree-ops';
@@ -187,9 +192,7 @@ function TerminalPaneInner({
       className="relative h-full w-full"
       data-testid="terminal-pane-wrapper"
       style={{
-        border: isWaiting
-          ? '1px solid var(--agent-waiting-border)'
-          : '1px solid transparent',
+        border: isWaiting ? '1px solid var(--agent-waiting-border)' : '1px solid transparent',
         boxShadow: isWaiting
           ? '0 0 12px var(--agent-waiting-glow), inset 0 0 24px var(--agent-waiting-inset)'
           : 'none',

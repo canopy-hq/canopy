@@ -3,17 +3,18 @@ import {
   UNSTABLE_Toast as Toast,
   UNSTABLE_ToastContent as ToastContentSlot,
   Text,
-  Button,
+  Button as AriaButton,
 } from 'react-aria-components';
 
 import { getTabCollection } from '@superagent/db';
 import { useNavigate } from '@tanstack/react-router';
 
+import { containsPtyId } from '../lib/pane-tree-ops';
 import { switchTab } from '../lib/tab-actions';
 import { agentToastQueue } from '../lib/toast';
 import { StatusDot } from './StatusDot';
+import { Button } from './ui';
 
-import { containsPtyId } from '../lib/pane-tree-ops';
 import type { AgentToastContent } from '../lib/toast';
 
 function eventDescription(type: AgentToastContent['type']): string {
@@ -38,7 +39,7 @@ export function AgentToastRegion() {
   return (
     <ToastRegion
       queue={agentToastQueue}
-      className="fixed bottom-6 right-6 z-100 flex w-80 flex-col gap-2"
+      className="fixed right-6 bottom-6 z-100 flex w-80 flex-col gap-2"
     >
       {({ toast }) => (
         <Toast
@@ -46,53 +47,46 @@ export function AgentToastRegion() {
           className="rounded-lg border border-border bg-bg-tertiary p-4 font-mono shadow-[0_4px_16px_rgba(0,0,0,0.4)]"
         >
           <ToastContentSlot>
-            {/* Row 1: StatusDot + Agent name + workspace/branch + close */}
             <div className="flex items-center gap-2">
               <StatusDot
                 status={toast.content.type === 'agent-waiting' ? 'waiting' : 'idle'}
                 size={8}
               />
-              <Text
-                slot="title"
-                className="text-[13px] font-semibold text-text-primary"
-              >
+              <Text slot="title" className="text-[13px] font-semibold text-text-primary">
                 {toast.content.agentName}
               </Text>
               <span className="min-w-0 flex-1 truncate text-right text-[11px] text-text-muted">
                 {toast.content.workspace}/{toast.content.branch}
               </span>
-              <Button
+              <AriaButton
                 slot="close"
                 aria-label="Close notification"
                 className="cursor-pointer bg-transparent px-[2px] py-0 text-[10px] leading-none text-text-muted outline-none"
               >
                 x
-              </Button>
+              </AriaButton>
             </div>
 
-            {/* Row 2: Event description */}
-            <Text
-              slot="description"
-              className="mt-1 block text-[11px] text-text-muted"
-            >
+            <Text slot="description" className="mt-1 block text-[11px] text-text-muted">
               {eventDescription(toast.content.type)}
             </Text>
 
-            {/* Row 3: Actions */}
             <div className="mt-2 flex gap-3">
-              <button
-                onClick={() => handleJump(toast.content.ptyId, () => toast.onClose?.())}
-                className="cursor-pointer border-none bg-transparent p-0 text-[11px] font-semibold text-accent hover:underline"
+              <Button
+                variant="link"
+                size="sm"
+                onPress={() => handleJump(toast.content.ptyId, () => toast.onClose?.())}
               >
                 Jump to pane
-              </button>
-              <button
-                aria-label="Dismiss"
-                onClick={() => toast.onClose?.()}
-                className="cursor-pointer border-none bg-transparent p-0 text-[11px] text-text-muted hover:underline"
+              </Button>
+              <Button
+                variant="link"
+                size="sm"
+                className="text-text-muted"
+                onPress={() => toast.onClose?.()}
               >
                 Dismiss
-              </button>
+              </Button>
             </div>
           </ToastContentSlot>
         </Toast>
