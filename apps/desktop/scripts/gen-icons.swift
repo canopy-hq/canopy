@@ -3,8 +3,11 @@
 /// Generates a macOS-style icon from logo-source.png:
 ///   • squircle clip mask (~22.4% corner radius, matches macOS)
 ///   • solid background color
-///   • specular border highlight (fades from top corners to bottom)
-///   • runs `bun tauri icon` to emit all sizes + ICNS/ICO
+///   • diagonal specular border highlight (top-left ↔ bottom-right)
+///   • outputs icon.png + ICNS + Tauri bundle PNGs via sips + iconutil
+///
+/// After regenerating, clear the macOS icon cache to see changes:
+///   sudo rm -rf /Library/Caches/com.apple.iconservices.store && killall Dock
 import AppKit
 import Foundation
 
@@ -17,18 +20,36 @@ let canvasInset:       CGFloat = 0.08   // transparent margin around squircle (%
 let cornerRadiusRatio: CGFloat = 0.224  // ~22.4% — matches macOS squircle
 let paddingRatio:      CGFloat = 0.095  // logo padding each side (% of squircle)
 let borderWidth:       CGFloat = 7.0    // specular stroke width (at 1024px)
-let borderOpacity:     CGFloat = 0.28   // max highlight opacity (top corners)
+let borderOpacity:     CGFloat = 0.28   // max highlight opacity (corners)
 // ────────────────────────────────────────────────────────────────────────────
 
-let iconSize: CGFloat = 1024
+func fail(_ msg: String) -> Never {
+    fputs("✗ \(msg)\n", stderr); exit(1)
+}
 
-let cwd       = FileManager.default.currentDirectoryPath
-let iconsDir  = "\(cwd)/src-tauri/icons"
-let srcFile   = "\(iconsDir)/logo-source.png"
-let outFile   = "\(iconsDir)/icon.png"
+func run(_ executable: String, _ args: [String]) {
+    let t = Process()
+    t.executableURL = URL(fileURLWithPath: executable)
+    t.arguments = args
+    do { try t.run() } catch { fail("\(executable) failed to launch: \(error)") }
+    t.waitUntilExit()
+    guard t.terminationStatus == 0 else {
+        fail("\(executable) exited with status \(t.terminationStatus)")
+    }
+}
+
+func sips(_ src: String, to dest: String, size: Int) {
+    run("/usr/bin/sips", ["-z", "\(size)", "\(size)", src, "--out", dest])
+}
+
+let iconSize: CGFloat = 1024
+let cwd      = FileManager.default.currentDirectoryPath
+let iconsDir = "\(cwd)/src-tauri/icons"
+let srcFile  = "\(iconsDir)/logo-source.png"
+let outFile  = "\(iconsDir)/icon.png"
 
 guard let logo = NSImage(contentsOfFile: srcFile) else {
-    fputs("✗ Could not load \(srcFile)\n", stderr); exit(1)
+    fail("Could not load \(srcFile)")
 }
 
 // ─── Drawing context ─────────────────────────────────────────────────────────
@@ -38,7 +59,7 @@ guard let ctx = CGContext(data: nil,
                           width: Int(iconSize), height: Int(iconSize),
                           bitsPerComponent: 8, bytesPerRow: 0,
                           space: cs, bitmapInfo: bi.rawValue)
-else { fputs("✗ Could not create CGContext\n", stderr); exit(1) }
+else { fail("Could not create CGContext") }
 
 let fullRect     = CGRect(x: 0, y: 0, width: iconSize, height: iconSize)
 let inset        = iconSize * canvasInset
@@ -46,7 +67,6 @@ let squircleRect = fullRect.insetBy(dx: inset, dy: inset)
 let sqSize       = squircleRect.width
 let radius       = sqSize * cornerRadiusRatio
 let logoPad      = inset + sqSize * paddingRatio
-
 let squirclePath = CGPath(roundedRect: squircleRect, cornerWidth: radius, cornerHeight: radius, transform: nil)
 
 // ─── 1. Clip to squircle + fill background ───────────────────────────────────
@@ -63,59 +83,58 @@ if let cgLogo = logo.cgImage(forProposedRect: nil, context: nil, hints: nil) {
 }
 
 // ─── 3. Specular border highlight ────────────────────────────────────────────
-// Clip to the squircle stroke area, then paint a gradient that fades
-// from white (top) to transparent (middle) — creates the corner shimmer.
+// Clip to the squircle stroke, then paint a diagonal gradient:
+// white at top-left + bottom-right corners, transparent at center.
 ctx.saveGState()
 ctx.resetClip()
 ctx.addPath(squirclePath)
-ctx.setLineWidth(borderWidth * 2) // double so the inner half sits on the icon edge
+ctx.setLineWidth(borderWidth * 2) // doubled so the inner half sits on the icon edge
 ctx.replacePathWithStrokedPath()
 ctx.clip()
 
-// Diagonal gradient: white at top-left + bottom-right corners, transparent at center
 let gradColors: [CGColor] = [
     NSColor(white: 1, alpha: borderOpacity).cgColor,
     NSColor(white: 1, alpha: 0).cgColor,
     NSColor(white: 1, alpha: borderOpacity).cgColor,
 ]
-let gradient = CGGradient(colorsSpace: cs, colors: gradColors as CFArray, locations: [0, 0.5, 1] as [CGFloat])!
+guard let gradient = CGGradient(colorsSpace: cs, colors: gradColors as CFArray, locations: [0, 0.5, 1] as [CGFloat])
+else { fail("Could not create gradient") }
 
 ctx.drawLinearGradient(
     gradient,
-    start: CGPoint(x: squircleRect.minX, y: squircleRect.maxY), // top-left
+    start: CGPoint(x: squircleRect.minX, y: squircleRect.maxY), // top-left  (CG y-up)
     end:   CGPoint(x: squircleRect.maxX, y: squircleRect.minY), // bottom-right
     options: []
 )
 ctx.restoreGState()
 
 // ─── 4. Save PNG ─────────────────────────────────────────────────────────────
-guard let cgImg   = ctx.makeImage(),
-      let tiff    = NSImage(cgImage: cgImg, size: .zero).tiffRepresentation,
-      let bmp     = NSBitmapImageRep(data: tiff),
-      let png     = bmp.representation(using: .png, properties: [:])
-else { fputs("✗ Could not encode PNG\n", stderr); exit(1) }
+guard let cgImg = ctx.makeImage() else { fail("Could not create CGImage") }
+let nsImg = NSImage(cgImage: cgImg, size: NSSize(width: iconSize, height: iconSize))
+guard let tiff = nsImg.tiffRepresentation,
+      let bmp  = NSBitmapImageRep(data: tiff),
+      let png  = bmp.representation(using: .png, properties: [:])
+else { fail("Could not encode PNG") }
 
 do {
     try png.write(to: URL(fileURLWithPath: outFile))
-    print("✓ \(outFile)")
+    print("✓ icon.png")
 } catch {
-    fputs("✗ Write failed: \(error)\n", stderr); exit(1)
+    fail("Write failed: \(error)")
 }
 
-// ─── 5. Generate sizes with sips + iconutil (preserves transparent canvas inset) ──
-func sips(_ src: String, to dest: String, size: Int) {
-    let t = Process()
-    t.executableURL = URL(fileURLWithPath: "/usr/bin/sips")
-    t.arguments = ["-z", "\(size)", "\(size)", src, "--out", dest]
-    try! t.run(); t.waitUntilExit()
-}
-
-// Iconset for ICNS
+// ─── 5. Generate sizes with sips + iconutil ──────────────────────────────────
+// Uses sips/iconutil directly — preserves the transparent canvas inset that
+// `bun tauri icon` would otherwise strip when auto-cropping the source image.
 let iconset = "/tmp/superagent_gen.iconset"
 try? FileManager.default.removeItem(atPath: iconset)
-try! FileManager.default.createDirectory(atPath: iconset, withIntermediateDirectories: true)
+do {
+    try FileManager.default.createDirectory(atPath: iconset, withIntermediateDirectories: true)
+} catch {
+    fail("Could not create iconset dir: \(error)")
+}
 
-for (name, size) in [
+for (name, size): (String, Int) in [
     ("icon_16x16.png", 16), ("icon_16x16@2x.png", 32),
     ("icon_32x32.png", 32), ("icon_32x32@2x.png", 64),
     ("icon_128x128.png", 128), ("icon_128x128@2x.png", 256),
@@ -123,13 +142,9 @@ for (name, size) in [
     ("icon_512x512.png", 512), ("icon_512x512@2x.png", 1024),
 ] { sips(outFile, to: "\(iconset)/\(name)", size: size) }
 
-let iconutil = Process()
-iconutil.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
-iconutil.arguments = ["-c", "icns", iconset, "-o", "\(iconsDir)/icon.icns"]
-try! iconutil.run(); iconutil.waitUntilExit()
+run("/usr/bin/iconutil", ["-c", "icns", iconset, "-o", "\(iconsDir)/icon.icns"])
 print("✓ icon.icns")
 
-// Tauri bundle PNGs
 sips(outFile, to: "\(iconsDir)/32x32.png",      size: 32)
 sips(outFile, to: "\(iconsDir)/128x128.png",    size: 128)
 sips(outFile, to: "\(iconsDir)/128x128@2x.png", size: 256)
