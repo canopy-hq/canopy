@@ -31,7 +31,7 @@ interface AgentRow {
 }
 
 const agentRowStyle = tv({
-  base: 'flex h-9 cursor-pointer items-center gap-2 rounded-md border-l-2 px-4',
+  base: 'flex h-9 items-center gap-2 rounded-md border-l-2 px-4',
   variants: {
     state: {
       waiting: 'border-transparent bg-(--agent-waiting-glow)',
