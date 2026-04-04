@@ -30,9 +30,6 @@ const _workspaces: Workspace[] = [
 
 const mockSetSetting = vi.fn();
 
-let _tabIndexCounter = 0;
-const _settings: Array<{ key: string; value: string }> = [];
-
 vi.mock('@superagent/db', () => ({
   getWorkspaceCollection: () => ({
     get toArray() {
@@ -54,26 +51,13 @@ vi.mock('@superagent/db', () => ({
       if (tab) updater(tab);
     },
   }),
-  getSettingCollection: () => ({
-    get toArray() {
-      return [..._settings];
-    },
-  }),
   uiCollection: {
     update: (_key: string, updater: (draft: UiState) => void) => {
       updater(_uiState);
     },
   },
   getUiState: () => _uiState,
-  getSetting: (_settings: unknown[], key: string, fallback: unknown) => {
-    if (key === 'tabIndexCounter') return _tabIndexCounter;
-    return fallback;
-  },
-  setSetting: (...args: unknown[]) => {
-    const [key, value] = args as [string, unknown];
-    if (key === 'tabIndexCounter') _tabIndexCounter = value as number;
-    mockSetSetting(...args);
-  },
+  setSetting: (...args: unknown[]) => mockSetSetting(...args),
 }));
 
 // Import AFTER mock is set up
@@ -107,7 +91,6 @@ function findCwdSettingCall() {
 
 function resetState() {
   _tabs = [];
-  _tabIndexCounter = 0;
   _uiState = {
     id: 'ui',
     sidebarVisible: false,

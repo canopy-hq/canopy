@@ -1,10 +1,8 @@
 import {
   getTabCollection,
   getWorkspaceCollection,
-  getSettingCollection,
   uiCollection,
   getUiState,
-  getSetting,
   setSetting,
 } from '@superagent/db';
 
@@ -44,10 +42,18 @@ function storePaneCwd(paneId: string, workspaceItemId: string): void {
 }
 
 function getNextTabIndex(): number {
-  const current = getSetting(getSettingCollection().toArray, 'tabIndexCounter', 0);
-  const next = (current as number) + 1;
-  setSetting('tabIndexCounter', next);
-  return next;
+  const usedNumbers = new Set(
+    getTabCollection()
+      .toArray.filter((t) => !t.labelIsManual)
+      .map((t) => {
+        const match = /^Terminal (\d+)$/.exec(t.label);
+        return match ? parseInt(match[1]!, 10) : null;
+      })
+      .filter((n): n is number => n !== null),
+  );
+  let i = 1;
+  while (usedNumbers.has(i)) i++;
+  return i;
 }
 
 function makeTab(opts?: { workspaceItemId?: string; label?: string }): Tab {
