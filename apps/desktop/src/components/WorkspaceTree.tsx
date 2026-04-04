@@ -13,6 +13,7 @@ import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import {
   toggleExpanded,
   selectWorkspaceItem,
+  isSelectableWorkspaceItem,
   closeProject,
   hideWorktree,
   removeWorktree,
@@ -371,9 +372,7 @@ export function WorkspaceTree() {
   );
 
   const selectedKeys = useMemo<Selection>(() => {
-    if (!selectedItemId) return new Set<Key>();
-    if (!selectedItemId.includes('-branch-') && !selectedItemId.includes('-wt-'))
-      return new Set<Key>();
+    if (!selectedItemId || !isSelectableWorkspaceItem(selectedItemId)) return new Set<Key>();
     return new Set([selectedItemId]);
   }, [selectedItemId]);
 
@@ -381,9 +380,9 @@ export function WorkspaceTree() {
     (keys: Selection) => {
       if (keys === 'all') return;
       const selected = [...keys][0];
-      if (!selected) return; // no deselect
+      if (!selected) return;
       const key = String(selected);
-      if (!key.includes('-branch-') && !key.includes('-wt-')) return; // workspace rows not selectable
+      if (!isSelectableWorkspaceItem(key)) return;
       selectWorkspaceItem(key, navigate);
     },
     [navigate],
