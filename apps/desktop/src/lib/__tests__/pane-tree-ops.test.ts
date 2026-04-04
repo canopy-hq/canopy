@@ -8,6 +8,7 @@ import {
   navigate,
   updateRatio,
   collectLeafPtyIds,
+  collectRestorablePaneIds,
   type PaneNode,
   type LeafNode,
   type BranchNode,
@@ -252,5 +253,42 @@ describe('collectLeafPtyIds', () => {
       makeLeaf('l3', 15),
     ]);
     expect(collectLeafPtyIds(tree)).toEqual([5, 15]);
+  });
+});
+
+describe('collectRestorablePaneIds', () => {
+  it('returns paneId for unspawned leaf (ptyId -1)', () => {
+    expect(collectRestorablePaneIds(makeLeaf('p1', -1))).toEqual(['p1']);
+  });
+
+  it('returns paneId for alive leaf (ptyId > 0)', () => {
+    expect(collectRestorablePaneIds(makeLeaf('p1', 42))).toEqual(['p1']);
+  });
+
+  it('returns empty for killed leaf (ptyId -2)', () => {
+    expect(collectRestorablePaneIds(makeLeaf('p1', -2))).toEqual([]);
+  });
+
+  it('returns both paneIds for branch with 2 live leaves', () => {
+    const tree = makeBranch('b1', 'horizontal', [makeLeaf('p1', -1), makeLeaf('p2', 5)]);
+    expect(collectRestorablePaneIds(tree)).toEqual(['p1', 'p2']);
+  });
+
+  it('returns only live paneId when one leaf is killed', () => {
+    const tree = makeBranch('b1', 'horizontal', [makeLeaf('live', -1), makeLeaf('dead', -2)]);
+    expect(collectRestorablePaneIds(tree)).toEqual(['live']);
+  });
+
+  it('returns live paneIds from nested branch, skipping killed leaf', () => {
+    const tree = makeBranch('b1', 'horizontal', [
+      makeLeaf('p1', -1),
+      makeBranch('b2', 'vertical', [makeLeaf('p2', -2), makeLeaf('p3', 7)]),
+    ]);
+    expect(collectRestorablePaneIds(tree)).toEqual(['p1', 'p3']);
+  });
+
+  it('returns empty when all leaves are killed', () => {
+    const tree = makeBranch('b1', 'horizontal', [makeLeaf('p1', -2), makeLeaf('p2', -2)]);
+    expect(collectRestorablePaneIds(tree)).toEqual([]);
   });
 });

@@ -7,30 +7,28 @@ import {
   getWorkspaceCollection,
   getSettingCollection,
   getSetting,
+  getSessionCollection,
 } from '@superagent/db';
 import { FpsOverlay } from '@superagent/fps';
+import { spawnTerminal } from '@superagent/terminal';
 import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 
 import { AgentOverlay } from '../components/AgentOverlay';
 import { AgentToastRegion } from '../components/AgentToastRegion';
 import { Header } from '../components/Header';
+import { SessionManager } from '../components/SessionManager';
 import { ErrorToastRegion } from '../components/ToastProvider';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { useTauriMenuEvent } from '../hooks/useTauriMenuEvent';
 import { initAgentListener } from '../lib/agent-actions';
-import { getActiveTab } from '../lib/tab-actions';
+import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
+import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
 import { toggleSidebar } from '../lib/workspace-actions';
 
-import type { PaneNode } from '../lib/pane-tree-ops';
-
-function containsPtyId(node: PaneNode, ptyId: number): boolean {
-  if (node.type === 'leaf') return node.ptyId === ptyId;
-  return node.children.some((child) => containsPtyId(child, ptyId));
-}
-
 function RootLayout() {
   const [overlayOpen, setOverlayOpen] = useState(false);
+  const [sessionManagerOpen, setSessionManagerOpen] = useState(false);
   const [fpsVisible, setFpsVisible] = useState(false);
   const navigate = useNavigate();
   const booted = useRef(false);
@@ -43,6 +41,49 @@ function RootLayout() {
     if (activeContextId) {
       void navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: activeContextId } });
     }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Startup session restore: eagerly reconnect all panes across all tabs so they
+  // appear in the Session Manager and the IPC output channels are ready before the
+  // user navigates to each tab. Uses tabs (always complete) as source of truth,
+  // not the sessions table (which only covers visited tabs).
+  useEffect(() => {
+    const tabs = getTabCollection().toArray;
+    if (tabs.length === 0) return;
+    const settings = getSettingCollection().toArray;
+    const paneEntries = tabs.flatMap((tab) =>
+      collectRestorablePaneIds(tab.paneRoot).map((paneId) => ({ tab, paneId })),
+    );
+    void Promise.all(
+      paneEntries.map(async ({ tab, paneId }) => {
+        const cwd = (getSetting(settings, `cwd:${paneId}`, '') as string) || undefined;
+        try {
+          const { ptyId } = await spawnTerminal(paneId, cwd, 24, 80);
+          setPtyIdInTab(tab.id, paneId, ptyId);
+          // Write session to DB — onPtySpawned never fires for the reconnect path
+          const col = getSessionCollection();
+          const existing = col.toArray.find((s) => s.paneId === paneId);
+          if (existing) {
+            col.update(existing.id, (draft) => {
+              draft.tabId = tab.id;
+              draft.workspaceId = tab.workspaceItemId;
+              draft.cwd = cwd ?? '';
+            });
+          } else {
+            col.insert({
+              id: paneId,
+              paneId,
+              tabId: tab.id,
+              workspaceId: tab.workspaceItemId,
+              cwd: cwd ?? '',
+              shell: '',
+            });
+          }
+        } catch {
+          // Daemon unavailable — pane stays at ptyId -1, fresh shell on visit
+        }
+      }),
+    );
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useTauriMenuEvent('menu:settings', () => void navigate({ to: '/settings' }));
@@ -101,10 +142,11 @@ function RootLayout() {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-bg-primary">
-      <Header />
+      <Header onSessionsClick={() => setSessionManagerOpen((prev) => !prev)} />
       <Outlet />
       <ErrorToastRegion />
       <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
+      {sessionManagerOpen && <SessionManager onClose={() => setSessionManagerOpen(false)} />}
       <AgentToastRegion />
       {import.meta.env.DEV && <FpsOverlay visible={fpsVisible} />}
     </div>

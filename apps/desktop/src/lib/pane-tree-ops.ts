@@ -257,10 +257,22 @@ export function updateRatio(
   return cloned;
 }
 
+/** Returns true if any leaf in the tree has the given ptyId. */
+export function containsPtyId(node: PaneNode, ptyId: number): boolean {
+  if (node.type === 'leaf') return node.ptyId === ptyId;
+  return node.children.some((c) => containsPtyId(c, ptyId));
+}
+
 /** Collect all active ptyIds from a pane tree. */
 export function collectLeafPtyIds(node: PaneNode): number[] {
   if (node.type === 'leaf') return node.ptyId > 0 ? [node.ptyId] : [];
   return node.children.flatMap(collectLeafPtyIds);
+}
+
+/** Returns IDs of leaf panes that should reconnect at startup (excludes killed panes). */
+export function collectRestorablePaneIds(node: PaneNode): string[] {
+  if (node.type === 'leaf') return node.ptyId !== -2 ? [node.id] : [];
+  return node.children.flatMap(collectRestorablePaneIds);
 }
 
 function applyRatioUpdate(

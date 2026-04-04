@@ -7,6 +7,8 @@ export {
   resizePty,
   closePty,
   getPtyCwd,
+  listPtySessions,
+  type PtySessionInfo,
 } from './pty';
 export {
   getCached,

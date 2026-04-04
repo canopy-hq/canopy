@@ -2,11 +2,13 @@ import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { Button, Tree, TreeItem, TreeItemContent } from 'react-aria-components';
 import type { Selection, Key } from 'react-aria-components';
 import { createPortal } from 'react-dom';
-import { Laptop, FolderGit2 } from 'lucide-react';
 
 import { useNavigate } from '@tanstack/react-router';
+import { Laptop, FolderGit2 } from 'lucide-react';
 
 import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useCollections';
+import { useDiffStatsMap } from '../hooks/useDiffStatsMap';
+import { usePageVisible } from '../hooks/usePageVisible';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import {
   toggleExpanded,
@@ -17,8 +19,6 @@ import {
   renameWorktree,
   getWorkspaceItemIds,
 } from '../lib/workspace-actions';
-import { useDiffStatsMap } from '../hooks/useDiffStatsMap';
-import { usePageVisible } from '../hooks/usePageVisible';
 import { CloseProjectModal } from './CloseProjectModal';
 import { RemoveWorktreeModal } from './RemoveWorktreeModal';
 import { StatusDot } from './StatusDot';
@@ -28,10 +28,16 @@ import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
 import type { DotStatus } from './StatusDot';
 import type { Workspace } from '@superagent/db';
 
-const DiffPill = memo(function DiffPill({ additions, deletions }: { additions: number; deletions: number }) {
+const DiffPill = memo(function DiffPill({
+  additions,
+  deletions,
+}: {
+  additions: number;
+  deletions: number;
+}) {
   if (additions === 0 && deletions === 0) return null;
   return (
-    <span className="inline-flex flex-shrink-0 gap-1 whitespace-nowrap rounded bg-white/5 px-1.5 py-px text-[11px] font-medium">
+    <span className="inline-flex flex-shrink-0 gap-1 rounded bg-white/5 px-1.5 py-px text-[11px] font-medium whitespace-nowrap">
       {additions > 0 && <span style={{ color: 'var(--git-ahead)' }}>+{additions}</span>}
       {deletions > 0 && <span style={{ color: 'var(--git-behind)' }}>&minus;{deletions}</span>}
     </span>
@@ -58,229 +64,237 @@ const IconWithBadge = memo(function IconWithBadge({
   );
 });
 
-const BranchRow = memo(function BranchRow({ branch, agentStatus, diffStat }: { branch: BranchInfo; agentStatus?: DotStatus; diffStat?: DiffStat }) {
-  return (
-    <div className="ml-[39px] mr-1.5 my-px flex items-center gap-[6px] rounded-[5px] py-[3px] pl-[10px]">
-      <IconWithBadge agentStatus={agentStatus}>
-        <Laptop
-          size={14}
-          strokeWidth={1.5}
-          stroke={branch.is_head ? 'var(--accent)' : 'var(--text-muted)'}
-        />
-      </IconWithBadge>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-[6px]">
-          <span
-            className={`truncate flex-1 min-w-0 text-[13px] ${branch.is_head ? 'font-medium text-text-primary' : 'font-normal text-text-secondary'}`}
-          >
-            {branch.name}
-          </span>
-          {diffStat && (
-            <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />
-          )}
-        </div>
-        {branch.is_head && (
-          <span className="block truncate text-[11px] text-text-muted mt-0.5">
-            local
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}, (prev, next) =>
-  prev.branch.name === next.branch.name &&
-  prev.branch.is_head === next.branch.is_head &&
-  prev.agentStatus === next.agentStatus &&
-  prev.diffStat?.additions === next.diffStat?.additions &&
-  prev.diffStat?.deletions === next.diffStat?.deletions
-);
-
-const WorktreeRow = memo(function WorktreeRow({
-  worktree,
-  workspaceId,
-  agentStatus,
-  diffStat,
-}: {
-  worktree: WorktreeInfo & { label?: string };
-  workspaceId: string;
-  agentStatus?: DotStatus;
-  diffStat?: DiffStat;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [editValue, setEditValue] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const displayName = worktree.label || worktree.branch || worktree.name;
-
-  function startEditing() {
-    setEditValue(displayName);
-    setEditing(true);
-    requestAnimationFrame(() => inputRef.current?.select());
-  }
-
-  function commitEdit() {
-    const trimmed = editValue.trim();
-    // If cleared or same as branch, remove custom label
-    const newLabel =
-      trimmed && trimmed !== worktree.branch && trimmed !== worktree.name ? trimmed : '';
-    renameWorktree(workspaceId, worktree.name, newLabel);
-    setEditing(false);
-  }
-
-  return (
-    <div className="group/wt ml-[39px] mr-1.5 my-px flex items-center gap-[6px] rounded-[5px] py-[3px] pl-[10px]">
-      <IconWithBadge agentStatus={agentStatus}>
-        <FolderGit2 size={14} strokeWidth={1.5} stroke="var(--text-muted)" />
-      </IconWithBadge>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-[6px]">
-          {editing ? (
-            <input
-              ref={inputRef}
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              onBlur={commitEdit}
-              onKeyDown={(e) => {
-                e.stopPropagation(); // prevent Tree from capturing space/arrows
-                if (e.key === 'Enter') commitEdit();
-                if (e.key === 'Escape') setEditing(false);
-              }}
-              className="w-full border-none bg-transparent text-[var(--text-secondary)] outline-none text-sm p-0 m-0"
-            />
-          ) : (
+const BranchRow = memo(
+  function BranchRow({
+    branch,
+    agentStatus,
+    diffStat,
+  }: {
+    branch: BranchInfo;
+    agentStatus?: DotStatus;
+    diffStat?: DiffStat;
+  }) {
+    return (
+      <div className="my-px mr-1.5 ml-[39px] flex items-center gap-[6px] rounded-[5px] py-[3px] pl-[10px]">
+        <IconWithBadge agentStatus={agentStatus}>
+          <Laptop
+            size={14}
+            strokeWidth={1.5}
+            stroke={branch.is_head ? 'var(--accent)' : 'var(--text-muted)'}
+          />
+        </IconWithBadge>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-[6px]">
             <span
-              className="block truncate text-sm text-text-secondary min-w-0 flex-1"
-              onDoubleClick={startEditing}
+              className={`min-w-0 flex-1 truncate text-[13px] ${branch.is_head ? 'font-medium text-text-primary' : 'font-normal text-text-secondary'}`}
             >
-              {displayName}
+              {branch.name}
             </span>
-          )}
-          {diffStat && (
-            <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />
+            {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
+          </div>
+          {branch.is_head && (
+            <span className="mt-0.5 block truncate text-[11px] text-text-muted">local</span>
           )}
         </div>
-        <span className="block truncate text-[11px] text-text-muted mt-0.5">
-          {worktree.branch || worktree.name}
-        </span>
       </div>
-    </div>
-  );
-}, (prev, next) =>
-  prev.worktree.name === next.worktree.name &&
-  prev.worktree.branch === next.worktree.branch &&
-  prev.worktree.label === next.worktree.label &&
-  prev.workspaceId === next.workspaceId &&
-  prev.agentStatus === next.agentStatus &&
-  prev.diffStat?.additions === next.diffStat?.additions &&
-  prev.diffStat?.deletions === next.diffStat?.deletions
+    );
+  },
+  (prev, next) =>
+    prev.branch.name === next.branch.name &&
+    prev.branch.is_head === next.branch.is_head &&
+    prev.agentStatus === next.agentStatus &&
+    prev.diffStat?.additions === next.diffStat?.additions &&
+    prev.diffStat?.deletions === next.diffStat?.deletions,
 );
 
-const RepoHeader = memo(function RepoHeader({
-  workspace,
-  agentSummary,
-  isSelected,
-  onPlusClick,
-  onRowClick,
-}: {
-  workspace: Workspace;
-  agentSummary?: Array<'running' | 'waiting'>;
-  isSelected: boolean;
-  onPlusClick: (e: React.MouseEvent) => void;
-  onRowClick: (e: React.MouseEvent) => void;
-}) {
-  const childCount = workspace.branches.length + workspace.worktrees.length;
+const WorktreeRow = memo(
+  function WorktreeRow({
+    worktree,
+    workspaceId,
+    agentStatus,
+    diffStat,
+  }: {
+    worktree: WorktreeInfo & { label?: string };
+    workspaceId: string;
+    agentStatus?: DotStatus;
+    diffStat?: DiffStat;
+  }) {
+    const [editing, setEditing] = useState(false);
+    const [editValue, setEditValue] = useState('');
+    const inputRef = useRef<HTMLInputElement>(null);
 
-  return (
-    <div
-      className={`group flex cursor-pointer items-center gap-[7px] py-[6px] pr-[6px] pl-[12px] border-l-[3px] ${isSelected ? 'border-accent bg-[rgba(59,130,246,0.04)]' : 'border-transparent'}`}
-      onClick={onRowClick}
-    >
-      {/* Hidden chevron for React ARIA Tree expand/collapse */}
-      <Button slot="chevron" className="hidden" />
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'}
-        strokeWidth="1.5"
-        className={`flex-shrink-0 ${isSelected ? 'drop-shadow-[0_0_3px_rgba(59,130,246,0.4)]' : ''}`}
-      >
-        <path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z" />
-      </svg>
-      <span
-        className={`truncate font-medium text-sm flex-1 ${isSelected ? 'text-text-primary' : 'text-text-muted'}`}
-      >
-        {workspace.name}
-      </span>
-      {/* Collapsed: show inline branch + count */}
-      {!workspace.expanded && (
-        <>
-          {agentSummary && agentSummary.length > 0 && (
-            <span className="flex items-center gap-[3px] ml-1">
-              {agentSummary.slice(0, 3).map((status, i) => (
-                <StatusDot key={i} status={status} size={5} />
-              ))}
-            </span>
-          )}
-          {childCount > 0 && (
-            <span className="font-mono tabular-nums text-[11px] text-text-muted bg-bg-tertiary px-[6px] py-px rounded-lg">
-              {childCount}
-            </span>
-          )}
-        </>
-      )}
-      {/* Collapse/expand chevron indicator */}
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="var(--text-muted)"
-        className="flex-shrink-0"
-      >
-        {workspace.expanded ? <path d="M4 6l4 4 4-4z" /> : <path d="M6 4l4 4-4 4z" />}
-      </svg>
-      {/* + button */}
+    const displayName = worktree.label || worktree.branch || worktree.name;
+
+    function startEditing() {
+      setEditValue(displayName);
+      setEditing(true);
+      requestAnimationFrame(() => inputRef.current?.select());
+    }
+
+    function commitEdit() {
+      const trimmed = editValue.trim();
+      // If cleared or same as branch, remove custom label
+      const newLabel =
+        trimmed && trimmed !== worktree.branch && trimmed !== worktree.name ? trimmed : '';
+      renameWorktree(workspaceId, worktree.name, newLabel);
+      setEditing(false);
+    }
+
+    return (
+      <div className="group/wt my-px mr-1.5 ml-[39px] flex items-center gap-[6px] rounded-[5px] py-[3px] pl-[10px]">
+        <IconWithBadge agentStatus={agentStatus}>
+          <FolderGit2 size={14} strokeWidth={1.5} stroke="var(--text-muted)" />
+        </IconWithBadge>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-[6px]">
+            {editing ? (
+              <input
+                ref={inputRef}
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={commitEdit}
+                onKeyDown={(e) => {
+                  e.stopPropagation(); // prevent Tree from capturing space/arrows
+                  if (e.key === 'Enter') commitEdit();
+                  if (e.key === 'Escape') setEditing(false);
+                }}
+                className="m-0 w-full border-none bg-transparent p-0 text-sm text-[var(--text-secondary)] outline-none"
+              />
+            ) : (
+              <span
+                className="block min-w-0 flex-1 truncate text-sm text-text-secondary"
+                onDoubleClick={startEditing}
+              >
+                {displayName}
+              </span>
+            )}
+            {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
+          </div>
+          <span className="mt-0.5 block truncate text-[11px] text-text-muted">
+            {worktree.branch || worktree.name}
+          </span>
+        </div>
+      </div>
+    );
+  },
+  (prev, next) =>
+    prev.worktree.name === next.worktree.name &&
+    prev.worktree.branch === next.worktree.branch &&
+    prev.worktree.label === next.worktree.label &&
+    prev.workspaceId === next.workspaceId &&
+    prev.agentStatus === next.agentStatus &&
+    prev.diffStat?.additions === next.diffStat?.additions &&
+    prev.diffStat?.deletions === next.diffStat?.deletions,
+);
+
+const RepoHeader = memo(
+  function RepoHeader({
+    workspace,
+    agentSummary,
+    isSelected,
+    onPlusClick,
+    onRowClick,
+  }: {
+    workspace: Workspace;
+    agentSummary?: Array<'running' | 'waiting'>;
+    isSelected: boolean;
+    onPlusClick: (e: React.MouseEvent) => void;
+    onRowClick: (e: React.MouseEvent) => void;
+  }) {
+    const childCount = workspace.branches.length + workspace.worktrees.length;
+
+    return (
       <div
-        className="flex-shrink-0 cursor-pointer"
-        onClick={(e) => {
-          e.stopPropagation();
-          onPlusClick(e);
-        }}
-        role="button"
-        aria-label="Add workspace"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.stopPropagation();
-            onPlusClick(e as unknown as React.MouseEvent);
-          }
-        }}
+        className={`group flex cursor-pointer items-center gap-[7px] border-l-[3px] py-[6px] pr-[6px] pl-[12px] ${isSelected ? 'border-accent bg-[rgba(59,130,246,0.04)]' : 'border-transparent'}`}
+        onClick={onRowClick}
       >
+        {/* Hidden chevron for React ARIA Tree expand/collapse */}
+        <Button slot="chevron" className="hidden" />
         <svg
           width="16"
           height="16"
           viewBox="0 0 16 16"
           fill="none"
-          stroke="var(--text-muted)"
+          stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'}
           strokeWidth="1.5"
+          className={`flex-shrink-0 ${isSelected ? 'drop-shadow-[0_0_3px_rgba(59,130,246,0.4)]' : ''}`}
         >
-          <path d="M8 3v10M3 8h10" />
+          <path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z" />
         </svg>
+        <span
+          className={`flex-1 truncate text-sm font-medium ${isSelected ? 'text-text-primary' : 'text-text-muted'}`}
+        >
+          {workspace.name}
+        </span>
+        {/* Collapsed: show inline branch + count */}
+        {!workspace.expanded && (
+          <>
+            {agentSummary && agentSummary.length > 0 && (
+              <span className="ml-1 flex items-center gap-[3px]">
+                {agentSummary.slice(0, 3).map((status, i) => (
+                  <StatusDot key={i} status={status} size={5} />
+                ))}
+              </span>
+            )}
+            {childCount > 0 && (
+              <span className="rounded-lg bg-bg-tertiary px-[6px] py-px font-mono text-[11px] text-text-muted tabular-nums">
+                {childCount}
+              </span>
+            )}
+          </>
+        )}
+        {/* Collapse/expand chevron indicator */}
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="var(--text-muted)"
+          className="flex-shrink-0"
+        >
+          {workspace.expanded ? <path d="M4 6l4 4 4-4z" /> : <path d="M6 4l4 4-4 4z" />}
+        </svg>
+        {/* + button */}
+        <div
+          className="flex-shrink-0 cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPlusClick(e);
+          }}
+          role="button"
+          aria-label="Add workspace"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.stopPropagation();
+              onPlusClick(e as unknown as React.MouseEvent);
+            }
+          }}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="var(--text-muted)"
+            strokeWidth="1.5"
+          >
+            <path d="M8 3v10M3 8h10" />
+          </svg>
+        </div>
       </div>
-    </div>
-  );
-}, (prev, next) =>
-  prev.workspace.id === next.workspace.id &&
-  prev.workspace.name === next.workspace.name &&
-  prev.workspace.expanded === next.workspace.expanded &&
-  prev.workspace.branches.length === next.workspace.branches.length &&
-  prev.workspace.worktrees.length === next.workspace.worktrees.length &&
-  prev.isSelected === next.isSelected &&
-  prev.onPlusClick === next.onPlusClick &&
-  prev.onRowClick === next.onRowClick &&
-  prev.agentSummary?.length === next.agentSummary?.length &&
-  (prev.agentSummary ?? []).every((s, i) => s === next.agentSummary?.[i])
+    );
+  },
+  (prev, next) =>
+    prev.workspace.id === next.workspace.id &&
+    prev.workspace.name === next.workspace.name &&
+    prev.workspace.expanded === next.workspace.expanded &&
+    prev.workspace.branches.length === next.workspace.branches.length &&
+    prev.workspace.worktrees.length === next.workspace.worktrees.length &&
+    prev.isSelected === next.isSelected &&
+    prev.onPlusClick === next.onPlusClick &&
+    prev.onRowClick === next.onRowClick &&
+    prev.agentSummary?.length === next.agentSummary?.length &&
+    (prev.agentSummary ?? []).every((s, i) => s === next.agentSummary?.[i]),
 );
 
 /**
@@ -393,7 +407,7 @@ export function WorkspaceTree() {
 
   return (
     <>
-      <div className="px-3 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-[1px] text-text-muted">
+      <div className="px-3 pt-1 pb-1.5 text-[10px] font-semibold tracking-[1px] text-text-muted uppercase">
         Projects
       </div>
       <Tree
@@ -492,7 +506,8 @@ function ContextMenu({
         style={{ left: x, top: y }}
         role="menu"
         onKeyDown={(e) => {
-          const menuItems = e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
+          const menuItems =
+            e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
           const current = document.activeElement as HTMLElement;
           const idx = Array.from(menuItems).indexOf(current as HTMLButtonElement);
           if (e.key === 'ArrowDown') {
@@ -560,15 +575,21 @@ function RepoTreeItem({
   const [wtMenuTarget, setWtMenuTarget] = useState<string | null>(null);
   const wtMenuPos = useRef({ x: 0, y: 0 });
 
-  const handlePlusClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setModalWorkspace(ws);
-  }, [ws, setModalWorkspace]);
+  const handlePlusClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setModalWorkspace(ws);
+    },
+    [ws, setModalWorkspace],
+  );
 
-  const handleRowClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    toggleExpanded(ws.id);
-  }, [ws.id]);
+  const handleRowClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      toggleExpanded(ws.id);
+    },
+    [ws.id],
+  );
 
   function handleContextMenu(e: React.MouseEvent) {
     e.preventDefault();
@@ -602,10 +623,14 @@ function RepoTreeItem({
             key={`${ws.id}-branch-${b.name}`}
             id={`${ws.id}-branch-${b.name}`}
             textValue={b.name}
-            className="cursor-pointer outline-none data-[selected]:bg-[rgba(59,130,246,0.08)] hover:bg-bg-tertiary"
+            className="cursor-pointer outline-none hover:bg-bg-tertiary data-[selected]:bg-[rgba(59,130,246,0.08)]"
           >
             <TreeItemContent>
-              <BranchRow branch={b} agentStatus={agentMap[`${ws.id}-branch-${b.name}`]} diffStat={diffStats?.[b.name]} />
+              <BranchRow
+                branch={b}
+                agentStatus={agentMap[`${ws.id}-branch-${b.name}`]}
+                diffStat={diffStats?.[b.name]}
+              />
             </TreeItemContent>
           </TreeItem>
         ))}
@@ -614,7 +639,7 @@ function RepoTreeItem({
             key={`${ws.id}-wt-${wt.name}`}
             id={`${ws.id}-wt-${wt.name}`}
             textValue={wt.name}
-            className="cursor-pointer outline-none data-[selected]:bg-[rgba(59,130,246,0.08)] hover:bg-bg-tertiary"
+            className="cursor-pointer outline-none hover:bg-bg-tertiary data-[selected]:bg-[rgba(59,130,246,0.08)]"
           >
             <TreeItemContent>
               <div

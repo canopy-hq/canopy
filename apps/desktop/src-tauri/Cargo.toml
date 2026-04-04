@@ -22,4 +22,5 @@ tauri-plugin-dialog = "2"
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 git2 = "0.20"
 libproc = "0.14"
+sysinfo = "0.33"
 tempfile = "3"

@@ -245,52 +245,54 @@ export function useTerminal(
       } else {
         // Spawn: PTY started at exact fitted dimensions → lastSentSize = spawn dims
         // → dedup guard suppresses any subsequent fit at the same size → 0 SIGWINCH.
-        void spawnTerminal(paneId, savedCwd, term.rows, term.cols).then(({ ptyId: newId, isNew }) => {
-          if (spawnCancelled) return;
-          ptrRef.ptyId = newId;
-          lastSentSize.rows = term.rows;
-          lastSentSize.cols = term.cols;
-          if (isNew) {
-            // Fresh shell: discard scrollback replay, wait for first live byte.
-            connectPtyOutputFresh(newId, (data: Uint8Array) => {
-              removeOverlay();
-              term.write(data);
-            });
-          } else {
-            // Restored session: drain scrollback (includes previous prompt).
-            // Remove overlay immediately — setHandler flushes buffers synchronously.
-            connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
-            removeOverlay();
-          }
-          setCached(newId, term, fitAddon);
-          onPtySpawned(newId);
-
-          // Poll dimensions for 1s after spawn (every 200ms, up to 5 ticks).
-          // Handles layout-settling races (sidebars, borders, split panes) and
-          // ensures TUI apps like Claude Code fill the pane on first launch.
-          // Stops early once dims stabilize.
-          let ticks = 0;
-          const poll = () => {
-            sigwinchTimer = null;
+        void spawnTerminal(paneId, savedCwd, term.rows, term.cols).then(
+          ({ ptyId: newId, isNew }) => {
             if (spawnCancelled) return;
-            const dims = fitAddon.proposeDimensions();
-            const r = dims?.rows ?? lastSentSize.rows;
-            const c = dims?.cols ?? lastSentSize.cols;
-            const changed = r !== lastSentSize.rows || c !== lastSentSize.cols;
-            if (changed) {
-              term.resize(c, r); // ghostty-web API: resize(cols, rows)
-              lastSentSize.rows = r;
-              lastSentSize.cols = c;
-              void resizePty(newId, r, c);
-            } else if (ticks === 0) {
-              // First tick: always send SIGWINCH so TUI apps initialise.
-              void resizePty(newId, r, c);
+            ptrRef.ptyId = newId;
+            lastSentSize.rows = term.rows;
+            lastSentSize.cols = term.cols;
+            if (isNew) {
+              // Fresh shell: discard scrollback replay, wait for first live byte.
+              connectPtyOutputFresh(newId, (data: Uint8Array) => {
+                removeOverlay();
+                term.write(data);
+              });
+            } else {
+              // Restored session: drain scrollback (includes previous prompt).
+              // Remove overlay immediately — setHandler flushes buffers synchronously.
+              connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
+              removeOverlay();
             }
-            ticks++;
-            if (ticks < 5) sigwinchTimer = setTimeout(poll, 200);
-          };
-          sigwinchTimer = setTimeout(poll, 100);
-        });
+            setCached(newId, term, fitAddon);
+            onPtySpawned(newId);
+
+            // Poll dimensions for 1s after spawn (every 200ms, up to 5 ticks).
+            // Handles layout-settling races (sidebars, borders, split panes) and
+            // ensures TUI apps like Claude Code fill the pane on first launch.
+            // Stops early once dims stabilize.
+            let ticks = 0;
+            const poll = () => {
+              sigwinchTimer = null;
+              if (spawnCancelled) return;
+              const dims = fitAddon.proposeDimensions();
+              const r = dims?.rows ?? lastSentSize.rows;
+              const c = dims?.cols ?? lastSentSize.cols;
+              const changed = r !== lastSentSize.rows || c !== lastSentSize.cols;
+              if (changed) {
+                term.resize(c, r); // ghostty-web API: resize(cols, rows)
+                lastSentSize.rows = r;
+                lastSentSize.cols = c;
+                void resizePty(newId, r, c);
+              } else if (ticks === 0) {
+                // First tick: always send SIGWINCH so TUI apps initialise.
+                void resizePty(newId, r, c);
+              }
+              ticks++;
+              if (ticks < 5) sigwinchTimer = setTimeout(poll, 200);
+            };
+            sigwinchTimer = setTimeout(poll, 100);
+          },
+        );
       }
     }
 

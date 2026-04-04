@@ -52,7 +52,7 @@ pub fn run() {
             }
 
             app.manage(DaemonClient::new(socket));
-            app.manage(Mutex::new(pty::PtyProxy::new()));
+            app.manage(Mutex::new(pty::PtyState::new()));
             app.manage(Mutex::new(agent_watcher::AgentWatcherState::new()));
 
             Ok(())
@@ -64,6 +64,7 @@ pub fn run() {
             pty::resize_pty,
             pty::close_pty,
             pty::get_pty_cwd,
+            pty::list_pty_sessions,
             git::import_repo,
             git::list_branches,
             git::list_all_branches,
