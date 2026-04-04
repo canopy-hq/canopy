@@ -1,6 +1,7 @@
 mod daemon_client;
 mod agent_watcher;
 mod git;
+mod github;
 mod menu;
 mod pty;
 
@@ -81,6 +82,10 @@ pub fn run() {
             agent_watcher::start_agent_watching,
             agent_watcher::stop_agent_watching,
             agent_watcher::toggle_agent_manual,
+            github::github_start_device_flow,
+            github::github_poll_token,
+            github::github_get_connection,
+            github::github_disconnect,
         ])
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
