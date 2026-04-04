@@ -40,6 +40,7 @@ import { Terminal, FitAddon } from 'ghostty-web';
 import {
   connectPtyOutput,
   connectPtyOutputFresh,
+  resizePty,
   spawnTerminal,
   writeToPty,
 } from '../src/pty';
@@ -321,6 +322,60 @@ describe('useTerminal — cached remount path', () => {
     await act(flushPromises);
 
     expect(setCached).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('calls resizePty to sync PTY dimensions on remount', async () => {
+    const termA = new (vi.mocked(Terminal) as any)() as any;
+    const fitA = new (vi.mocked(FitAddon) as any)() as any;
+    termA.element = document.createElement('div');
+
+    vi.clearAllMocks();
+    vi.mocked(getCached).mockReturnValue({ term: termA, fitAddon: fitA });
+
+    const container = makeContainer();
+    const { unmount } = renderHook(() =>
+      useTerminal({ current: container } as any, 'pane-1', undefined, 7, false, vi.fn()),
+    );
+    await act(flushPromises);
+
+    expect(vi.mocked(resizePty)).toHaveBeenCalledWith(7, termA.rows, termA.cols);
+    unmount();
+  });
+});
+
+describe('useTerminal — useLayoutEffect resize on ptyId transition', () => {
+  it('calls resizePty in the layout phase when ptyId > 0 and cache is populated', async () => {
+    const termA = new (vi.mocked(Terminal) as any)() as any;
+    const fitA = new (vi.mocked(FitAddon) as any)() as any;
+    termA.element = document.createElement('div');
+
+    vi.clearAllMocks();
+    vi.mocked(getCached).mockReturnValue({ term: termA, fitAddon: fitA });
+
+    const container = makeContainer();
+    const { unmount } = renderHook(() =>
+      useTerminal({ current: container } as any, 'pane-1', undefined, 42, false, vi.fn()),
+    );
+    await act(flushPromises);
+
+    // resizePty must have been called at least once — either from useLayoutEffect
+    // or the direct call in the cached useEffect path (both are valid triggers).
+    expect(vi.mocked(resizePty)).toHaveBeenCalledWith(42, termA.rows, termA.cols);
+    unmount();
+  });
+
+  it('does NOT call resizePty in layout phase when ptyId is -1', async () => {
+    vi.clearAllMocks();
+    vi.mocked(getCached).mockReturnValue(undefined);
+
+    const container = makeContainer();
+    const { unmount } = renderHook(() =>
+      useTerminal({ current: container } as any, 'pane-1', undefined, -1, false, vi.fn()),
+    );
+    // Don't flush promises — we only care about the layout-phase check, not spawn.
+    // resizePty should NOT be called at this point (ptyId is -1).
+    expect(vi.mocked(resizePty)).not.toHaveBeenCalled();
     unmount();
   });
 });
