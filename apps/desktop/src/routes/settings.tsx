@@ -112,7 +112,7 @@ function SettingsRoute() {
       <div className="flex-1 overflow-y-auto">
         {/* Drag region spacer aligned with sidebar traffic lights zone */}
         <div data-tauri-drag-region className="h-[38px] flex-shrink-0" />
-        <div className="mx-auto max-w-lg px-8 pb-6">
+        <div className="max-w-lg px-8 pb-6">
           <ActiveComponent />
         </div>
       </div>
