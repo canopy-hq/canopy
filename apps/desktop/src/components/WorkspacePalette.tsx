@@ -13,7 +13,7 @@ import {
   type WorktreeInfo,
 } from '../lib/git';
 import { createWorktree, openWorktree } from '../lib/workspace-actions';
-import { Badge, Button } from './ui';
+import { Badge, Button, Kbd } from './ui';
 
 import type { Workspace } from '@superagent/db';
 
@@ -177,9 +177,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
             placeholder="Search or create new branch..."
             className="flex-1 border-none bg-transparent text-[14px] text-text-primary outline-none"
           />
-          <span className="rounded bg-bg-tertiary px-1.5 py-0.5 text-[10px] text-text-muted">
-            ESC
-          </span>
+          <Kbd>ESC</Kbd>
         </div>
 
         {/* Create card */}
@@ -199,7 +197,10 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
               <span className="flex-1 text-[13px] font-medium text-accent">
                 Create &ldquo;{sanitizedName}&rdquo;
               </span>
-              <span className="font-mono text-[10px] text-text-muted">&#x2318;&#x21A9;</span>
+              <span className="flex items-center gap-0.5">
+                <Kbd>⌘</Kbd>
+                <Kbd>↩</Kbd>
+              </span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] text-text-muted">from</span>
@@ -366,7 +367,10 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
         <div className="flex items-center gap-3 border-t border-border px-4 py-2 text-[11px] text-text-muted">
           {isCreateMode ? (
             <>
-              <span>&#x2318;&#x21A9; create worktree</span>
+              <span className="flex items-center gap-0.5">
+                <Kbd>⌘</Kbd>
+                <Kbd>↩</Kbd> create worktree
+              </span>
               <span className="ml-auto font-mono text-[11px] text-text-muted">
                 git worktree add -b <span className="text-accent">{sanitizedName}</span> &hellip;{' '}
                 <span className="text-text-muted">{baseBranch}</span>
@@ -374,14 +378,24 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
             </>
           ) : pickingBase ? (
             <>
-              <span>&#x2191;&#x2193; select base</span>
-              <span>&#x21A9; confirm</span>
+              <span className="flex items-center gap-0.5">
+                <Kbd>↑</Kbd>
+                <Kbd>↓</Kbd> select base
+              </span>
+              <span className="flex items-center gap-0.5">
+                <Kbd>↩</Kbd> confirm
+              </span>
             </>
           ) : (
             <>
-              <span>&#x2191;&#x2193; navigate</span>
-              <span>&#x21A9; create/open</span>
-              <span className="ml-auto">type name &#x2192; create new</span>
+              <span className="flex items-center gap-0.5">
+                <Kbd>↑</Kbd>
+                <Kbd>↓</Kbd> navigate
+              </span>
+              <span className="flex items-center gap-0.5">
+                <Kbd>↩</Kbd> create/open
+              </span>
+              <span className="ml-auto">type name → create new</span>
             </>
           )}
         </div>

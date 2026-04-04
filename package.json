@@ -7,6 +7,7 @@
   ],
   "scripts": {
     "desktop:dev": "bun --filter desktop tauri:dev",
+    "desktop:dev:rebuild": "bun --filter desktop tauri:dev:rebuild",
     "desktop:build": "bun --filter desktop tauri build",
     "lint": "oxlint apps/ packages/",
     "format": "oxfmt apps/ packages/",
