@@ -1,12 +1,12 @@
 import { useCallback, useMemo } from 'react';
 
-import { closePty, disposeCached } from '@superagent/terminal';
+import { closePty, closePtysForPanes, disposeCached } from '@superagent/terminal';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 
 import { Sidebar } from '../components/Sidebar';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { toggleManualOverride } from '../lib/agent-actions';
-import { findLeaf } from '../lib/pane-tree-ops';
+import { collectAllLeafPaneIds, findLeaf } from '../lib/pane-tree-ops';
 import {
   addTab,
   closeTab,
@@ -44,16 +44,22 @@ function WorkspaceLayout() {
           /* PTY may be dead */
         }
       }
+      // Catch-all: close PTYs by pane ID for the race condition case
+      void closePtysForPanes(collectAllLeafPaneIds(activeTab.paneRoot));
       closeTab(activeTab.id);
     } else {
       const leaf = findLeaf(activeTab.paneRoot, activeTab.focusedPaneId);
-      if (leaf && leaf.ptyId > 0) {
-        disposeCached(leaf.ptyId);
-        try {
-          await closePty(leaf.ptyId);
-        } catch {
-          /* PTY may be dead */
+      if (leaf) {
+        if (leaf.ptyId > 0) {
+          disposeCached(leaf.ptyId);
+          try {
+            await closePty(leaf.ptyId);
+          } catch {
+            /* PTY may be dead */
+          }
         }
+        // Catch-all for this specific pane
+        void closePtysForPanes([leaf.id]);
       }
       closePane(activeTab.focusedPaneId);
     }

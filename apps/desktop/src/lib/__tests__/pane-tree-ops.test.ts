@@ -8,6 +8,7 @@ import {
   navigate,
   updateRatio,
   collectLeafPtyIds,
+  collectAllLeafPaneIds,
   collectRestorablePaneIds,
   type PaneNode,
   type LeafNode,
@@ -253,6 +254,23 @@ describe('collectLeafPtyIds', () => {
       makeLeaf('l3', 15),
     ]);
     expect(collectLeafPtyIds(tree)).toEqual([5, 15]);
+  });
+});
+
+describe('collectAllLeafPaneIds', () => {
+  it('returns paneId from a single leaf regardless of ptyId', () => {
+    expect(collectAllLeafPaneIds(makeLeaf('p1', -1))).toEqual(['p1']);
+    expect(collectAllLeafPaneIds(makeLeaf('p2', 42))).toEqual(['p2']);
+    expect(collectAllLeafPaneIds(makeLeaf('p3', -2))).toEqual(['p3']);
+  });
+
+  it('collects all pane IDs from nested tree including uninitialized leaves', () => {
+    const tree = makeBranch('b1', 'horizontal', [
+      makeLeaf('l1', 5),
+      makeLeaf('l2', -1),
+      makeBranch('b2', 'vertical', [makeLeaf('l3', 15), makeLeaf('l4', -1)]),
+    ]);
+    expect(collectAllLeafPaneIds(tree)).toEqual(['l1', 'l2', 'l3', 'l4']);
   });
 });
 

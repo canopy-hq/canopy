@@ -6,10 +6,10 @@ import {
   SIDEBAR_WIDTH_MIN,
   SIDEBAR_WIDTH_MAX,
 } from '@superagent/db';
-import { closePty, disposeCached } from '@superagent/terminal';
+import { closePty, closePtysForPanes, disposeCached } from '@superagent/terminal';
 
 import * as gitApi from './git';
-import { collectLeafPtyIds } from './pane-tree-ops';
+import { collectAllLeafPaneIds, collectLeafPtyIds } from './pane-tree-ops';
 import { showErrorToast, showInfoToast } from './toast';
 
 import type { Workspace } from '@superagent/db';
@@ -75,6 +75,11 @@ export async function closeProject(
       await closePty(ptyId);
     }),
   );
+
+  // Catch-all: close any PTYs spawned for these panes that weren't in the
+  // pane tree yet (e.g. startup restore race).
+  const allPaneIds = tabs.flatMap((t) => collectAllLeafPaneIds(t.paneRoot));
+  await closePtysForPanes(allPaneIds).catch(() => {});
 
   for (const tab of tabs) {
     tabCol.delete(tab.id);

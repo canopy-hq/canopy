@@ -269,6 +269,12 @@ export function collectLeafPtyIds(node: PaneNode): number[] {
   return node.children.flatMap(collectLeafPtyIds);
 }
 
+/** Collect all leaf pane IDs regardless of ptyId state. */
+export function collectAllLeafPaneIds(node: PaneNode): string[] {
+  if (node.type === 'leaf') return [node.id];
+  return node.children.flatMap(collectAllLeafPaneIds);
+}
+
 /** Returns IDs of leaf panes that should reconnect at startup (excludes killed panes). */
 export function collectRestorablePaneIds(node: PaneNode): string[] {
   if (node.type === 'leaf') return node.ptyId !== -2 ? [node.id] : [];

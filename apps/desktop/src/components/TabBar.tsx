@@ -1,11 +1,11 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
-import { closePty, disposeCached } from '@superagent/terminal';
+import { closePty, closePtysForPanes, disposeCached } from '@superagent/terminal';
 import { Plus, X } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
-import { collectLeafPtyIds } from '../lib/pane-tree-ops';
+import { collectAllLeafPaneIds, collectLeafPtyIds } from '../lib/pane-tree-ops';
 import { addTab, closeTab, switchTab, renameTab } from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
 import { Button, Kbd, Tooltip } from './ui';
@@ -123,6 +123,10 @@ const TabItemComponent = memo(
           /* PTY may be dead */
         }
       }
+      // Catch-all: close any PTYs spawned for these panes that weren't in the
+      // pane tree yet (e.g. startup restore race). Uses pane IDs, not pty IDs.
+      const allPaneIds = collectAllLeafPaneIds(tab.paneRoot);
+      void closePtysForPanes(allPaneIds);
       closeTab(tab.id);
     }, [tab]);
 

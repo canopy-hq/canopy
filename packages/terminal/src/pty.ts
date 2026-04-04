@@ -55,6 +55,12 @@ export async function closePty(ptyId: number): Promise<void> {
   return invoke('close_pty', { ptyId });
 }
 
+/** Close all PTY sessions matching the given pane IDs (catch-all cleanup). */
+export async function closePtysForPanes(paneIds: string[]): Promise<void> {
+  if (paneIds.length === 0) return;
+  return invoke('close_ptys_for_panes', { paneIds });
+}
+
 export async function getPtyCwd(ptyId: number): Promise<string> {
   return invoke<string>('get_pty_cwd', { ptyId });
 }

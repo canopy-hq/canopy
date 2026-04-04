@@ -63,6 +63,7 @@ pub fn run() {
             pty::write_to_pty,
             pty::resize_pty,
             pty::close_pty,
+            pty::close_ptys_for_panes,
             pty::get_pty_cwd,
             pty::list_pty_sessions,
             git::import_repo,

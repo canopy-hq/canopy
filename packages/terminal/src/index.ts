@@ -6,6 +6,7 @@ export {
   writeToPty,
   resizePty,
   closePty,
+  closePtysForPanes,
   getPtyCwd,
   listPtySessions,
   type PtySessionInfo,
