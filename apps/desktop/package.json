@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@superagent/db": "workspace:*",
+    "@superagent/fps": "workspace:*",
     "@superagent/terminal": "workspace:*",
     "@tanstack/db": "^0.6.1",
     "@tanstack/react-db": "^0.1.79",
@@ -24,6 +25,7 @@
     "@tauri-apps/plugin-sql": "^2.3.2",
     "@tauri-apps/plugin-store": "^2.4.2",
     "ghostty-web": "catalog:",
+    "lucide-react": "^1.7.0",
     "react": "catalog:",
     "react-aria-components": "^1.16.0",
     "react-dom": "^19.2.4",

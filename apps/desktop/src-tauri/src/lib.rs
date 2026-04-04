@@ -73,14 +73,23 @@ pub fn run() {
             git::delete_branch,
             git::create_worktree,
             git::remove_worktree,
+            git::get_diff_stats,
+            git::get_all_diff_stats,
             agent_watcher::start_agent_watching,
             agent_watcher::stop_agent_watching,
             agent_watcher::toggle_agent_manual,
         ])
         .on_menu_event(|app, event| {
-            if event.id().as_ref() == "settings" {
+            let id = event.id().as_ref();
+            let emit_id = match id {
+                "settings" => Some("menu:settings"),
+                #[cfg(debug_assertions)]
+                "fps-overlay" => Some("menu:fps-overlay"),
+                _ => None,
+            };
+            if let Some(emit_id) = emit_id {
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.emit("menu:settings", ());
+                    let _ = window.emit(emit_id, ());
                 }
             }
         })

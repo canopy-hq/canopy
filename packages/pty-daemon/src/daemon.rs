@@ -198,11 +198,21 @@ fn do_spawn(
     command: Option<String>,
     args: Vec<String>,
 ) -> Result<(u32, bool), String> {
-    // Return existing session pid if it already exists (reconnect case)
+    // Return existing session pid if it already exists (reconnect case).
+    // Also resize the PTY to the requested dimensions so the subprocess sees the
+    // current container size immediately and redraws — without this, the shell
+    // keeps its stale dimensions from the previous session.
     {
         let st = state.lock().unwrap();
         if let Some(sess) = st.sessions.get(&pane_id) {
-            return Ok((sess.child_pid, false));
+            let pid = sess.child_pid;
+            let _ = sess.master.resize(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            });
+            return Ok((pid, false));
         }
     }
 
@@ -742,6 +752,62 @@ mod tests {
         assert!(
             text.contains("RESTORE_ME"),
             "scrollback from original session not preserved; got: {text:?}"
+        );
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn reconnect_spawn_resizes_pty() {
+        // When a session already exists, `spawn` with new dimensions must resize
+        // the PTY and deliver a SIGWINCH to the subprocess — this is how the app
+        // fixes stale PTY dimensions on cold restart.
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // First spawn at 24×80 with a shell that traps SIGWINCH.
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(
+            &mut conn,
+            r#"{"op":"spawn","paneId":"rr1","rows":24,"cols":80,"command":"sh","args":["-c","trap 'printf WINCH_OK' WINCH; printf READY; read line"]}"#,
+        )
+        .await;
+        let resp = read_json_line(&mut conn).await;
+        assert_eq!(resp["ok"], true, "first spawn failed: {resp}");
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+
+        // Attach to drain scrollback, then keep listening for live data.
+        let mut attach = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut attach, r#"{"op":"attach","paneId":"rr1"}"#).await;
+        let scrollback = drain_scrollback(&mut attach).await;
+        let text = String::from_utf8_lossy(&scrollback);
+        assert!(text.contains("READY"), "shell did not start: {text:?}");
+
+        // Re-spawn with different dimensions — must resize PTY and send SIGWINCH.
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"spawn","paneId":"rr1","rows":50,"cols":200}"#).await;
+        let resp2 = read_json_line(&mut conn2).await;
+        assert_eq!(resp2["ok"], true, "reconnect spawn failed: {resp2}");
+        assert_eq!(resp2["new"], false, "must be reconnect");
+
+        // SIGWINCH should arrive as live data on the existing attach stream.
+        let mut live = Vec::new();
+        for _ in 0..50 {
+            tokio::select! {
+                frame = read_frame(&mut attach) => {
+                    live.extend_from_slice(&frame);
+                    if String::from_utf8_lossy(&live).contains("WINCH_OK") {
+                        break;
+                    }
+                }
+                _ = tokio::time::sleep(tokio::time::Duration::from_millis(100)) => {}
+            }
+        }
+        assert!(
+            String::from_utf8_lossy(&live).contains("WINCH_OK"),
+            "SIGWINCH not delivered on reconnect-spawn; got: {:?}",
+            String::from_utf8_lossy(&live)
         );
 
         let _ = std::fs::remove_file(&socket);

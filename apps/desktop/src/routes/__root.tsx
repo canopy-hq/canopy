@@ -9,25 +9,27 @@ import {
   getSetting,
   getSessionCollection,
 } from '@superagent/db';
+import { FpsOverlay } from '@superagent/fps';
 import { spawnTerminal } from '@superagent/terminal';
 import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 
 import { AgentOverlay } from '../components/AgentOverlay';
+import { AgentToastRegion } from '../components/AgentToastRegion';
 import { Header } from '../components/Header';
 import { SessionManager } from '../components/SessionManager';
-import { AgentToastRegion } from '../components/AgentToastRegion';
 import { ErrorToastRegion } from '../components/ToastProvider';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
+import { useTauriMenuEvent } from '../hooks/useTauriMenuEvent';
 import { initAgentListener } from '../lib/agent-actions';
+import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
 import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
 import { toggleSidebar } from '../lib/workspace-actions';
 
-import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
-
 function RootLayout() {
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [sessionManagerOpen, setSessionManagerOpen] = useState(false);
+  const [fpsVisible, setFpsVisible] = useState(false);
   const navigate = useNavigate();
   const booted = useRef(false);
 
@@ -54,7 +56,7 @@ function RootLayout() {
     );
     void Promise.all(
       paneEntries.map(async ({ tab, paneId }) => {
-        const cwd = getSetting(settings, `cwd:${paneId}`, '') as string || undefined;
+        const cwd = (getSetting(settings, `cwd:${paneId}`, '') as string) || undefined;
         try {
           const { ptyId } = await spawnTerminal(paneId, cwd, 24, 80);
           setPtyIdInTab(tab.id, paneId, ptyId);
@@ -68,7 +70,14 @@ function RootLayout() {
               draft.cwd = cwd ?? '';
             });
           } else {
-            col.insert({ id: paneId, paneId, tabId: tab.id, workspaceId: tab.workspaceItemId, cwd: cwd ?? '', shell: '' });
+            col.insert({
+              id: paneId,
+              paneId,
+              tabId: tab.id,
+              workspaceId: tab.workspaceItemId,
+              cwd: cwd ?? '',
+              shell: '',
+            });
           }
         } catch {
           // Daemon unavailable — pane stays at ptyId -1, fresh shell on visit
@@ -77,19 +86,8 @@ function RootLayout() {
     );
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    void import('@tauri-apps/api/event').then(({ listen }) => {
-      void listen('menu:settings', () => {
-        void navigate({ to: '/settings' });
-      }).then((fn) => {
-        unlisten = fn;
-      });
-    });
-    return () => {
-      unlisten?.();
-    };
-  }, [navigate]);
+  useTauriMenuEvent('menu:settings', () => void navigate({ to: '/settings' }));
+  useTauriMenuEvent('menu:fps-overlay', () => setFpsVisible((prev) => !prev), import.meta.env.DEV);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -150,6 +148,7 @@ function RootLayout() {
       <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
       {sessionManagerOpen && <SessionManager onClose={() => setSessionManagerOpen(false)} />}
       <AgentToastRegion />
+      {import.meta.env.DEV && <FpsOverlay visible={fpsVisible} />}
     </div>
   );
 }

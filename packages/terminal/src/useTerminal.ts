@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { getSettingCollection, getSetting } from '@superagent/db';
 import { Terminal, FitAddon } from 'ghostty-web';
@@ -54,6 +54,31 @@ export function useTerminal(
     }
   }, [isFocused]);
 
+  // Synchronous resize before paint: when ptyId becomes a real pid (restored session
+  // or pane remount), fire fitAddon.fit() + resizePty in the layout phase — before
+  // the browser renders the first frame with the new ptyId.
+  //
+  // Why not useEffect or ResizeObserver?
+  //   onPtySpawned(newId) triggers setRealPtyId → React re-render → effect cleanup
+  //   → clearTimeout cancels any setTimeout-based poll before it fires. The layout
+  //   phase cannot be cancelled this way: it runs synchronously in the same commit.
+  //
+  // Guard: only act if the terminal element is already in the container (i.e. the
+  // ptyId=-1 spawn effect placed it there). If it's not (e.g. pane restructure
+  // where the old component already unmounted), skip — the main useEffect + its
+  // ResizeObserver handle that case.
+  useLayoutEffect(() => {
+    if (!wasmReady || ptyId <= 0) return;
+    const cached = getCached(ptyId);
+    if (!cached) return;
+    cached.fitAddon.fit();
+    const { rows, cols } = cached.term;
+    if (rows > 0 && cols > 0) {
+      void resizePty(ptyId, rows, cols);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ptyId, wasmReady]);
+
   useEffect(() => {
     if (!wasmReady) return;
 
@@ -84,6 +109,9 @@ export function useTerminal(
       }
       connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
       fitAddon.fit();
+      // Unconditional resize IPC on cached remount — ptyId is the real pid,
+      // proxy.sessions is already populated, so this call succeeds immediately.
+      void resizePty(ptyId, term.rows, term.cols);
     } else {
       // === NEW TERMINAL: spawn (ptyId === -1) or reconnect (ptyId > 0) ===
       term = new Terminal({
@@ -209,8 +237,6 @@ export function useTerminal(
 
       if (ptyId > 0) {
         // Reconnect: PTY already running in daemon (cold app restart).
-        // lastSentSize is {0,0} so onResize from fitAddon.fit() above already sent
-        // the resize IPC — no explicit call needed here.
         connectPtyOutput(ptyId, (data: Uint8Array) => {
           removeOverlay();
           term.write(data);
@@ -219,52 +245,54 @@ export function useTerminal(
       } else {
         // Spawn: PTY started at exact fitted dimensions → lastSentSize = spawn dims
         // → dedup guard suppresses any subsequent fit at the same size → 0 SIGWINCH.
-        void spawnTerminal(paneId, savedCwd, term.rows, term.cols).then(({ ptyId: newId, isNew }) => {
-          if (spawnCancelled) return;
-          ptrRef.ptyId = newId;
-          lastSentSize.rows = term.rows;
-          lastSentSize.cols = term.cols;
-          if (isNew) {
-            // Fresh shell: discard scrollback replay, wait for first live byte.
-            connectPtyOutputFresh(newId, (data: Uint8Array) => {
-              removeOverlay();
-              term.write(data);
-            });
-          } else {
-            // Restored session: drain scrollback (includes previous prompt).
-            // Remove overlay immediately — setHandler flushes buffers synchronously.
-            connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
-            removeOverlay();
-          }
-          setCached(newId, term, fitAddon);
-          onPtySpawned(newId);
-
-          // Poll dimensions for 1s after spawn (every 200ms, up to 5 ticks).
-          // Handles layout-settling races (sidebars, borders, split panes) and
-          // ensures TUI apps like Claude Code fill the pane on first launch.
-          // Stops early once dims stabilize.
-          let ticks = 0;
-          const poll = () => {
-            sigwinchTimer = null;
+        void spawnTerminal(paneId, savedCwd, term.rows, term.cols).then(
+          ({ ptyId: newId, isNew }) => {
             if (spawnCancelled) return;
-            const dims = fitAddon.proposeDimensions();
-            const r = dims?.rows ?? lastSentSize.rows;
-            const c = dims?.cols ?? lastSentSize.cols;
-            const changed = r !== lastSentSize.rows || c !== lastSentSize.cols;
-            if (changed) {
-              term.resize(c, r); // ghostty-web API: resize(cols, rows)
-              lastSentSize.rows = r;
-              lastSentSize.cols = c;
-              void resizePty(newId, r, c);
-            } else if (ticks === 0) {
-              // First tick: always send SIGWINCH so TUI apps initialise.
-              void resizePty(newId, r, c);
+            ptrRef.ptyId = newId;
+            lastSentSize.rows = term.rows;
+            lastSentSize.cols = term.cols;
+            if (isNew) {
+              // Fresh shell: discard scrollback replay, wait for first live byte.
+              connectPtyOutputFresh(newId, (data: Uint8Array) => {
+                removeOverlay();
+                term.write(data);
+              });
+            } else {
+              // Restored session: drain scrollback (includes previous prompt).
+              // Remove overlay immediately — setHandler flushes buffers synchronously.
+              connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
+              removeOverlay();
             }
-            ticks++;
-            if (ticks < 5) sigwinchTimer = setTimeout(poll, 200);
-          };
-          sigwinchTimer = setTimeout(poll, 100);
-        });
+            setCached(newId, term, fitAddon);
+            onPtySpawned(newId);
+
+            // Poll dimensions for 1s after spawn (every 200ms, up to 5 ticks).
+            // Handles layout-settling races (sidebars, borders, split panes) and
+            // ensures TUI apps like Claude Code fill the pane on first launch.
+            // Stops early once dims stabilize.
+            let ticks = 0;
+            const poll = () => {
+              sigwinchTimer = null;
+              if (spawnCancelled) return;
+              const dims = fitAddon.proposeDimensions();
+              const r = dims?.rows ?? lastSentSize.rows;
+              const c = dims?.cols ?? lastSentSize.cols;
+              const changed = r !== lastSentSize.rows || c !== lastSentSize.cols;
+              if (changed) {
+                term.resize(c, r); // ghostty-web API: resize(cols, rows)
+                lastSentSize.rows = r;
+                lastSentSize.cols = c;
+                void resizePty(newId, r, c);
+              } else if (ticks === 0) {
+                // First tick: always send SIGWINCH so TUI apps initialise.
+                void resizePty(newId, r, c);
+              }
+              ticks++;
+              if (ticks < 5) sigwinchTimer = setTimeout(poll, 200);
+            };
+            sigwinchTimer = setTimeout(poll, 100);
+          },
+        );
       }
     }
 
@@ -275,8 +303,20 @@ export function useTerminal(
 
     let resizeRaf: number | null = null;
     let resizingClassTimer: ReturnType<typeof setTimeout> | null = null;
+    // ResizeObserver fires immediately (next frame) when observe() is called.
+    // On that first observation, if the PTY is already connected (ptyId > 0), send
+    // an unconditional resize IPC — this is the earliest reliable point after mount,
+    // immune to the effect-cleanup cancellation that kills setTimeout-based polls
+    // (onPtySpawned triggers a re-render → cleanup → clearTimeout before poll fires).
+    let firstResizeSent = false;
     const resizeObserver = new ResizeObserver(() => {
       if (container.offsetWidth === 0 || container.offsetHeight === 0) return;
+      if (!firstResizeSent && ptyId > 0) {
+        firstResizeSent = true;
+        fitAddon.fit();
+        void resizePty(ptyId, term.rows, term.cols);
+        return;
+      }
       // Suppress CSS transitions during resize to avoid layout contention.
       document.body.classList.add('resizing');
       if (resizingClassTimer !== null) clearTimeout(resizingClassTimer);
