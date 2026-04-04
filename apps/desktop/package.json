@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "tauri:dev": "VITE_PORT=$(bun scripts/find-port.ts) tauri dev",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run --reporter=verbose",
