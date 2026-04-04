@@ -62,8 +62,10 @@ function TabItemComponent({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const originalLabelRef = useRef('');
 
   const startEditing = useCallback(() => {
+    originalLabelRef.current = tab.label;
     setDraft(tab.label);
     setEditing(true);
   }, [tab.label]);
@@ -81,6 +83,14 @@ function TabItemComponent({
   const cancelRename = useCallback(() => {
     setEditing(false);
   }, []);
+
+  const handleBlur = useCallback(() => {
+    if (draft.trim() !== originalLabelRef.current) {
+      confirmRename();
+    } else {
+      cancelRename();
+    }
+  }, [draft, confirmRename, cancelRename]);
 
   return (
     <button
@@ -115,7 +125,7 @@ function TabItemComponent({
               e.stopPropagation();
             }
           }}
-          onBlur={cancelRename}
+          onBlur={handleBlur}
           onClick={(e) => e.stopPropagation()}
         />
       ) : (
