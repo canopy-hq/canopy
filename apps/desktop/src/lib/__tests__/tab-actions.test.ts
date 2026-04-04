@@ -82,6 +82,12 @@ function makeTab(overrides: Partial<Tab> & { id: string; workspaceItemId: string
   };
 }
 
+function findCwdSettingCall() {
+  return mockSetSetting.mock.calls.find(
+    ([key]: [string]) => typeof key === 'string' && key.startsWith('cwd:'),
+  );
+}
+
 function resetState() {
   _tabs = [];
   _uiState = {
@@ -299,9 +305,7 @@ describe('addTab', () => {
 
     addTab();
 
-    const cwdCall = mockSetSetting.mock.calls.find(
-      ([key]: [string]) => typeof key === 'string' && key.startsWith('cwd:'),
-    );
+    const cwdCall = findCwdSettingCall();
     expect(cwdCall).toBeDefined();
     expect(cwdCall![1]).toBe('/worktrees/feature-x');
   });
@@ -311,9 +315,7 @@ describe('addTab', () => {
 
     addTab();
 
-    const cwdCall = mockSetSetting.mock.calls.find(
-      ([key]: [string]) => typeof key === 'string' && key.startsWith('cwd:'),
-    );
+    const cwdCall = findCwdSettingCall();
     expect(cwdCall).toBeDefined();
     expect(cwdCall![1]).toBe('/repos/my-project');
   });
@@ -323,9 +325,7 @@ describe('addTab', () => {
 
     addTab();
 
-    const cwdCall = mockSetSetting.mock.calls.find(
-      ([key]: [string]) => typeof key === 'string' && key.startsWith('cwd:'),
-    );
+    const cwdCall = findCwdSettingCall();
     expect(cwdCall).toBeUndefined();
   });
 });
@@ -340,9 +340,7 @@ describe('splitPane', () => {
 
     splitPane('pane-1', 'horizontal', -1);
 
-    const cwdCall = mockSetSetting.mock.calls.find(
-      ([key]: [string]) => typeof key === 'string' && key.startsWith('cwd:'),
-    );
+    const cwdCall = findCwdSettingCall();
     expect(cwdCall).toBeDefined();
     expect(cwdCall![1]).toBe('/worktrees/feature-x');
   });

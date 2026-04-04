@@ -58,8 +58,7 @@ export function addTab(): void {
   const ui = getUiState();
   if (!ui.activeContextId) return;
   const tab = makeTab({ workspaceItemId: ui.activeContextId });
-  const paneId = (tab.paneRoot as { id: string }).id;
-  storePaneCwd(paneId, ui.activeContextId);
+  storePaneCwd(tab.paneRoot.id, ui.activeContextId);
   getTabCollection().insert(tab);
   uiCollection.update('ui', (draft) => {
     draft.activeTabId = tab.id;
