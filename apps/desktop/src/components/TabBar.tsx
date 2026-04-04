@@ -60,6 +60,7 @@ function TabItemComponent({
 }) {
   const agentStatus = useTabAgentStatus(tab);
   const [editing, setEditing] = useState(false);
+  const [frozenWidth, setFrozenWidth] = useState<number | null>(null);
   const [draft, setDraft] = useState('');
   const buttonRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -71,6 +72,7 @@ function TabItemComponent({
 
   const startEditing = useCallback(() => {
     originalLabelRef.current = tab.label;
+    setFrozenWidth(buttonRef.current?.offsetWidth ?? null);
     setDraft(tab.label);
     setEditing(true);
   }, [tab.label]);
@@ -83,10 +85,12 @@ function TabItemComponent({
     const trimmed = draft.trim();
     if (trimmed) renameTab(tab.id, trimmed, true);
     setEditing(false);
+    setFrozenWidth(null);
   }, [draft, tab.id]);
 
   const cancelRename = useCallback(() => {
     setEditing(false);
+    setFrozenWidth(null);
   }, []);
 
   const handleBlur = useCallback(() => {
@@ -101,6 +105,11 @@ function TabItemComponent({
     <button
       ref={buttonRef}
       className={tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}
+      style={
+        frozenWidth !== null
+          ? { width: frozenWidth, minWidth: frozenWidth, maxWidth: frozenWidth }
+          : undefined
+      }
       onClick={editing ? undefined : onSwitch}
       onMouseDown={(e) => {
         if (e.button === 1) {
