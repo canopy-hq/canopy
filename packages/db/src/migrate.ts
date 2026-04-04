@@ -39,10 +39,12 @@ export async function runMigrations(): Promise<void> {
     )
   `);
 
-  // Idempotent column migration for existing databases
-  const tabCols = await db.all<{ name: string }>(sql`PRAGMA table_info(tabs)`);
-  if (!tabCols.some((c) => c.name === 'label_is_manual')) {
+  // Idempotent column migration for existing databases — try/catch because
+  // SQLite has no ALTER TABLE ADD COLUMN IF NOT EXISTS syntax.
+  try {
     await db.run(sql`ALTER TABLE tabs ADD COLUMN label_is_manual INTEGER NOT NULL DEFAULT 0`);
+  } catch {
+    // Column already exists — safe to ignore
   }
 
   await db.run(sql`
