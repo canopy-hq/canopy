@@ -48,6 +48,10 @@ export function listAllBranches(repoPath: string): Promise<BranchDetail[]> {
   return invoke<BranchDetail[]>('list_all_branches', { repoPath });
 }
 
+export function fetchRemote(repoPath: string): Promise<void> {
+  return invoke<void>('fetch_remote', { repoPath });
+}
+
 export function createBranch(repoPath: string, name: string, base: string): Promise<BranchInfo> {
   return invoke<BranchInfo>('create_branch', { repoPath, name, base });
 }
