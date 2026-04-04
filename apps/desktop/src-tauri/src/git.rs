@@ -118,7 +118,7 @@ pub fn import_repo(path: String) -> Result<RepoInfo, String> {
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| path.clone());
-    let all_branches = enumerate_branches(&repo, false)?;
+    let all_branches = enumerate_branches(&repo, true)?;
     let head_only: Vec<BranchInfo> = all_branches.into_iter().filter(|b| b.is_head).collect();
     Ok(RepoInfo {
         path,
@@ -441,7 +441,10 @@ pub async fn get_all_diff_stats(
     Ok(result)
 }
 
-fn get_diff_stats_for_repo(repo: &Repository) -> Result<HashMap<String, DiffStat>, String> {
+fn get_diff_stats_for_repo(
+    repo: &Repository,
+    known_wt_branches: Option<&HashMap<String, String>>,
+) -> Result<HashMap<String, DiffStat>, String> {
     let base_tree = match find_default_branch_tree(repo) {
         Some(t) => t,
         None => return Ok(HashMap::new()),
@@ -489,26 +492,40 @@ fn get_diff_stats_for_repo(repo: &Repository) -> Result<HashMap<String, DiffStat
     }
 
     // Worktree HEADs not yet covered by the local branch loop (e.g. detached HEAD)
-    let wt_names = repo.worktrees().map_err(|e| e.to_string())?;
-    for wt_name in wt_names.iter() {
-        let wt_name = match wt_name {
-            Some(n) => n,
-            None => continue,
-        };
-        let wt = match repo.find_worktree(wt_name) {
-            Ok(wt) if wt.validate().is_ok() => wt,
-            _ => continue,
-        };
-        if let Some(branch_name) = resolve_worktree_branch(wt.path()) {
-            if stats_map.contains_key(&branch_name) {
-                continue;
+    // Use pre-computed map if available to avoid redundant Repository::open calls
+    let resolved: HashMap<String, String>;
+    let wt_branches = match known_wt_branches {
+        Some(m) => m,
+        None => {
+            let mut tmp = HashMap::new();
+            if let Ok(wt_names) = repo.worktrees() {
+                for wt_name in wt_names.iter() {
+                    let wt_name = match wt_name {
+                        Some(n) => n,
+                        None => continue,
+                    };
+                    let wt = match repo.find_worktree(wt_name) {
+                        Ok(wt) if wt.validate().is_ok() => wt,
+                        _ => continue,
+                    };
+                    if let Some(branch) = resolve_worktree_branch(wt.path()) {
+                        tmp.insert(wt_name.to_string(), branch);
+                    }
+                }
             }
-            if let Ok(branch) = repo.find_branch(&branch_name, BranchType::Local) {
-                if let Ok(commit) = branch.get().peel_to_commit() {
-                    if let Ok(wt_tree) = commit.tree() {
-                        if let Some(stat) = diff_stat_for_tree(repo, &base_tree, &wt_tree) {
-                            stats_map.insert(branch_name, stat);
-                        }
+            resolved = tmp;
+            &resolved
+        }
+    };
+    for branch_name in wt_branches.values() {
+        if stats_map.contains_key(branch_name) {
+            continue;
+        }
+        if let Ok(branch) = repo.find_branch(branch_name, BranchType::Local) {
+            if let Ok(commit) = branch.get().peel_to_commit() {
+                if let Ok(wt_tree) = commit.tree() {
+                    if let Some(stat) = diff_stat_for_tree(repo, &base_tree, &wt_tree) {
+                        stats_map.insert(branch_name.clone(), stat);
                     }
                 }
             }
@@ -520,7 +537,7 @@ fn get_diff_stats_for_repo(repo: &Repository) -> Result<HashMap<String, DiffStat
 
 fn get_diff_stats_sync(repo_path: &str) -> Result<HashMap<String, DiffStat>, String> {
     let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
-    get_diff_stats_for_repo(&repo)
+    get_diff_stats_for_repo(&repo, None)
 }
 
 #[derive(Serialize, Clone)]
@@ -559,7 +576,7 @@ fn poll_workspace_state_sync(repo_path: &str) -> Result<WorkspacePollState, Stri
         }
     }
 
-    let diff_stats = get_diff_stats_for_repo(&repo)?;
+    let diff_stats = get_diff_stats_for_repo(&repo, Some(&worktree_branches))?;
 
     Ok(WorkspacePollState {
         head_oid,

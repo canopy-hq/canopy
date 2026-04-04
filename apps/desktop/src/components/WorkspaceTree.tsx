@@ -17,7 +17,6 @@ import {
   hideWorktree,
   removeWorktree,
   renameWorktree,
-  getWorkspaceItemIds,
 } from '../lib/workspace-actions';
 import { CloseProjectModal } from './CloseProjectModal';
 import { RemoveWorktreeModal } from './RemoveWorktreeModal';
@@ -333,29 +332,24 @@ function useWorkspaceAgentMap(): Record<string, DotStatus> {
 /**
  * Build summary dots for a collapsed repo: collect all non-idle agent statuses
  * from workspace items that belong to this workspace, sorted waiting-first.
+ * Derives from the already-computed agentMap to avoid re-scanning all tabs/agents.
  */
-function useRepoAgentSummary(ws: Workspace): Array<'running' | 'waiting'> {
-  const agents = useAgents();
-  const tabs = useTabs();
-
-  return useMemo(() => {
-    const itemIds = getWorkspaceItemIds(ws);
-    const agentByPty = new Map(agents.map((a) => [a.ptyId, a]));
-    const statuses: Array<'running' | 'waiting'> = [];
-    for (const tab of tabs) {
-      if (!itemIds.has(tab.workspaceItemId)) continue;
-      for (const id of collectLeafPtyIds(tab.paneRoot)) {
-        const agent = agentByPty.get(id);
-        if (agent?.status === 'running' || agent?.status === 'waiting') {
-          statuses.push(agent.status);
-        }
-      }
-    }
-    statuses.sort((a, b) =>
-      a === 'waiting' && b !== 'waiting' ? -1 : a !== 'waiting' && b === 'waiting' ? 1 : 0,
-    );
-    return statuses;
-  }, [agents, tabs, ws]);
+function getRepoAgentSummary(
+  ws: Workspace,
+  agentMap: Record<string, DotStatus>,
+): Array<'running' | 'waiting'> {
+  const statuses: Array<'running' | 'waiting'> = [];
+  const checkId = (id: string) => {
+    const s = agentMap[id];
+    if (s === 'running' || s === 'waiting') statuses.push(s);
+  };
+  checkId(ws.id);
+  for (const b of ws.branches) checkId(`${ws.id}-branch-${b.name}`);
+  for (const wt of ws.worktrees) checkId(`${ws.id}-wt-${wt.name}`);
+  statuses.sort((a, b) =>
+    a === 'waiting' && b !== 'waiting' ? -1 : a !== 'waiting' && b === 'waiting' ? 1 : 0,
+  );
+  return statuses;
 }
 
 export function WorkspaceTree() {
@@ -395,15 +389,17 @@ export function WorkspaceTree() {
     [navigate],
   );
 
-  function handleExpandedChange(keys: Set<Key>) {
-    // Sync expanded state with store
-    for (const ws of workspaces) {
-      const shouldBeExpanded = keys.has(ws.id);
-      if (ws.expanded !== shouldBeExpanded) {
-        toggleExpanded(ws.id);
+  const handleExpandedChange = useCallback(
+    (keys: Set<Key>) => {
+      for (const ws of workspaces) {
+        const shouldBeExpanded = keys.has(ws.id);
+        if (ws.expanded !== shouldBeExpanded) {
+          toggleExpanded(ws.id);
+        }
       }
-    }
-  }
+    },
+    [workspaces],
+  );
 
   return (
     <>
@@ -433,7 +429,7 @@ export function WorkspaceTree() {
       </Tree>
       {closeTarget && (
         <CloseProjectModal
-          isOpen={!!closeTarget}
+          isOpen
           onClose={() => setCloseTarget(null)}
           onConfirm={async () => {
             await closeProject(closeTarget.id, navigate);
@@ -444,7 +440,7 @@ export function WorkspaceTree() {
       )}
       {removeWtTarget && (
         <RemoveWorktreeModal
-          isOpen={!!removeWtTarget}
+          isOpen
           onClose={() => setRemoveWtTarget(null)}
           worktreeName={removeWtTarget.name}
           onConfirm={async (alsoDeleteGit) => {
@@ -458,7 +454,7 @@ export function WorkspaceTree() {
       )}
       {modalWorkspace && (
         <WorkspacePalette
-          isOpen={!!modalWorkspace}
+          isOpen
           onClose={() => setModalWorkspace(null)}
           workspace={modalWorkspace}
         />
@@ -569,7 +565,7 @@ function RepoTreeItem({
   onRequestRemoveWt: (name: string) => void;
   selectedItemId: string | null;
 }) {
-  const agentSummary = useRepoAgentSummary(ws);
+  const agentSummary = useMemo(() => getRepoAgentSummary(ws, agentMap), [ws, agentMap]);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuPos = useRef({ x: 0, y: 0 });
   const [wtMenuTarget, setWtMenuTarget] = useState<string | null>(null);

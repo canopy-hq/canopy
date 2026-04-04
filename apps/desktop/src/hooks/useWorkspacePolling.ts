@@ -38,30 +38,19 @@ function statsEqual(
   return true;
 }
 
-/** Compare branch poll states for change detection across workspaces. */
-export function branchStateEqual(
-  a: Record<string, WorkspacePollState>,
-  b: Record<string, WorkspacePollState>,
-): boolean {
-  const aKeys = Object.keys(a);
-  const bKeys = Object.keys(b);
-  if (aKeys.length !== bKeys.length) return false;
-  for (const wsId of bKeys) {
-    const aWs = a[wsId];
-    const bWs = b[wsId];
-    if (!aWs) return false;
-    if (aWs.head_oid !== bWs.head_oid) return false;
-    if (aWs.branches.length !== bWs.branches.length) return false;
-    for (let i = 0; i < bWs.branches.length; i++) {
-      if (aWs.branches[i].name !== bWs.branches[i].name) return false;
-      if (aWs.branches[i].is_head !== bWs.branches[i].is_head) return false;
-    }
-    const aWtKeys = Object.keys(aWs.worktree_branches);
-    const bWtKeys = Object.keys(bWs.worktree_branches);
-    if (aWtKeys.length !== bWtKeys.length) return false;
-    for (const wt of bWtKeys) {
-      if (aWs.worktree_branches[wt] !== bWs.worktree_branches[wt]) return false;
-    }
+/** Compare two single-workspace poll states. */
+function workspaceStateEqual(a: WorkspacePollState, b: WorkspacePollState): boolean {
+  if (a.head_oid !== b.head_oid) return false;
+  if (a.branches.length !== b.branches.length) return false;
+  for (let i = 0; i < b.branches.length; i++) {
+    if (a.branches[i].name !== b.branches[i].name) return false;
+    if (a.branches[i].is_head !== b.branches[i].is_head) return false;
+  }
+  const aWtKeys = Object.keys(a.worktree_branches);
+  const bWtKeys = Object.keys(b.worktree_branches);
+  if (aWtKeys.length !== bWtKeys.length) return false;
+  for (const wt of bWtKeys) {
+    if (a.worktree_branches[wt] !== b.worktree_branches[wt]) return false;
   }
   return true;
 }
@@ -71,50 +60,21 @@ function findChangedWorkspaces(
   prev: Record<string, WorkspacePollState>,
   next: Record<string, WorkspacePollState>,
 ): string[] {
-  const changed: string[] = [];
-  for (const wsId of Object.keys(next)) {
+  return Object.keys(next).filter((wsId) => {
     const a = prev[wsId];
     const b = next[wsId];
-    if (!a) {
-      changed.push(wsId);
-      continue;
-    }
-    if (a.head_oid !== b.head_oid) {
-      changed.push(wsId);
-      continue;
-    }
-    if (a.branches.length !== b.branches.length) {
-      changed.push(wsId);
-      continue;
-    }
-    let branchDiff = false;
-    for (let i = 0; i < b.branches.length; i++) {
-      if (
-        a.branches[i].name !== b.branches[i].name ||
-        a.branches[i].is_head !== b.branches[i].is_head
-      ) {
-        branchDiff = true;
-        break;
-      }
-    }
-    if (branchDiff) {
-      changed.push(wsId);
-      continue;
-    }
-    const aWtKeys = Object.keys(a.worktree_branches);
-    const bWtKeys = Object.keys(b.worktree_branches);
-    if (aWtKeys.length !== bWtKeys.length) {
-      changed.push(wsId);
-      continue;
-    }
-    for (const wt of bWtKeys) {
-      if (a.worktree_branches[wt] !== b.worktree_branches[wt]) {
-        changed.push(wsId);
-        break;
-      }
-    }
-  }
-  return changed;
+    if (!a) return true;
+    return !workspaceStateEqual(a, b);
+  });
+}
+
+/** Compare branch poll states for change detection across workspaces. */
+export function branchStateEqual(
+  a: Record<string, WorkspacePollState>,
+  b: Record<string, WorkspacePollState>,
+): boolean {
+  if (Object.keys(a).length !== Object.keys(b).length) return false;
+  return findChangedWorkspaces(a, b).length === 0;
 }
 
 /**
