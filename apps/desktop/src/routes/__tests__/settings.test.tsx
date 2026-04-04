@@ -26,6 +26,7 @@ const mockNavigate = vi.fn();
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ component: () => null }),
   useNavigate: () => mockNavigate,
+  useSearch: () => ({}),
 }));
 
 import SettingsRoute from '../settings';

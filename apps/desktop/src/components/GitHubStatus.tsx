@@ -19,7 +19,7 @@ export function GitHubStatus() {
   const connection = getSetting<GitHubConnection | null>(settings, GITHUB_CONNECTION_KEY, null);
 
   const handlePress = () => {
-    void navigate({ to: '/settings' });
+    void navigate({ to: '/settings', search: { section: 'git' } });
   };
 
   if (connection) {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 import { getUiState } from '@superagent/db';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router';
 import { ChevronLeft, Palette, GitBranch } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
@@ -43,7 +43,8 @@ const navItem = tv({
 
 function SettingsRoute() {
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState<SectionId>('appearance');
+  const { section } = useSearch({ from: '/settings' });
+  const [activeSection, setActiveSection] = useState<SectionId>(section ?? 'appearance');
 
   const navigateBack = useCallback(() => {
     const { activeContextId } = getUiState();
@@ -122,4 +123,9 @@ function SettingsRoute() {
 
 export default SettingsRoute;
 
-export const Route = createFileRoute('/settings')({ component: SettingsRoute });
+export const Route = createFileRoute('/settings')({
+  component: SettingsRoute,
+  validateSearch: (search: Record<string, unknown>) => ({
+    section: (search.section as SectionId) || undefined,
+  }),
+});
