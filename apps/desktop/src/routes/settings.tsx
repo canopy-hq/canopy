@@ -71,9 +71,12 @@ function SettingsRoute() {
     <div className="fixed inset-0 z-50 flex bg-bg-primary">
       {/* Sidebar */}
       <div className="flex w-[220px] flex-shrink-0 flex-col border-r border-border bg-bg-secondary">
-        {/* Back link */}
+        {/* Traffic lights spacer + drag region */}
+        <div data-tauri-drag-region className="h-[38px] flex-shrink-0" />
+
+        {/* Back link — below traffic lights, no border */}
         <button
-          className="flex items-center gap-1.5 px-4 py-3 text-[13px] text-text-muted transition-colors hover:text-text-primary"
+          className="flex items-center gap-1.5 px-4 pb-3 text-[13px] text-text-muted transition-colors hover:text-text-primary"
           onClick={handleBack}
           aria-label="Back to app"
         >
@@ -82,7 +85,7 @@ function SettingsRoute() {
         </button>
 
         {/* Nav sections */}
-        <nav className="flex-1 space-y-4 px-3 py-2">
+        <nav className="flex-1 space-y-4 px-3">
           {NAV.map((group) => (
             <div key={group.label}>
               <div className="mb-1 flex items-center gap-1.5 px-2 text-[11px] font-semibold tracking-wider text-text-muted/60 uppercase">
@@ -107,8 +110,10 @@ function SettingsRoute() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-8 py-6">
-        <div className="mx-auto max-w-lg">
+      <div className="flex-1 overflow-y-auto">
+        {/* Drag region spacer aligned with sidebar traffic lights zone */}
+        <div data-tauri-drag-region className="h-[38px] flex-shrink-0" />
+        <div className="mx-auto max-w-lg px-8 pb-6">
           <ActiveComponent />
         </div>
       </div>
