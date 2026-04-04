@@ -1,7 +1,7 @@
 name: Feature Request
 description: Suggest a new feature or improvement
-title: ""
-labels: ["enhancement"]
+title: ''
+labels: ['enhancement']
 body:
   - type: dropdown
     id: area
@@ -23,7 +23,7 @@ body:
     attributes:
       label: Problem or Motivation
       description: What problem does this solve, or what workflow does it improve?
-      placeholder: "I find it frustrating when ..."
+      placeholder: 'I find it frustrating when ...'
     validations:
       required: true
 

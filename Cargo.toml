@@ -1,8 +1,5 @@
 [workspace]
-members = [
-    "apps/desktop/src-tauri",
-    "packages/pty-daemon",
-]
+members = ["apps/desktop/src-tauri", "packages/pty-daemon"]
 resolver = "2"
 
 [workspace.dependencies]

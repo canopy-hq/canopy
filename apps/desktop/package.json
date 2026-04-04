@@ -15,6 +15,7 @@
     "format": "oxfmt src"
   },
   "dependencies": {
+    "@superagent/command-palette": "workspace:*",
     "@superagent/db": "workspace:*",
     "@superagent/fps": "workspace:*",
     "@superagent/terminal": "workspace:*",

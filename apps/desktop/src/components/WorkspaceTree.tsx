@@ -398,7 +398,7 @@ export function WorkspaceTree() {
 
   return (
     <>
-      <div className="px-3 pt-1 pb-1.5 text-[10px] font-semibold tracking-[1px] text-text-muted uppercase">
+      <div className="px-3 pt-2 pb-1 font-mono text-[10px] font-semibold tracking-wider text-text-muted uppercase opacity-60">
         Projects
       </div>
       <Tree

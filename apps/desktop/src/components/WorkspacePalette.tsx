@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { Modal, ModalOverlay } from 'react-aria-components';
 
 import { tv } from 'tailwind-variants';
 
@@ -142,18 +142,17 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
     [onClose, pickingBase, confirmBranch, isCreateMode, handleCreateWorktree],
   );
 
-  if (!isOpen) return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[20vh]"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+  return (
+    <ModalOverlay
+      isOpen={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
       }}
-      onKeyDown={handleKeyDown}
-      role="presentation"
+      isDismissable
+      isKeyboardDismissDisabled
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[20vh]"
     >
-      <div className="w-[440px] overflow-hidden rounded-[10px] border border-border bg-bg-primary shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
+      <Modal className="w-[440px] overflow-hidden rounded-[10px] border border-border bg-bg-primary shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
         {/* Search bar */}
         <div className="flex items-center gap-2 border-b border-border px-4 py-3">
           <svg
@@ -174,6 +173,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
               setQuery(e.target.value);
               setConfirmBranch(null);
             }}
+            onKeyDown={handleKeyDown}
             placeholder="Search or create new branch..."
             className="flex-1 border-none bg-transparent text-[14px] text-text-primary outline-none"
           />
@@ -385,9 +385,8 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
             </>
           )}
         </div>
-      </div>
-    </div>,
-    document.body,
+      </Modal>
+    </ModalOverlay>
   );
 }
 

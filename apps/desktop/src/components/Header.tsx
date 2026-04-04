@@ -36,8 +36,7 @@ export function Header({ onSessionsClick }: HeaderProps = {}) {
         <Tooltip
           label={
             <>
-              Toggle sidebar <Kbd>⌘</Kbd>
-              <Kbd>B</Kbd>
+              Toggle sidebar <Kbd>⌘B</Kbd>
             </>
           }
           placement="right"

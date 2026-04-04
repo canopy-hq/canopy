@@ -14,15 +14,13 @@ import type { Tab } from '@superagent/db';
 
 const closeTabLabel = (
   <>
-    Close Tab <Kbd>⌘</Kbd>
-    <Kbd>W</Kbd>
+    Close Tab <Kbd>⌘W</Kbd>
   </>
 );
 
 const newTabLabel = (
   <>
-    New Tab <Kbd>⌘</Kbd>
-    <Kbd>T</Kbd>
+    New Tab <Kbd>⌘T</Kbd>
   </>
 );
 

@@ -75,10 +75,7 @@ function EmptyState() {
           <path d="M9 10h3" />
         </svg>
         <span className="flex-1 text-left">New Terminal</span>
-        <div className="flex gap-1">
-          <KbdBadge>⌘</KbdBadge>
-          <KbdBadge>T</KbdBadge>
-        </div>
+        <KbdBadge>⌘T</KbdBadge>
       </Button>
 
       <Button
@@ -101,10 +98,7 @@ function EmptyState() {
           <path d="M6 1v14" />
         </svg>
         <span className="flex-1 text-left">Toggle Sidebar</span>
-        <div className="flex gap-1">
-          <KbdBadge>⌘</KbdBadge>
-          <KbdBadge>B</KbdBadge>
-        </div>
+        <KbdBadge>⌘B</KbdBadge>
       </Button>
     </div>
   );

@@ -1,7 +1,7 @@
 ---
 name: tackle-issue
 description: "Tackle a GitHub issue end-to-end: fetch it, analyze it, create a branch, plan the implementation, and execute. Use this skill whenever the user wants to work on a GitHub issue, fix a bug from an issue, implement a feature from an issue, or mentions an issue number/URL. Also triggers on phrases like 'tackle issue', 'work on issue', 'pick up issue', 'start issue', 'grab an issue', or 'what issues do I have'."
-argument-hint: "[issue-number-or-url]"
+argument-hint: '[issue-number-or-url]'
 ---
 
 # Tackle Issue
@@ -45,11 +45,13 @@ Link PR to issue (Development field)
 ### If args provided
 
 Extract the issue number from the argument. Accept these formats:
+
 - `42` or `#42` → issue number directly
 - `https://github.com/nept/superagent/issues/42` → parse the number from the URL
 - `nept/superagent#42` → parse number
 
 Fetch the issue:
+
 ```bash
 gh issue view <number> --json number,title,body,labels,assignees,state,comments,milestone
 ```
@@ -91,6 +93,7 @@ Use AskUserQuestion to let the user pick an issue. Then fetch full details with 
 ## Step 2: Analyze the Issue
 
 Read the issue title, body, labels, and comments. Summarize:
+
 - **What**: one-line summary of what needs to happen
 - **Why**: motivation or context from the issue
 - **Scope**: affected areas (files, modules, layers — frontend/backend/both)
@@ -114,10 +117,12 @@ gh issue edit <number> --add-assignee "@me"
 Create an isolated worktree for this issue. Determine the branch name first:
 
 **Branch naming:** `<type>/<issue-number>-<short-slug>`
+
 - Type from labels: `bug` → `fix`, `enhancement`/`feature` → `feat`, otherwise → `chore`
 - Slug: lowercase, hyphens, max 50 chars, no trailing hyphens
 
 Examples:
+
 - Issue #42 "Add dark mode support" with label `enhancement` → `feat/42-add-dark-mode-support`
 - Issue #38 "Sidebar crash on 40+ workspaces" with label `bug` → `fix/38-sidebar-crash-on-40-workspaces`
 - Issue #45 "Update dependencies" → `chore/45-update-dependencies`
@@ -160,16 +165,20 @@ Structure the plan around the issue. Keep it concise — sacrifice grammar for b
 > **Issue:** <link>
 
 ## Context
+
 <1-2 lines from the issue analysis>
 
 ## Changes
+
 1. <file/module> — <what to change and why>
 2. ...
 
 ## Verification
+
 - `<command>` — <what it checks>
 
 ## Questions
+
 - <if any>
 ```
 
@@ -190,9 +199,11 @@ gh pr view --json url --jq '.url' 2>/dev/null
 ```
 
 - **PR exists:** Link it to the issue's Development field:
+
   ```bash
   gh issue develop <number> --name <branch-name>
   ```
+
   Report: "Linked PR <url> to #<number>."
 
 - **No PR yet:** Tell the user:
