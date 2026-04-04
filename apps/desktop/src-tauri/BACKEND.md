@@ -4,13 +4,13 @@ Rust backend architecture, IPC patterns, and performance rules.
 
 ## Modules
 
-| Module | Responsibility |
-|--------|---------------|
-| `git.rs` | All git2 ops: branches, worktrees, diff stats. `spawn_blocking` + `Semaphore(6)` for async. Batch variant `get_all_diff_stats` for N repos in one call. |
-| `pty.rs` | Bridges daemon client + agent watcher. `spawn_terminal` → daemon spawn → attach Channel → start agent watcher. |
-| `agent_watcher.rs` | libproc process-tree walk. Known agents: claude, codex, aider, gemini. 250ms poll, emits `agent-status-changed` events on state change only. |
-| `daemon_client.rs` | Unix socket client for pty-daemon. Fresh connection per request (spawn/close), persistent connection for fire-and-forget (write/resize). |
-| `lib.rs` | Tauri setup: plugins, menu, daemon lifecycle, window hide-on-close (PTY sessions survive). |
+| Module             | Responsibility                                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `git.rs`           | All git2 ops: branches, worktrees, diff stats. `spawn_blocking` + `Semaphore(6)` for async. Batch variant `get_all_diff_stats` for N repos in one call. |
+| `pty.rs`           | Bridges daemon client + agent watcher. `spawn_terminal` → daemon spawn → attach Channel → start agent watcher.                                          |
+| `agent_watcher.rs` | libproc process-tree walk. Known agents: claude, codex, aider, gemini. 250ms poll, emits `agent-status-changed` events on state change only.            |
+| `daemon_client.rs` | Unix socket client for pty-daemon. Fresh connection per request (spawn/close), persistent connection for fire-and-forget (write/resize).                |
+| `lib.rs`           | Tauri setup: plugins, menu, daemon lifecycle, window hide-on-close (PTY sessions survive).                                                              |
 
 ## PTY Daemon
 

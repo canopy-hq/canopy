@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
 
-import { tv } from 'tailwind-variants';
 import { useNavigate } from '@tanstack/react-router';
+import { tv } from 'tailwind-variants';
 
 import { useAgents, useWorkspaces, useTabs } from '../hooks/useCollections';
+import { containsPtyId } from '../lib/pane-tree-ops';
 import { jumpToPane } from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
 
-import { containsPtyId } from '../lib/pane-tree-ops';
 import type { AgentInfo } from '@superagent/db';
 
 export interface AgentOverlayProps {
@@ -39,9 +39,7 @@ const agentRowStyle = tv({
       idle: 'border-transparent bg-transparent',
     },
   },
-  defaultVariants: {
-    state: 'idle',
-  },
+  defaultVariants: { state: 'idle' },
 });
 
 export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
@@ -223,7 +221,11 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                     const flatIndex = flatRows.indexOf(row);
                     const isSelected = flatIndex === selectedIndex;
                     const isWaiting = row.agent.status === 'waiting';
-                    const state: 'waiting' | 'selected' | 'idle' = isWaiting ? 'waiting' : isSelected ? 'selected' : 'idle';
+                    const state: 'waiting' | 'selected' | 'idle' = isWaiting
+                      ? 'waiting'
+                      : isSelected
+                        ? 'selected'
+                        : 'idle';
 
                     return (
                       <div
@@ -240,7 +242,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                         <span className="flex-1 truncate text-[13px] text-text-muted">
                           {row.workspaceName}
                         </span>
-                        <span className="shrink-0 text-[11px] tabular-nums text-text-muted">
+                        <span className="shrink-0 text-[11px] text-text-muted tabular-nums">
                           {formatDuration(row.agent.startedAt)}
                         </span>
                       </div>

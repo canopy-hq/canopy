@@ -37,9 +37,9 @@ The `channel-manager` state machine separates these phases so the overlay is onl
 
 ### Two wiring modes
 
-| Mode | API | When to use |
-|------|-----|-------------|
-| **Reconnect** | `setHandler(h)` | Cold restart — user wants to see their previous session. Flushes scrollback immediately. |
+| Mode            | API                  | When to use                                                                                              |
+| --------------- | -------------------- | -------------------------------------------------------------------------------------------------------- |
+| **Reconnect**   | `setHandler(h)`      | Cold restart — user wants to see their previous session. Flushes scrollback immediately.                 |
 | **Fresh spawn** | `setHandlerFresh(h)` | New PTY — discard all pre-sentinel data, forward only live bytes. Keeps overlay until first real prompt. |
 
 ### Overlay mechanism
@@ -69,33 +69,33 @@ useTerminal(
 
 ### PTY functions (`pty.ts`)
 
-| Function | Description |
-|----------|-------------|
-| `spawnTerminal(paneId, cwd?, rows?, cols?)` | Spawn a new PTY; returns `ptyId`. |
-| `connectPtyOutput(ptyId, handler)` | Wire handler, flush scrollback (reconnect path). |
-| `connectPtyOutputFresh(ptyId, handler)` | Wire handler, discard scrollback, wait for sentinel (spawn path). |
-| `writeToPty(ptyId, data)` | Send string data to the PTY. |
-| `resizePty(ptyId, rows, cols)` | Resize the PTY grid. |
-| `closePty(ptyId)` | Close PTY and remove from registry. |
-| `getPtyCwd(ptyId)` | Get the current working directory of the PTY process. |
+| Function                                    | Description                                                       |
+| ------------------------------------------- | ----------------------------------------------------------------- |
+| `spawnTerminal(paneId, cwd?, rows?, cols?)` | Spawn a new PTY; returns `ptyId`.                                 |
+| `connectPtyOutput(ptyId, handler)`          | Wire handler, flush scrollback (reconnect path).                  |
+| `connectPtyOutputFresh(ptyId, handler)`     | Wire handler, discard scrollback, wait for sentinel (spawn path). |
+| `writeToPty(ptyId, data)`                   | Send string data to the PTY.                                      |
+| `resizePty(ptyId, rows, cols)`              | Resize the PTY grid.                                              |
+| `closePty(ptyId)`                           | Close PTY and remove from registry.                               |
+| `getPtyCwd(ptyId)`                          | Get the current working directory of the PTY process.             |
 
 ### Terminal cache (`terminal-cache.ts`)
 
-| Function | Description |
-|----------|-------------|
-| `getCached(ptyId)` | Retrieve `{ term, fitAddon }` or `undefined`. |
-| `setCached(ptyId, term, fitAddon)` | Store (or overwrite) a cache entry. |
-| `disposeCached(ptyId)` | Call `term.dispose()` and remove entry. |
-| `getAllCached()` | Return the live cache `Map` (read-only). |
+| Function                           | Description                                   |
+| ---------------------------------- | --------------------------------------------- |
+| `getCached(ptyId)`                 | Retrieve `{ term, fitAddon }` or `undefined`. |
+| `setCached(ptyId, term, fitAddon)` | Store (or overwrite) a cache entry.           |
+| `disposeCached(ptyId)`             | Call `term.dispose()` and remove entry.       |
+| `getAllCached()`                   | Return the live cache `Map` (read-only).      |
 
 ### Themes (`themes.ts`)
 
-| Export | Type | Description |
-|--------|------|-------------|
-| `themes` | `Record<ThemeName, ThemeDefinition>` | Full theme definitions. |
-| `themeNames` | `ThemeName[]` | Array of all theme name strings. |
-| `terminalThemes` | `Record<ThemeName, TerminalThemeColors>` | Terminal color schemes only. |
-| `cssThemeProperties` | `Record<ThemeName, CssThemeProperties>` | CSS custom property values only. |
+| Export               | Type                                     | Description                      |
+| -------------------- | ---------------------------------------- | -------------------------------- |
+| `themes`             | `Record<ThemeName, ThemeDefinition>`     | Full theme definitions.          |
+| `themeNames`         | `ThemeName[]`                            | Array of all theme name strings. |
+| `terminalThemes`     | `Record<ThemeName, TerminalThemeColors>` | Terminal color schemes only.     |
+| `cssThemeProperties` | `Record<ThemeName, CssThemeProperties>`  | CSS custom property values only. |
 
 ### `ensureGhosttyInit`
 
@@ -111,16 +111,16 @@ Lazy singleton — initializes the ghostty-web WASM module once. Subsequent call
 
 Eight dark themes, each defining CSS custom properties and ANSI terminal colors:
 
-| Name | Accent | Character |
-|------|--------|-----------|
-| `obsidian` | Blue (`#3b82f6`) | Deep blue-black (**default**) |
-| `carbon` | Amber (`#d97706`) | Warm neutral |
-| `graphite` | Violet (`#8b5cf6`) | Cool gray |
-| `slate` | Sky (`#38bdf8`) | Blue-gray |
-| `midnight` | Indigo (`#6366f1`) | Deep navy |
-| `void` | Purple (`#a855f7`) | Near-pure black |
-| `smoke` | Amber (`#f59e0b`) | Warm brown-gray |
-| `ash` | Emerald (`#10b981`) | Desaturated cool-green |
+| Name       | Accent              | Character                     |
+| ---------- | ------------------- | ----------------------------- |
+| `obsidian` | Blue (`#3b82f6`)    | Deep blue-black (**default**) |
+| `carbon`   | Amber (`#d97706`)   | Warm neutral                  |
+| `graphite` | Violet (`#8b5cf6`)  | Cool gray                     |
+| `slate`    | Sky (`#38bdf8`)     | Blue-gray                     |
+| `midnight` | Indigo (`#6366f1`)  | Deep navy                     |
+| `void`     | Purple (`#a855f7`)  | Near-pure black               |
+| `smoke`    | Amber (`#f59e0b`)   | Warm brown-gray               |
+| `ash`      | Emerald (`#10b981`) | Desaturated cool-green        |
 
 ---
 

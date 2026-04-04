@@ -24,7 +24,7 @@ import { initAgentListener } from '../lib/agent-actions';
 import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
 import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
-import { toggleSidebar } from '../lib/workspace-actions';
+import { toggleSidebar, refreshRepo } from '../lib/workspace-actions';
 
 function RootLayout() {
   const [overlayOpen, setOverlayOpen] = useState(false);
@@ -34,12 +34,16 @@ function RootLayout() {
   const booted = useRef(false);
 
   // Boot: restore last active workspace from DB (routing is source of truth after this)
+  // Also refresh all workspaces so branches reflect current HEAD (cleans stale data).
   useEffect(() => {
     if (booted.current) return;
     booted.current = true;
     const { activeContextId } = getUiState();
     if (activeContextId) {
       void navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: activeContextId } });
+    }
+    for (const ws of getWorkspaceCollection().toArray) {
+      void refreshRepo(ws.id);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

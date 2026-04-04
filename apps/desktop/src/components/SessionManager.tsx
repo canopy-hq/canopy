@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
+
+import { closePty, listPtySessions } from '@superagent/terminal';
 import { useNavigate } from '@tanstack/react-router';
 
 import { useTabs, useWorkspaces } from '../hooks/useCollections';
-import { killPaneInTab, jumpToPane } from '../lib/tab-actions';
-import { closePty, listPtySessions } from '@superagent/terminal';
-
-import { getWorkspaceItemIds } from '../lib/workspace-actions';
 import { containsPtyId } from '../lib/pane-tree-ops';
+import { killPaneInTab, jumpToPane } from '../lib/tab-actions';
+import { getWorkspaceItemIds } from '../lib/workspace-actions';
 
 import type { Tab, Workspace } from '@superagent/db';
 import type { PtySessionInfo } from '@superagent/terminal';
@@ -237,13 +237,13 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                       </span>
 
                       {/* Stats */}
-                      <span className="shrink-0 tabular-nums text-[11px] text-text-muted">
+                      <span className="shrink-0 text-[11px] text-text-muted tabular-nums">
                         PID {row.info.ptyId}
                       </span>
-                      <span className="w-[48px] shrink-0 text-right tabular-nums text-[11px] text-text-muted">
+                      <span className="w-[48px] shrink-0 text-right text-[11px] text-text-muted tabular-nums">
                         {row.info.cpuPercent.toFixed(1)}%
                       </span>
-                      <span className="w-[44px] shrink-0 text-right tabular-nums text-[11px] text-text-muted">
+                      <span className="w-[44px] shrink-0 text-right text-[11px] text-text-muted tabular-nums">
                         {row.info.memoryMb}MB
                       </span>
 

@@ -9,12 +9,13 @@
  *   cargo build --bin superagent-pty-daemon
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { fileURLToPath } from 'node:url';
 import { spawn, type ChildProcess } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as net from 'node:net';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createChannelEntry } from '../../src/channel-manager';
 
@@ -137,7 +138,11 @@ beforeEach(async () => {
 
 afterEach(() => {
   daemonProc.kill();
-  try { fs.unlinkSync(sockPath); } catch { /* already gone */ }
+  try {
+    fs.unlinkSync(sockPath);
+  } catch {
+    /* already gone */
+  }
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -146,7 +151,14 @@ describe('daemon → channel-manager protocol', () => {
   it('scrollback → sentinel → channel-manager receives bytes intact', async () => {
     // Spawn a shell that produces known output
     const { socket: s1, buf: b1 } = await connectSocket(sockPath);
-    sendLine(s1, { op: 'spawn', paneId: 'p1', rows: 24, cols: 80, command: 'sh', args: ['-c', "printf 'DAEMON_OUTPUT_12345'"] });
+    sendLine(s1, {
+      op: 'spawn',
+      paneId: 'p1',
+      rows: 24,
+      cols: 80,
+      command: 'sh',
+      args: ['-c', "printf 'DAEMON_OUTPUT_12345'"],
+    });
     const resp = await readJsonLine(b1);
     expect(resp['ok']).toBe(true);
     s1.destroy();
@@ -183,7 +195,14 @@ describe('daemon → channel-manager protocol', () => {
 
   it('setHandlerFresh discards pre-sentinel frames, delivers only live bytes', async () => {
     const { socket: s1, buf: b1 } = await connectSocket(sockPath);
-    sendLine(s1, { op: 'spawn', paneId: 'p2', rows: 24, cols: 80, command: 'sh', args: ['-c', "printf 'SCROLLBACK_DATA'"] });
+    sendLine(s1, {
+      op: 'spawn',
+      paneId: 'p2',
+      rows: 24,
+      cols: 80,
+      command: 'sh',
+      args: ['-c', "printf 'SCROLLBACK_DATA'"],
+    });
     await readJsonLine(b1);
     s1.destroy();
 
@@ -222,8 +241,12 @@ describe('daemon → channel-manager protocol', () => {
 
     const { socket: s1, buf: b1 } = await connectSocket(sockPath);
     sendLine(s1, {
-      op: 'spawn', paneId: 'p3', rows: 24, cols: 80,
-      command: 'sh', args: ['-c', `printf '${knownPayload}'`],
+      op: 'spawn',
+      paneId: 'p3',
+      rows: 24,
+      cols: 80,
+      command: 'sh',
+      args: ['-c', `printf '${knownPayload}'`],
     });
     await readJsonLine(b1);
     s1.destroy();
@@ -239,7 +262,10 @@ describe('daemon → channel-manager protocol', () => {
 
     for (let i = 0; i < 50; i++) {
       const frame = await readFrame(b2);
-      if (frame.length === 0) { entry.onData([]); break; }
+      if (frame.length === 0) {
+        entry.onData([]);
+        break;
+      }
       entry.onData(Array.from(frame));
     }
     s2.destroy();
