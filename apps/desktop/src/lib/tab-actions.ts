@@ -73,7 +73,6 @@ export function closeTab(tabId: string): void {
   const ui = getUiState();
 
   if (contextTabs.length === 1) {
-    // Last tab in context: clear active state and contextActiveTabIds entry
     deleteTabAndUpdateActive(tabId, '');
     uiCollection.update('ui', (draft) => {
       const { [contextId]: _, ...rest } = draft.contextActiveTabIds;
@@ -83,12 +82,9 @@ export function closeTab(tabId: string): void {
   }
 
   if (ui.activeTabId === tabId) {
-    // Closing the active tab: pick the next tab before deleting
     const remaining = contextTabs.filter((t) => t.id !== tabId);
-    const newTabId = remaining[0]!.id;
-    deleteTabAndUpdateActive(tabId, newTabId);
+    deleteTabAndUpdateActive(tabId, remaining[0]!.id);
   } else {
-    // Closing an inactive tab: activeTabId is unaffected
     deleteTabAndUpdateActive(tabId, null);
   }
 }
