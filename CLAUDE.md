@@ -25,11 +25,11 @@ Guidance for Claude Code when working with this repository.
 
 ```bash
 bun install                                          # install deps
-bun --filter desktop tauri dev                       # dev server
+bun run desktop:dev                                  # dev server (auto-assigns port, supports parallel worktrees)
+bun run desktop:build                                # production binary
 bun --filter desktop run test                        # frontend tests (vitest)
 bun --filter @superagent/terminal run test           # terminal package tests
 cd apps/desktop/src-tauri && cargo test              # rust tests
-bun --filter desktop tauri build                     # production binary
 bun run lint                                         # oxlint (root)
 bun run format                                       # oxfmt (root)
 ```

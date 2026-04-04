@@ -16,7 +16,7 @@ export default defineConfig({
   ],
   clearScreen: false,
   server: {
-    port: 5173,
+    port: parseInt(process.env.VITE_PORT ?? '5173'),
     strictPort: true,
     host: host || false,
     hmr: host ? { protocol: 'ws', host, port: 1421 } : undefined,
