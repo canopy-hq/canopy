@@ -83,6 +83,7 @@ import {
 function makeTab(overrides: Partial<Tab> & { id: string; workspaceItemId: string }): Tab {
   return {
     label: 'Terminal',
+    labelIsManual: false,
     paneRoot: { type: 'leaf', id: 'pane-1', ptyId: -1 },
     focusedPaneId: 'pane-1',
     position: 0,

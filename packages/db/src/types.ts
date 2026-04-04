@@ -50,6 +50,7 @@ export type PaneNode = LeafNode | BranchNode;
 export interface Tab {
   id: string;
   label: string;
+  labelIsManual: boolean;
   workspaceItemId: string;
   paneRoot: PaneNode;
   focusedPaneId: string | null;

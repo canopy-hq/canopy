@@ -14,7 +14,8 @@ export const workspaces = sqliteTable('workspaces', {
 
 export const tabs = sqliteTable('tabs', {
   id: text('id').primaryKey(),
-  label: text('label').notNull().default('Terminal'),
+  label: text('label').notNull().default('Terminal 1'),
+  labelIsManual: integer('label_is_manual', { mode: 'boolean' }).notNull().default(false),
   workspaceItemId: text('workspace_item_id').notNull().default('default'),
   // JSON: PaneNode (serialized recursive tree)
   paneRoot: text('pane_root').notNull(),
