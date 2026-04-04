@@ -67,7 +67,7 @@ function SettingsRoute() {
 
         {/* Back link */}
         <button
-          className="flex items-center gap-1 px-4 text-[11px] text-text-muted transition-colors hover:text-text-primary"
+          className="flex items-center gap-1 px-5 text-[11px] text-text-muted transition-colors hover:text-text-primary"
           onClick={handleBack}
           aria-label="Back to app"
         >
@@ -76,7 +76,7 @@ function SettingsRoute() {
         </button>
 
         {/* Settings title */}
-        <div className="px-4 pt-3 pb-4 text-[15px] font-bold text-text-primary">Settings</div>
+        <div className="px-5 pt-3 pb-4 text-[15px] font-bold text-text-primary">Settings</div>
 
         {/* Nav sections */}
         <nav className="flex-1 space-y-4 px-3">
