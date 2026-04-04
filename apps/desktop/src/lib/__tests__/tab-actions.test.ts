@@ -58,6 +58,14 @@ vi.mock('@superagent/db', () => ({
   },
   getUiState: () => _uiState,
   setSetting: (...args: unknown[]) => mockSetSetting(...args),
+  insertTabAndActivate: (tab: Tab) => {
+    _tabs.push(tab);
+    _uiState.activeTabId = tab.id;
+  },
+  deleteTabAndUpdateActive: (tabId: string, newActiveTabId: string | null) => {
+    _tabs = _tabs.filter((t) => t.id !== tabId);
+    if (newActiveTabId !== null) _uiState.activeTabId = newActiveTabId;
+  },
 }));
 
 // Import AFTER mock is set up

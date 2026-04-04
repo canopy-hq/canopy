@@ -1,8 +1,9 @@
-import { createCollection, localOnlyCollectionOptions } from '@tanstack/db';
+import { createCollection, createTransaction, localOnlyCollectionOptions } from '@tanstack/db';
 import { asc, eq } from 'drizzle-orm';
 
 import { getDb } from '../client';
 import { tabs as table } from '../schema';
+import { uiCollection } from './ui';
 
 import type { Tab, PaneNode } from '../types';
 
@@ -71,4 +72,53 @@ export async function hydrateTabCollection(): Promise<void> {
   _collection = makeCollection(
     rows.map(deserialize).map((t) => ({ ...t, paneRoot: resetPtyIds(t.paneRoot) })),
   );
+}
+
+export function insertTabAndActivate(tab: Tab): void {
+  const tabCol = getTabCollection();
+  const tx = createTransaction({
+    mutationFn: async ({ transaction }) => {
+      const db = getDb();
+      for (const m of transaction.mutations) {
+        if (m.collection.id === tabCol.id && m.type === 'insert') {
+          await db.insert(table).values(serialize(m.modified as Tab));
+        }
+      }
+      tabCol.utils.acceptMutations(transaction);
+      uiCollection.utils.acceptMutations(transaction);
+    },
+  });
+  tx.mutate(() => {
+    tabCol.insert(tab);
+    uiCollection.update('ui', (draft) => {
+      draft.activeTabId = tab.id;
+    });
+  });
+  tx.commit().catch(() => undefined);
+}
+
+export function deleteTabAndUpdateActive(tabId: string, newActiveTabId: string | null): void {
+  const tabCol = getTabCollection();
+  const tx = createTransaction({
+    mutationFn: async ({ transaction }) => {
+      const db = getDb();
+      for (const m of transaction.mutations) {
+        if (m.collection.id === tabCol.id && m.type === 'delete') {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await db.delete(table).where(eq(table.id, (m.original as any).id));
+        }
+      }
+      tabCol.utils.acceptMutations(transaction);
+      uiCollection.utils.acceptMutations(transaction);
+    },
+  });
+  tx.mutate(() => {
+    tabCol.delete(tabId);
+    if (newActiveTabId !== null) {
+      uiCollection.update('ui', (draft) => {
+        draft.activeTabId = newActiveTabId;
+      });
+    }
+  });
+  tx.commit().catch(() => undefined);
 }
