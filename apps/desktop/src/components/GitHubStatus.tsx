@@ -2,9 +2,8 @@ import { getSetting } from '@superagent/db';
 import { useNavigate } from '@tanstack/react-router';
 
 import { useSettings } from '../hooks/useCollections';
+import { GITHUB_CONNECTION_KEY, type GitHubConnection } from '../lib/github';
 import { Button, Tooltip } from './ui';
-
-import type { GitHubConnection } from '../lib/github';
 
 function GitHubIcon() {
   return (
@@ -17,7 +16,7 @@ function GitHubIcon() {
 export function GitHubStatus() {
   const navigate = useNavigate();
   const settings = useSettings();
-  const connection = getSetting<GitHubConnection | null>(settings, 'github:connection', null);
+  const connection = getSetting<GitHubConnection | null>(settings, GITHUB_CONNECTION_KEY, null);
 
   const handlePress = () => {
     void navigate({ to: '/settings' });

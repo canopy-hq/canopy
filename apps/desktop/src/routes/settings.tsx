@@ -12,16 +12,17 @@ import {
   disconnect,
   startDeviceFlow,
   pollToken,
+  GITHUB_CONNECTION_KEY,
   type GitHubConnection,
   type DeviceCodeInfo,
 } from "../lib/github";
+import { showErrorToast } from "../lib/toast";
 
 type AuthState =
   | { status: "loading" }
   | { status: "disconnected" }
   | { status: "connecting"; deviceCode: DeviceCodeInfo }
-  | { status: "connected"; connection: GitHubConnection }
-  | { status: "error"; message: string };
+  | { status: "connected"; connection: GitHubConnection };
 
 function SettingsRoute() {
   const navigate = useNavigate();
@@ -35,13 +36,12 @@ function SettingsRoute() {
     return () => window.removeEventListener("keydown", onKey);
   }, [navigate]);
 
-  // Check connection status on mount
   useEffect(() => {
     let cancelled = false;
     getConnection()
       .then((conn) => {
         if (cancelled) return;
-        setSetting("github:connection", conn);
+        setSetting(GITHUB_CONNECTION_KEY, conn);
         setAuth(
           conn
             ? { status: "connected", connection: conn }
@@ -67,26 +67,27 @@ function SettingsRoute() {
         deviceCode.interval,
         deviceCode.expiresIn,
       );
-      setSetting("github:connection", connection);
+      setSetting(GITHUB_CONNECTION_KEY, connection);
       setAuth({ status: "connected", connection });
     } catch (e) {
-      setAuth({
-        status: "error",
-        message: e instanceof Error ? e.message : String(e),
-      });
+      showErrorToast(
+        "GitHub authentication failed",
+        e instanceof Error ? e.message : String(e),
+      );
+      setAuth({ status: "disconnected" });
     }
   }, []);
 
   const handleDisconnect = useCallback(async () => {
     try {
       await disconnect();
-      setSetting("github:connection", null);
+      setSetting(GITHUB_CONNECTION_KEY, null);
       setAuth({ status: "disconnected" });
     } catch (e) {
-      setAuth({
-        status: "error",
-        message: e instanceof Error ? e.message : String(e),
-      });
+      showErrorToast(
+        "Disconnect failed",
+        e instanceof Error ? e.message : String(e),
+      );
     }
   }, []);
 
@@ -206,19 +207,6 @@ function GitHubAuth({
             Cancel
           </Button>
         </div>
-      </div>
-    );
-  }
-
-  if (auth.status === "error") {
-    return (
-      <div className="space-y-3">
-        <div className="rounded-lg bg-destructive/[0.08] px-4 py-3 text-[12px] text-destructive">
-          {auth.message}
-        </div>
-        <Button variant="primary" size="sm" onPress={onConnect}>
-          Try again
-        </Button>
       </div>
     );
   }

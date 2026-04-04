@@ -11,9 +11,12 @@ vi.mock('../../lib/github', () => ({
   disconnect: () => mockDisconnect(),
   startDeviceFlow: () => mockStartDeviceFlow(),
   pollToken: (...args: unknown[]) => mockPollToken(...args),
+  GITHUB_CONNECTION_KEY: 'github:connection',
 }));
 
 vi.mock('@superagent/db', () => ({ setSetting: vi.fn() }));
+vi.mock('../../lib/toast', () => ({ showErrorToast: vi.fn() }));
+vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: vi.fn() }));
 
 const mockNavigate = vi.fn();
 vi.mock('@tanstack/react-router', () => ({

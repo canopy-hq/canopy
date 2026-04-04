@@ -13,6 +13,7 @@ fn client_id() -> Result<String, String> {
 
 // ── Types ─────────────────────────────────────────────────────────────
 
+// GitHub sends snake_case; Tauri IPC serializes camelCase for the frontend.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all(serialize = "camelCase", deserialize = "snake_case"))]
 pub struct DeviceCodeResponse {
@@ -24,6 +25,7 @@ pub struct DeviceCodeResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct TokenSuccessResponse {
     pub access_token: String,
     pub token_type: String,
@@ -31,6 +33,7 @@ pub struct TokenSuccessResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct TokenErrorResponse {
     pub error: String,
     pub error_description: Option<String>,
@@ -45,16 +48,17 @@ pub struct GitHubConnection {
 
 // ── Keychain helpers ──────────────────────────────────────────────────
 
+fn keychain_entry() -> Result<keyring::Entry, String> {
+    keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_USER)
+        .map_err(|e| format!("keychain entry error: {e}"))
+}
+
 fn store_token(token: &str) -> Result<(), String> {
-    let entry = keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_USER)
-        .map_err(|e| format!("keychain entry error: {e}"))?;
-    entry.set_password(token).map_err(|e| format!("keychain store error: {e}"))
+    keychain_entry()?.set_password(token).map_err(|e| format!("keychain store error: {e}"))
 }
 
 fn load_token() -> Result<Option<String>, String> {
-    let entry = keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_USER)
-        .map_err(|e| format!("keychain entry error: {e}"))?;
-    match entry.get_password() {
+    match keychain_entry()?.get_password() {
         Ok(token) => Ok(Some(token)),
         Err(keyring::Error::NoEntry) => Ok(None),
         Err(e) => Err(format!("keychain load error: {e}")),
@@ -62,9 +66,7 @@ fn load_token() -> Result<Option<String>, String> {
 }
 
 fn delete_token() -> Result<(), String> {
-    let entry = keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_USER)
-        .map_err(|e| format!("keychain entry error: {e}"))?;
-    match entry.delete_credential() {
+    match keychain_entry()?.delete_credential() {
         Ok(()) => Ok(()),
         Err(keyring::Error::NoEntry) => Ok(()),
         Err(e) => Err(format!("keychain delete error: {e}")),
@@ -96,8 +98,10 @@ async fn fetch_github_user(token: &str) -> Result<GitHubConnection, String> {
         .await
         .map_err(|e| format!("GitHub API error: {e}"))?;
 
-    if !resp.status().is_success() {
-        return Err(format!("GitHub API returned {}", resp.status()));
+    let status = resp.status();
+    if !status.is_success() {
+        let code = status.as_u16();
+        return Err(format!("github_api_error:{code}"));
     }
 
     let user: GhUser = resp.json().await.map_err(|e| format!("parse error: {e}"))?;
@@ -105,6 +109,10 @@ async fn fetch_github_user(token: &str) -> Result<GitHubConnection, String> {
         username: user.login,
         avatar_url: user.avatar_url,
     })
+}
+
+fn is_auth_error(e: &str) -> bool {
+    e.starts_with("github_api_error:401") || e.starts_with("github_api_error:403")
 }
 
 // ── Tauri commands ────────────────────────────────────────────────────
@@ -191,8 +199,7 @@ pub async fn github_get_connection() -> Result<Option<GitHubConnection>, String>
     match fetch_github_user(&token).await {
         Ok(conn) => Ok(Some(conn)),
         Err(e) => {
-            // Only delete token on auth errors (401/403), not network failures
-            if e.contains("401") || e.contains("403") {
+            if is_auth_error(&e) {
                 let _ = delete_token();
             }
             Ok(None)

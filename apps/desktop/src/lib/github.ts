@@ -1,5 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 
+export const GITHUB_CONNECTION_KEY = 'github:connection';
+
 export interface DeviceCodeInfo {
   deviceCode: string;
   userCode: string;

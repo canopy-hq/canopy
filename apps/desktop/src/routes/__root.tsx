@@ -25,7 +25,7 @@ import { useUiState } from '../hooks/useCollections';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { useTauriMenuEvent } from '../hooks/useTauriMenuEvent';
 import { initAgentListener } from '../lib/agent-actions';
-import { getConnection } from '../lib/github';
+import { getConnection, GITHUB_CONNECTION_KEY } from '../lib/github';
 import { collectRestorablePaneIds, containsPtyId, resetLeafPtyIds } from '../lib/pane-tree-ops';
 import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
@@ -112,7 +112,7 @@ function RootLayout() {
 
   // Hydrate GitHub connection status into settings for the header icon
   useEffect(() => {
-    void getConnection().then((conn) => setSetting('github:connection', conn));
+    void getConnection().then((conn) => setSetting(GITHUB_CONNECTION_KEY, conn));
   }, []);
 
   const bindings: Keybinding[] = useMemo(
