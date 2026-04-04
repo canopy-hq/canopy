@@ -17,7 +17,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { getSetting } from '@superagent/db';
 import { useNavigate } from '@tanstack/react-router';
-import { ChevronDown, ChevronRight, Laptop, FolderGit2, Plus } from 'lucide-react';
+import { ChevronDown, ChevronRight, GitPullRequest, Laptop, FolderGit2, Plus } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { makeWorkspacePaletteItem } from '../commands/workspace-commands';
@@ -52,10 +52,10 @@ import { RemoveWorktreeModal } from './RemoveWorktreeModal';
 import { StatusDot } from './StatusDot';
 import { Badge, Button, Tooltip } from './ui';
 
-import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
-import type { PrInfo } from '../lib/github';
-import type { DotStatus } from './StatusDot';
-import type { Workspace } from '@superagent/db';
+import type { BranchInfo, WorktreeInfo, DiffStat } from "../lib/git";
+import type { PrInfo } from "../lib/github";
+import type { DotStatus } from "./StatusDot";
+import type { Workspace } from "@superagent/db";
 
 const DiffPill = memo(function DiffPill({
   additions,
@@ -69,7 +69,9 @@ const DiffPill = memo(function DiffPill({
     <span className="inline-flex flex-shrink-0 gap-1 rounded bg-white/5 px-1.5 py-px text-sm font-medium whitespace-nowrap">
       {additions > 0 && <span className="text-(--git-ahead) tabular-nums">+{additions}</span>}
       {deletions > 0 && (
-        <span className="text-(--git-behind) tabular-nums">&minus;{deletions}</span>
+        <span className="text-(--git-behind) tabular-nums">
+          &minus;{deletions}
+        </span>
       )}
     </span>
   );
@@ -77,15 +79,21 @@ const DiffPill = memo(function DiffPill({
 
 const PrBadge = memo(function PrBadge({ pr }: { pr: PrInfo }) {
   const colorMap = {
-    OPEN: 'success',
-    DRAFT: 'neutral',
-    MERGED: 'merged',
-    CLOSED: 'neutral',
+    OPEN: "success",
+    DRAFT: "neutral",
+    MERGED: "merged",
+    CLOSED: "neutral",
   } as const;
-  const labelMap = { OPEN: 'Open', DRAFT: 'Draft', MERGED: 'Merged', CLOSED: 'Closed' } as const;
+  const labelMap = {
+    OPEN: "Open",
+    DRAFT: "Draft",
+    MERGED: "Merged",
+    CLOSED: "Closed",
+  } as const;
   return (
-    <Badge size="sm" color={colorMap[pr.state]}>
-      #{pr.number} {labelMap[pr.state]}
+    <Badge size="sm" color={colorMap[pr.state]} className="gap-1">
+      <GitPullRequest size={10} strokeWidth={2} />#{pr.number}{" "}
+      {labelMap[pr.state]}
     </Badge>
   );
 });
@@ -128,7 +136,7 @@ const BranchRow = memo(
             <Laptop
               size={14}
               strokeWidth={1.5}
-              stroke={branch.is_head ? 'var(--accent)' : 'var(--text-muted)'}
+              stroke={branch.is_head ? "var(--accent)" : "var(--text-muted)"}
             />
           </IconWithBadge>
           <span
@@ -136,11 +144,20 @@ const BranchRow = memo(
           >
             {branch.name}
           </span>
-          {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
-          {prInfo && <PrBadge pr={prInfo} />}
+          {diffStat && (
+            <DiffPill
+              additions={diffStat.additions}
+              deletions={diffStat.deletions}
+            />
+          )}
         </div>
-        {branch.is_head && (
-          <span className="mt-0.5 block truncate pl-5 text-sm text-text-muted">local</span>
+        {(prInfo || branch.is_head) && (
+          <div className="mt-0.5 flex items-center gap-1.5 truncate pl-[20px]">
+            {prInfo && <PrBadge pr={prInfo} />}
+            {branch.is_head && (
+              <span className="text-sm text-text-muted">local</span>
+            )}
+          </div>
         )}
       </div>
     );
@@ -170,7 +187,7 @@ const WorktreeRow = memo(
     prInfo?: PrInfo;
   }) {
     const [editing, setEditing] = useState(false);
-    const [editValue, setEditValue] = useState('');
+    const [editValue, setEditValue] = useState("");
     const inputRef = useRef<HTMLInputElement>(null);
 
     const displayName = worktree.label || worktree.branch || worktree.name;
@@ -184,7 +201,9 @@ const WorktreeRow = memo(
     function commitEdit() {
       const trimmed = editValue.trim();
       const newLabel =
-        trimmed && trimmed !== worktree.branch && trimmed !== worktree.name ? trimmed : '';
+        trimmed && trimmed !== worktree.branch && trimmed !== worktree.name
+          ? trimmed
+          : "";
       renameWorktree(workspaceId, worktree.name, newLabel);
       setEditing(false);
     }
@@ -193,7 +212,11 @@ const WorktreeRow = memo(
       <div className="group/wt my-px mr-1.5 rounded-[5px] border-l-[3px] border-transparent py-0.75 pr-1.5 pl-3">
         <div className="flex items-center gap-1.5">
           <IconWithBadge agentStatus={agentStatus}>
-            <FolderGit2 size={14} strokeWidth={1.5} stroke="var(--text-muted)" />
+            <FolderGit2
+              size={14}
+              strokeWidth={1.5}
+              stroke="var(--text-muted)"
+            />
           </IconWithBadge>
           {editing ? (
             <input
@@ -203,8 +226,8 @@ const WorktreeRow = memo(
               onBlur={commitEdit}
               onKeyDown={(e) => {
                 e.stopPropagation();
-                if (e.key === 'Enter') commitEdit();
-                if (e.key === 'Escape') setEditing(false);
+                if (e.key === "Enter") commitEdit();
+                if (e.key === "Escape") setEditing(false);
               }}
               className="m-0 min-w-0 flex-1 border-none bg-transparent p-0 font-mono text-lg text-[var(--text-secondary)] outline-none"
             />
@@ -216,12 +239,19 @@ const WorktreeRow = memo(
               {displayName}
             </span>
           )}
-          {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
-          {prInfo && <PrBadge pr={prInfo} />}
+          {diffStat && (
+            <DiffPill
+              additions={diffStat.additions}
+              deletions={diffStat.deletions}
+            />
+          )}
         </div>
-        <span className="mt-0.5 block truncate pl-5 font-mono text-sm text-text-muted">
-          {worktree.branch || worktree.name}
-        </span>
+        <div className="mt-0.5 flex items-center gap-1.5 truncate text-ui-sm">
+          {prInfo && <PrBadge pr={prInfo} />}
+          <span className="text-[11px] text-text-muted">
+            {worktree.branch || worktree.name}
+          </span>
+        </div>
       </div>
     );
   },
@@ -241,8 +271,8 @@ const repoHeader = tv({
   base: 'flex items-center gap-1.5 border-l-[3px] py-1.5 pr-1.5 pl-3 cursor-grab active:cursor-grabbing touch-none',
   variants: {
     selected: {
-      true: 'border-accent bg-accent/[0.04]',
-      false: 'border-transparent hover:bg-accent/[0.04]',
+      true: "border-accent bg-accent/[0.04]",
+      false: "border-transparent hover:bg-accent/[0.04]",
     },
   },
   defaultVariants: { selected: false },
@@ -259,7 +289,7 @@ const RepoHeader = memo(
     dragListeners,
   }: {
     workspace: Workspace;
-    agentSummary?: Array<'running' | 'waiting'>;
+    agentSummary?: Array<"running" | "waiting">;
     isSelected: boolean;
     onPlusClick: () => void;
     onRowClick: () => void;
@@ -280,9 +310,9 @@ const RepoHeader = memo(
           height="14"
           viewBox="0 0 16 16"
           fill="none"
-          stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'}
+          stroke={isSelected ? "var(--accent)" : "var(--text-muted)"}
           strokeWidth="1.5"
-          className={`flex-shrink-0 ${isSelected ? 'drop-shadow-[0_0_3px_rgba(59,130,246,0.4)]' : ''}`}
+          className={`flex-shrink-0 ${isSelected ? "drop-shadow-[0_0_3px_rgba(59,130,246,0.4)]" : ""}`}
         >
           <path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z" />
         </svg>
@@ -359,17 +389,20 @@ function useWorkspaceAgentMap(): Record<string, DotStatus> {
     const result: Record<string, DotStatus> = {};
     for (const tab of tabs) {
       const ptyIds = collectLeafPtyIds(tab.paneRoot);
-      let best: DotStatus = 'idle';
+      let best: DotStatus = "idle";
       for (const id of ptyIds) {
         const agent = agentByPty.get(id);
-        if (agent?.status === 'waiting') {
-          best = 'waiting';
+        if (agent?.status === "waiting") {
+          best = "waiting";
           break;
         }
-        if (agent?.status === 'running') best = 'running';
+        if (agent?.status === "running") best = "running";
       }
       const existing = result[tab.workspaceItemId];
-      if (best === 'waiting' || (best === 'running' && existing !== 'waiting')) {
+      if (
+        best === "waiting" ||
+        (best === "running" && existing !== "waiting")
+      ) {
         result[tab.workspaceItemId] = best;
       } else if (!existing) {
         result[tab.workspaceItemId] = best;
@@ -382,17 +415,21 @@ function useWorkspaceAgentMap(): Record<string, DotStatus> {
 function getRepoAgentSummary(
   ws: Workspace,
   agentMap: Record<string, DotStatus>,
-): Array<'running' | 'waiting'> {
-  const statuses: Array<'running' | 'waiting'> = [];
+): Array<"running" | "waiting"> {
+  const statuses: Array<"running" | "waiting"> = [];
   const checkId = (id: string) => {
     const s = agentMap[id];
-    if (s === 'running' || s === 'waiting') statuses.push(s);
+    if (s === "running" || s === "waiting") statuses.push(s);
   };
   checkId(ws.id);
   for (const b of ws.branches) checkId(`${ws.id}-branch-${b.name}`);
   for (const wt of ws.worktrees) checkId(`${ws.id}-wt-${wt.name}`);
   statuses.sort((a, b) =>
-    a === 'waiting' && b !== 'waiting' ? -1 : a !== 'waiting' && b === 'waiting' ? 1 : 0,
+    a === "waiting" && b !== "waiting"
+      ? -1
+      : a !== "waiting" && b === "waiting"
+        ? 1
+        : 0,
   );
   return statuses;
 }
@@ -413,10 +450,18 @@ export function WorkspaceTree() {
   const [overId, setOverId] = useState<string | null>(null);
   const agentMap = useWorkspaceAgentMap();
   const pageVisible = usePageVisible();
-  const diffStatsMap = useWorkspacePolling(workspaces, sidebarVisible && pageVisible);
+  const diffStatsMap = useWorkspacePolling(
+    workspaces,
+    sidebarVisible && pageVisible,
+  );
   const settings = useSettings();
-  const githubConnected = getSetting(settings, GITHUB_CONNECTION_KEY, null) !== null;
-  const prMap = usePrPolling(workspaces, sidebarVisible && pageVisible, githubConnected);
+  const githubConnected =
+    getSetting(settings, GITHUB_CONNECTION_KEY, null) !== null;
+  const prMap = usePrPolling(
+    workspaces,
+    sidebarVisible && pageVisible,
+    githubConnected,
+  );
   const navigate = useNavigate();
   const listRef = useRef<HTMLDivElement>(null);
   const sensors = useDragSensors();
@@ -519,7 +564,10 @@ export function WorkspaceTree() {
           worktreeName={removeWtTarget.name}
           onConfirm={async (alsoDeleteGit) => {
             if (alsoDeleteGit) {
-              await removeWorktree(removeWtTarget.workspaceId, removeWtTarget.name);
+              await removeWorktree(
+                removeWtTarget.workspaceId,
+                removeWtTarget.name,
+              );
             }
             hideWorktree(removeWtTarget.workspaceId, removeWtTarget.name);
             setRemoveWtTarget(null);
@@ -556,8 +604,8 @@ function ContextMenu({
         onClose();
       }}
       onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose();
-        if (e.key === 'Tab') {
+        if (e.key === "Escape") onClose();
+        if (e.key === "Tab") {
           e.preventDefault();
           onClose();
         }
@@ -570,19 +618,23 @@ function ContextMenu({
         role="menu"
         onKeyDown={(e) => {
           const menuItems =
-            e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
+            e.currentTarget.querySelectorAll<HTMLButtonElement>(
+              '[role="menuitem"]',
+            );
           const current = document.activeElement as HTMLElement;
-          const idx = Array.from(menuItems).indexOf(current as HTMLButtonElement);
-          if (e.key === 'ArrowDown') {
+          const idx = Array.from(menuItems).indexOf(
+            current as HTMLButtonElement,
+          );
+          if (e.key === "ArrowDown") {
             e.preventDefault();
             menuItems[(idx + 1) % menuItems.length]?.focus();
-          } else if (e.key === 'ArrowUp') {
+          } else if (e.key === "ArrowUp") {
             e.preventDefault();
             menuItems[(idx - 1 + menuItems.length) % menuItems.length]?.focus();
-          } else if (e.key === 'Home') {
+          } else if (e.key === "Home") {
             e.preventDefault();
             menuItems[0]?.focus();
-          } else if (e.key === 'End') {
+          } else if (e.key === "End") {
             e.preventDefault();
             menuItems[menuItems.length - 1]?.focus();
           }
@@ -600,7 +652,7 @@ function ContextMenu({
               item.onSelect();
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
+              if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
                 item.onSelect();
               }
@@ -747,7 +799,7 @@ function RepoTreeItem({
           onClose={() => setMenuOpen(false)}
           items={[
             {
-              label: 'Close Project',
+              label: "Close Project",
               destructive: true,
               onSelect: () => {
                 setMenuOpen(false);
@@ -764,7 +816,7 @@ function RepoTreeItem({
           onClose={() => setWtMenuTarget(null)}
           items={[
             {
-              label: 'Close Worktree',
+              label: "Close Worktree",
               destructive: true,
               onSelect: () => {
                 const name = wtMenuTarget;
