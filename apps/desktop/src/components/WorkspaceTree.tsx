@@ -523,7 +523,7 @@ function ContextMenu({
             ref={i === 0 ? buttonRef : undefined}
             role="menuitem"
             tabIndex={i === 0 ? 0 : -1}
-            className={`w-full px-3 py-1.5 text-left text-ui-base outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)] ${item.destructive ? 'text-[var(--destructive)]' : 'text-[var(--text-secondary)]'}`}
+            className={`w-full px-3 py-1.5 text-left text-ui-base outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)] ${item.destructive ? 'text-destructive' : 'text-text-secondary'}`}
             onClick={(e) => {
               e.stopPropagation();
               item.onSelect();
