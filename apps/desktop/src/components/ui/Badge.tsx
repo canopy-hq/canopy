@@ -1,0 +1,30 @@
+import { tv, type VariantProps } from 'tailwind-variants';
+
+const badge = tv({
+  base: 'inline-flex shrink-0 items-center font-medium leading-none whitespace-nowrap',
+  variants: {
+    color: {
+      neutral: 'bg-white/[0.06] text-text-muted',
+      accent: 'bg-accent/10 text-accent',
+      warning: 'bg-amber-600/10 text-amber-600',
+      error: 'bg-destructive/[0.08] text-destructive',
+    },
+    size: {
+      sm: 'rounded-[3px] px-[5px] py-px text-[9px]',
+      md: 'rounded px-1.5 py-0.5 text-[10px]',
+    },
+    pill: { true: 'rounded-full' },
+  },
+  defaultVariants: { color: 'neutral', size: 'sm' },
+});
+
+export type BadgeVariants = VariantProps<typeof badge>;
+
+export interface BadgeProps extends BadgeVariants {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export function Badge({ color, size, pill, className, children }: BadgeProps) {
+  return <span className={badge({ color, size, pill, class: className })}>{children}</span>;
+}

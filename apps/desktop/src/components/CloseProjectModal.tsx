@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
 
+import { Button } from './ui';
+
 export interface CloseProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -44,18 +46,12 @@ export function CloseProjectModal({
           </p>
 
           <div className="mt-6 flex justify-end gap-2">
-            <button
-              onClick={onClose}
-              className="h-8 cursor-pointer rounded-lg bg-bg-tertiary px-4 text-[13px] text-text-muted hover:text-text-primary"
-            >
+            <Button variant="secondary" onPress={onClose}>
               Cancel
-            </button>
-            <button
-              onClick={onConfirm}
-              className="h-8 cursor-pointer rounded-lg bg-destructive px-4 text-[13px] font-medium text-white hover:opacity-90"
-            >
+            </Button>
+            <Button variant="destructive" onPress={onConfirm}>
               Close Project
-            </button>
+            </Button>
           </div>
         </Dialog>
       </div>

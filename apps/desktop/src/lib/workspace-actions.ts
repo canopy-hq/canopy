@@ -3,7 +3,6 @@ import {
   getTabCollection,
   uiCollection,
   getUiState,
-  setSetting,
   SIDEBAR_WIDTH_MIN,
   SIDEBAR_WIDTH_MAX,
 } from '@superagent/db';
@@ -48,7 +47,6 @@ export async function importRepo(path: string): Promise<void> {
     uiCollection.update('ui', (draft) => {
       draft.sidebarVisible = true;
     });
-    setSetting('sidebarVisible', true);
   } catch (err) {
     showErrorToast('Import failed', String(err));
   }
@@ -85,8 +83,6 @@ export async function closeProject(
       draft.activeTabId = '';
       draft.selectedItemId = null;
     });
-    setSetting('activeContextId', '');
-    setSetting('activeTabId', '');
     navigate({ to: '/' });
   }
 
@@ -135,21 +131,15 @@ export function selectWorkspaceItem(
 }
 
 export function toggleSidebar(): void {
-  const newVisible = !getUiState().sidebarVisible;
   uiCollection.update('ui', (draft) => {
-    draft.sidebarVisible = newVisible;
+    draft.sidebarVisible = !draft.sidebarVisible;
   });
-  setSetting('sidebarVisible', newVisible);
 }
 
 export function setSidebarWidth(width: number): void {
   uiCollection.update('ui', (draft) => {
     draft.sidebarWidth = Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, width));
   });
-}
-
-export function persistSidebarWidth(width: number): void {
-  setSetting('sidebarWidth', width);
 }
 
 export async function createBranch(workspaceId: string, name: string, base: string): Promise<void> {

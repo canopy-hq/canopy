@@ -180,7 +180,27 @@ Add reusable vendor-prefixed or non-standard CSS patterns as `@utility` in `inde
 
 Prefer `stroke="currentColor"` + a `text-*` class on the parent when the stroke is static.
 
-### 9. Type-safe variant props
+### 9. Token mapping
+
+Correspondence between Untitled UI semantic roles and our CSS vars / Tailwind classes:
+
+| Untitled UI role       | CSS var            | Tailwind class                              |
+| ---------------------- | ------------------ | ------------------------------------------- |
+| Background / Primary   | `--bg-primary`     | `bg-bg-primary`                             |
+| Background / Secondary | `--bg-secondary`   | `bg-bg-secondary`                           |
+| Background / Tertiary  | `--bg-tertiary`    | `bg-bg-tertiary`                            |
+| Border / Default       | `--border`         | `border-border`                             |
+| Border / Focus         | `--border-focus`   | `border-border-focus`                       |
+| Text / Primary         | `--text-primary`   | `text-text-primary`                         |
+| Text / Secondary       | `--text-secondary` | `text-text-secondary`                       |
+| Text / Muted           | `--text-muted`     | `text-text-muted`                           |
+| Brand / Accent         | `--accent`         | `text-accent`, `bg-accent`, `border-accent` |
+| Destructive            | `--destructive`    | `text-destructive`, `bg-destructive`        |
+| Agent / Running        | `--agent-running`  | `bg-(--agent-running)`                      |
+| Agent / Waiting        | `--agent-waiting`  | `bg-(--agent-waiting)`                      |
+| Agent / Idle           | `--agent-idle`     | `bg-(--agent-idle)`                         |
+
+### 10. Type-safe variant props
 
 Use `VariantProps` to extract variant types for component props:
 

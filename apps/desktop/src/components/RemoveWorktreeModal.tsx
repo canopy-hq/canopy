@@ -1,12 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
 
-import { tv } from 'tailwind-variants';
-
-const confirmButton = tv({
-  base: 'h-8 cursor-pointer rounded-lg px-4 text-[13px] font-medium text-white hover:opacity-90',
-  variants: { destructive: { true: 'bg-destructive', false: 'bg-accent' } },
-});
+import { Button } from './ui';
 
 export interface RemoveWorktreeModalProps {
   isOpen: boolean;
@@ -72,18 +67,15 @@ export function RemoveWorktreeModal({
           )}
 
           <div className="mt-6 flex justify-end gap-2">
-            <button
-              onClick={onClose}
-              className="h-8 cursor-pointer rounded-lg bg-bg-tertiary px-4 text-[13px] text-text-muted hover:text-text-primary"
-            >
+            <Button variant="secondary" onPress={onClose}>
               Cancel
-            </button>
-            <button
-              onClick={() => onConfirm(deleteGit)}
-              className={confirmButton({ destructive: deleteGit })}
+            </Button>
+            <Button
+              variant={deleteGit ? 'destructive' : 'primary'}
+              onPress={() => onConfirm(deleteGit)}
             >
               {deleteGit ? 'Delete Worktree' : 'Remove from Sidebar'}
-            </button>
+            </Button>
           </div>
         </Dialog>
       </div>
