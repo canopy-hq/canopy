@@ -25,6 +25,17 @@ pub fn setup_menu(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .close_window()
         .build()?;
 
+    #[cfg(debug_assertions)]
+    let help_submenu = SubmenuBuilder::new(app, "Help")
+        .text("fps-overlay", "Toggle FPS Overlay")
+        .build()?;
+
+    #[cfg(debug_assertions)]
+    let menu = MenuBuilder::new(app)
+        .items(&[&app_submenu, &edit_submenu, &window_submenu, &help_submenu])
+        .build()?;
+
+    #[cfg(not(debug_assertions))]
     let menu = MenuBuilder::new(app)
         .items(&[&app_submenu, &edit_submenu, &window_submenu])
         .build()?;

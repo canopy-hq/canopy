@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@superagent/db": "workspace:*",
+    "@superagent/fps": "workspace:*",
     "@superagent/terminal": "workspace:*",
     "@tanstack/db": "^0.6.1",
     "@tanstack/react-db": "^0.1.79",

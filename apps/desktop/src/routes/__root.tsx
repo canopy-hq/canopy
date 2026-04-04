@@ -8,13 +8,15 @@ import {
   getSettingCollection,
   getSetting,
 } from '@superagent/db';
+import { FpsOverlay } from '@superagent/fps';
 import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 
 import { AgentOverlay } from '../components/AgentOverlay';
-import { Header } from '../components/Header';
 import { AgentToastRegion } from '../components/AgentToastRegion';
+import { Header } from '../components/Header';
 import { ErrorToastRegion } from '../components/ToastProvider';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
+import { useTauriMenuEvent } from '../hooks/useTauriMenuEvent';
 import { initAgentListener } from '../lib/agent-actions';
 import { getActiveTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
@@ -29,6 +31,7 @@ function containsPtyId(node: PaneNode, ptyId: number): boolean {
 
 function RootLayout() {
   const [overlayOpen, setOverlayOpen] = useState(false);
+  const [fpsVisible, setFpsVisible] = useState(false);
   const navigate = useNavigate();
   const booted = useRef(false);
 
@@ -42,19 +45,8 @@ function RootLayout() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    void import('@tauri-apps/api/event').then(({ listen }) => {
-      void listen('menu:settings', () => {
-        void navigate({ to: '/settings' });
-      }).then((fn) => {
-        unlisten = fn;
-      });
-    });
-    return () => {
-      unlisten?.();
-    };
-  }, [navigate]);
+  useTauriMenuEvent('menu:settings', () => void navigate({ to: '/settings' }));
+  useTauriMenuEvent('menu:fps-overlay', () => setFpsVisible((prev) => !prev), import.meta.env.DEV);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -114,6 +106,7 @@ function RootLayout() {
       <ErrorToastRegion />
       <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
       <AgentToastRegion />
+      {import.meta.env.DEV && <FpsOverlay visible={fpsVisible} />}
     </div>
   );
 }
