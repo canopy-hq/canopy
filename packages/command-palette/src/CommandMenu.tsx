@@ -62,14 +62,19 @@ function ItemIcon({ icon }: { icon: CommandItem['icon'] }) {
 
 // ── Status dot ─────────────────────────────────────────────────────────────────
 
+function agentDotColor(status: NonNullable<CommandItem['agentStatus']>): string {
+  switch (status) {
+    case 'running':
+      return 'bg-(--agent-running)';
+    case 'waiting':
+      return 'bg-(--agent-waiting)';
+    default:
+      return 'bg-text-muted/40';
+  }
+}
+
 function AgentDot({ status }: { status: NonNullable<CommandItem['agentStatus']> }) {
-  const color =
-    status === 'running'
-      ? 'bg-(--agent-running)'
-      : status === 'waiting'
-        ? 'bg-(--agent-waiting)'
-        : 'bg-text-muted/40';
-  return <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${color}`} />;
+  return <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${agentDotColor(status)}`} />;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -202,6 +207,13 @@ export function CommandMenu({
 
   const panelCtx: PanelContext = { close: onClose, back: () => dispatch({ type: 'CLOSE_PANEL' }) };
 
+  const panelWsItem =
+    panelItem && drillStack.length === 0 && panelItem.contextId
+      ? (items.find(
+          (i) => i.category === 'workspace' && i.id === `workspace:${panelItem.contextId}`,
+        ) ?? null)
+      : null;
+
   return (
     <ModalOverlay
       isOpen={isOpen}
@@ -249,30 +261,22 @@ export function CommandMenu({
                     </button>
                   </span>
                 ))}
-                {drillStack.length === 0 &&
-                  panelItem.contextId &&
-                  (() => {
-                    const wsItem = items.find(
-                      (i) =>
-                        i.category === 'workspace' && i.id === `workspace:${panelItem.contextId}`,
-                    );
-                    return wsItem ? (
-                      <span className="flex items-center gap-1">
-                        <span className="opacity-40">/</span>
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          onClick={() => {
-                            dispatch({ type: 'CLOSE_PANEL' });
-                            dispatch({ type: 'DRILL_INTO', item: wsItem });
-                          }}
-                          className="cursor-pointer transition-colors hover:text-text-primary"
-                        >
-                          {wsItem.label}
-                        </button>
-                      </span>
-                    ) : null;
-                  })()}
+                {panelWsItem && (
+                  <span className="flex items-center gap-1">
+                    <span className="opacity-40">/</span>
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => {
+                        dispatch({ type: 'CLOSE_PANEL' });
+                        dispatch({ type: 'DRILL_INTO', item: panelWsItem });
+                      }}
+                      className="cursor-pointer transition-colors hover:text-text-primary"
+                    >
+                      {panelWsItem.label}
+                    </button>
+                  </span>
+                )}
                 <span className="flex items-center gap-1">
                   <span className="opacity-40">/</span>
                   <span className="text-text-primary">{panelItem.label}</span>

@@ -125,11 +125,18 @@ function buildDefaultSections(
 }
 
 function filterByCategorySection(items: CommandItem[], section: MenuSection): CommandItem[] {
-  if (section === 'projects') return items.filter((i) => i.category === 'workspace');
-  if (section === 'tabs') return items.filter((i) => i.category === 'tab');
-  if (section === 'pty') return items.filter((i) => i.category === 'pty');
-  if (section === 'agents') return items.filter((i) => i.category === 'agent');
-  return items;
+  switch (section) {
+    case 'projects':
+      return items.filter((i) => i.category === 'workspace');
+    case 'tabs':
+      return items.filter((i) => i.category === 'tab');
+    case 'pty':
+      return items.filter((i) => i.category === 'pty');
+    case 'agents':
+      return items.filter((i) => i.category === 'agent');
+    default:
+      return items;
+  }
 }
 
 function groupByField(items: CommandItem[]): SectionData[] {
@@ -161,7 +168,7 @@ function groupByField(items: CommandItem[]): SectionData[] {
 
 export function useCommandMenu(items: CommandItem[], activeContextId?: string | null) {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
-  const { query, section, drillStack, selectedId: selectedIdState, panelItem } = state;
+  const { query, section, drillStack, selectedId: rawSelectedId, panelItem } = state;
 
   const sections = useMemo((): SectionData[] => {
     if (panelItem) return [];
@@ -192,17 +199,17 @@ export function useCommandMenu(items: CommandItem[], activeContextId?: string | 
 
     return buildDefaultSections(items, activeContextId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    // selectedIdState excluded — section content is independent of which item is highlighted
+    // rawSelectedId excluded — section content is independent of which item is highlighted
   }, [query, section, drillStack, panelItem, items, activeContextId]);
 
   const flatItems = useMemo(() => sections.flatMap((s) => s.items), [sections]);
 
   const selectedId = useMemo(() => {
-    if (selectedIdState !== null && flatItems.some((i) => i.id === selectedIdState)) {
-      return selectedIdState;
+    if (rawSelectedId !== null && flatItems.some((i) => i.id === rawSelectedId)) {
+      return rawSelectedId;
     }
     return flatItems[0]?.id ?? null;
-  }, [selectedIdState, flatItems]);
+  }, [rawSelectedId, flatItems]);
 
   return {
     query: state.query,

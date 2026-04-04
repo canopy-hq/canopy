@@ -220,8 +220,6 @@ export function useWorkspacePalette(
     return flatItems[0]?.id ?? null;
   }, [_selectedId, flatItems]);
 
-  const setSelectedId = useCallback((id: string | null) => _setSelectedId(id), []);
-
   // Reset selection when items change (same as SET_QUERY clearing selectedId in useCommandMenu)
   const setQuery = useCallback((q: string) => {
     setQueryRaw(q);
@@ -264,7 +262,7 @@ export function useWorkspacePalette(
     sections,
     flatItems,
     selectedId,
-    setSelectedId,
+    setSelectedId: _setSelectedId,
     branches,
     diskWorktrees,
     handleCreateWorktree,

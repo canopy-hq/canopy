@@ -86,16 +86,7 @@ function buildWorkspaceChildren(ws: Workspace, navigate: Nav): CommandItem[] {
   const items: CommandItem[] = [];
 
   // Palette item first
-  items.push({
-    id: `workspace:${ws.id}:palette`,
-    label: 'New branch or worktree',
-    category: 'action',
-    icon: 'plus',
-    keywords: ['branch', 'worktree', 'create', 'new'],
-    renderPanel: (ctx: PanelContext) =>
-      createElement(WorkspacePalettePanel, { workspace: ws, ctx }),
-    action: () => {},
-  });
+  items.push(makeWorkspacePaletteItem(ws));
 
   // HEAD branch first
   const branches = [...ws.branches].sort((a, b) => (b.is_head ? 1 : 0) - (a.is_head ? 1 : 0));

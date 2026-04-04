@@ -467,7 +467,7 @@ function PaletteRow({
 
       {item.kind === 'branch' && item.branch && (
         <div className="flex shrink-0 items-center gap-1.5">
-          <BranchMeta branch={item.branch} isSelected={isSelected} pickingBase={pickingBase} />
+          <BranchMeta branch={item.branch} pickingBase={pickingBase} />
         </div>
       )}
 
@@ -491,15 +491,11 @@ function PaletteRow({
 
 function BranchMeta({
   branch,
-  isSelected,
   pickingBase,
 }: {
   branch: NonNullable<PaletteItem['branch']>;
-  isSelected: boolean;
   pickingBase: boolean;
 }) {
-  void isSelected; // reserved for future use
-
   if (pickingBase) {
     // In base picker, just show HEAD badge if applicable
     return branch.is_head ? (
