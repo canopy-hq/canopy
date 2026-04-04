@@ -72,7 +72,7 @@ See [`apps/desktop/FRONTEND.md`](apps/desktop/FRONTEND.md) for styling conventio
 | Layer | Pattern |
 |-------|---------|
 | **Collections** (`packages/db/collections/`) | Module-level singletons. Persisted collections write-through to SQLite. In-memory collections for ephemeral state (agents, UI). |
-| **Hooks** (`src/hooks/`) | `useCollections.ts` wraps `useLiveQuery` for reactive reads. `useDiffStatsMap` does adaptive polling with visibility gating. |
+| **Hooks** (`src/hooks/`) | `useCollections.ts` wraps `useLiveQuery` for reactive reads. `useWorkspacePolling` does adaptive polling with visibility gating. |
 | **Lib** (`src/lib/`) | Imperative action functions. Read state via `getUiState()`/`getTabCollection()` (non-reactive). Mutate collections directly. `git.ts` wraps Tauri `invoke()` with types. |
 | **Components** (`src/components/`) | Leaf components. `WorkspaceTree` uses `React.memo` + custom comparators for tree rows. |
 | **Routes** (`src/routes/`) | TanStack Router file-based. `__root.tsx` handles boot + global listeners. |
@@ -91,7 +91,7 @@ See [`apps/desktop/FRONTEND.md`](apps/desktop/FRONTEND.md) for styling conventio
 
 - **Visibility-gated.** All polling must pause when sidebar hidden (`sidebarVisible`) AND when window hidden (`document.visibilityState`).
 - **Scope to visible data.** Only poll for expanded workspaces; carry forward stale data for collapsed ones.
-- **Adaptive intervals.** Start at 10s, back off to 20s after 3 unchanged polls, 30s after 6. Reset on change detection.
+- **Adaptive intervals.** Start at 3s, back off to 10s after 5 unchanged polls, 15s after 10. Reset on change detection.
 - **Shallow comparison.** Never use `JSON.stringify` for deep equality — use shallow key/value comparison or refs.
 
 ### State

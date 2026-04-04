@@ -47,21 +47,31 @@ export function SessionManager({ onClose }: SessionManagerProps) {
 
   useEffect(() => {
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
 
     async function poll() {
+      if (document.visibilityState === 'hidden') return;
       try {
         const data = await listPtySessions();
         if (!cancelled) setSessions(data);
       } catch {
         // ignore transient errors
       }
+      if (!cancelled) timer = setTimeout(() => void poll(), 2000);
     }
 
+    function onVisibilityChange() {
+      if (document.visibilityState === 'visible' && !cancelled) {
+        void poll();
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
     void poll();
-    const interval = setInterval(() => void poll(), 2000);
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, []);
 

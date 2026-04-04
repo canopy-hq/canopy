@@ -1,15 +1,9 @@
-import {
-  getWorkspaceCollection,
-  getTabCollection,
-  uiCollection,
-  getUiState,
-  setSetting,
-} from '@superagent/db';
+import { getWorkspaceCollection, getTabCollection, uiCollection, getUiState } from '@superagent/db';
 import { closePty, disposeCached } from '@superagent/terminal';
 
 import * as gitApi from './git';
 import { collectLeafPtyIds } from './pane-tree-ops';
-import { showErrorToast } from './toast';
+import { showErrorToast, showInfoToast } from './toast';
 
 import type { Workspace } from '@superagent/db';
 
@@ -26,19 +20,26 @@ export async function importRepo(path: string): Promise<void> {
   try {
     const info = await gitApi.importRepo(path);
     const collection = getWorkspaceCollection();
-    collection.insert({
-      id: crypto.randomUUID(),
-      path: info.path,
-      name: info.name,
-      branches: info.branches,
-      worktrees: info.worktrees,
-      expanded: true,
-      position: collection.toArray.length,
-    });
+
+    const existing = collection.toArray.find((w) => w.path === info.path);
+    if (existing) {
+      setSelectedItem(existing.id);
+      showInfoToast(`"${existing.name}" is already imported`);
+    } else {
+      collection.insert({
+        id: crypto.randomUUID(),
+        path: info.path,
+        name: info.name,
+        branches: info.branches,
+        worktrees: info.worktrees,
+        expanded: true,
+        position: collection.toArray.length,
+      });
+    }
+
     uiCollection.update('ui', (draft) => {
       draft.sidebarVisible = true;
     });
-    setSetting('sidebarVisible', true);
   } catch (err) {
     showErrorToast('Import failed', String(err));
   }
@@ -75,8 +76,6 @@ export async function closeProject(
       draft.activeTabId = '';
       draft.selectedItemId = null;
     });
-    setSetting('activeContextId', '');
-    setSetting('activeTabId', '');
     navigate({ to: '/' });
   }
 
@@ -125,11 +124,9 @@ export function selectWorkspaceItem(
 }
 
 export function toggleSidebar(): void {
-  const newVisible = !getUiState().sidebarVisible;
   uiCollection.update('ui', (draft) => {
-    draft.sidebarVisible = newVisible;
+    draft.sidebarVisible = !draft.sidebarVisible;
   });
-  setSetting('sidebarVisible', newVisible);
 }
 
 export function setSidebarWidth(width: number): void {

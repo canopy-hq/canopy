@@ -11,26 +11,36 @@ import { toastQueue } from '../lib/toast';
 export function ErrorToastRegion() {
   return (
     <ToastRegion queue={toastQueue} className="fixed right-4 bottom-4 z-50 flex flex-col gap-2">
-      {({ toast }) => (
-        <Toast
-          toast={toast}
-          className="flex max-w-[420px] min-w-[320px] items-start gap-3 rounded-lg border border-red-500/30 bg-bg-tertiary px-4 py-3 shadow-lg shadow-red-500/10"
-        >
-          <ToastContent className="flex-1">
-            <Text slot="title" className="block text-sm font-medium text-red-400">
-              {toast.content.title}
-            </Text>
-            {toast.content.description && (
-              <Text slot="description" className="mt-1 block text-xs text-gray-400">
-                {toast.content.description}
+      {({ toast }) => {
+        const isInfo = toast.content.severity === 'info';
+        return (
+          <Toast
+            toast={toast}
+            className={`flex max-w-[420px] min-w-[320px] items-start gap-3 rounded-lg border bg-bg-tertiary px-4 py-3 shadow-lg ${
+              isInfo
+                ? 'border-blue-500/30 shadow-blue-500/10'
+                : 'border-red-500/30 shadow-red-500/10'
+            }`}
+          >
+            <ToastContent className="flex-1">
+              <Text
+                slot="title"
+                className={`block text-sm font-medium ${isInfo ? 'text-blue-400' : 'text-red-400'}`}
+              >
+                {toast.content.title}
               </Text>
-            )}
-          </ToastContent>
-          <Button slot="close" className="text-xs text-gray-500 hover:text-gray-300">
-            Dismiss
-          </Button>
-        </Toast>
-      )}
+              {toast.content.description && (
+                <Text slot="description" className="mt-1 block text-xs text-gray-400">
+                  {toast.content.description}
+                </Text>
+              )}
+            </ToastContent>
+            <Button slot="close" className="text-xs text-gray-500 hover:text-gray-300">
+              Dismiss
+            </Button>
+          </Toast>
+        );
+      }}
     </ToastRegion>
   );
 }

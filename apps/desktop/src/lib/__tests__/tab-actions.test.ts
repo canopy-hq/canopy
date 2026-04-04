@@ -16,8 +16,6 @@ let _uiState: UiState = {
   contextActiveTabIds: {},
 };
 
-const mockSetSetting = vi.fn();
-
 vi.mock('@superagent/db', () => ({
   getTabCollection: () => ({
     get toArray() {
@@ -40,7 +38,6 @@ vi.mock('@superagent/db', () => ({
     },
   },
   getUiState: () => _uiState,
-  setSetting: (...args: unknown[]) => mockSetSetting(...args),
 }));
 
 // Import AFTER mock is set up
@@ -69,7 +66,6 @@ function resetState() {
     activeContextId: '',
     contextActiveTabIds: {},
   };
-  mockSetSetting.mockClear();
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────

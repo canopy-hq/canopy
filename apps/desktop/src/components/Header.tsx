@@ -1,4 +1,5 @@
 import { toggleSidebar } from '../lib/workspace-actions';
+import { DevBranchBadge } from './DevBranchBadge';
 import { Button, Tooltip } from './ui';
 
 interface HeaderProps {
@@ -56,7 +57,8 @@ export function Header({ onSessionsClick }: HeaderProps = {}) {
       <div data-tauri-drag-region className="h-full flex-1" />
 
       {/* Right zone */}
-      <div className="flex h-full items-center px-3">
+      <div className="flex h-full items-center gap-2 px-3">
+        <DevBranchBadge />
         <Tooltip label="PTY Sessions" placement="left">
           <Button variant="ghost" iconOnly onPress={onSessionsClick} aria-label="PTY sessions">
             <svg

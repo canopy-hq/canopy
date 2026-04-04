@@ -48,6 +48,10 @@ export function listAllBranches(repoPath: string): Promise<BranchDetail[]> {
   return invoke<BranchDetail[]>('list_all_branches', { repoPath });
 }
 
+export function fetchRemote(repoPath: string): Promise<void> {
+  return invoke<void>('fetch_remote', { repoPath });
+}
+
 export function createBranch(repoPath: string, name: string, base: string): Promise<BranchInfo> {
   return invoke<BranchInfo>('create_branch', { repoPath, name, base });
 }
@@ -84,6 +88,19 @@ export function getAllDiffStats(
   repoPaths: string[],
 ): Promise<Record<string, Record<string, DiffStat>>> {
   return invoke<Record<string, Record<string, DiffStat>>>('get_all_diff_stats', { repoPaths });
+}
+
+export interface WorkspacePollState {
+  head_oid: string;
+  branches: BranchInfo[];
+  worktree_branches: Record<string, string>;
+  diff_stats: Record<string, DiffStat>;
+}
+
+export function pollAllWorkspaceStates(
+  repoPaths: string[],
+): Promise<Record<string, WorkspacePollState>> {
+  return invoke<Record<string, WorkspacePollState>>('poll_all_workspace_states', { repoPaths });
 }
 
 /** Normalize a branch/worktree name to a safe identifier (spaces, underscores, slashes → dashes). */
