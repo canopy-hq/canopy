@@ -6,6 +6,7 @@ import { tv } from 'tailwind-variants';
 import {
   listAllBranches,
   listWorktrees,
+  fetchRemote,
   sanitizeWorktreeName,
   buildWorktreePath,
   type BranchDetail,
@@ -50,19 +51,32 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
 
   useEffect(() => {
     if (!isOpen) return;
+    let stale = false;
     setQuery('');
     setTab('all');
     setConfirmBranch(null);
     setPickingBase(false);
+    // Show cached branches immediately, then replace with fresh data after fetch
     listAllBranches(workspace.path)
-      .then(setBranches)
+      .then((b) => {
+        if (!stale) setBranches(b);
+      })
       .catch(() => {});
     listWorktrees(workspace.path)
       .then(setAllWorktrees)
       .catch(() => {});
+    fetchRemote(workspace.path)
+      .then(() => listAllBranches(workspace.path))
+      .then((b) => {
+        if (!stale) setBranches(b);
+      })
+      .catch((e) => console.warn('[WorkspacePalette] fetch remote failed:', e));
     const head = workspace.branches.find((b) => b.is_head);
     setBaseBranch(head?.name ?? 'main');
     requestAnimationFrame(() => inputRef.current?.focus());
+    return () => {
+      stale = true;
+    };
   }, [isOpen, workspace]);
 
   const lowerQuery = useMemo(() => query.toLowerCase(), [query]);
