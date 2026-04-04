@@ -307,3 +307,20 @@ export function setPtyId(paneId: PaneId, ptyId: number): void {
     setInTree(draft.paneRoot);
   });
 }
+
+/** Set ptyId in a specific tab (not necessarily the active one). Used for startup session restore. */
+export function setPtyIdInTab(tabId: string, paneId: PaneId, ptyId: number): void {
+  const col = getTabCollection();
+  const tab = col.toArray.find((t) => t.id === tabId);
+  if (!tab) return;
+  col.update(tab.id, (draft) => {
+    function setInTree(node: Tab['paneRoot']): void {
+      if (node.type === 'leaf') {
+        if (node.id === paneId) node.ptyId = ptyId;
+        return;
+      }
+      for (const child of node.children) setInTree(child);
+    }
+    setInTree(draft.paneRoot);
+  });
+}

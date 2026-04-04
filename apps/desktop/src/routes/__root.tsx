@@ -7,7 +7,9 @@ import {
   getWorkspaceCollection,
   getSettingCollection,
   getSetting,
+  getSessionCollection,
 } from '@superagent/db';
+import { spawnTerminal } from '@superagent/terminal';
 import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 
 import { AgentOverlay } from '../components/AgentOverlay';
@@ -17,7 +19,7 @@ import { AgentToastRegion } from '../components/AgentToastRegion';
 import { ErrorToastRegion } from '../components/ToastProvider';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { initAgentListener } from '../lib/agent-actions';
-import { getActiveTab } from '../lib/tab-actions';
+import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
 import { toggleSidebar } from '../lib/workspace-actions';
 
@@ -42,6 +44,24 @@ function RootLayout() {
     if (activeContextId) {
       void navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: activeContextId } });
     }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Startup session restore: eagerly reconnect all persisted PTY sessions so they
+  // appear in the Session Manager and the IPC output channels are ready before the
+  // user navigates to each tab.
+  useEffect(() => {
+    const sessions = getSessionCollection().toArray;
+    if (sessions.length === 0) return;
+    void (async () => {
+      for (const session of sessions) {
+        try {
+          const { ptyId } = await spawnTerminal(session.paneId, session.cwd || undefined, 24, 80);
+          setPtyIdInTab(session.tabId, session.paneId, ptyId);
+        } catch {
+          // Daemon unavailable or session gone — pane stays at ptyId -1, fresh shell on visit
+        }
+      }
+    })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
