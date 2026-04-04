@@ -13,6 +13,7 @@ import {
   type WorktreeInfo,
 } from '../lib/git';
 import { createWorktree, openWorktree } from '../lib/workspace-actions';
+import { Badge, Button } from './ui';
 
 import type { Workspace } from '@superagent/db';
 
@@ -343,11 +344,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
                     >
                       {b.name}
                     </span>
-                    {b.is_head && (
-                      <span className="rounded-[3px] bg-accent/10 px-[5px] py-px text-[9px] text-accent">
-                        HEAD
-                      </span>
-                    )}
+                    {b.is_head && <Badge color="accent">HEAD</Badge>}
                     {b.name === baseBranch && (
                       <svg
                         width="12"
@@ -433,40 +430,18 @@ function BranchItem({
         >
           {branch.name}
         </span>
-        {branch.is_head && (
-          <span className="rounded-[3px] bg-accent/10 px-[5px] py-px text-[9px] text-accent">
-            HEAD
-          </span>
-        )}
-        {branch.is_local && !branch.is_head && (
-          <span className="rounded-[3px] bg-[rgba(217,119,6,0.1)] px-[5px] py-px text-[9px] text-[#d97706]">
-            local
-          </span>
-        )}
-        {!branch.is_local && (
-          <span className="rounded-[3px] bg-white/[0.04] px-[5px] py-px text-[9px] text-text-muted">
-            origin
-          </span>
-        )}
-        {branch.is_in_worktree && (
-          <span className="rounded-[3px] bg-destructive/[0.08] px-[5px] py-px text-[9px] text-destructive">
-            in worktree
-          </span>
-        )}
+        {branch.is_head && <Badge color="accent">HEAD</Badge>}
+        {branch.is_local && !branch.is_head && <Badge color="warning">local</Badge>}
+        {!branch.is_local && <Badge>origin</Badge>}
+        {branch.is_in_worktree && <Badge color="error">in worktree</Badge>}
         {disabled ? (
           <span className="ml-auto text-[11px] text-text-muted">
             {branch.is_head ? 'checked out' : 'in use'}
           </span>
         ) : !isConfirming ? (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onCreateWT();
-            }}
-            className="ml-auto cursor-pointer rounded border-none bg-accent/[0.08] px-2 py-0.5 text-[11px] text-accent"
-          >
+          <Button variant="accent" size="sm" className="ml-auto py-0.5" onPress={onCreateWT}>
             Create WT
-          </button>
+          </Button>
         ) : null}
       </div>
       {isConfirming && (
@@ -485,12 +460,9 @@ function BranchItem({
             >
               Cancel
             </button>
-            <button
-              onClick={onConfirmCreate}
-              className="cursor-pointer rounded-[5px] border-none bg-accent px-2.5 py-1 text-[11px] font-medium text-white"
-            >
+            <Button variant="primary" size="sm" className="py-1" onPress={onConfirmCreate}>
               Create
-            </button>
+            </Button>
           </div>
         </div>
       )}
