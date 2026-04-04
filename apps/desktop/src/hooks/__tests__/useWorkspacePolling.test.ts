@@ -18,28 +18,28 @@ function makeState(overrides: Partial<WorkspacePollState> = {}): WorkspacePollSt
 }
 
 describe('getInterval', () => {
-  it('returns 10s for 0 unchanged polls', () => {
-    expect(getInterval(0)).toBe(10_000);
+  it('returns 3s for 0 unchanged polls', () => {
+    expect(getInterval(0)).toBe(3_000);
   });
 
-  it('returns 10s for 2 unchanged polls', () => {
-    expect(getInterval(2)).toBe(10_000);
+  it('returns 3s for 4 unchanged polls', () => {
+    expect(getInterval(4)).toBe(3_000);
   });
 
-  it('returns 20s at 3 unchanged polls', () => {
-    expect(getInterval(3)).toBe(20_000);
+  it('returns 10s at 5 unchanged polls', () => {
+    expect(getInterval(5)).toBe(10_000);
   });
 
-  it('returns 20s at 5 unchanged polls', () => {
-    expect(getInterval(5)).toBe(20_000);
+  it('returns 10s at 9 unchanged polls', () => {
+    expect(getInterval(9)).toBe(10_000);
   });
 
-  it('returns 30s at 6 unchanged polls', () => {
-    expect(getInterval(6)).toBe(30_000);
+  it('returns 15s at 10 unchanged polls', () => {
+    expect(getInterval(10)).toBe(15_000);
   });
 
-  it('returns 30s at 10 unchanged polls', () => {
-    expect(getInterval(10)).toBe(30_000);
+  it('returns 15s at 20 unchanged polls', () => {
+    expect(getInterval(20)).toBe(15_000);
   });
 });
 

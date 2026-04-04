@@ -7,11 +7,11 @@ import { listBranches, pollAllWorkspaceStates } from '../lib/git';
 import type { DiffStat, WorkspacePollState } from '../lib/git';
 import type { Workspace } from '@superagent/db';
 
-const POLL_MS = 10_000;
+const POLL_MS = 3_000;
 
 export function getInterval(noChangeCount: number): number {
-  if (noChangeCount >= 6) return 30_000;
-  if (noChangeCount >= 3) return 20_000;
+  if (noChangeCount >= 10) return 15_000;
+  if (noChangeCount >= 5) return 10_000;
   return POLL_MS;
 }
 
