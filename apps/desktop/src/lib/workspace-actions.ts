@@ -14,6 +14,11 @@ import { showErrorToast, showInfoToast } from './toast';
 
 import type { Workspace } from '@superagent/db';
 
+/** Returns true for branch/worktree IDs — the only items that carry selection state. */
+export function isSelectableWorkspaceItem(id: string): boolean {
+  return id.includes('-branch-') || id.includes('-wt-');
+}
+
 /** All sidebar item IDs for a workspace (repo root + branches + worktrees). */
 export function getWorkspaceItemIds(ws: Workspace): Set<string> {
   const ids = new Set<string>();
@@ -30,7 +35,6 @@ export async function importRepo(path: string): Promise<void> {
 
     const existing = collection.toArray.find((w) => w.path === info.path);
     if (existing) {
-      setSelectedItem(existing.id);
       showInfoToast(`"${existing.name}" is already imported`);
     } else {
       collection.insert({

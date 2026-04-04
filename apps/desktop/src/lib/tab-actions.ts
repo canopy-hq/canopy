@@ -250,11 +250,12 @@ export function jumpToPane(
     });
   }
 
-  if (ui.activeContextId !== workspaceItemId && tabId) {
-    uiCollection.update('ui', (draft) => {
+  uiCollection.update('ui', (draft) => {
+    draft.selectedItemId = workspaceItemId;
+    if (ui.activeContextId !== workspaceItemId && tabId) {
       draft.contextActiveTabIds[workspaceItemId] = tabId;
-    });
-  }
+    }
+  });
 
   navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: workspaceItemId } });
 
