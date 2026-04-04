@@ -15,18 +15,27 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { getSetting } from '@superagent/db';
 import { useNavigate } from '@tanstack/react-router';
 import { ChevronDown, ChevronRight, Laptop, FolderGit2, Plus } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { makeWorkspacePaletteItem } from '../commands/workspace-commands';
-import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useCollections';
+import {
+  useWorkspaces,
+  useAgents,
+  useTabs,
+  useUiState,
+  useSettings,
+} from '../hooks/useCollections';
 import { useDragStyle } from '../hooks/useDragStyle';
 import { useDropping } from '../hooks/useDropping';
 import { useFlipAnimation } from '../hooks/useFlipAnimation';
 import { usePageVisible } from '../hooks/usePageVisible';
+import { usePrPolling } from '../hooks/usePrPolling';
 import { useWorkspacePolling } from '../hooks/useWorkspacePolling';
 import { restrictToVerticalAxis, sortableTransition, useDragSensors } from '../lib/dnd';
+import { GITHUB_CONNECTION_KEY } from '../lib/github';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import {
   toggleExpanded,
@@ -41,9 +50,10 @@ import { openWorkspacePalette } from '../lib/workspace-palette-bridge';
 import { CloseProjectModal } from './CloseProjectModal';
 import { RemoveWorktreeModal } from './RemoveWorktreeModal';
 import { StatusDot } from './StatusDot';
-import { Button, Tooltip } from './ui';
+import { Badge, Button, Tooltip } from './ui';
 
 import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
+import type { PrInfo } from '../lib/github';
 import type { DotStatus } from './StatusDot';
 import type { Workspace } from '@superagent/db';
 
@@ -62,6 +72,21 @@ const DiffPill = memo(function DiffPill({
         <span className="text-(--git-behind) tabular-nums">&minus;{deletions}</span>
       )}
     </span>
+  );
+});
+
+const PrBadge = memo(function PrBadge({ pr }: { pr: PrInfo }) {
+  const colorMap = {
+    OPEN: 'success',
+    DRAFT: 'neutral',
+    MERGED: 'merged',
+    CLOSED: 'neutral',
+  } as const;
+  const labelMap = { OPEN: 'Open', DRAFT: 'Draft', MERGED: 'Merged', CLOSED: 'Closed' } as const;
+  return (
+    <Badge size="sm" color={colorMap[pr.state]}>
+      #{pr.number} {labelMap[pr.state]}
+    </Badge>
   );
 });
 
@@ -89,10 +114,12 @@ const BranchRow = memo(
     branch,
     agentStatus,
     diffStat,
+    prInfo,
   }: {
     branch: BranchInfo;
     agentStatus?: DotStatus;
     diffStat?: DiffStat;
+    prInfo?: PrInfo;
   }) {
     return (
       <div className="my-px mr-1.5 rounded-[5px] border-l-[3px] border-transparent py-0.75 pr-1.5 pl-3">
@@ -110,6 +137,7 @@ const BranchRow = memo(
             {branch.name}
           </span>
           {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
+          {prInfo && <PrBadge pr={prInfo} />}
         </div>
         {branch.is_head && (
           <span className="mt-0.5 block truncate pl-5 text-sm text-text-muted">local</span>
@@ -122,7 +150,9 @@ const BranchRow = memo(
     prev.branch.is_head === next.branch.is_head &&
     prev.agentStatus === next.agentStatus &&
     prev.diffStat?.additions === next.diffStat?.additions &&
-    prev.diffStat?.deletions === next.diffStat?.deletions,
+    prev.diffStat?.deletions === next.diffStat?.deletions &&
+    prev.prInfo?.number === next.prInfo?.number &&
+    prev.prInfo?.state === next.prInfo?.state,
 );
 
 const WorktreeRow = memo(
@@ -131,11 +161,13 @@ const WorktreeRow = memo(
     workspaceId,
     agentStatus,
     diffStat,
+    prInfo,
   }: {
     worktree: WorktreeInfo & { label?: string };
     workspaceId: string;
     agentStatus?: DotStatus;
     diffStat?: DiffStat;
+    prInfo?: PrInfo;
   }) {
     const [editing, setEditing] = useState(false);
     const [editValue, setEditValue] = useState('');
@@ -185,6 +217,7 @@ const WorktreeRow = memo(
             </span>
           )}
           {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
+          {prInfo && <PrBadge pr={prInfo} />}
         </div>
         <span className="mt-0.5 block truncate pl-5 font-mono text-sm text-text-muted">
           {worktree.branch || worktree.name}
@@ -199,7 +232,9 @@ const WorktreeRow = memo(
     prev.workspaceId === next.workspaceId &&
     prev.agentStatus === next.agentStatus &&
     prev.diffStat?.additions === next.diffStat?.additions &&
-    prev.diffStat?.deletions === next.diffStat?.deletions,
+    prev.diffStat?.deletions === next.diffStat?.deletions &&
+    prev.prInfo?.number === next.prInfo?.number &&
+    prev.prInfo?.state === next.prInfo?.state,
 );
 
 const repoHeader = tv({
@@ -379,6 +414,9 @@ export function WorkspaceTree() {
   const agentMap = useWorkspaceAgentMap();
   const pageVisible = usePageVisible();
   const diffStatsMap = useWorkspacePolling(workspaces, sidebarVisible && pageVisible);
+  const settings = useSettings();
+  const githubConnected = getSetting(settings, GITHUB_CONNECTION_KEY, null) !== null;
+  const prMap = usePrPolling(workspaces, sidebarVisible && pageVisible, githubConnected);
   const navigate = useNavigate();
   const listRef = useRef<HTMLDivElement>(null);
   const sensors = useDragSensors();
@@ -450,6 +488,7 @@ export function WorkspaceTree() {
                 ws={ws}
                 agentMap={agentMap}
                 diffStats={diffStatsMap[ws.id]}
+                prStatuses={prMap[ws.id]}
                 onRequestOpenPalette={handleRequestOpenPalette}
                 onRequestClose={setCloseTarget}
                 onRequestRemoveWt={(name) => setRemoveWtTarget({ workspaceId: ws.id, name })}
@@ -580,6 +619,7 @@ function RepoTreeItem({
   ws,
   agentMap,
   diffStats,
+  prStatuses,
   onRequestOpenPalette,
   onRequestClose,
   onRequestRemoveWt,
@@ -591,6 +631,7 @@ function RepoTreeItem({
   ws: Workspace;
   agentMap: Record<string, DotStatus>;
   diffStats?: Record<string, DiffStat>;
+  prStatuses?: Record<string, PrInfo>;
   onRequestOpenPalette: (ws: Workspace) => void;
   onRequestClose: (ws: Workspace) => void;
   onRequestRemoveWt: (name: string) => void;
@@ -667,6 +708,7 @@ function RepoTreeItem({
                     branch={b}
                     agentStatus={agentMap[itemId]}
                     diffStat={diffStats?.[b.name]}
+                    prInfo={prStatuses?.[b.name]}
                   />
                 </div>
               );
@@ -690,6 +732,7 @@ function RepoTreeItem({
                     workspaceId={ws.id}
                     agentStatus={agentMap[itemId]}
                     diffStat={diffStats?.[wt.branch]}
+                    prInfo={prStatuses?.[wt.branch]}
                   />
                 </div>
               );
