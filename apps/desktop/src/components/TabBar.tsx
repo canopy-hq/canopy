@@ -1,22 +1,24 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { closePty, disposeCached } from '@superagent/terminal';
+import { Plus, X } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import { addTab, closeTab, switchTab, renameTab } from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
+import { Button, Tooltip } from './ui';
 
 import type { DotStatus } from './StatusDot';
 import type { Tab } from '@superagent/db';
 
 const tabItem = tv({
-  base: 'group relative flex h-full max-w-[240px] min-w-[120px] shrink cursor-pointer items-center gap-1.5 rounded-t-md border-t-2 px-3 transition-colors',
+  base: 'group relative flex h-full max-w-[240px] min-w-[120px] shrink items-center gap-1.5 px-3 transition-colors',
   variants: {
     active: {
-      true: 'border-t-accent bg-tab-active-bg text-text-primary',
-      false: 'border-t-transparent bg-tab-inactive-bg text-text-muted hover:bg-bg-secondary',
+      true: 'bg-bg-secondary text-text-primary shadow-[inset_0_-2px_0_var(--accent)]',
+      false: 'bg-transparent text-text-muted hover:bg-bg-secondary hover:text-text-secondary',
     },
     agentWaiting: { true: 'bg-(--agent-waiting-glow)' },
   },
@@ -24,7 +26,7 @@ const tabItem = tv({
 });
 
 const closeButton = tv({
-  base: 'flex h-4 w-4 items-center justify-center rounded-sm text-[10px] leading-none hover:bg-bg-tertiary',
+  base: 'flex h-4 w-4 items-center justify-center rounded-sm hover:bg-bg-tertiary',
   variants: {
     active: {
       true: 'opacity-60 hover:opacity-100',
@@ -169,23 +171,15 @@ const TabItemComponent = memo(
           </span>
         )}
         {!editing && (
-          <span
-            role="button"
+          <Button
+            iconOnly
+            variant="ghost"
             tabIndex={-1}
             className={closeButton({ active: isActive })}
-            onClick={(e) => {
-              e.stopPropagation();
-              void handleClose();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.stopPropagation();
-                void handleClose();
-              }
-            }}
+            onPress={() => void handleClose()}
           >
-            x
-          </span>
+            <X size={10} strokeWidth={2} />
+          </Button>
         )}
       </button>
     );
@@ -268,13 +262,28 @@ export function TabBar() {
           <TabItemComponent key={tab.id} tab={tab} isActive={tab.id === activeTabId} />
         ))}
       </div>
-      <button
-        onClick={addTab}
-        title="New Tab"
-        className="mx-1 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center text-lg leading-none text-text-muted hover:text-text-primary"
+      <Tooltip
+        label={
+          <>
+            New Tab{' '}
+            <kbd className="rounded bg-bg-secondary px-1 py-0.5 text-[10px] leading-none text-text-muted">
+              ⌘T
+            </kbd>
+          </>
+        }
+        placement="bottom"
       >
-        +
-      </button>
+        <Button
+          iconOnly
+          size="sm"
+          variant="ghost"
+          onPress={addTab}
+          aria-label="New Tab"
+          className="mx-1 shrink-0"
+        >
+          <Plus size={14} strokeWidth={1.5} />
+        </Button>
+      </Tooltip>
     </div>
   );
 }

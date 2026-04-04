@@ -1,7 +1,10 @@
 import { useCallback, useRef } from 'react';
 
+import { Plus } from 'lucide-react';
+
 import { useUiState, useWorkspaces } from '../hooks/useCollections';
 import { importRepo, setSidebarWidth } from '../lib/workspace-actions';
+import { Button } from './ui';
 import { WorkspaceTree } from './WorkspaceTree';
 
 function EmptyState({ onImport }: { onImport: () => void }) {
@@ -11,22 +14,14 @@ function EmptyState({ onImport }: { onImport: () => void }) {
       <span className="text-center text-[11px] text-text-muted">
         Import a git repository to get started.
       </span>
-      <button
-        className="mt-2 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-dashed border-border py-1.5 text-[12px] text-text-muted hover:text-accent"
-        onClick={onImport}
+      <Button
+        variant="ghost"
+        onPress={onImport}
+        className="mt-2 w-full rounded-md border border-dashed border-border py-1.5 text-[12px]"
       >
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        >
-          <path d="M8 3v10M3 8h10" />
-        </svg>
+        <Plus size={12} strokeWidth={1.5} />
         Import Repository
-      </button>
+      </Button>
     </div>
   );
 }
@@ -61,6 +56,7 @@ export function Sidebar() {
       const startX = e.clientX;
       const startWidth = width;
       dragRef.current = { startX, startWidth };
+      document.body.style.cursor = 'col-resize';
 
       const handleMouseMove = (ev: MouseEvent) => {
         if (!dragRef.current) return;
@@ -70,6 +66,7 @@ export function Sidebar() {
 
       const handleMouseUp = () => {
         dragRef.current = null;
+        document.body.style.cursor = '';
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
       };
@@ -83,35 +80,20 @@ export function Sidebar() {
   if (!visible) return null;
 
   return (
-    <div
-      className="flex shrink-0 flex-row border-r border-border bg-bg-secondary"
-      style={{ width: `${width}px` }}
-    >
+    <div className="flex shrink-0 flex-row bg-bg-secondary" style={{ width: `${width}px` }}>
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex-1 overflow-y-auto py-2">
           {workspaces.length === 0 ? <EmptyState onImport={handleImport} /> : <WorkspaceTree />}
         </div>
         <div className="shrink-0 border-t border-border p-2">
-          <button
-            className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-dashed border-border py-1.5 text-[12px] text-text-muted"
-            onClick={handleImport}
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            >
-              <path d="M8 3v10M3 8h10" />
-            </svg>
-            Import
-          </button>
+          <Button variant="secondary" onPress={handleImport} className="w-full">
+            <Plus size={12} strokeWidth={1.5} />
+            Add project
+          </Button>
         </div>
       </div>
       <div
-        className="relative z-10 -ml-1 w-1 cursor-col-resize hover:bg-accent hover:opacity-50"
+        className="relative w-px shrink-0 cursor-col-resize bg-border transition-colors after:absolute after:inset-y-0 after:-left-1 after:w-3 after:content-[''] hover:bg-accent"
         onMouseDown={handleMouseDown}
       />
     </div>

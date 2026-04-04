@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
-import { Button, Tree, TreeItem, TreeItemContent } from 'react-aria-components';
+import { Button as AriaButton, Tree, TreeItem, TreeItemContent } from 'react-aria-components';
 import type { Selection, Key } from 'react-aria-components';
 import { createPortal } from 'react-dom';
 
 import { useNavigate } from '@tanstack/react-router';
-import { Laptop, FolderGit2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Laptop, FolderGit2, Plus } from 'lucide-react';
+import { tv } from 'tailwind-variants';
 
 import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useCollections';
 import { usePageVisible } from '../hooks/usePageVisible';
@@ -22,6 +23,7 @@ import {
 import { CloseProjectModal } from './CloseProjectModal';
 import { RemoveWorktreeModal } from './RemoveWorktreeModal';
 import { StatusDot } from './StatusDot';
+import { Button, Tooltip } from './ui';
 import { WorkspacePalette } from './WorkspacePalette';
 
 import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
@@ -77,27 +79,25 @@ const BranchRow = memo(
     diffStat?: DiffStat;
   }) {
     return (
-      <div className="my-px mr-1.5 ml-[39px] flex items-center gap-[6px] rounded-[5px] py-[3px] pl-[10px]">
-        <IconWithBadge agentStatus={agentStatus}>
-          <Laptop
-            size={14}
-            strokeWidth={1.5}
-            stroke={branch.is_head ? 'var(--accent)' : 'var(--text-muted)'}
-          />
-        </IconWithBadge>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-[6px]">
-            <span
-              className={`min-w-0 flex-1 truncate text-[13px] ${branch.is_head ? 'font-medium text-text-primary' : 'font-normal text-text-secondary'}`}
-            >
-              {branch.name}
-            </span>
-            {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
-          </div>
-          {branch.is_head && (
-            <span className="mt-0.5 block truncate text-[11px] text-text-muted">local</span>
-          )}
+      <div className="my-px mr-1.5 rounded-[5px] border-l-[3px] border-transparent py-[3px] pr-1.5 pl-[12px]">
+        <div className="flex items-center gap-[6px]">
+          <IconWithBadge agentStatus={agentStatus}>
+            <Laptop
+              size={14}
+              strokeWidth={1.5}
+              stroke={branch.is_head ? 'var(--accent)' : 'var(--text-muted)'}
+            />
+          </IconWithBadge>
+          <span
+            className={`min-w-0 flex-1 truncate text-[13px] ${branch.is_head ? 'text-text-primary' : 'text-text-secondary'}`}
+          >
+            {branch.name}
+          </span>
+          {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
         </div>
+        {branch.is_head && (
+          <span className="mt-0.5 block truncate pl-[20px] text-[11px] text-text-muted">local</span>
+        )}
       </div>
     );
   },
@@ -143,39 +143,37 @@ const WorktreeRow = memo(
     }
 
     return (
-      <div className="group/wt my-px mr-1.5 ml-[39px] flex items-center gap-[6px] rounded-[5px] py-[3px] pl-[10px]">
-        <IconWithBadge agentStatus={agentStatus}>
-          <FolderGit2 size={14} strokeWidth={1.5} stroke="var(--text-muted)" />
-        </IconWithBadge>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-[6px]">
-            {editing ? (
-              <input
-                ref={inputRef}
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onBlur={commitEdit}
-                onKeyDown={(e) => {
-                  e.stopPropagation(); // prevent Tree from capturing space/arrows
-                  if (e.key === 'Enter') commitEdit();
-                  if (e.key === 'Escape') setEditing(false);
-                }}
-                className="m-0 w-full border-none bg-transparent p-0 text-sm text-[var(--text-secondary)] outline-none"
-              />
-            ) : (
-              <span
-                className="block min-w-0 flex-1 truncate text-sm text-text-secondary"
-                onDoubleClick={startEditing}
-              >
-                {displayName}
-              </span>
-            )}
-            {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
-          </div>
-          <span className="mt-0.5 block truncate text-[11px] text-text-muted">
-            {worktree.branch || worktree.name}
-          </span>
+      <div className="group/wt my-px mr-1.5 rounded-[5px] border-l-[3px] border-transparent py-[3px] pr-1.5 pl-[12px]">
+        <div className="flex items-center gap-[6px]">
+          <IconWithBadge agentStatus={agentStatus}>
+            <FolderGit2 size={14} strokeWidth={1.5} stroke="var(--text-muted)" />
+          </IconWithBadge>
+          {editing ? (
+            <input
+              ref={inputRef}
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={commitEdit}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') commitEdit();
+                if (e.key === 'Escape') setEditing(false);
+              }}
+              className="m-0 min-w-0 flex-1 border-none bg-transparent p-0 text-sm text-[var(--text-secondary)] outline-none"
+            />
+          ) : (
+            <span
+              className="min-w-0 flex-1 truncate text-sm text-text-secondary"
+              onDoubleClick={startEditing}
+            >
+              {displayName}
+            </span>
+          )}
+          {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
         </div>
+        <span className="mt-0.5 block truncate pl-[20px] text-[11px] text-text-muted">
+          {worktree.branch || worktree.name}
+        </span>
       </div>
     );
   },
@@ -189,6 +187,17 @@ const WorktreeRow = memo(
     prev.diffStat?.deletions === next.diffStat?.deletions,
 );
 
+const repoHeader = tv({
+  base: 'group flex items-center gap-[6px] border-l-[3px] py-[6px] pr-[6px] pl-[12px]',
+  variants: {
+    selected: {
+      true: 'border-accent bg-[rgba(59,130,246,0.04)]',
+      false: 'border-transparent hover:bg-[rgba(59,130,246,0.04)]',
+    },
+  },
+  defaultVariants: { selected: false },
+});
+
 const RepoHeader = memo(
   function RepoHeader({
     workspace,
@@ -200,21 +209,18 @@ const RepoHeader = memo(
     workspace: Workspace;
     agentSummary?: Array<'running' | 'waiting'>;
     isSelected: boolean;
-    onPlusClick: (e: React.MouseEvent) => void;
-    onRowClick: (e: React.MouseEvent) => void;
+    onPlusClick: () => void;
+    onRowClick: () => void;
   }) {
     const childCount = workspace.branches.length + workspace.worktrees.length;
 
     return (
-      <div
-        className={`group flex cursor-pointer items-center gap-[7px] border-l-[3px] py-[6px] pr-[6px] pl-[12px] ${isSelected ? 'border-accent bg-[rgba(59,130,246,0.04)]' : 'border-transparent'}`}
-        onClick={onRowClick}
-      >
+      <div className={repoHeader({ selected: isSelected })} onClick={() => onRowClick()}>
         {/* Hidden chevron for React ARIA Tree expand/collapse */}
-        <Button slot="chevron" className="hidden" />
+        <AriaButton slot="chevron" className="hidden" />
         <svg
-          width="16"
-          height="16"
+          width="14"
+          height="14"
           viewBox="0 0 16 16"
           fill="none"
           stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'}
@@ -238,48 +244,38 @@ const RepoHeader = memo(
         )}
         {/* Always show branch/worktree count */}
         {childCount > 0 && (
-          <span className="rounded-lg bg-bg-tertiary px-[6px] py-px font-mono text-[11px] text-text-muted tabular-nums">
-            {childCount}
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center">
+            <span className="rounded bg-bg-tertiary px-[5px] py-px font-mono text-[10px] text-text-muted tabular-nums">
+              {childCount}
+            </span>
           </span>
         )}
-        {/* Collapse/expand chevron indicator */}
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="var(--text-muted)"
-          className="flex-shrink-0"
+        <Button
+          iconOnly
+          size="sm"
+          variant="ghost"
+          onPress={onRowClick}
+          onClick={(e: React.MouseEvent) => e.stopPropagation()}
         >
-          {workspace.expanded ? <path d="M4 6l4 4 4-4z" /> : <path d="M6 4l4 4-4 4z" />}
-        </svg>
+          {workspace.expanded ? (
+            <ChevronDown size={12} strokeWidth={1.5} />
+          ) : (
+            <ChevronRight size={12} strokeWidth={1.5} />
+          )}
+        </Button>
         {/* + button */}
-        <div
-          className="flex-shrink-0 cursor-pointer"
-          onClick={(e) => {
-            e.stopPropagation();
-            onPlusClick(e);
-          }}
-          role="button"
-          aria-label="Add workspace"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.stopPropagation();
-              onPlusClick(e as unknown as React.MouseEvent);
-            }
-          }}
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="var(--text-muted)"
-            strokeWidth="1.5"
+        <Tooltip label="New branch / worktree" placement="right">
+          <Button
+            iconOnly
+            size="sm"
+            variant="ghost"
+            aria-label="New branch or worktree"
+            onPress={onPlusClick}
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
           >
-            <path d="M8 3v10M3 8h10" />
-          </svg>
-        </div>
+            <Plus size={12} strokeWidth={1.5} />
+          </Button>
+        </Tooltip>
       </div>
     );
   },
@@ -413,7 +409,7 @@ export function WorkspaceTree() {
         expandedKeys={expandedKeys}
         onExpandedChange={handleExpandedChange}
       >
-        {workspaces.map((ws) => (
+        {workspaces.map((ws, i) => (
           <RepoTreeItem
             key={ws.id}
             ws={ws}
@@ -423,6 +419,7 @@ export function WorkspaceTree() {
             onRequestClose={setCloseTarget}
             onRequestRemoveWt={(name) => setRemoveWtTarget({ workspaceId: ws.id, name })}
             selectedItemId={selectedItemId}
+            hasSeparator={i > 0}
           />
         ))}
       </Tree>
@@ -526,7 +523,7 @@ function ContextMenu({
             ref={i === 0 ? buttonRef : undefined}
             role="menuitem"
             tabIndex={i === 0 ? 0 : -1}
-            className={`w-full cursor-pointer px-3 py-1.5 text-left text-[13px] outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)] ${item.destructive ? 'text-[var(--destructive)]' : 'text-[var(--text-secondary)]'}`}
+            className={`w-full px-3 py-1.5 text-left text-[13px] outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)] ${item.destructive ? 'text-[var(--destructive)]' : 'text-[var(--text-secondary)]'}`}
             onClick={(e) => {
               e.stopPropagation();
               item.onSelect();
@@ -555,6 +552,7 @@ function RepoTreeItem({
   onRequestClose,
   onRequestRemoveWt,
   selectedItemId,
+  hasSeparator,
 }: {
   ws: Workspace;
   agentMap: Record<string, DotStatus>;
@@ -563,6 +561,7 @@ function RepoTreeItem({
   onRequestClose: (ws: Workspace) => void;
   onRequestRemoveWt: (name: string) => void;
   selectedItemId: string | null;
+  hasSeparator: boolean;
 }) {
   const agentSummary = useMemo(() => getRepoAgentSummary(ws, agentMap), [ws, agentMap]);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -570,21 +569,13 @@ function RepoTreeItem({
   const [wtMenuTarget, setWtMenuTarget] = useState<string | null>(null);
   const wtMenuPos = useRef({ x: 0, y: 0 });
 
-  const handlePlusClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      setModalWorkspace(ws);
-    },
-    [ws, setModalWorkspace],
-  );
+  const handlePlusClick = useCallback(() => {
+    setModalWorkspace(ws);
+  }, [ws, setModalWorkspace]);
 
-  const handleRowClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      toggleExpanded(ws.id);
-    },
-    [ws.id],
-  );
+  const handleRowClick = useCallback(() => {
+    toggleExpanded(ws.id);
+  }, [ws.id]);
 
   function handleContextMenu(e: React.MouseEvent) {
     e.preventDefault();
@@ -600,9 +591,10 @@ function RepoTreeItem({
         id={ws.id}
         textValue={ws.name}
         hasChildItems={ws.branches.length > 0 || ws.worktrees.length > 0}
-        className="cursor-pointer outline-none"
+        className="outline-none"
       >
         <TreeItemContent>
+          {hasSeparator && <div className="h-px bg-border" />}
           <div onContextMenu={handleContextMenu}>
             <RepoHeader
               workspace={ws}
@@ -618,7 +610,7 @@ function RepoTreeItem({
             key={`${ws.id}-branch-${b.name}`}
             id={`${ws.id}-branch-${b.name}`}
             textValue={b.name}
-            className="cursor-pointer outline-none hover:bg-bg-tertiary data-[selected]:bg-[rgba(59,130,246,0.08)]"
+            className="outline-none hover:bg-bg-tertiary data-[selected]:bg-[rgba(59,130,246,0.08)]"
           >
             <TreeItemContent>
               <BranchRow
@@ -634,7 +626,7 @@ function RepoTreeItem({
             key={`${ws.id}-wt-${wt.name}`}
             id={`${ws.id}-wt-${wt.name}`}
             textValue={wt.name}
-            className="cursor-pointer outline-none hover:bg-bg-tertiary data-[selected]:bg-[rgba(59,130,246,0.08)]"
+            className="outline-none hover:bg-bg-tertiary data-[selected]:bg-[rgba(59,130,246,0.08)]"
           >
             <TreeItemContent>
               <div
