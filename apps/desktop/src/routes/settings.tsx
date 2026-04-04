@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { ChevronLeft, User, Palette, GitBranch, Link } from 'lucide-react';
+import { ChevronLeft, Palette, GitBranch } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { AppearanceSection } from '../components/settings/AppearanceSection';
 import { ConnectionSection } from '../components/settings/ConnectionSection';
 
-type SectionId = 'appearance' | 'connection';
+type SectionId = 'appearance' | 'git';
 
 interface NavItem {
   id: SectionId;
@@ -17,26 +17,17 @@ interface NavItem {
 
 interface NavGroup {
   label: string;
-  icon: typeof User;
   items: NavItem[];
 }
 
 const NAV: NavGroup[] = [
-  {
-    label: 'Personal',
-    icon: User,
-    items: [{ id: 'appearance', label: 'Appearance', icon: Palette }],
-  },
-  {
-    label: 'Git & Projects',
-    icon: GitBranch,
-    items: [{ id: 'connection', label: 'Connection', icon: Link }],
-  },
+  { label: 'Personal', items: [{ id: 'appearance', label: 'Appearance', icon: Palette }] },
+  { label: 'Editor & Workflow', items: [{ id: 'git', label: 'Git', icon: GitBranch }] },
 ];
 
 const SECTIONS: Record<SectionId, () => React.JSX.Element> = {
   appearance: AppearanceSection,
-  connection: ConnectionSection,
+  git: ConnectionSection,
 };
 
 const navItem = tv({
@@ -88,8 +79,7 @@ function SettingsRoute() {
         <nav className="flex-1 space-y-4 px-3">
           {NAV.map((group) => (
             <div key={group.label}>
-              <div className="mb-1 flex items-center gap-1.5 px-2 text-[11px] font-semibold tracking-wider text-text-muted/60 uppercase">
-                <group.icon size={12} strokeWidth={1.8} />
+              <div className="mb-1 px-2 text-[11px] font-semibold tracking-wider text-text-muted/60 uppercase">
                 {group.label}
               </div>
               <div className="space-y-0.5">

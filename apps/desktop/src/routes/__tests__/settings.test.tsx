@@ -35,7 +35,7 @@ describe('Settings route', () => {
   it('renders sidebar with section headers', () => {
     const { getByText } = render(<SettingsRoute />);
     expect(getByText('Personal')).toBeInTheDocument();
-    expect(getByText('Git & Projects')).toBeInTheDocument();
+    expect(getByText('Editor & Workflow')).toBeInTheDocument();
   });
 
   it('renders Appearance nav item as active by default', () => {
@@ -43,9 +43,9 @@ describe('Settings route', () => {
     expect(getByText('Appearance')).toBeInTheDocument();
   });
 
-  it('renders Connection nav item', () => {
+  it('renders Git nav item', () => {
     const { getByText } = render(<SettingsRoute />);
-    expect(getByText('Connection')).toBeInTheDocument();
+    expect(getByText('Git')).toBeInTheDocument();
   });
 
   it('shows AppearanceSection content by default', () => {
@@ -53,9 +53,9 @@ describe('Settings route', () => {
     expect(getByText('Theme')).toBeInTheDocument();
   });
 
-  it('switches to ConnectionSection when Connection is clicked', async () => {
+  it('switches to Git section when Git is clicked', async () => {
     const { getByText, findByText } = render(<SettingsRoute />);
-    fireEvent.click(getByText('Connection'));
+    fireEvent.click(getByText('Git'));
     expect(await findByText('GitHub')).toBeInTheDocument();
   });
 
