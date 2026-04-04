@@ -110,7 +110,7 @@ export function sanitizeWorktreeName(name: string): string {
 }
 
 export const WORKTREE_BASE_DIR_KEY = 'worktreeBaseDir';
-const DEFAULT_WORKTREE_BASE = '~/.superagent/worktrees';
+export const DEFAULT_WORKTREE_BASE = '~/.superagent/worktrees';
 
 /** Build the worktree disk path, using the user-configured base dir or the default. */
 export function buildWorktreePath(workspaceName: string, wtName: string): string {

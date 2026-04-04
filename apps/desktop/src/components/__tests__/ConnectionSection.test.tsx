@@ -21,7 +21,10 @@ vi.mock('@tanstack/react-db', () => ({ useLiveQuery: () => ({ data: [] }) }));
 vi.mock('../../lib/toast', () => ({ showErrorToast: vi.fn() }));
 vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: vi.fn() }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }));
-vi.mock('../../lib/git', () => ({ WORKTREE_BASE_DIR_KEY: 'worktreeBaseDir' }));
+vi.mock('../../lib/git', () => ({
+  WORKTREE_BASE_DIR_KEY: 'worktreeBaseDir',
+  DEFAULT_WORKTREE_BASE: '~/.superagent/worktrees',
+}));
 
 import { ConnectionSection } from '../settings/ConnectionSection';
 

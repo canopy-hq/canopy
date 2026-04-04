@@ -4,7 +4,7 @@ import { getSetting, getSettingCollection, setSetting } from '@superagent/db';
 import { useLiveQuery } from '@tanstack/react-db';
 import { openUrl } from '@tauri-apps/plugin-opener';
 
-import { WORKTREE_BASE_DIR_KEY } from '../../lib/git';
+import { DEFAULT_WORKTREE_BASE, WORKTREE_BASE_DIR_KEY } from '../../lib/git';
 import {
   getConnection,
   disconnect,
@@ -120,13 +120,11 @@ export function ConnectionSection() {
   );
 }
 
-const DEFAULT_WORKTREE_BASE = '~/.superagent/worktrees';
-
 function WorktreeBaseDir() {
   const { data: settings = [] } = useLiveQuery(() => getSettingCollection());
   const currentDir = getSetting<string>(settings, WORKTREE_BASE_DIR_KEY, DEFAULT_WORKTREE_BASE);
 
-  const handleChoose = useCallback(async () => {
+  async function handleChoose() {
     const { open } = await import('@tauri-apps/plugin-dialog');
     const selected = await open({
       directory: true,
@@ -135,13 +133,13 @@ function WorktreeBaseDir() {
       defaultPath: currentDir.startsWith('~') ? undefined : currentDir,
     });
     if (selected) {
-      setSetting(WORKTREE_BASE_DIR_KEY, selected);
+      setSetting(WORKTREE_BASE_DIR_KEY, selected.replace(/\/+$/, ''));
     }
-  }, [currentDir]);
+  }
 
-  const handleReset = useCallback(() => {
+  function handleReset() {
     setSetting(WORKTREE_BASE_DIR_KEY, DEFAULT_WORKTREE_BASE);
-  }, []);
+  }
 
   const isDefault = currentDir === DEFAULT_WORKTREE_BASE;
 
