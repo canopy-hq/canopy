@@ -128,7 +128,6 @@ const TabItemComponent = memo(
             void handleClose();
           }
         }}
-        title={editing ? undefined : tab.label}
       >
         {agentStatus !== 'idle' && !editing && <StatusDot status={agentStatus} size={8} />}
         {editing ? (
