@@ -61,8 +61,13 @@ function TabItemComponent({
   const agentStatus = useTabAgentStatus(tab);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const originalLabelRef = useRef('');
+
+  useEffect(() => {
+    if (isActive) buttonRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [isActive]);
 
   const startEditing = useCallback(() => {
     originalLabelRef.current = tab.label;
@@ -94,6 +99,7 @@ function TabItemComponent({
 
   return (
     <button
+      ref={buttonRef}
       className={tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}
       onClick={editing ? undefined : onSwitch}
       onMouseDown={(e) => {
