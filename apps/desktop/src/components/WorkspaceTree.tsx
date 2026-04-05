@@ -3,14 +3,10 @@ import { createPortal } from 'react-dom';
 
 import {
   DndContext,
-  PointerSensor,
   closestCenter,
-  useSensor,
-  useSensors,
   type DragEndEvent,
   type DragOverEvent,
   type DraggableSyntheticListeners,
-  type Modifier,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -25,8 +21,10 @@ import { tv } from 'tailwind-variants';
 
 import { makeWorkspacePaletteItem } from '../commands/workspace-commands';
 import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useCollections';
+import { useDragStyle } from '../hooks/useDragStyle';
 import { usePageVisible } from '../hooks/usePageVisible';
 import { useWorkspacePolling } from '../hooks/useWorkspacePolling';
+import { restrictToVerticalAxis, useDragSensors } from '../lib/dnd';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import {
   toggleExpanded,
@@ -220,6 +218,7 @@ const RepoHeader = memo(
     isSelected,
     onPlusClick,
     onRowClick,
+    onContextMenu,
     dragListeners,
   }: {
     workspace: Workspace;
@@ -227,12 +226,18 @@ const RepoHeader = memo(
     isSelected: boolean;
     onPlusClick: () => void;
     onRowClick: () => void;
+    onContextMenu: (e: React.MouseEvent) => void;
     dragListeners?: DraggableSyntheticListeners;
   }) {
     const childCount = workspace.branches.length + workspace.worktrees.length;
 
     return (
-      <div className={repoHeader({ selected: isSelected })} onClick={onRowClick} {...dragListeners}>
+      <div
+        className={repoHeader({ selected: isSelected })}
+        onClick={onRowClick}
+        onContextMenu={onContextMenu}
+        {...dragListeners}
+      >
         <svg
           width="14"
           height="14"
@@ -302,6 +307,7 @@ const RepoHeader = memo(
     prev.isSelected === next.isSelected &&
     prev.onPlusClick === next.onPlusClick &&
     prev.onRowClick === next.onRowClick &&
+    prev.onContextMenu === next.onContextMenu &&
     prev.agentSummary?.length === next.agentSummary?.length &&
     (prev.agentSummary ?? []).every((s, i) => s === next.agentSummary?.[i]) &&
     prev.dragListeners === next.dragListeners,
@@ -354,8 +360,6 @@ function getRepoAgentSummary(
   return statuses;
 }
 
-const restrictToVerticalAxis: Modifier = ({ transform }) => ({ ...transform, x: 0 });
-
 export function WorkspaceTree() {
   const rawWorkspaces = useWorkspaces();
   const workspaces = useMemo(
@@ -374,22 +378,21 @@ export function WorkspaceTree() {
   const pageVisible = usePageVisible();
   const diffStatsMap = useWorkspacePolling(workspaces, sidebarVisible && pageVisible);
   const navigate = useNavigate();
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useDragSensors();
+  useDragStyle(activeId !== null);
 
-  useEffect(() => {
-    if (!activeId) return;
-    const style = document.createElement('style');
-    style.textContent = '* { cursor: grabbing !important; pointer-events: none !important; }';
-    document.head.appendChild(style);
-    return () => style.remove();
-  }, [activeId]);
-
-  // Visual order during drag — reflects where items appear, not their DOM position
-  const visualOrder = useMemo(() => {
-    if (!activeId || !overId || activeId === overId) return workspaces;
-    const oldIndex = workspaces.findIndex((w) => w.id === activeId);
-    const newIndex = workspaces.findIndex((w) => w.id === overId);
-    return arrayMove(workspaces, oldIndex, newIndex);
+  // IDs that need a top separator — all except the first in the current visual order.
+  // Recomputed on drag-over so separators update live as items shift.
+  const separatorIds = useMemo(() => {
+    const order =
+      activeId && overId && activeId !== overId
+        ? arrayMove(
+            workspaces,
+            workspaces.findIndex((w) => w.id === activeId),
+            workspaces.findIndex((w) => w.id === overId),
+          )
+        : workspaces;
+    return new Set(order.slice(1).map((w) => w.id));
   }, [workspaces, activeId, overId]);
 
   const handleDragEnd = useCallback(
@@ -445,7 +448,7 @@ export function WorkspaceTree() {
               onRequestRemoveWt={(name) => setRemoveWtTarget({ workspaceId: ws.id, name })}
               selectedItemId={selectedItemId}
               activeContextId={activeContextId}
-              hasSeparator={visualOrder.findIndex((w) => w.id === ws.id) > 0}
+              hasSeparator={separatorIds.has(ws.id)}
               onSelectItem={handleSelectItem}
             />
           ))}
@@ -626,16 +629,15 @@ function RepoTreeItem({
         }}
       >
         {hasSeparator && !isDragging && <div className="h-px bg-border" />}
-        <div className="group/repo" onContextMenu={handleContextMenu}>
-          <RepoHeader
-            workspace={ws}
-            agentSummary={agentSummary}
-            isSelected={isRepoSelected}
-            onPlusClick={handlePlusClick}
-            onRowClick={handleRowClick}
-            dragListeners={listeners}
-          />
-        </div>
+        <RepoHeader
+          workspace={ws}
+          agentSummary={agentSummary}
+          isSelected={isRepoSelected}
+          onPlusClick={handlePlusClick}
+          onRowClick={handleRowClick}
+          onContextMenu={handleContextMenu}
+          dragListeners={listeners}
+        />
         {ws.expanded && (
           <>
             {ws.branches.map((b) => {

@@ -1,14 +1,6 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import {
-  DndContext,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type Modifier,
-} from '@dnd-kit/core';
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import {
   SortableContext,
   useSortable,
@@ -20,6 +12,8 @@ import { Plus, X } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
+import { useDragStyle } from '../hooks/useDragStyle';
+import { restrictToHorizontalAxis, useDragSensors } from '../lib/dnd';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import { addTab, closeTab, switchTab, renameTab, reorderTabs } from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
@@ -48,7 +42,7 @@ const tabItem = tv({
       false: 'bg-transparent text-text-muted hover:bg-bg-secondary hover:text-text-secondary',
     },
     agentWaiting: { true: 'bg-(--agent-waiting-glow)' },
-    dragging: { true: 'pointer-events-none z-50 bg-bg-primary' },
+    dragging: { true: 'pointer-events-none z-50 bg-bg-secondary' },
   },
   defaultVariants: { active: false, agentWaiting: false, dragging: false },
 });
@@ -231,8 +225,6 @@ const TabItemComponent = memo(
   (prev, next) => prev.tab === next.tab && prev.isActive === next.isActive,
 );
 
-const restrictToHorizontalAxis: Modifier = ({ transform }) => ({ ...transform, y: 0 });
-
 export function TabBar() {
   const allTabs = useTabs();
   const ui = useUiState();
@@ -246,16 +238,8 @@ export function TabBar() {
   );
   const activeTabId = ui.activeTabId;
   const [dragging, setDragging] = useState(false);
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-
-  useEffect(() => {
-    if (!dragging) return;
-    const style = document.createElement('style');
-    style.textContent = '* { cursor: grabbing !important; pointer-events: none !important; }';
-    document.head.appendChild(style);
-    return () => style.remove();
-  }, [dragging]);
+  const sensors = useDragSensors();
+  useDragStyle(dragging);
 
   const handleDragEnd = useCallback(
     ({ active, over }: DragEndEvent) => {
