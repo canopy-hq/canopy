@@ -13,7 +13,8 @@
     "tauri": "tauri",
     "gen-icons": "swift scripts/gen-icons.swift",
     "lint": "oxlint src",
-    "format": "oxfmt src"
+    "format": "oxfmt src",
+    "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
