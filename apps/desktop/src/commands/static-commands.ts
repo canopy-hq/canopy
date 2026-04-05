@@ -1,33 +1,13 @@
-import { addTab } from '../lib/tab-actions';
 import { importRepo, toggleSidebar } from '../lib/workspace-actions';
 
 import type { Nav, CommandItem } from '@superagent/command-palette';
-import type { UiState } from '@superagent/db';
 
-export function buildStaticCommands(navigate: Nav, uiState: UiState): CommandItem[] {
-  const inProject = !!uiState.activeContextId;
-  const items: CommandItem[] = [];
-
-  if (inProject) {
-    items.push({
-      id: 'action:new-tab',
-      label: 'New Tab',
-      category: 'action',
-      keywords: ['terminal', 'open', 'create'],
-      shortcut: '⌘T',
-      icon: 'plus',
-      action: ({ close }) => {
-        addTab();
-        close();
-      },
-    });
-  }
-
-  items.push(
+export function buildStaticCommands(navigate: Nav): CommandItem[] {
+  return [
     {
       id: 'action:add-project',
       label: 'Add Project',
-      category: 'action',
+      category: 'global',
       keywords: ['import', 'repository', 'repo', 'open', 'folder'],
       icon: 'folder',
       action: async ({ close }) => {
@@ -48,7 +28,7 @@ export function buildStaticCommands(navigate: Nav, uiState: UiState): CommandIte
     {
       id: 'action:toggle-sidebar',
       label: 'Toggle Sidebar',
-      category: 'action',
+      category: 'global',
       keywords: ['show', 'hide', 'sidebar', 'panel'],
       shortcut: '⌘B',
       icon: 'sidebar',
@@ -60,7 +40,7 @@ export function buildStaticCommands(navigate: Nav, uiState: UiState): CommandIte
     {
       id: 'action:settings',
       label: 'Open Settings',
-      category: 'action',
+      category: 'global',
       keywords: ['preferences', 'config', 'theme'],
       icon: 'settings',
       action: ({ close }) => {
@@ -68,7 +48,5 @@ export function buildStaticCommands(navigate: Nav, uiState: UiState): CommandIte
         close();
       },
     },
-  );
-
-  return items;
+  ];
 }

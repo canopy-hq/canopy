@@ -1,14 +1,32 @@
+import { createElement } from 'react';
+
 import { getSetting } from '@superagent/db';
 
+import { WorkspacePalettePanel } from '../components/WorkspacePalette';
+import { addTab } from '../lib/tab-actions';
 import { selectWorkspaceItem } from '../lib/workspace-actions';
 
 import type { Nav, CommandItem } from '@superagent/command-palette';
 import type { Setting, Workspace } from '@superagent/db';
 
+export function makeWorkspacePaletteItem(ws: Workspace): CommandItem {
+  return {
+    id: `workspace:${ws.id}:palette`,
+    label: 'New branch or worktree',
+    category: 'action',
+    icon: 'plus',
+    keywords: ['branch', 'worktree', 'create', 'new', ws.name],
+    contextId: ws.id,
+    renderPanel: (ctx: PanelContext) =>
+      createElement(WorkspacePalettePanel, { workspace: ws, ctx }),
+  };
+}
+
 export function buildWorkspaceCommands(
   workspaces: Workspace[],
   settings: Setting[],
   navigate: Nav,
+  activeContextId?: string | null,
 ): CommandItem[] {
   const recentIds = getSetting<string[]>(settings, 'recentWorkspaceIds', []);
 
@@ -21,7 +39,7 @@ export function buildWorkspaceCommands(
     return a.position - b.position;
   });
 
-  return sorted.map((ws): CommandItem => {
+  const items: CommandItem[] = sorted.map((ws): CommandItem => {
     const headBranch = ws.branches.find((b) => b.is_head) ?? ws.branches[0];
 
     return {
@@ -37,10 +55,37 @@ export function buildWorkspaceCommands(
       },
     };
   });
+
+  // Add quick actions for the active workspace (shown as a dedicated top section).
+  // activeContextId is a workspaceItemId like `${wsId}-branch-main`, so match by prefix.
+  const activeWs = activeContextId
+    ? workspaces.find((ws) => activeContextId.startsWith(ws.id))
+    : null;
+  if (activeWs) {
+    items.push({
+      id: `workspace:${activeWs.id}:new-tab`,
+      label: 'New Tab',
+      category: 'action',
+      icon: 'tab',
+      shortcut: '⌘T',
+      keywords: ['tab', 'terminal', 'open', 'new', activeWs.name],
+      contextId: activeWs.id,
+      action: ({ close }) => {
+        addTab();
+        close();
+      },
+    });
+    items.push(makeWorkspacePaletteItem(activeWs));
+  }
+
+  return items;
 }
 
 function buildWorkspaceChildren(ws: Workspace, navigate: Nav): CommandItem[] {
   const items: CommandItem[] = [];
+
+  // Palette item first
+  items.push(makeWorkspacePaletteItem(ws));
 
   // HEAD branch first
   const branches = [...ws.branches].sort((a, b) => (b.is_head ? 1 : 0) - (a.is_head ? 1 : 0));

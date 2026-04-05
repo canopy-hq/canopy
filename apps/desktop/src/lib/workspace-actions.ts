@@ -13,6 +13,7 @@ import { closePty, closePtysForPanes, disposeCached } from '@superagent/terminal
 
 import * as gitApi from './git';
 import { collectAllLeafPaneIds, collectLeafPtyIds } from './pane-tree-ops';
+import { closeTab } from './tab-actions';
 import { showErrorToast, showInfoToast } from './toast';
 
 import type { Workspace } from '@superagent/db';
@@ -256,8 +257,12 @@ export async function removeWorktree(workspaceId: string, name: string): Promise
   }
 }
 
-/** Remove worktree from sidebar only (can be re-opened from palette). */
+/** Remove worktree from sidebar only (can be re-opened from palette). Closes all associated tabs. */
 export function hideWorktree(workspaceId: string, name: string): void {
+  const wtItemId = `${workspaceId}-wt-${name}`;
+  for (const tab of getTabCollection().toArray.filter((t) => t.workspaceItemId === wtItemId)) {
+    closeTab(tab.id);
+  }
   getWorkspaceCollection().update(workspaceId, (draft) => {
     draft.worktrees = draft.worktrees.filter((wt) => wt.name !== name);
   });
