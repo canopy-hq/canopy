@@ -26,7 +26,7 @@ export interface WorkspacePaletteProps {
 type Tab = 'all' | 'worktrees';
 
 const tabButton = tv({
-  base: 'flex flex-1 items-center justify-center gap-1 rounded border-none px-2 py-1.25 ui-md',
+  base: 'flex flex-1 items-center justify-center gap-1 rounded border-none px-2 py-1.25 text-md',
   variants: {
     active: { true: 'bg-bg-tertiary text-text-primary', false: 'bg-transparent text-text-muted' },
   },
@@ -175,7 +175,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
             }}
             onKeyDown={handleKeyDown}
             placeholder="Search or create new branch..."
-            className="ui-lg flex-1 border-none bg-transparent text-text-primary outline-none"
+            className="flex-1 border-none bg-transparent text-lg text-text-primary outline-none"
           />
           <Kbd>ESC</Kbd>
         </div>
@@ -194,7 +194,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
               >
                 <path d="M8 3v10M3 8h10" />
               </svg>
-              <span className="ui-base flex-1 font-medium text-accent">
+              <span className="flex-1 text-base font-medium text-accent">
                 Create &ldquo;{sanitizedName}&rdquo;
               </span>
               <span className="flex items-center gap-0.5">
@@ -203,10 +203,10 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="ui-sm text-text-muted">from</span>
+              <span className="text-sm text-text-muted">from</span>
               <button
                 onClick={() => setPickingBase(true)}
-                className="ui-sm flex items-center gap-1 rounded-[5px] border border-border bg-bg-tertiary px-2 py-0.5"
+                className="flex items-center gap-1 rounded-[5px] border border-border bg-bg-tertiary px-2 py-0.5 text-sm"
               >
                 <svg
                   width="9"
@@ -231,14 +231,14 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
         <div className="mx-2 mt-2 flex gap-0.5 rounded-[6px] bg-bg-primary p-0.5">
           <button onClick={() => setTab('all')} className={tabButton({ active: tab === 'all' })}>
             All{' '}
-            <span className="ui-xs rounded-full bg-white/[0.06] px-1.25">{branches.length}</span>
+            <span className="rounded-full bg-white/[0.06] px-1.25 text-xs">{branches.length}</span>
           </button>
           <button
             onClick={() => setTab('worktrees')}
             className={tabButton({ active: tab === 'worktrees' })}
           >
             Worktrees{' '}
-            <span className="ui-xs rounded-full bg-white/[0.06] px-1.25">
+            <span className="rounded-full bg-white/[0.06] px-1.25 text-xs">
               {diskWorktrees.length}
             </span>
           </button>
@@ -248,11 +248,11 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
         <div className="max-h-[320px] overflow-y-auto px-2 pb-2">
           {tab === 'all' && !pickingBase && (
             <>
-              <div className="ui-xs px-2 pt-1.5 pb-1 tracking-[0.5px] text-text-muted uppercase">
+              <div className="px-2 pt-1.5 pb-1 text-xs tracking-[0.5px] text-text-muted uppercase">
                 Branches
               </div>
               {filteredBranches.length === 0 && (
-                <div className="ui-md py-3 text-center text-text-muted">
+                <div className="py-3 text-center text-md text-text-muted">
                   {query ? `No branches match "${query}"` : 'No branches'}
                 </div>
               )}
@@ -270,11 +270,11 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
                   onCancelConfirm={() => setConfirmBranch(null)}
                 />
               ))}
-              <div className="ui-xs mt-1 border-t border-border px-2 pt-1.5 pb-1 tracking-[0.5px] text-text-muted uppercase">
+              <div className="mt-1 border-t border-border px-2 pt-1.5 pb-1 text-xs tracking-[0.5px] text-text-muted uppercase">
                 Worktrees
               </div>
               {filteredWorktrees.length === 0 && (
-                <div className="ui-md py-3 text-center text-text-muted">No worktrees</div>
+                <div className="py-3 text-center text-md text-text-muted">No worktrees</div>
               )}
               {filteredWorktrees.map((wt) => (
                 <WorktreeItem
@@ -291,8 +291,8 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
             <>
               {filteredWorktrees.length === 0 && (
                 <div className="px-4 py-8 text-center">
-                  <div className="ui-base mb-1 text-text-muted">No worktrees</div>
-                  <div className="ui-md text-text-muted">Create one from the All tab</div>
+                  <div className="mb-1 text-base text-text-muted">No worktrees</div>
+                  <div className="text-md text-text-muted">Create one from the All tab</div>
                 </div>
               )}
               {filteredWorktrees.map((wt) => (
@@ -305,7 +305,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
                 />
               ))}
               {filteredWorktrees.length > 0 && (
-                <div className="ui-md mt-1 border-t border-border p-2 text-center text-text-muted">
+                <div className="mt-1 border-t border-border p-2 text-center text-md text-text-muted">
                   Worktrees already on disk. Click Open to add to sidebar.
                 </div>
               )}
@@ -314,7 +314,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
 
           {pickingBase && (
             <>
-              <div className="ui-xs px-2 pt-1.5 pb-1 tracking-[0.5px] text-text-muted uppercase">
+              <div className="px-2 pt-1.5 pb-1 text-xs tracking-[0.5px] text-text-muted uppercase">
                 Select base branch
               </div>
               {branches
@@ -339,7 +339,7 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
                       <circle cx="8" cy="8" r="3" />
                     </svg>
                     <span
-                      className={`ui-base text-text-primary ${b.name === baseBranch ? 'font-medium' : 'font-normal'}`}
+                      className={`text-base text-text-primary ${b.name === baseBranch ? 'font-medium' : 'font-normal'}`}
                     >
                       {b.name}
                     </span>
@@ -362,14 +362,14 @@ export function WorkspacePalette({ isOpen, onClose, workspace }: WorkspacePalett
         </div>
 
         {/* Footer */}
-        <div className="ui-sm flex items-center gap-3 border-t border-border px-4 py-2 text-text-muted">
+        <div className="flex items-center gap-3 border-t border-border px-4 py-2 text-sm text-text-muted">
           {isCreateMode ? (
             <>
               <span className="flex items-center gap-0.5">
                 <Kbd>⌘</Kbd>
                 <Kbd>↩</Kbd> create worktree
               </span>
-              <span className="ui-sm ml-auto font-mono text-text-muted">
+              <span className="ml-auto font-mono text-sm text-text-muted">
                 git worktree add -b <span className="text-accent">{sanitizedName}</span> &hellip;{' '}
                 <span className="text-text-muted">{baseBranch}</span>
               </span>
@@ -437,7 +437,7 @@ function BranchItem({
           <circle cx="8" cy="8" r="3" />
         </svg>
         <span
-          className={`ui-base text-text-primary ${branch.is_head ? 'font-medium' : 'font-normal'}`}
+          className={`text-base text-text-primary ${branch.is_head ? 'font-medium' : 'font-normal'}`}
         >
           {branch.name}
         </span>
@@ -446,7 +446,7 @@ function BranchItem({
         {!branch.is_local && <Badge>origin</Badge>}
         {branch.is_in_worktree && <Badge color="error">in worktree</Badge>}
         {disabled ? (
-          <span className="ui-sm ml-auto text-text-muted">
+          <span className="ml-auto text-sm text-text-muted">
             {branch.is_head ? 'checked out' : 'in use'}
           </span>
         ) : !isConfirming ? (
@@ -457,10 +457,10 @@ function BranchItem({
       </div>
       {isConfirming && (
         <div className="border-t border-accent/10 bg-accent/[0.03] px-2.5 py-2">
-          <div className="ui-sm mb-1.5 text-text-muted">
+          <div className="mb-1.5 text-sm text-text-muted">
             Create worktree for <strong className="text-text-primary">{branch.name}</strong>
           </div>
-          <div className="ui-sm mb-2 flex items-center gap-1.5 rounded bg-bg-primary px-2 py-1 font-mono text-text-muted">
+          <div className="mb-2 flex items-center gap-1.5 rounded bg-bg-primary px-2 py-1 font-mono text-sm text-text-muted">
             git worktree add ~/.superagent/worktrees/{workspace.name}-{branch.name}{' '}
             {branch.is_local ? branch.name : `origin/${branch.name}`}
           </div>
@@ -504,15 +504,15 @@ function WorktreeItem({
         <rect x="3" y="3" width="10" height="10" rx="2" />
       </svg>
       <div className="min-w-0 flex-1">
-        <div className="ui-base text-text-primary">{worktree.name}</div>
+        <div className="text-base text-text-primary">{worktree.name}</div>
         {showPath && (
-          <div className="ui-xs overflow-hidden text-ellipsis whitespace-nowrap text-text-muted">
+          <div className="overflow-hidden text-xs text-ellipsis whitespace-nowrap text-text-muted">
             {worktree.path}
           </div>
         )}
       </div>
       {isInSidebar ? (
-        <span className="ui-sm ml-auto text-text-muted">opened</span>
+        <span className="ml-auto text-sm text-text-muted">opened</span>
       ) : (
         <Button
           size="sm"

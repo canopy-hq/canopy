@@ -117,7 +117,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
         </svg>
         <div className="flex flex-col items-center gap-1 text-center">
           <span className="text-lg font-semibold text-text-muted">Session terminated</span>
-          <span className="ui-md max-w-[260px] leading-relaxed text-text-muted opacity-60">
+          <span className="max-w-[260px] text-md leading-relaxed text-text-muted opacity-60">
             This PTY session was forcefully killed. Open a new tab to start a fresh terminal.
           </span>
         </div>

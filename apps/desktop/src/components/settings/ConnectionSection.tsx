@@ -104,8 +104,8 @@ export function ConnectionSection() {
   return (
     <div className="space-y-8">
       <section>
-        <h2 className="ui-base mb-1 font-semibold text-text-primary">GitHub</h2>
-        <p className="ui-md mb-4 text-text-muted">
+        <h2 className="mb-1 text-base font-semibold text-text-primary">GitHub</h2>
+        <p className="mb-4 text-md text-text-muted">
           Connect your GitHub account for PR status, CI checks, and more.
         </p>
         <GitHubAuth
@@ -145,12 +145,12 @@ function WorktreeBaseDir() {
 
   return (
     <section>
-      <h2 className="ui-base mb-1 font-semibold text-text-primary">Worktree Base Directory</h2>
-      <p className="ui-md mb-3 text-text-muted">
+      <h2 className="mb-1 text-base font-semibold text-text-primary">Worktree Base Directory</h2>
+      <p className="mb-3 text-md text-text-muted">
         New worktrees will be created inside this directory.
       </p>
       <div className="flex items-center gap-2 rounded-lg bg-bg-secondary px-4 py-3">
-        <span className="ui-md min-w-0 flex-1 truncate font-mono text-text-primary">
+        <span className="min-w-0 flex-1 truncate font-mono text-md text-text-primary">
           {currentDir}
         </span>
         <Button variant="ghost" size="sm" onPress={handleChoose}>
@@ -178,7 +178,7 @@ function GitHubAuth({
   onCancel: () => void;
 }) {
   if (auth.status === 'loading') {
-    return <div className="ui-md text-text-muted">Checking connection...</div>;
+    return <div className="text-md text-text-muted">Checking connection...</div>;
   }
 
   if (auth.status === 'connected') {
@@ -189,7 +189,7 @@ function GitHubAuth({
           alt={auth.connection.username}
           className="h-8 w-8 rounded-full"
         />
-        <span className="ui-base flex-1 font-medium text-text-primary">
+        <span className="flex-1 text-base font-medium text-text-primary">
           {auth.connection.username}
         </span>
         <Button variant="destructive-ghost" size="sm" onPress={onDisconnect}>
@@ -203,7 +203,7 @@ function GitHubAuth({
     return (
       <div className="space-y-3 rounded-lg bg-bg-secondary px-4 py-3">
         <div className="flex items-center justify-between">
-          <span className="ui-md text-text-muted">Enter this code on GitHub:</span>
+          <span className="text-md text-text-muted">Enter this code on GitHub:</span>
           <Button
             size="sm"
             onPress={() => void navigator.clipboard.writeText(auth.deviceCode.userCode)}
@@ -215,7 +215,7 @@ function GitHubAuth({
           {auth.deviceCode.userCode}
         </div>
         <div className="flex items-center justify-between">
-          <span className="ui-md text-text-muted">Waiting for authorization...</span>
+          <span className="text-md text-text-muted">Waiting for authorization...</span>
           <Button variant="ghost" size="sm" onPress={onCancel}>
             Cancel
           </Button>

@@ -39,7 +39,7 @@ const DiffPill = memo(function DiffPill({
 }) {
   if (additions === 0 && deletions === 0) return null;
   return (
-    <span className="ui-sm inline-flex flex-shrink-0 gap-1 rounded bg-white/5 px-1.5 py-px font-medium whitespace-nowrap">
+    <span className="inline-flex flex-shrink-0 gap-1 rounded bg-white/5 px-1.5 py-px text-sm font-medium whitespace-nowrap">
       {additions > 0 && <span className="text-(--git-ahead) tabular-nums">+{additions}</span>}
       {deletions > 0 && (
         <span className="text-(--git-behind) tabular-nums">&minus;{deletions}</span>
@@ -89,14 +89,14 @@ const BranchRow = memo(
             />
           </IconWithBadge>
           <span
-            className={`ui-base min-w-0 flex-1 truncate ${branch.is_head ? 'text-text-primary' : 'text-text-secondary'}`}
+            className={`min-w-0 flex-1 truncate text-base ${branch.is_head ? 'text-text-primary' : 'text-text-secondary'}`}
           >
             {branch.name}
           </span>
           {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
         </div>
         {branch.is_head && (
-          <span className="ui-sm mt-0.5 block truncate pl-5 text-text-muted">local</span>
+          <span className="mt-0.5 block truncate pl-5 text-sm text-text-muted">local</span>
         )}
       </div>
     );
@@ -171,7 +171,7 @@ const WorktreeRow = memo(
           )}
           {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
         </div>
-        <span className="ui-sm mt-0.5 block truncate pl-5 text-text-muted">
+        <span className="mt-0.5 block truncate pl-5 text-sm text-text-muted">
           {worktree.branch || worktree.name}
         </span>
       </div>
@@ -245,7 +245,7 @@ const RepoHeader = memo(
         {/* Always show branch/worktree count */}
         {childCount > 0 && (
           <span className="flex h-6 w-6 shrink-0 items-center justify-center">
-            <span className="ui-xs rounded bg-bg-tertiary px-1.25 py-px font-mono text-text-muted tabular-nums">
+            <span className="rounded bg-bg-tertiary px-1.25 py-px font-mono text-xs text-text-muted tabular-nums">
               {childCount}
             </span>
           </span>
@@ -398,7 +398,7 @@ export function WorkspaceTree() {
 
   return (
     <>
-      <div className="ui-xs px-3 pt-2 pb-1 font-mono font-semibold tracking-wider text-text-muted uppercase opacity-60">
+      <div className="px-3 pt-2 pb-1 font-mono text-xs font-semibold tracking-wider text-text-muted uppercase opacity-60">
         Projects
       </div>
       <Tree
@@ -523,7 +523,7 @@ function ContextMenu({
             ref={i === 0 ? buttonRef : undefined}
             role="menuitem"
             tabIndex={i === 0 ? 0 : -1}
-            className={`ui-base w-full px-3 py-1.5 text-left outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)] ${item.destructive ? 'text-destructive' : 'text-text-secondary'}`}
+            className={`w-full px-3 py-1.5 text-left text-base outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)] ${item.destructive ? 'text-destructive' : 'text-text-secondary'}`}
             onClick={(e) => {
               e.stopPropagation();
               item.onSelect();

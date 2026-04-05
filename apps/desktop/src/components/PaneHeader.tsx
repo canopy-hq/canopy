@@ -15,7 +15,7 @@ import type { DotStatus } from './StatusDot';
  */
 
 const wrapper = tv({
-  base: 'absolute top-0 right-0 z-10 rounded-bl-[6px] px-4 py-1 font-mono ui-md leading-none pointer-events-none flex items-center gap-1 backdrop-blur-[4px]',
+  base: 'absolute top-0 right-0 z-10 rounded-bl-[6px] px-4 py-1 font-mono text-md leading-none pointer-events-none flex items-center gap-1 backdrop-blur-[4px]',
   variants: { focused: { true: 'text-text-primary', false: 'text-text-muted' } },
 });
 
@@ -42,8 +42,8 @@ export function PaneHeader({
       {showAgent && <StatusDot status={agentStatus} size={8} />}
       {showAgent && agentName && (
         <>
-          <span className="ui-sm text-text-primary">{agentName}</span>
-          <span className="ui-sm text-text-muted opacity-40">&middot;</span>
+          <span className="text-sm text-text-primary">{agentName}</span>
+          <span className="text-sm text-text-muted opacity-40">&middot;</span>
         </>
       )}
       {displayPath}

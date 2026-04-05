@@ -166,7 +166,7 @@ const TabItemComponent = memo(
           </span>
         )}
         {agentStatus === 'waiting' && !editing && (
-          <span className="ui-xs rounded-full bg-[rgba(251,191,36,0.25)] px-2 py-1 leading-none font-normal text-(--agent-waiting)">
+          <span className="rounded-full bg-[rgba(251,191,36,0.25)] px-2 py-1 text-xs leading-none font-normal text-(--agent-waiting)">
             input
           </span>
         )}
