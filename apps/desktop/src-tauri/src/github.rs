@@ -54,31 +54,66 @@ pub struct GitHubConnection {
     pub avatar_url: String,
 }
 
-// ── Keychain helpers ──────────────────────────────────────────────────
-
-fn keychain_entry() -> Result<keyring::Entry, String> {
-    keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_USER)
-        .map_err(|e| format!("keychain entry error: {e}"))
-}
+// ── Keychain helpers (via `security` CLI to avoid per-binary ACL prompts) ─
 
 fn store_token(token: &str) -> Result<(), String> {
-    keychain_entry()?.set_password(token).map_err(|e| format!("keychain store error: {e}"))
+    // Delete any existing entry first (ignore errors if not found)
+    let _ = std::process::Command::new("security")
+        .args(["delete-generic-password", "-s", KEYCHAIN_SERVICE, "-a", KEYCHAIN_USER])
+        .output();
+
+    let output = std::process::Command::new("security")
+        .args([
+            "add-generic-password",
+            "-s", KEYCHAIN_SERVICE,
+            "-a", KEYCHAIN_USER,
+            "-w", token,
+            "-U", // update if exists
+        ])
+        .output()
+        .map_err(|e| format!("keychain store error: {e}"))?;
+
+    if !output.status.success() {
+        return Err(format!(
+            "keychain store error: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    Ok(())
 }
 
 fn load_token() -> Result<Option<String>, String> {
-    match keychain_entry()?.get_password() {
-        Ok(token) => Ok(Some(token)),
-        Err(keyring::Error::NoEntry) => Ok(None),
-        Err(e) => Err(format!("keychain load error: {e}")),
+    let output = std::process::Command::new("security")
+        .args(["find-generic-password", "-s", KEYCHAIN_SERVICE, "-a", KEYCHAIN_USER, "-w"])
+        .output()
+        .map_err(|e| format!("keychain load error: {e}"))?;
+
+    if !output.status.success() {
+        // Exit code 44 = item not found
+        return Ok(None);
+    }
+    let token = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if token.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(token))
     }
 }
 
 fn delete_token() -> Result<(), String> {
-    match keychain_entry()?.delete_credential() {
-        Ok(()) => Ok(()),
-        Err(keyring::Error::NoEntry) => Ok(()),
-        Err(e) => Err(format!("keychain delete error: {e}")),
+    let output = std::process::Command::new("security")
+        .args(["delete-generic-password", "-s", KEYCHAIN_SERVICE, "-a", KEYCHAIN_USER])
+        .output()
+        .map_err(|e| format!("keychain delete error: {e}"))?;
+
+    // Ignore "item not found" errors
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if !stderr.contains("could not be found") {
+            return Err(format!("keychain delete error: {stderr}"));
+        }
     }
+    Ok(())
 }
 
 // ── HTTP helpers ──────────────────────────────────────────────────────
