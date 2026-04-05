@@ -11,3 +11,6 @@ pre-commit:
     format:
       glob: '*.{ts,tsx,js,jsx}'
       run: bunx oxfmt --check {staged_files}
+    typecheck:
+      glob: '*.{ts,tsx}'
+      run: bun run --filter desktop typecheck
