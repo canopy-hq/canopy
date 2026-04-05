@@ -91,17 +91,17 @@ export function getAllDiffStats(
   return invoke<Record<string, Record<string, DiffStat>>>('get_all_diff_stats', { repoPaths });
 }
 
-export interface WorkspacePollState {
+export interface ProjectPollState {
   head_oid: string;
   branches: BranchInfo[];
   worktree_branches: Record<string, string>;
   diff_stats: Record<string, DiffStat>;
 }
 
-export function pollAllWorkspaceStates(
+export function pollAllProjectStates(
   repoPaths: string[],
-): Promise<Record<string, WorkspacePollState>> {
-  return invoke<Record<string, WorkspacePollState>>('poll_all_workspace_states', { repoPaths });
+): Promise<Record<string, ProjectPollState>> {
+  return invoke<Record<string, ProjectPollState>>('poll_all_project_states', { repoPaths });
 }
 
 /** Normalize a branch/worktree name to a safe identifier (spaces, underscores, slashes → dashes). */
@@ -113,11 +113,11 @@ export const WORKTREE_BASE_DIR_KEY = 'worktreeBaseDir';
 export const DEFAULT_WORKTREE_BASE = '~/.superagent/worktrees';
 
 /** Build the worktree disk path, using the user-configured base dir or the default. */
-export function buildWorktreePath(workspaceName: string, wtName: string): string {
+export function buildWorktreePath(projectName: string, wtName: string): string {
   const baseDir = getSetting<string>(
     getSettingCollection().toArray,
     WORKTREE_BASE_DIR_KEY,
     DEFAULT_WORKTREE_BASE,
   );
-  return `${baseDir}/${workspaceName}-${wtName}`;
+  return `${baseDir}/${projectName}-${wtName}`;
 }

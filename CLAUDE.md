@@ -72,9 +72,9 @@ See [`apps/desktop/FRONTEND.md`](apps/desktop/FRONTEND.md) for styling conventio
 | Layer                                        | Pattern                                                                                                                                                                  |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Collections** (`packages/db/collections/`) | Module-level singletons. Persisted collections write-through to SQLite. In-memory collections for ephemeral state (agents, UI).                                          |
-| **Hooks** (`src/hooks/`)                     | `useCollections.ts` wraps `useLiveQuery` for reactive reads. `useWorkspacePolling` does adaptive polling with visibility gating.                                         |
+| **Hooks** (`src/hooks/`)                     | `useCollections.ts` wraps `useLiveQuery` for reactive reads. `useProjectPolling` does adaptive polling with visibility gating.                                           |
 | **Lib** (`src/lib/`)                         | Imperative action functions. Read state via `getUiState()`/`getTabCollection()` (non-reactive). Mutate collections directly. `git.ts` wraps Tauri `invoke()` with types. |
-| **Components** (`src/components/`)           | Leaf components. `WorkspaceTree` uses `React.memo` + custom comparators for tree rows.                                                                                   |
+| **Components** (`src/components/`)           | Leaf components. `ProjectTree` uses `React.memo` + custom comparators for tree rows.                                                                                     |
 | **Routes** (`src/routes/`)                   | TanStack Router file-based. `__root.tsx` handles boot + global listeners.                                                                                                |
 
 ## Performance
@@ -112,7 +112,7 @@ See [`apps/desktop/FRONTEND.md`](apps/desktop/FRONTEND.md) for styling conventio
 
 ### Component patterns
 
-- **`React.memo` + custom comparators** for all leaf components in lists/trees (see `WorkspaceTree.tsx` for pattern: compare only props that affect rendering)
+- **`React.memo` + custom comparators** for all leaf components in lists/trees (see `ProjectTree.tsx` for pattern: compare only props that affect rendering)
 - **Function components only** — no class components
 - **`createPortal(document.body)`** for modals and command palettes
 - **`data-tauri-drag-region`** on header elements for native window dragging
@@ -123,7 +123,7 @@ See [`apps/desktop/FRONTEND.md`](apps/desktop/FRONTEND.md) for styling conventio
 - **Reactive reads**: `useLiveQuery(() => collection)` via `useCollections.ts` hooks
 - **Imperative reads** (in action functions): `getUiState()`, `getTabCollection()` — non-reactive, no re-renders
 - **Dual-write UI state**: navigation state (`activeTabId`, `sidebarVisible`, etc.) written to both `uiCollection` (in-memory) and `settingCollection` (persisted) on every change
-- **`workspaceItemId` composite keys**: `ws.id` for repo root, `ws.id-branch-{name}` for branches, `ws.id-wt-{name}` for worktrees
+- **`projectItemId` composite keys**: `proj.id` for repo root, `proj.id-branch-{name}` for branches, `proj.id-wt-{name}` for worktrees
 
 ### Testing
 

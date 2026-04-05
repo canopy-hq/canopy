@@ -50,7 +50,7 @@ function SettingsRoute() {
   const navigateBack = useCallback(() => {
     const { activeContextId } = getUiState();
     if (activeContextId) {
-      void navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: activeContextId } });
+      void navigate({ to: '/projects/$projectId', params: { projectId: activeContextId } });
     } else {
       void navigate({ to: '/' });
     }

@@ -11,8 +11,8 @@ function item(overrides: Partial<CommandItem> & Pick<CommandItem, 'id' | 'catego
   return { label: overrides.id, action: () => {}, ...overrides };
 }
 
-const WORKSPACE_A = item({ id: 'ws:a', category: 'workspace' });
-const WORKSPACE_B = item({ id: 'ws:b', category: 'workspace' });
+const WORKSPACE_A = item({ id: 'ws:a', category: 'project' });
+const WORKSPACE_B = item({ id: 'ws:b', category: 'project' });
 
 function tabItem(id: string, contextId: string, group?: string): CommandItem {
   return item({ id, category: 'tab', contextId, group });
@@ -55,7 +55,7 @@ describe('root section — default view', () => {
     expect(result.current.sections.find((s) => s.id.startsWith('tabs'))).toBeUndefined();
   });
 
-  it('orders sections: tabs → workspaces → agents → actions', () => {
+  it('orders sections: tabs → projects → agents → actions', () => {
     const items = [TAB_CTX1_A, WORKSPACE_A, AGENT_RUNNING, TOGGLE_SIDEBAR, NEW_TAB];
     const { result } = renderHook(() => useCommandMenu(items, 'ctx-1'));
 
@@ -86,7 +86,7 @@ describe('root section — default view', () => {
 // ── Section switching ─────────────────────────────────────────────────────────
 
 describe('section switching', () => {
-  it('filters to workspace category in projects section', () => {
+  it('filters to project category in projects section', () => {
     const items = [WORKSPACE_A, WORKSPACE_B, TAB_CTX1_A];
     const { result } = renderHook(() => useCommandMenu(items));
 
@@ -158,8 +158,8 @@ describe('groupByField — tabs section', () => {
 describe('fuzzy search', () => {
   it('filters items by query in root section', () => {
     const items = [
-      item({ id: 'ws:alpha', category: 'workspace', label: 'Alpha' }),
-      item({ id: 'ws:beta', category: 'workspace', label: 'Beta' }),
+      item({ id: 'ws:alpha', category: 'project', label: 'Alpha' }),
+      item({ id: 'ws:beta', category: 'project', label: 'Beta' }),
     ];
     const { result } = renderHook(() => useCommandMenu(items));
 
@@ -170,8 +170,8 @@ describe('fuzzy search', () => {
 
   it('searches within section', () => {
     const items = [
-      item({ id: 'ws:alpha', category: 'workspace', label: 'Alpha' }),
-      item({ id: 'ws:beta', category: 'workspace', label: 'Beta' }),
+      item({ id: 'ws:alpha', category: 'project', label: 'Alpha' }),
+      item({ id: 'ws:beta', category: 'project', label: 'Beta' }),
     ];
     const { result } = renderHook(() => useCommandMenu(items));
 
@@ -185,10 +185,10 @@ describe('fuzzy search', () => {
 // ── Drill-down ────────────────────────────────────────────────────────────────
 
 describe('drill-down', () => {
-  const child1 = item({ id: 'child:1', category: 'workspace', label: 'Child 1' });
+  const child1 = item({ id: 'child:1', category: 'project', label: 'Child 1' });
   const parent = item({
     id: 'ws:parent',
-    category: 'workspace',
+    category: 'project',
     label: 'Parent',
     children: () => [child1],
   });
@@ -223,8 +223,8 @@ describe('selectedId', () => {
 
   it('resets to first item when query changes', () => {
     const items = [
-      item({ id: 'ws:alpha', category: 'workspace', label: 'Alpha' }),
-      item({ id: 'ws:beta', category: 'workspace', label: 'Beta' }),
+      item({ id: 'ws:alpha', category: 'project', label: 'Alpha' }),
+      item({ id: 'ws:beta', category: 'project', label: 'Beta' }),
     ];
     const { result } = renderHook(() => useCommandMenu(items));
 

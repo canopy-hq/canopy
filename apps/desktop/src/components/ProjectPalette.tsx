@@ -23,13 +23,13 @@ import {
 } from 'lucide-react';
 
 import { Badge, Button } from './ui';
-import { useWorkspacePalette, type PaletteItem } from './useWorkspacePalette';
+import { useProjectPalette, type PaletteItem } from './useProjectPalette';
 
 import type { PanelContext } from '@superagent/command-palette';
-import type { Workspace } from '@superagent/db';
+import type { Project } from '@superagent/db';
 
-export interface WorkspacePalettePanelProps {
-  workspace: Workspace;
+export interface ProjectPalettePanelProps {
+  project: Project;
   ctx: PanelContext;
 }
 
@@ -44,7 +44,7 @@ function PaletteIcon({ kind }: { kind: PaletteItem['kind'] }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelProps) {
+export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) {
   const {
     query,
     setQuery,
@@ -63,7 +63,7 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
     diskWorktrees,
     handleCreateWorktree,
     handleOpenWorktree,
-  } = useWorkspacePalette(workspace, ctx);
+  } = useProjectPalette(project, ctx);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);

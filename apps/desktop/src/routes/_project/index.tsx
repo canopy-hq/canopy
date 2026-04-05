@@ -2,11 +2,11 @@ import { createFileRoute } from '@tanstack/react-router';
 import { FolderPlus, PanelLeft } from 'lucide-react';
 
 import { ActionRow } from '../../components/ui';
-import { useWorkspaces } from '../../hooks/useCollections';
-import { openImportDialog, toggleSidebar } from '../../lib/workspace-actions';
+import { useProjects } from '../../hooks/useCollections';
+import { openImportDialog, toggleSidebar } from '../../lib/project-actions';
 
 function IndexRoute() {
-  const workspaces = useWorkspaces();
+  const projects = useProjects();
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 select-none">
@@ -16,7 +16,7 @@ function IndexRoute() {
         shortcut="⌘N"
         onPress={() => void openImportDialog()}
       />
-      {workspaces.length > 0 && (
+      {projects.length > 0 && (
         <ActionRow
           icon={<PanelLeft size={15} />}
           label="Toggle Sidebar"
@@ -28,4 +28,4 @@ function IndexRoute() {
   );
 }
 
-export const Route = createFileRoute('/_workspace/')({ component: IndexRoute });
+export const Route = createFileRoute('/_project/')({ component: IndexRoute });

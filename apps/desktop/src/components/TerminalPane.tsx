@@ -130,7 +130,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
         if (existing) {
           col.update(existing.id, (draft) => {
             draft.tabId = tab?.id ?? '';
-            draft.workspaceId = tab?.workspaceItemId ?? null;
+            draft.projectId = tab?.projectItemId ?? null;
             draft.cwd = savedCwd ?? '';
           });
         } else {
@@ -138,7 +138,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
             id: paneId,
             paneId,
             tabId: tab?.id ?? '',
-            workspaceId: tab?.workspaceItemId ?? null,
+            projectId: tab?.projectItemId ?? null,
             cwd: savedCwd ?? '',
             shell: '',
           });

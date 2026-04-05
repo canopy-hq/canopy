@@ -1,6 +1,6 @@
 import { PanelLeft, Search, Shell } from 'lucide-react';
 
-import { toggleSidebar } from '../lib/workspace-actions';
+import { toggleSidebar } from '../lib/project-actions';
 import { DevBranchBadge } from './DevBranchBadge';
 import { GitHubStatus } from './GitHubStatus';
 import { Button, Kbd, Tooltip } from './ui';

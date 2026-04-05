@@ -3,25 +3,19 @@ import { useEffect, useMemo, useState } from 'react';
 import { listPtySessions } from '@superagent/terminal';
 import { useNavigate } from '@tanstack/react-router';
 
-import {
-  useAgents,
-  useSettings,
-  useTabs,
-  useUiState,
-  useWorkspaces,
-} from '../hooks/useCollections';
+import { useAgents, useSettings, useTabs, useUiState, useProjects } from '../hooks/useCollections';
 import { buildAgentCommands } from './agent-commands';
+import { buildProjectCommands } from './project-commands';
 import { buildPtyCommands } from './pty-commands';
 import { buildStaticCommands } from './static-commands';
 import { buildTabCommands } from './tab-commands';
-import { buildWorkspaceCommands } from './workspace-commands';
 
 import type { CommandItem } from '@superagent/command-palette';
 import type { PtySessionInfo } from '@superagent/terminal';
 
 export function useAllCommands(): CommandItem[] {
   const navigate = useNavigate();
-  const workspaces = useWorkspaces();
+  const projects = useProjects();
   const tabs = useTabs();
   const agents = useAgents();
   const uiState = useUiState();
@@ -69,12 +63,12 @@ export function useAllCommands(): CommandItem[] {
   return useMemo(
     () => [
       ...buildStaticCommands(navigate),
-      ...buildWorkspaceCommands(workspaces, settings, navigate, uiState.activeContextId),
-      ...buildTabCommands(tabs, uiState, navigate, workspaces),
-      ...buildAgentCommands(agents, tabs, workspaces, navigate),
-      ...buildPtyCommands(ptySessions, tabs, workspaces, navigate),
+      ...buildProjectCommands(projects, settings, navigate, uiState.activeContextId),
+      ...buildTabCommands(tabs, uiState, navigate, projects),
+      ...buildAgentCommands(agents, tabs, projects, navigate),
+      ...buildPtyCommands(ptySessions, tabs, projects, navigate),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workspaces, tabs, agents, uiState, settings, ptySessions],
+    [projects, tabs, agents, uiState, settings, ptySessions],
   );
 }

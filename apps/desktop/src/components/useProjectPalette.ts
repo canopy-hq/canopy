@@ -12,10 +12,10 @@ import {
   type BranchDetail,
   type WorktreeInfo,
 } from '../lib/git';
-import { startWorktreeCreation, openWorktree } from '../lib/workspace-actions';
+import { startWorktreeCreation, openWorktree } from '../lib/project-actions';
 
 import type { PanelContext } from '@superagent/command-palette';
-import type { Workspace } from '@superagent/db';
+import type { Project } from '@superagent/db';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ export interface PaletteSection {
   items: PaletteItem[];
 }
 
-export interface UseWorkspacePaletteReturn {
+export interface UseProjectPaletteReturn {
   // Search
   query: string;
   setQuery: (q: string) => void;
@@ -66,10 +66,7 @@ export interface UseWorkspacePaletteReturn {
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
 
-export function useWorkspacePalette(
-  workspace: Workspace,
-  ctx: PanelContext,
-): UseWorkspacePaletteReturn {
+export function useProjectPalette(project: Project, ctx: PanelContext): UseProjectPaletteReturn {
   const navigate = useNavigate();
   const [query, setQueryRaw] = useState('');
   const [tab, setTab] = useState<'all' | 'worktrees'>('all');
@@ -89,33 +86,33 @@ export function useWorkspacePalette(
     setPickingBase(false);
     _setSelectedId(null);
 
-    listAllBranches(workspace.path)
+    listAllBranches(project.path)
       .then((b) => {
         if (!stale) setBranches(b);
       })
       .catch(() => {});
-    listWorktrees(workspace.path)
+    listWorktrees(project.path)
       .then((wts) => {
         if (!stale) setAllWorktrees(wts);
       })
       .catch(() => {});
-    fetchRemote(workspace.path)
+    fetchRemote(project.path)
       .then(() => {
         if (stale) return;
-        return listAllBranches(workspace.path);
+        return listAllBranches(project.path);
       })
       .then((b) => {
         if (b && !stale) setBranches(b);
       })
-      .catch((e) => console.warn('[useWorkspacePalette] fetch remote failed:', e));
+      .catch((e) => console.warn('[useProjectPalette] fetch remote failed:', e));
 
-    const head = workspace.branches.find((b) => b.is_head);
+    const head = project.branches.find((b) => b.is_head);
     setBaseBranch(head?.name ?? 'main');
 
     return () => {
       stale = true;
     };
-  }, [workspace]);
+  }, [project]);
 
   // Fuzzy filtering
   const lowerQuery = useMemo(() => query.toLowerCase(), [query]);
@@ -138,8 +135,8 @@ export function useWorkspacePalette(
   const sanitizedName = useMemo(() => sanitizeWorktreeName(query), [query]);
 
   const sidebarNames = useMemo(
-    () => new Set(workspace.worktrees.map((wt) => wt.name)),
-    [workspace.worktrees],
+    () => new Set(project.worktrees.map((wt) => wt.name)),
+    [project.worktrees],
   );
   const diskWorktrees = useMemo(
     () => allWorktrees.map((wt) => ({ ...wt, isInSidebar: sidebarNames.has(wt.name) })),
@@ -241,11 +238,11 @@ export function useWorkspacePalette(
       const { existingBranch, base = baseBranch } = opts ?? {};
       const wtName = existingBranch ? sanitizeWorktreeName(existingBranch) : sanitizedName;
       if (!wtName) return;
-      const wtPath = buildWorktreePath(workspace.name, wtName);
+      const wtPath = buildWorktreePath(project.name, wtName);
       const newBranch = existingBranch ? undefined : wtName;
       ctx.close();
       startWorktreeCreation(
-        workspace.id,
+        project.id,
         wtName,
         wtPath,
         existingBranch ?? base,
@@ -253,15 +250,15 @@ export function useWorkspacePalette(
         navigate,
       );
     },
-    [sanitizedName, workspace, baseBranch, ctx, navigate],
+    [sanitizedName, project, baseBranch, ctx, navigate],
   );
 
   const handleOpenWorktree = useCallback(
     (name: string, path: string, branch: string) => {
-      openWorktree(workspace.id, name, path, branch);
+      openWorktree(project.id, name, path, branch);
       ctx.close();
     },
-    [workspace.id, ctx],
+    [project.id, ctx],
   );
 
   return {

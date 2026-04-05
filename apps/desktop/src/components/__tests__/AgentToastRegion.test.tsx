@@ -8,7 +8,7 @@ function makeToast(overrides?: Partial<AgentToastContent>): AgentToastContent {
   return {
     type: 'agent-waiting',
     agentName: 'claude',
-    workspace: 'my-repo',
+    project: 'my-repo',
     branch: 'main',
     ptyId: 42,
     ...overrides,
@@ -50,7 +50,7 @@ describe('AgentToastRegion', () => {
     const content = makeToast();
     expect(content).toHaveProperty('ptyId');
     expect(content).toHaveProperty('agentName');
-    expect(content).toHaveProperty('workspace');
+    expect(content).toHaveProperty('project');
     expect(content).toHaveProperty('branch');
     expect(content.type).toBe('agent-waiting');
   });

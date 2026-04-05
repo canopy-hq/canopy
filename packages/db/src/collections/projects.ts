@@ -2,28 +2,32 @@ import { createCollection, localOnlyCollectionOptions } from '@tanstack/db';
 import { asc, eq } from 'drizzle-orm';
 
 import { getDb } from '../client';
-import { workspaces as table } from '../schema';
+import { projects as table } from '../schema';
 
-import type { Workspace } from '../types';
+import type { Project } from '../types';
 
-function deserialize(row: typeof table.$inferSelect): Workspace {
+function deserialize(row: typeof table.$inferSelect): Project {
   return {
     ...row,
-    branches: JSON.parse(row.branches) as Workspace['branches'],
-    worktrees: JSON.parse(row.worktrees) as Workspace['worktrees'],
+    branches: JSON.parse(row.branches) as Project['branches'],
+    worktrees: JSON.parse(row.worktrees) as Project['worktrees'],
   };
 }
 
-function serialize(ws: Workspace) {
-  return { ...ws, branches: JSON.stringify(ws.branches), worktrees: JSON.stringify(ws.worktrees) };
+function serialize(proj: Project) {
+  return {
+    ...proj,
+    branches: JSON.stringify(proj.branches),
+    worktrees: JSON.stringify(proj.worktrees),
+  };
 }
 
 let _collection!: ReturnType<typeof makeCollection>;
 
-function makeCollection(initialData: Workspace[]) {
+function makeCollection(initialData: Project[]) {
   return createCollection(
-    localOnlyCollectionOptions<Workspace, string>({
-      getKey: (w) => w.id,
+    localOnlyCollectionOptions<Project, string>({
+      getKey: (p) => p.id,
       initialData,
       onInsert: async ({ transaction }) => {
         const db = getDb();
@@ -52,11 +56,11 @@ function makeCollection(initialData: Workspace[]) {
   );
 }
 
-export function getWorkspaceCollection() {
+export function getProjectCollection() {
   return _collection;
 }
 
-export async function hydrateWorkspaceCollection(): Promise<void> {
+export async function hydrateProjectCollection(): Promise<void> {
   const db = getDb();
   const rows = await db.select().from(table).orderBy(asc(table.position));
   _collection = makeCollection(rows.map(deserialize));

@@ -5,7 +5,7 @@ import {
   agentCollection,
   getUiState,
   getTabCollection,
-  getWorkspaceCollection,
+  getProjectCollection,
   getSettingCollection,
   getSetting,
   setSetting,
@@ -28,15 +28,15 @@ import { useTauriMenuEvent } from '../hooks/useTauriMenuEvent';
 import { initAgentListener } from '../lib/agent-actions';
 import { getConnection, GITHUB_CONNECTION_KEY } from '../lib/github';
 import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
-import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
-import { showAgentToastDeduped } from '../lib/toast';
 import {
   toggleSidebar,
   refreshRepo,
-  switchWorkspaceItemByIndex,
+  switchProjectItemByIndex,
   openImportDialog,
-} from '../lib/workspace-actions';
-import { onOpenWorkspacePalette } from '../lib/workspace-palette-bridge';
+} from '../lib/project-actions';
+import { onOpenProjectPalette } from '../lib/project-palette-bridge';
+import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
+import { showAgentToastDeduped } from '../lib/toast';
 
 import type { CommandItem } from '@superagent/command-palette';
 
@@ -67,9 +67,9 @@ function RootLayout() {
     booted.current = true;
     const { activeContextId } = getUiState();
     if (activeContextId) {
-      void navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: activeContextId } });
+      void navigate({ to: '/projects/$projectId', params: { projectId: activeContextId } });
     }
-    for (const ws of getWorkspaceCollection().toArray) {
+    for (const ws of getProjectCollection().toArray) {
       void refreshRepo(ws.id);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -97,7 +97,7 @@ function RootLayout() {
           if (existing) {
             col.update(existing.id, (draft) => {
               draft.tabId = tab.id;
-              draft.workspaceId = tab.workspaceItemId;
+              draft.projectId = tab.projectItemId;
               draft.cwd = cwd ?? '';
             });
           } else {
@@ -105,7 +105,7 @@ function RootLayout() {
               id: paneId,
               paneId,
               tabId: tab.id,
-              workspaceId: tab.workspaceItemId,
+              projectId: tab.projectItemId,
               cwd: cwd ?? '',
               shell: '',
             });
@@ -142,13 +142,13 @@ function RootLayout() {
         const activeTabId = getActiveTab()?.id;
         const agentTab = tabs.find((t) => containsPtyId(t.paneRoot, agent.ptyId));
         if (!agentTab || agentTab.id === activeTabId) continue;
-        const workspaces = getWorkspaceCollection().toArray;
-        const ws = workspaces.find((w) => agentTab.workspaceItemId.startsWith(w.id));
+        const projects = getProjectCollection().toArray;
+        const ws = projects.find((p) => agentTab.projectItemId.startsWith(p.id));
         if (agent.status === 'waiting') {
           showAgentToastDeduped({
             type: 'agent-waiting',
             agentName: agent.agentName,
-            workspace: ws?.name ?? 'Unknown',
+            project: ws?.name ?? 'Unknown',
             branch: agentTab.label,
             ptyId: agent.ptyId,
           });
@@ -165,7 +165,7 @@ function RootLayout() {
   }, []);
 
   useEffect(() => {
-    return onOpenWorkspacePalette((item) => {
+    return onOpenProjectPalette((item) => {
       setDefaultPanelItem(item);
       setCmdMenuOpen(true);
     });
@@ -198,7 +198,7 @@ function RootLayout() {
       ...([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map((n) => ({
         key: String(n),
         meta: true,
-        action: () => switchWorkspaceItemByIndex(n - 1, navigate),
+        action: () => switchProjectItemByIndex(n - 1, navigate),
       })),
     ],
     [navigate],
