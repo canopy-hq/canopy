@@ -396,6 +396,10 @@ export function WorkspaceTree() {
     [workspaces],
   );
 
+  const handleRequestOpenPalette = useCallback((ws: Workspace) => {
+    openWorkspacePalette(makeWorkspacePaletteItem(ws));
+  }, []);
+
   return (
     <>
       <div className="px-3 pt-2 pb-1 font-mono text-[10px] font-semibold tracking-wider text-text-muted uppercase opacity-60">
@@ -415,7 +419,7 @@ export function WorkspaceTree() {
             ws={ws}
             agentMap={agentMap}
             diffStats={diffStatsMap[ws.id]}
-            onRequestOpenPalette={(ws) => openWorkspacePalette(makeWorkspacePaletteItem(ws))}
+            onRequestOpenPalette={handleRequestOpenPalette}
             onRequestClose={setCloseTarget}
             onRequestRemoveWt={(name) => setRemoveWtTarget({ workspaceId: ws.id, name })}
             selectedItemId={selectedItemId}
@@ -556,7 +560,7 @@ function RepoTreeItem({
   onRequestClose: (ws: Workspace) => void;
   onRequestRemoveWt: (name: string) => void;
   selectedItemId: string | null;
-  activeContextId: string;
+  activeContextId: string | null;
   hasSeparator: boolean;
 }) {
   const agentSummary = useMemo(() => getRepoAgentSummary(ws, agentMap), [ws, agentMap]);
@@ -595,7 +599,9 @@ function RepoTreeItem({
             <RepoHeader
               workspace={ws}
               agentSummary={agentSummary}
-              isSelected={!!selectedItemId?.startsWith(ws.id) || activeContextId.startsWith(ws.id)}
+              isSelected={
+                !!selectedItemId?.startsWith(ws.id) || !!activeContextId?.startsWith(ws.id)
+              }
               onPlusClick={handlePlusClick}
               onRowClick={handleRowClick}
             />

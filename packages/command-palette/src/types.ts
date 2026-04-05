@@ -42,7 +42,7 @@ export interface CommandItem {
    * When present, selecting this item opens the panel instead of calling `action`.
    */
   renderPanel?: (ctx: PanelContext) => React.ReactNode;
-  action: (ctx: CommandContext) => void | Promise<void>;
+  action?: (ctx: CommandContext) => void | Promise<void>;
 }
 
 export type Nav = (opts: { to: string; params?: Record<string, string> }) => void;

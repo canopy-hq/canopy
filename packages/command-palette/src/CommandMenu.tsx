@@ -143,7 +143,7 @@ export function CommandMenu({
       }
       const ctx: CommandContext = { close: onClose };
       onClose();
-      void item.action(ctx);
+      void item.action?.(ctx);
     },
     [dispatch, onClose],
   );

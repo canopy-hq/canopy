@@ -86,6 +86,15 @@ describe('WorkspacePalettePanel', () => {
     expect(secondSelected).not.toBe(firstSelected);
   });
 
+  it('calls ctx.back on Backspace with empty query', () => {
+    render(<WorkspacePalettePanel {...props} />);
+    const input = screen.getByPlaceholderText(/Search or create/);
+    // input value is already empty — Backspace should navigate back
+    fireEvent.keyDown(input, { key: 'Backspace' });
+    expect(props.ctx.back).toHaveBeenCalledTimes(1);
+    expect(props.ctx.close).not.toHaveBeenCalled();
+  });
+
   it('does not blur input on list item mousedown', async () => {
     const { container } = render(<WorkspacePalettePanel {...props} />);
 
