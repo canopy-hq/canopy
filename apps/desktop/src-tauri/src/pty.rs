@@ -14,11 +14,15 @@ use crate::daemon_client::DaemonClient;
 pub struct PtyState {
     sessions: HashMap<u32, String>,
     sys: System,
+    /// Active attach task per paneId. Aborted when a new attach supersedes it,
+    /// preventing multiple concurrent tasks from broadcasting the same PTY output
+    /// to separate Tauri channels (which would cause doubled terminal output).
+    attach_handles: HashMap<String, tokio::task::JoinHandle<()>>,
 }
 
 impl PtyState {
     pub fn new() -> Self {
-        Self { sessions: HashMap::new(), sys: System::new() }
+        Self { sessions: HashMap::new(), sys: System::new(), attach_handles: HashMap::new() }
     }
 }
 
@@ -45,10 +49,33 @@ pub async fn spawn_terminal(
     {
         let mut s = state.lock().map_err(|e| e.to_string())?;
         s.sessions.insert(pid, pane_id.clone());
+        // Abort any previous attach task for this pane before starting a new one.
+        // Multiple concurrent attach tasks for the same paneId each broadcast the
+        // full PTY output stream to their own Tauri channel — if two channels are
+        // active simultaneously, both fire onmessage, both call term.write, and
+        // every character appears twice in the terminal.
+        if let Some(old_handle) = s.attach_handles.remove(&pane_id) {
+            old_handle.abort();
+        }
     }
 
     let last_output = Arc::new(AtomicU64::new(now_millis()));
-    daemon.attach(pane_id.clone(), on_output, last_output.clone());
+    let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<()>();
+    let handle = daemon.attach(pane_id.clone(), on_output, last_output.clone(), ready_tx);
+
+    // Wait until the attach task forwards the sentinel frame (end of scrollback replay).
+    // This guarantees the TypeScript ChannelEntry has buffered data when the invoke
+    // resolves — eliminating the blank-terminal race between handler wiring and data arrival.
+    // 2 s timeout guards against slow or unavailable daemons.
+    let _ = tokio::time::timeout(
+        std::time::Duration::from_millis(2000),
+        ready_rx,
+    ).await;
+
+    {
+        let mut s = state.lock().map_err(|e| e.to_string())?;
+        s.attach_handles.insert(pane_id.clone(), handle);
+    }
 
     // Agent watcher uses child PID = ptyId for tracking
     let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
@@ -100,7 +127,11 @@ pub async fn close_pty(
 ) -> Result<(), String> {
     let pane_id = {
         let mut s = state.lock().map_err(|e| e.to_string())?;
-        s.sessions.remove(&pty_id).ok_or_else(|| format!("PTY {pty_id} not found"))?
+        let pane_id = s.sessions.remove(&pty_id).ok_or_else(|| format!("PTY {pty_id} not found"))?;
+        if let Some(handle) = s.attach_handles.remove(&pane_id) {
+            handle.abort();
+        }
+        pane_id
     };
 
     {
@@ -172,6 +203,11 @@ pub async fn close_ptys_for_panes(
                 true // keep
             }
         });
+        for (_, pane_id) in &found {
+            if let Some(handle) = s.attach_handles.remove(pane_id) {
+                handle.abort();
+            }
+        }
         found
     };
 

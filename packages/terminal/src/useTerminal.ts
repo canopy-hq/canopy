@@ -4,13 +4,7 @@ import { getSettingCollection, getSetting } from '@superagent/db';
 import { Terminal, FitAddon } from 'ghostty-web';
 
 import { ensureGhosttyInit, isGhosttyReady } from './ghostty-init';
-import {
-  writeToPty,
-  resizePty,
-  connectPtyOutput,
-  connectPtyOutputFresh,
-  spawnTerminal,
-} from './pty';
+import { writeToPty, resizePty, connectPtyOutput, spawnTerminal } from './pty';
 import { getCached, setCached } from './terminal-cache';
 import { DEFAULT_TERMINAL_FONT_SIZE } from './terminal-font-size';
 import { terminalThemes, type ThemeName } from './themes';
@@ -26,13 +20,19 @@ import { terminalThemes, type ThemeName } from './themes';
  * pane tree restructuring (split/close). On remount, the existing terminal DOM is
  * reparented into the new container — preserving scrollback.
  *
- * Overlay + sentinel protocol
- * ---------------------------
- * For new spawns, an opaque overlay covers the canvas until the first LIVE byte
- * arrives. "Live" is defined as post-sentinel: the daemon sends a zero-length
- * sentinel frame after replaying scrollback, so all data arriving after the
- * sentinel is guaranteed fresh. connectPtyOutputFresh buffers and discards
- * everything up to and including the sentinel.
+ * Overlay protocol
+ * -----------------
+ * spawn_terminal blocks on the Rust side until the sentinel frame is received
+ * (end of scrollback replay). By the time invoke() resolves, the ChannelEntry
+ * already holds the full scrollback.
+ *
+ * isNew=true (fresh shell): buffer is empty. Overlay is removed ~112ms after
+ * the FIRST output byte (one-shot timer + double-rAF). The terminal continues
+ * filling in while visible — looks responsive even if Starship is still emitting.
+ *
+ * isNew=false (restored session): Tauri Channel messages (scrollback) are queued
+ * before the invoke response, so the buffer is populated when setHandler runs.
+ * Overlay is removed synchronously — terminal already has content.
  */
 export function useTerminal(
   containerRef: React.RefObject<HTMLDivElement | null>,
@@ -56,34 +56,17 @@ export function useTerminal(
     }
   }, [wasmReady]);
 
-  // Freeze ptyId for the main effect: the spawn path manages the -1 → realId
-  // transition internally via ptrRef. Only fresh mounts (cached remount or
-  // reconnect) need the real ptyId, which is captured at mount time.
-  // This prevents the destructive effect re-run that removes and re-adds the
-  // terminal element to the DOM, causing flicker.
-  const effectPtyId = useRef(ptyId);
-  // Track the previous ptyId to detect spawn-completion transitions (-1 → pid).
-  const prevPtyId = useRef(ptyId);
-
   useEffect(() => {
     if (isFocused && termRef.current) {
       termRef.current.focus();
     }
   }, [isFocused]);
 
-  // Synchronous resize before paint: when ptyId becomes a real pid (pane remount),
-  // fire fitAddon.fit() + resizePty in the layout phase — before the browser renders
-  // the first frame with the new ptyId.
-  //
-  // Skip when ptyId transitions from ≤0 to >0 (spawn completion): the terminal was
-  // just created at exact container dimensions — sending resizePty here would deliver
-  // a redundant SIGWINCH that interrupts shell/Starship initialization, causing blank
-  // background artifacts in the prompt.
+  // Synchronous resize before paint: when ptyId becomes a real pid (restored session
+  // or pane remount), fire fitAddon.fit() + resizePty in the layout phase — before
+  // the browser renders the first frame with the new ptyId.
   useLayoutEffect(() => {
-    const wasSpawnTransition = prevPtyId.current <= 0 && ptyId > 0;
-    prevPtyId.current = ptyId;
     if (!wasmReady || ptyId <= 0) return;
-    if (wasSpawnTransition) return;
     const cached = getCached(ptyId);
     if (!cached) return;
     cached.fitAddon.fit();
@@ -109,11 +92,8 @@ export function useTerminal(
 
     if (!container) return;
 
-    // Read the frozen ptyId — for spawn this is -1 (captured at mount);
-    // for cached remount / reconnect it is the real ptyId.
-    const ptyId = effectPtyId.current;
-
     let spawnCancelled = false;
+    let sigwinchTimer: ReturnType<typeof setTimeout> | null = null;
     let ptyResizeTimer: ReturnType<typeof setTimeout> | null = null;
     // Hoisted so cleanup can always call it (no-op for the cached path).
     let removeOverlay = () => {};
@@ -125,15 +105,34 @@ export function useTerminal(
       // === CACHED PATH: remount after pane restructure — re-parent existing terminal ===
       term = cached.term;
       fitAddon = cached.fitAddon;
+
+      // Overlay prevents ghosting (stale canvas visible for one frame before
+      // ghostty-web repaints). It must be a sibling of el inside container, NOT
+      // a child of el (term.element/wrapper): mutating el's children can trigger
+      // ghostty-web's internal DOM observers and cause it to re-attach keyboard
+      // listeners, producing visual duplication and double-typed characters.
+      // container.style.position = 'relative' establishes a positioning context so
+      // that position:absolute;inset:0 on the overlay resolves against container.
+      container.style.position = 'relative';
+      const transitionOverlay = document.createElement('div');
+      transitionOverlay.style.cssText = `position:absolute;inset:0;background:${themeBg};z-index:1;pointer-events:none`;
+      container.appendChild(transitionOverlay);
+      removeOverlay = () => transitionOverlay.remove();
+
       const el = term.element;
-      if (el) {
-        container.appendChild(el);
-      }
+      if (el) container.appendChild(el);
+
+      // connectPtyOutput: buffer is empty (handler was never cleared, data flowed
+      // directly to term.write while tab was inactive), so flush is a no-op.
+      // setHandlerFresh would be equivalent here, but connectPtyOutput is simpler.
       connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
       fitAddon.fit();
       // Unconditional resize IPC on cached remount — ptyId is the real pid,
       // proxy.sessions is already populated, so this call succeeds immediately.
       void resizePty(ptyId, term.rows, term.cols);
+      // Double rAF: first rAF queues after current frame's layout, second fires
+      // after ghostty-web's WASM renderer has completed at least one paint cycle.
+      requestAnimationFrame(() => requestAnimationFrame(() => removeOverlay()));
     } else {
       // === NEW TERMINAL: spawn (ptyId === -1) or reconnect (ptyId > 0) ===
       const termFontSize = getSetting<number>(
@@ -176,11 +175,8 @@ export function useTerminal(
       // on the canvas immediately. Without the overlay already in place, the cursor
       // flashes for 1-2 frames before being covered.
       //
-      // "Live" is defined as post-sentinel: the daemon sends a zero-length sentinel
-      // frame after replaying scrollback (see daemon.rs attach handler). The
-      // connectPtyOutputFresh call buffers and silently discards all data up to and
-      // including the sentinel. The overlay is therefore removed only when fresh
-      // shell output (e.g. the zsh prompt) first hits the canvas.
+      // The overlay is removed on the first live byte from the shell (e.g. the
+      // zsh prompt) — see debouncedRemoveOverlay below.
       const overlay = document.createElement('div');
       overlay.style.cssText = `position:absolute;inset:0;background:${themeBg};z-index:1;pointer-events:none`;
       wrapper.appendChild(overlay);
@@ -198,24 +194,21 @@ export function useTerminal(
           overlay.remove();
         }
       };
-      // Debounced removal: waits for output AND rendering to settle before
-      // revealing. The debounce covers Starship prompt output; the double-rAF
-      // ensures the WASM renderer has painted at least one full frame after the
-      // last write — critical on the first two terminals when the renderer is
-      // cold-starting (JIT, texture atlases, etc.).
+      // One-shot overlay removal: schedule the timer on the FIRST byte only.
+      // This reveals the terminal at first_byte+80ms+2×rAF (~112ms) regardless
+      // of how long Starship keeps emitting — the canvas fills in while visible,
+      // which looks responsive. The double-rAF ensures the WASM renderer has
+      // painted at least one frame after the first write before uncovering.
       const debouncedRemoveOverlay = () => {
-        if (overlayRemoved) return;
-        if (overlayTimer !== null) clearTimeout(overlayTimer);
+        if (overlayRemoved || overlayTimer !== null) return; // one-shot
         overlayTimer = setTimeout(() => {
           overlayTimer = null;
-          // Double rAF: first rAF queues work for the current frame's paint,
-          // second rAF fires after that paint completes → canvas is up-to-date.
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               removeOverlay();
             });
           });
-        }, 150);
+        }, 80);
       };
 
       if (term.element) {
@@ -305,12 +298,12 @@ export function useTerminal(
         }
       });
 
-      // Wait for the terminal font to load before fitting. On first use, the
-      // configured font may not be loaded yet — fitAddon.fit() would calculate
-      // grid dimensions using a fallback font, and the later font-swap would
-      // change cell metrics, causing a resize → SIGWINCH → prompt redraw.
-      // Uses the same fontSize + fontFamily from the Terminal config above so
-      // it adapts automatically if the user changes their font.
+      // Wait for the terminal font to load before fitting and connecting the PTY.
+      // Without this gate, Ghostty renders with a fallback font (e.g. Menlo on macOS)
+      // until Geist Mono is available, producing inconsistent text weight across
+      // terminals. In practice this resolves immediately: __root.tsx preloads both
+      // the regular and bold variants at module load time, so the font is warm before
+      // any terminal mounts.
       const fontReady = document.fonts
         ? document.fonts.load(`${termFontSize}px ${termFontFamily}`)
         : Promise.resolve();
@@ -326,11 +319,10 @@ export function useTerminal(
       function startPtyConnection() {
         if (ptyId > 0) {
           // Reconnect: PTY already running in daemon (cold app restart).
-          // Keep overlay until first scrollback byte to avoid empty-canvas flash.
-          connectPtyOutput(ptyId, (data: Uint8Array) => {
-            removeOverlay();
-            term.write(data);
-          });
+          // setHandler flushes buffered scrollback synchronously → overlay safe to
+          // remove immediately after connectPtyOutput returns.
+          connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
+          removeOverlay();
           setCached(ptyId, term, fitAddon);
         } else {
           // Spawn: PTY started at exact fitted dimensions → lastSentSize = spawn dims
@@ -353,28 +345,47 @@ export function useTerminal(
               resizeGraceUntil = Date.now() + 500;
 
               if (isNew) {
-                // Fresh shell: discard scrollback replay. Use debounced overlay
-                // removal so the prompt output settles before revealing.
-                connectPtyOutputFresh(newId, (data: Uint8Array) => {
+                // Fresh shell: buffer is empty. Reveal on first byte — one-shot
+                // timer (debouncedRemoveOverlay) only fires once, so the overlay
+                // is removed ~112ms after the first prompt byte regardless of how
+                // long Starship keeps emitting.
+                connectPtyOutput(newId, (data: Uint8Array) => {
                   debouncedRemoveOverlay();
                   term.write(data);
                 });
               } else {
-                // Restored session: remove overlay on first data byte (not immediately)
-                // to avoid flashing a blank terminal when the shell hasn't output yet.
-                connectPtyOutput(newId, (data: Uint8Array) => {
-                  removeOverlay();
-                  term.write(data);
-                });
+                // Reconnect: Tauri Channel messages are queued before the invoke
+                // response, so the buffer is populated when setHandler is called.
+                // setHandler flushes synchronously → overlay safe to remove.
+                connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
+                removeOverlay();
               }
               setCached(newId, term, fitAddon);
               onPtySpawned(newId);
-              // No deferred resize here — the terminal was spawned at exact
-              // container dimensions (after font load). Any layout shifts from
-              // React re-renders are handled by ResizeObserver + onResize after
-              // the grace period expires naturally. Sending an explicit resize
-              // here was the remaining source of SIGWINCH that caused Starship
-              // prompt flicker on the first two terminals.
+
+              // Poll dimensions for 1s after spawn (every 200ms, up to 5 ticks).
+              // Handles layout-settling races (sidebars, borders, split panes) and
+              // ensures TUI apps like Claude Code fill the pane on first launch.
+              let ticks = 0;
+              const poll = () => {
+                sigwinchTimer = null;
+                if (spawnCancelled) return;
+                const dims = fitAddon.proposeDimensions();
+                const r = dims?.rows ?? lastSentSize.rows;
+                const c = dims?.cols ?? lastSentSize.cols;
+                const changed = r !== lastSentSize.rows || c !== lastSentSize.cols;
+                if (changed) {
+                  term.resize(c, r);
+                  lastSentSize.rows = r;
+                  lastSentSize.cols = c;
+                  void resizePty(newId, r, c);
+                } else if (ticks === 0) {
+                  void resizePty(newId, r, c);
+                }
+                ticks++;
+                if (ticks < 5) sigwinchTimer = setTimeout(poll, 200);
+              };
+              sigwinchTimer = setTimeout(poll, 100);
             },
           );
         }
@@ -429,17 +440,16 @@ export function useTerminal(
       if (resizingClassTimer !== null) clearTimeout(resizingClassTimer);
       document.body.classList.remove('resizing');
       if (ptyResizeTimer !== null) clearTimeout(ptyResizeTimer);
-      // DON'T dispose term — just detach from container. Cache keeps it alive.
+      if (sigwinchTimer !== null) clearTimeout(sigwinchTimer);
+      // DON'T dispose term — just detach from container. Cache keeps it alive
+      // so the next mount can reparent the same element (preserving scrollback).
       const el = term.element;
       if (el && el.parentNode === container) {
         container.removeChild(el);
       }
     };
-    // effectPtyId is a ref (stable identity) — intentionally excluded.
-    // The spawn path manages the ptyId transition internally; only wasmReady
-    // (and unmount/remount via containerRef) should trigger this effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerRef, wasmReady]);
+  }, [containerRef, ptyId, wasmReady]);
 
   return termRef;
 }
