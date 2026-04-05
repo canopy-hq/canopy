@@ -11,7 +11,7 @@ import {
   connectPtyOutputFresh,
   spawnTerminal,
 } from './pty';
-import { getCached, setCached } from './terminal-cache';
+import { evictCached, getCached, setCached } from './terminal-cache';
 import { DEFAULT_TERMINAL_FONT_SIZE } from './terminal-font-size';
 import { terminalThemes, type ThemeName } from './themes';
 
@@ -97,6 +97,9 @@ export function useTerminal(
     let ptyResizeTimer: ReturnType<typeof setTimeout> | null = null;
     // Hoisted so cleanup can always call it (no-op for the cached path).
     let removeOverlay = () => {};
+    // Tracks the real ptyId assigned to the cache entry created this run.
+    // Updated after spawn resolves; used in cleanup to evict the right entry.
+    let cachedPtyId = ptyId;
     const cached = getCached(ptyId);
     let term: Terminal;
     let fitAddon: FitAddon;
@@ -354,6 +357,7 @@ export function useTerminal(
                 connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
                 removeOverlay();
               }
+              cachedPtyId = newId;
               setCached(newId, term, fitAddon);
               onPtySpawned(newId);
 
@@ -435,7 +439,11 @@ export function useTerminal(
       document.body.classList.remove('resizing');
       if (ptyResizeTimer !== null) clearTimeout(ptyResizeTimer);
       if (sigwinchTimer !== null) clearTimeout(sigwinchTimer);
-      // DON'T dispose term — just detach from container. Cache keeps it alive.
+      // Evict from cache so the next mount always creates a fresh Terminal instance.
+      // This forces a full remount on every tab switch, eliminating ghosting caused
+      // by reparenting the stale canvas element. The scrollback is preserved in the
+      // PTY daemon buffer and replayed synchronously via connectPtyOutput on remount.
+      if (cachedPtyId > 0) evictCached(cachedPtyId);
       const el = term.element;
       if (el && el.parentNode === container) {
         container.removeChild(el);
