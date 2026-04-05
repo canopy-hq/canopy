@@ -6,6 +6,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::broadcast;
 
+use crate::pool::Pool;
 use crate::scrollback::ScrollbackBuffer;
 
 /// Get the current working directory of a process on macOS via proc_pidinfo(PROC_PIDVNODEPATHINFO).
@@ -50,11 +51,12 @@ struct PtySession {
 
 pub struct DaemonState {
     sessions: HashMap<String, PtySession>,
+    pub pool: Pool,
 }
 
 impl DaemonState {
     pub fn new() -> Self {
-        Self { sessions: HashMap::new() }
+        Self { sessions: HashMap::new(), pool: Pool::new() }
     }
 }
 
@@ -62,6 +64,12 @@ pub async fn run(socket_path: String) {
     let _ = std::fs::remove_file(&socket_path);
     let listener = UnixListener::bind(&socket_path).expect("daemon: bind failed");
     let state = Arc::new(Mutex::new(DaemonState::new()));
+
+    for _ in 0..2 {
+        if let Err(e) = pool_warm_one(&state) {
+            eprintln!("pool: warm failed: {e}");
+        }
+    }
 
     loop {
         match listener.accept().await {
@@ -218,6 +226,66 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 let _ = write_half.write_all(resp.as_bytes()).await;
             }
 
+            "claim" => {
+                let cwd = cmd["cwd"].as_str().map(|s| s.to_string());
+                let rows = cmd["rows"].as_u64().unwrap_or(24) as u16;
+                let cols = cmd["cols"].as_u64().unwrap_or(80) as u16;
+
+                let claimed = {
+                    let mut st = state.lock().unwrap();
+                    st.pool.claim()
+                };
+
+                let resp = match claimed {
+                    Some((temp_pane_id, pid)) => {
+                        // Remap session key: temp → real pane_id
+                        {
+                            let mut st = state.lock().unwrap();
+                            if let Some(session) = st.sessions.remove(&temp_pane_id) {
+                                let _ = session.master.resize(PtySize {
+                                    rows, cols, pixel_width: 0, pixel_height: 0,
+                                });
+                                st.sessions.insert(pane_id.clone(), session);
+                            }
+                        }
+
+                        // Send cd + clear to the shell
+                        if let Some(dir) = &cwd {
+                            let cd_cmd = format!(" cd {} && clear\n", shell_escape(dir));
+                            let mut st = state.lock().unwrap();
+                            if let Some(sess) = st.sessions.get_mut(&pane_id) {
+                                let _ = sess.writer.write_all(cd_cmd.as_bytes());
+                                let _ = sess.writer.flush();
+                            }
+                        }
+
+                        // Replenish pool in background
+                        let state_clone = state.clone();
+                        tokio::spawn(async move {
+                            let res = tokio::task::spawn_blocking(move || pool_warm_one(&state_clone)).await;
+                            if let Ok(Err(e)) = res {
+                                eprintln!("pool: replenish failed: {e}");
+                            }
+                        });
+
+                        format!("{{\"ok\":true,\"pid\":{pid},\"new\":true}}\n")
+                    }
+                    None => {
+                        format!("{{\"ok\":false,\"error\":\"pool empty\"}}\n")
+                    }
+                };
+                let _ = write_half.write_all(resp.as_bytes()).await;
+            }
+
+            "pool_status" => {
+                let (ready, warming) = {
+                    let st = state.lock().unwrap();
+                    st.pool.status()
+                };
+                let resp = format!("{{\"ready\":{ready},\"warming\":{warming}}}\n");
+                let _ = write_half.write_all(resp.as_bytes()).await;
+            }
+
             "list" => {
                 let ids: Vec<String> = {
                     let st = state.lock().unwrap();
@@ -232,8 +300,26 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
     }
 }
 
+fn shell_escape(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "'\\''"))
+}
+
+/// Spawn one warm pool session. Does NOT hold the state lock during spawn.
+fn pool_warm_one(state: &Arc<Mutex<DaemonState>>) -> Result<(), String> {
+    let temp_id = {
+        let mut st = state.lock().unwrap();
+        st.pool.next_temp_id()
+    };
+    let (pid, _) = do_spawn(state.clone(), temp_id.clone(), None, 24, 80, None, vec![])?;
+    {
+        let mut st = state.lock().unwrap();
+        st.pool.add_entry(temp_id, pid);
+    }
+    Ok(())
+}
+
 /// Returns `(pid, is_new)` where `is_new` is false when the session already existed.
-fn do_spawn(
+pub fn do_spawn(
     state: Arc<Mutex<DaemonState>>,
     pane_id: String,
     cwd: Option<String>,
@@ -314,6 +400,7 @@ fn do_spawn(
     let state_clone = state.clone();
     std::thread::spawn(move || {
         let mut buf = [0u8; 4096];
+        let mut pool_readied = false;
         loop {
             match reader.read(&mut buf) {
                 Ok(0) | Err(_) => break,
@@ -331,8 +418,18 @@ fn do_spawn(
                     if let Some(tx) = tx {
                         let _ = tx.send(data);
                     }
+                    if !pool_readied && pane_id.starts_with("__pool_") {
+                        pool_readied = true;
+                        let mut st = state_clone.lock().unwrap();
+                        st.pool.mark_ready(&pane_id);
+                    }
                 }
             }
+        }
+        // Clean up dead pool entries on EOF
+        if pane_id.starts_with("__pool_") {
+            let mut st = state_clone.lock().unwrap();
+            st.pool.remove_dead(&pane_id);
         }
     });
 
