@@ -82,13 +82,6 @@ const PR_BADGE_COLOR: Record<PrInfo['state'], 'success' | 'neutral' | 'merged'> 
   MERGED: 'merged',
   CLOSED: 'neutral',
 };
-const PR_BADGE_LABEL: Record<PrInfo['state'], string> = {
-  OPEN: 'Open',
-  DRAFT: 'Draft',
-  MERGED: 'Merged',
-  CLOSED: 'Closed',
-};
-
 const PrBadge = memo(function PrBadge({ pr }: { pr: PrInfo }) {
   return (
     <button
@@ -100,7 +93,7 @@ const PrBadge = memo(function PrBadge({ pr }: { pr: PrInfo }) {
       className="cursor-pointer"
     >
       <Badge size="md" color={PR_BADGE_COLOR[pr.state]} className="gap-1.5 hover:brightness-125">
-        <GitPullRequest size={14} strokeWidth={2} />#{pr.number} {PR_BADGE_LABEL[pr.state]}
+        <GitPullRequest size={14} strokeWidth={2} />#{pr.number}
       </Badge>
     </button>
   );
