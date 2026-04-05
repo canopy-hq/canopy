@@ -233,7 +233,7 @@ const RepoHeader = memo(
 
     return (
       <div
-        className={`${repoHeader({ selected: isSelected })} cursor-grab active:cursor-grabbing active:opacity-100`}
+        className={`${repoHeader({ selected: isSelected })} cursor-grab active:cursor-grabbing`}
         style={{ touchAction: 'none' }}
         onClick={onRowClick}
         {...dragListeners}
@@ -622,13 +622,12 @@ function RepoTreeItem({
     <>
       <div
         ref={setNodeRef}
+        className={isDragging ? 'relative z-50 bg-bg-primary' : undefined}
         style={{
           transform: CSS.Transform.toString(
             transform ? { ...transform, scaleX: 1, scaleY: 1 } : null,
           ),
           transition,
-          zIndex: isDragging ? 10 : undefined,
-          opacity: isDragging ? 1 : undefined,
         }}
       >
         {hasSeparator && !isDragging && <div className="h-px bg-border" />}
