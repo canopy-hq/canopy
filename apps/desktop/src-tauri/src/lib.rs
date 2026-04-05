@@ -47,8 +47,14 @@ pub fn run() {
                 let _ = window.set_background_color(Some(Color(10, 10, 20, 255)));
             }
 
-            // Locate daemon socket and binary
-            let socket = app.path().app_data_dir()?.join("pty-daemon.sock");
+            // Locate daemon socket and binary.
+            // Always use the canonical app data dir so all dev worktrees (which may
+            // override the identifier for single-instance scoping) share one daemon.
+            let data_dir = std::env::var("SUPERAGENT_DATA_DIR")
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|_| app.path().app_data_dir().expect("app data dir"));
+            std::fs::create_dir_all(&data_dir).ok();
+            let socket = data_dir.join("pty-daemon.sock");
             let bin = std::env::current_exe()
                 .ok()
                 .and_then(|p| p.parent().map(|d| d.join("superagent-pty-daemon")))

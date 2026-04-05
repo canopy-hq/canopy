@@ -1,9 +1,17 @@
 import { spawn } from 'node:child_process';
-import { dirname, resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const desktopDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = resolve(desktopDir, '../..');
+
+// Worktree-scoped identifier so each dev worktree gets its own single-instance lock.
+const worktreeHash = new Bun.CryptoHasher('md5').update(repoRoot).digest('hex').slice(0, 8);
+const devIdentifier = `com.superagent.dev-${worktreeHash}`;
+
+// Shared data dir so all worktrees use the same DB, daemon socket, and settings.
+const sharedDataDir = join(homedir(), 'Library', 'Application Support', 'com.superagent.app');
 
 // Start Vite directly so it picks its own port atomically — no probe/race condition.
 const vite = spawn('bun', ['run', 'dev'], {
@@ -38,8 +46,13 @@ const runnerArgs = (await Bun.file(codesignRunner).exists()) ? ['--runner', code
 // Start Tauri pointed at the actual port Vite bound.
 const tauri = spawn(
   'tauri',
-  ['dev', ...runnerArgs, '--config', `{"build":{"devUrl":"http://localhost:${port}"}}`],
-  { stdio: 'inherit', env: process.env },
+  [
+    'dev',
+    ...runnerArgs,
+    '--config',
+    `{"identifier":"${devIdentifier}","build":{"devUrl":"http://localhost:${port}"}}`,
+  ],
+  { stdio: 'inherit', env: { ...process.env, SUPERAGENT_DATA_DIR: sharedDataDir } },
 );
 
 const cleanup = () => {
