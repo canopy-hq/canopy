@@ -122,7 +122,15 @@ export function useTerminal(
       const el = term.element;
       if (el) container.appendChild(el);
 
-      connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
+      // Use connectPtyOutputFresh (not connectPtyOutput) to guard against a race
+      // where a second spawnTerminal call for the same paneId created a new
+      // ChannelEntry that has the full scrollback replay buffered in preHandlerBuffer.
+      // connectPtyOutput's setHandler would flush that buffer into a terminal that
+      // already has the content — doubling it. connectPtyOutputFresh discards
+      // preHandlerBuffer and, when sentinelReceived=true (the normal case with an
+      // existing session), behaves identically to connectPtyOutput: it sets the
+      // handler immediately and drains only postSentinelBuffer (live gap data).
+      connectPtyOutputFresh(ptyId, (data: Uint8Array) => term.write(data));
       fitAddon.fit();
       // Unconditional resize IPC on cached remount — ptyId is the real pid,
       // proxy.sessions is already populated, so this call succeeds immediately.
