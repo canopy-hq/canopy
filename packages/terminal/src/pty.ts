@@ -43,6 +43,40 @@ export async function spawnTerminal(
   return promise;
 }
 
+export async function getPoolStatus(): Promise<{ ready: number; warming: number }> {
+  return invoke<{ ready: number; warming: number }>('pool_status');
+}
+
+export async function claimWarmTerminal(
+  paneId: string,
+  cwd?: string,
+  rows?: number,
+  cols?: number,
+): Promise<{ ptyId: number; isNew: boolean }> {
+  const existing = pendingSpawns.get(paneId);
+  if (existing) return existing;
+
+  const promise = (async () => {
+    const entry = createChannelEntry();
+
+    const channel = new Channel<number[]>();
+    channel.onmessage = (data: number[]) => {
+      entry.onData(data);
+    };
+
+    const { pty_id, is_new } = await invoke<{ pty_id: number; is_new: boolean }>(
+      'claim_warm_terminal',
+      { paneId, cwd, rows, cols, onOutput: channel },
+    );
+
+    outputRegistry.set(pty_id, entry);
+    return { ptyId: pty_id, isNew: is_new };
+  })().finally(() => pendingSpawns.delete(paneId));
+
+  pendingSpawns.set(paneId, promise);
+  return promise;
+}
+
 /** Wire (or re-wire) a PTY's output to a handler. Flushes buffered scrollback on first call (reconnect path). */
 export function connectPtyOutput(ptyId: number, handler: (data: Uint8Array) => void): void {
   outputRegistry.get(ptyId)?.setHandler(handler);

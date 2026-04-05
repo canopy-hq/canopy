@@ -4,7 +4,14 @@ import { getSettingCollection, getSetting } from '@superagent/db';
 import { Terminal, FitAddon } from 'ghostty-web';
 
 import { ensureGhosttyInit, isGhosttyReady } from './ghostty-init';
-import { writeToPty, resizePty, connectPtyOutput, spawnTerminal } from './pty';
+import {
+  writeToPty,
+  resizePty,
+  connectPtyOutput,
+  spawnTerminal,
+  claimWarmTerminal,
+  getPoolStatus,
+} from './pty';
 import { getCached, setCached } from './terminal-cache';
 import { DEFAULT_TERMINAL_FONT_SIZE } from './terminal-font-size';
 import { terminalThemes, type ThemeName } from './themes';
@@ -325,69 +332,74 @@ export function useTerminal(
           removeOverlay();
           setCached(ptyId, term, fitAddon);
         } else {
-          // Spawn: PTY started at exact fitted dimensions → lastSentSize = spawn dims
-          // → dedup guard suppresses any subsequent fit at the same size → 0 SIGWINCH.
-          void spawnTerminal(paneId, savedCwd, term.rows, term.cols).then(
-            ({ ptyId: newId, isNew }) => {
-              if (spawnCancelled) {
-                // Component unmounted while spawn was in-flight. Don't close the
-                // PTY — the daemon deduplicates by paneId, so a StrictMode remount
-                // (or tab revisit) will reuse it. Orphan PTYs from true unmounts
-                // are rare and can be cleaned up via the Session Manager.
-                return;
-              }
-              ptrRef.ptyId = newId;
-              lastSentSize.rows = term.rows;
-              lastSentSize.cols = term.cols;
+          // Try warm pool first, fall back to cold spawn.
+          void (async () => {
+            if (spawnCancelled) return;
 
-              // Grace period: suppress all resize IPC for 500ms so React re-renders
-              // and layout settling don't send SIGWINCH during shell/Starship init.
-              resizeGraceUntil = Date.now() + 500;
+            let result: { ptyId: number; isNew: boolean };
+            let fromPool = false;
 
-              if (isNew) {
-                // Fresh shell: buffer is empty. Reveal on first byte — one-shot
-                // timer (debouncedRemoveOverlay) only fires once, so the overlay
-                // is removed ~112ms after the first prompt byte regardless of how
-                // long Starship keeps emitting.
-                connectPtyOutput(newId, (data: Uint8Array) => {
-                  debouncedRemoveOverlay();
-                  term.write(data);
-                });
+            try {
+              const status = await getPoolStatus();
+              if (status.ready > 0) {
+                result = await claimWarmTerminal(paneId, savedCwd, term.rows, term.cols);
+                fromPool = true;
               } else {
-                // Reconnect: Tauri Channel messages are queued before the invoke
-                // response, so the buffer is populated when setHandler is called.
-                // setHandler flushes synchronously → overlay safe to remove.
-                connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
-                removeOverlay();
+                result = await spawnTerminal(paneId, savedCwd, term.rows, term.cols);
               }
-              setCached(newId, term, fitAddon);
-              onPtySpawned(newId);
+            } catch {
+              // Pool claim failed (or pool_status failed) — fall back to cold spawn
+              result = await spawnTerminal(paneId, savedCwd, term.rows, term.cols);
+            }
 
-              // Poll dimensions for 1s after spawn (every 200ms, up to 5 ticks).
-              // Handles layout-settling races (sidebars, borders, split panes) and
-              // ensures TUI apps like Claude Code fill the pane on first launch.
-              let ticks = 0;
-              const poll = () => {
-                sigwinchTimer = null;
-                if (spawnCancelled) return;
-                const dims = fitAddon.proposeDimensions();
-                const r = dims?.rows ?? lastSentSize.rows;
-                const c = dims?.cols ?? lastSentSize.cols;
-                const changed = r !== lastSentSize.rows || c !== lastSentSize.cols;
-                if (changed) {
-                  term.resize(c, r);
-                  lastSentSize.rows = r;
-                  lastSentSize.cols = c;
-                  void resizePty(newId, r, c);
-                } else if (ticks === 0) {
-                  void resizePty(newId, r, c);
-                }
-                ticks++;
-                if (ticks < 5) sigwinchTimer = setTimeout(poll, 200);
-              };
-              sigwinchTimer = setTimeout(poll, 100);
-            },
-          );
+            const { ptyId: newId, isNew } = result;
+
+            if (spawnCancelled) return;
+            ptrRef.ptyId = newId;
+            lastSentSize.rows = term.rows;
+            lastSentSize.cols = term.cols;
+            resizeGraceUntil = Date.now() + 500;
+
+            if (fromPool) {
+              // Warm terminal: shell already booted, cd+clear already sent by daemon.
+              // Connect output and remove overlay immediately — no waiting for first byte.
+              connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
+              removeOverlay();
+            } else if (isNew) {
+              connectPtyOutput(newId, (data: Uint8Array) => {
+                debouncedRemoveOverlay();
+                term.write(data);
+              });
+            } else {
+              connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
+              removeOverlay();
+            }
+
+            setCached(newId, term, fitAddon);
+            onPtySpawned(newId);
+
+            // Dimension polling (same as before)
+            let ticks = 0;
+            const poll = () => {
+              sigwinchTimer = null;
+              if (spawnCancelled) return;
+              const dims = fitAddon.proposeDimensions();
+              const r = dims?.rows ?? lastSentSize.rows;
+              const c = dims?.cols ?? lastSentSize.cols;
+              const changed = r !== lastSentSize.rows || c !== lastSentSize.cols;
+              if (changed) {
+                term.resize(c, r);
+                lastSentSize.rows = r;
+                lastSentSize.cols = c;
+                void resizePty(newId, r, c);
+              } else if (ticks === 0) {
+                void resizePty(newId, r, c);
+              }
+              ticks++;
+              if (ticks < 5) sigwinchTimer = setTimeout(poll, 200);
+            };
+            sigwinchTimer = setTimeout(poll, 100);
+          })();
         }
       }
     }
