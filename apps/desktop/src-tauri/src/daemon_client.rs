@@ -149,12 +149,19 @@ impl DaemonClient {
     /// Attach to a PTY session: spawns a background task that reads frames
     /// from the daemon and sends them to `on_output`. Updates `last_output` timestamp
     /// on each chunk (used by the agent watcher for silence detection).
+    ///
+    /// `ready_tx` is fired once when the daemon sentinel (zero-length frame marking
+    /// end of scrollback replay) is forwarded. `spawn_terminal` awaits this signal
+    /// before returning to TypeScript, guaranteeing the ChannelEntry has the full
+    /// scrollback buffered when the Tauri invoke resolves.
+    ///
     /// Returns the JoinHandle so callers can abort a superseded attach task.
     pub fn attach(
         &self,
         pane_id: String,
         on_output: Channel<Vec<u8>>,
         last_output: Arc<AtomicU64>,
+        ready_tx: tokio::sync::oneshot::Sender<()>,
     ) -> tokio::task::JoinHandle<()> {
         let socket = self.socket.clone();
 
@@ -178,6 +185,7 @@ impl DaemonClient {
 
             // Read binary frames: [4-byte big-endian length][bytes]
             let mut len_buf = [0u8; 4];
+            let mut ready_tx = Some(ready_tx);
             loop {
                 if stream.read_exact(&mut len_buf).await.is_err() {
                     break;
@@ -191,6 +199,12 @@ impl DaemonClient {
                     // Only update the activity timestamp for real output, not the
                     // zero-length sentinel frame.
                     last_output.store(now_millis(), Ordering::Relaxed);
+                } else {
+                    // Sentinel: scrollback replay complete. Signal spawn_terminal so it
+                    // can return to TypeScript with a fully-buffered ChannelEntry.
+                    if let Some(tx) = ready_tx.take() {
+                        let _ = tx.send(());
+                    }
                 }
                 // Forward the frame — including the empty sentinel — to TypeScript.
                 // An empty Vec<u8> arrives as `rawData.length === 0` in channel.onmessage.

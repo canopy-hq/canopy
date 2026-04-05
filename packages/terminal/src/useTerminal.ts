@@ -4,13 +4,7 @@ import { getSettingCollection, getSetting } from '@superagent/db';
 import { Terminal, FitAddon } from 'ghostty-web';
 
 import { ensureGhosttyInit, isGhosttyReady } from './ghostty-init';
-import {
-  writeToPty,
-  resizePty,
-  connectPtyOutput,
-  connectPtyOutputFresh,
-  spawnTerminal,
-} from './pty';
+import { writeToPty, resizePty, connectPtyOutput, spawnTerminal } from './pty';
 import { getCached, setCached } from './terminal-cache';
 import { DEFAULT_TERMINAL_FONT_SIZE } from './terminal-font-size';
 import { terminalThemes, type ThemeName } from './themes';
@@ -26,13 +20,19 @@ import { terminalThemes, type ThemeName } from './themes';
  * pane tree restructuring (split/close). On remount, the existing terminal DOM is
  * reparented into the new container — preserving scrollback.
  *
- * Overlay + sentinel protocol
- * ---------------------------
- * For new spawns, an opaque overlay covers the canvas until the first LIVE byte
- * arrives. "Live" is defined as post-sentinel: the daemon sends a zero-length
- * sentinel frame after replaying scrollback, so all data arriving after the
- * sentinel is guaranteed fresh. connectPtyOutputFresh buffers and discards
- * everything up to and including the sentinel.
+ * Overlay protocol
+ * -----------------
+ * spawn_terminal blocks on the Rust side until the sentinel frame is received
+ * (end of scrollback replay). By the time invoke() resolves, the ChannelEntry
+ * already holds the full scrollback.
+ *
+ * isNew=true (fresh shell): buffer is empty. Overlay is removed ~112ms after
+ * the FIRST output byte (one-shot timer + double-rAF). The terminal continues
+ * filling in while visible — looks responsive even if Starship is still emitting.
+ *
+ * isNew=false (restored session): Tauri Channel messages (scrollback) are queued
+ * before the invoke response, so the buffer is populated when setHandler runs.
+ * Overlay is removed synchronously — terminal already has content.
  */
 export function useTerminal(
   containerRef: React.RefObject<HTMLDivElement | null>,
@@ -122,15 +122,10 @@ export function useTerminal(
       const el = term.element;
       if (el) container.appendChild(el);
 
-      // Use connectPtyOutputFresh (not connectPtyOutput) to guard against a race
-      // where a second spawnTerminal call for the same paneId created a new
-      // ChannelEntry that has the full scrollback replay buffered in preHandlerBuffer.
-      // connectPtyOutput's setHandler would flush that buffer into a terminal that
-      // already has the content — doubling it. connectPtyOutputFresh discards
-      // preHandlerBuffer and, when sentinelReceived=true (the normal case with an
-      // existing session), behaves identically to connectPtyOutput: it sets the
-      // handler immediately and drains only postSentinelBuffer (live gap data).
-      connectPtyOutputFresh(ptyId, (data: Uint8Array) => term.write(data));
+      // connectPtyOutput: buffer is empty (handler was never cleared, data flowed
+      // directly to term.write while tab was inactive), so flush is a no-op.
+      // setHandlerFresh would be equivalent here, but connectPtyOutput is simpler.
+      connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
       fitAddon.fit();
       // Unconditional resize IPC on cached remount — ptyId is the real pid,
       // proxy.sessions is already populated, so this call succeeds immediately.
@@ -180,11 +175,8 @@ export function useTerminal(
       // on the canvas immediately. Without the overlay already in place, the cursor
       // flashes for 1-2 frames before being covered.
       //
-      // "Live" is defined as post-sentinel: the daemon sends a zero-length sentinel
-      // frame after replaying scrollback (see daemon.rs attach handler). The
-      // connectPtyOutputFresh call buffers and silently discards all data up to and
-      // including the sentinel. The overlay is therefore removed only when fresh
-      // shell output (e.g. the zsh prompt) first hits the canvas.
+      // The overlay is removed on the first live byte from the shell (e.g. the
+      // zsh prompt) — see debouncedRemoveOverlay below.
       const overlay = document.createElement('div');
       overlay.style.cssText = `position:absolute;inset:0;background:${themeBg};z-index:1;pointer-events:none`;
       wrapper.appendChild(overlay);
@@ -202,24 +194,21 @@ export function useTerminal(
           overlay.remove();
         }
       };
-      // Debounced removal: waits for output AND rendering to settle before
-      // revealing. The debounce covers Starship prompt output; the double-rAF
-      // ensures the WASM renderer has painted at least one full frame after the
-      // last write — critical on the first two terminals when the renderer is
-      // cold-starting (JIT, texture atlases, etc.).
+      // One-shot overlay removal: schedule the timer on the FIRST byte only.
+      // This reveals the terminal at first_byte+80ms+2×rAF (~112ms) regardless
+      // of how long Starship keeps emitting — the canvas fills in while visible,
+      // which looks responsive. The double-rAF ensures the WASM renderer has
+      // painted at least one frame after the first write before uncovering.
       const debouncedRemoveOverlay = () => {
-        if (overlayRemoved) return;
-        if (overlayTimer !== null) clearTimeout(overlayTimer);
+        if (overlayRemoved || overlayTimer !== null) return; // one-shot
         overlayTimer = setTimeout(() => {
           overlayTimer = null;
-          // Double rAF: first rAF queues work for the current frame's paint,
-          // second rAF fires after that paint completes → canvas is up-to-date.
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               removeOverlay();
             });
           });
-        }, 150);
+        }, 80);
       };
 
       if (term.element) {
@@ -309,12 +298,12 @@ export function useTerminal(
         }
       });
 
-      // Wait for the terminal font to load before fitting. On first use, the
-      // configured font may not be loaded yet — fitAddon.fit() would calculate
-      // grid dimensions using a fallback font, and the later font-swap would
-      // change cell metrics, causing a resize → SIGWINCH → prompt redraw.
-      // Uses the same fontSize + fontFamily from the Terminal config above so
-      // it adapts automatically if the user changes their font.
+      // Wait for the terminal font to load before fitting and connecting the PTY.
+      // Without this gate, Ghostty renders with a fallback font (e.g. Menlo on macOS)
+      // until Geist Mono is available, producing inconsistent text weight across
+      // terminals. In practice this resolves immediately: __root.tsx preloads both
+      // the regular and bold variants at module load time, so the font is warm before
+      // any terminal mounts.
       const fontReady = document.fonts
         ? document.fonts.load(`${termFontSize}px ${termFontFamily}`)
         : Promise.resolve();
@@ -356,15 +345,18 @@ export function useTerminal(
               resizeGraceUntil = Date.now() + 500;
 
               if (isNew) {
-                // Fresh shell: discard scrollback replay. Use debounced overlay
-                // removal so the prompt output settles before revealing.
-                connectPtyOutputFresh(newId, (data: Uint8Array) => {
+                // Fresh shell: buffer is empty. Reveal on first byte — one-shot
+                // timer (debouncedRemoveOverlay) only fires once, so the overlay
+                // is removed ~112ms after the first prompt byte regardless of how
+                // long Starship keeps emitting.
+                connectPtyOutput(newId, (data: Uint8Array) => {
                   debouncedRemoveOverlay();
                   term.write(data);
                 });
               } else {
-                // Restored session: setHandler flushes buffered scrollback synchronously
-                // → remove overlay immediately after connecting. Safe even for idle shells.
+                // Reconnect: Tauri Channel messages are queued before the invoke
+                // response, so the buffer is populated when setHandler is called.
+                // setHandler flushes synchronously → overlay safe to remove.
                 connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
                 removeOverlay();
               }

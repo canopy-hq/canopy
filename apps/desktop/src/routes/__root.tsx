@@ -34,9 +34,14 @@ import { onOpenWorkspacePalette } from '../lib/workspace-palette-bridge';
 
 import type { CommandItem } from '@superagent/command-palette';
 
-// Pre-initialize ghostty-web WASM at module load so it's ready before the user
-// opens their first terminal — eliminates the empty-container frame on first use.
+// Pre-initialize ghostty-web WASM at module load.
 void ensureGhosttyInit();
+
+// Preload Geist Mono so the terminal font gate in useTerminal resolves immediately
+// on first mount — without this, Ghostty renders with a fallback font until the
+// font is fetched. Matches the exact font string used in useTerminal's Terminal config.
+void document.fonts?.load('13px "Geist Mono", Menlo, Monaco, "Courier New", monospace');
+void document.fonts?.load('bold 13px "Geist Mono", Menlo, Monaco, "Courier New", monospace');
 
 function RootLayout() {
   const [cmdMenuOpen, setCmdMenuOpen] = useState(false);

@@ -6,39 +6,46 @@ import { createChannelEntry, type ChannelEntry } from './channel-manager';
 const outputRegistry = new Map<number, ChannelEntry>();
 const encoder = new TextEncoder();
 
+// Concurrent dedup: if two callers race before either invoke resolves,
+// they share one promise → one Rust spawn_terminal call → one ChannelEntry.
+const pendingSpawns = new Map<string, Promise<{ ptyId: number; isNew: boolean }>>();
+
 export async function spawnTerminal(
   paneId: string,
   cwd?: string,
   rows?: number,
   cols?: number,
 ): Promise<{ ptyId: number; isNew: boolean }> {
-  const entry = createChannelEntry();
+  const existing = pendingSpawns.get(paneId);
+  if (existing) return existing;
 
-  const channel = new Channel<number[]>();
-  channel.onmessage = (data: number[]) => {
-    entry.onData(data);
-  };
+  const promise = (async () => {
+    const entry = createChannelEntry();
 
-  const { pty_id, is_new } = await invoke<{ pty_id: number; is_new: boolean }>('spawn_terminal', {
-    paneId,
-    cwd,
-    rows,
-    cols,
-    onOutput: channel,
-  });
+    const channel = new Channel<number[]>();
+    channel.onmessage = (data: number[]) => {
+      entry.onData(data);
+    };
 
-  outputRegistry.set(pty_id, entry);
-  return { ptyId: pty_id, isNew: is_new };
+    const { pty_id, is_new } = await invoke<{ pty_id: number; is_new: boolean }>('spawn_terminal', {
+      paneId,
+      cwd,
+      rows,
+      cols,
+      onOutput: channel,
+    });
+
+    outputRegistry.set(pty_id, entry);
+    return { ptyId: pty_id, isNew: is_new };
+  })().finally(() => pendingSpawns.delete(paneId));
+
+  pendingSpawns.set(paneId, promise);
+  return promise;
 }
 
 /** Wire (or re-wire) a PTY's output to a handler. Flushes buffered scrollback on first call (reconnect path). */
 export function connectPtyOutput(ptyId: number, handler: (data: Uint8Array) => void): void {
   outputRegistry.get(ptyId)?.setHandler(handler);
-}
-
-/** Wire a PTY's output to a handler, discarding buffered scrollback and waiting for sentinel (spawn path). */
-export function connectPtyOutputFresh(ptyId: number, handler: (data: Uint8Array) => void): void {
-  outputRegistry.get(ptyId)?.setHandlerFresh(handler);
 }
 
 export async function writeToPty(ptyId: number, data: string): Promise<void> {

@@ -35,7 +35,6 @@ vi.mock('../src/ghostty-init', () => ({
 vi.mock('../src/pty', () => ({
   spawnTerminal: vi.fn().mockResolvedValue(42),
   connectPtyOutput: vi.fn(),
-  connectPtyOutputFresh: vi.fn(),
   writeToPty: vi.fn().mockResolvedValue(undefined),
   resizePty: vi.fn().mockResolvedValue(undefined),
   closePty: vi.fn().mockResolvedValue(undefined),
@@ -54,7 +53,7 @@ vi.mock('../src/terminal-cache', () => ({
 import { Terminal, FitAddon } from 'ghostty-web';
 
 import { createChannelEntry } from '../src/channel-manager';
-import { connectPtyOutput, connectPtyOutputFresh } from '../src/pty';
+import { connectPtyOutput } from '../src/pty';
 import { getCached, setCached } from '../src/terminal-cache';
 import { useTerminal } from '../src/useTerminal';
 
@@ -133,18 +132,21 @@ describe('channel pipeline — ASCII art payload fidelity', () => {
     expect(received).toEqual(ASCII_ART_BYTES);
   });
 
-  it('setHandlerFresh path — only post-sentinel bytes reach handler, byte-identical', () => {
+  it('setHandlerFresh path — pre-call buffer discarded, all subsequent data forwarded intact', () => {
     const entry = createChannelEntry();
+
+    // Accumulate data before wiring — will be discarded
+    entry.onData(ASCII_ART_BYTES);
+    entry.onData(ASCII_ART_BYTES);
+
     const received: number[] = [];
     entry.setHandlerFresh((d) => received.push(...Array.from(d)));
 
-    // Scrollback (should be discarded)
-    entry.onData(ASCII_ART_BYTES);
-    // Sentinel
-    entry.onData([]);
-    // Live data (should arrive intact)
-    entry.onData(ASCII_ART_BYTES);
+    // Pre-call buffer was discarded
+    expect(received).toHaveLength(0);
 
+    // Live data arriving after the call is forwarded byte-for-byte
+    entry.onData(ASCII_ART_BYTES);
     expect(received).toEqual(ASCII_ART_BYTES);
   });
 
@@ -201,9 +203,10 @@ describe('terminal remount identity — render state 100% preserved', () => {
 
     await act(flushPromises);
 
-    expect(container.firstChild).toBe(el);
-    // Explicitly verify term.element identity
-    expect(container.firstChild).toBe(term.element);
+    // The cached path appends a transition overlay before el, then removes it
+    // via double-rAF. Check containment rather than firstChild ordering.
+    expect(container.contains(el)).toBe(true);
+    expect(container.contains(term.element)).toBe(true);
     unmount();
   });
 
@@ -256,7 +259,6 @@ describe('terminal remount identity — render state 100% preserved', () => {
     await act(flushPromises);
 
     expect(connectPtyOutput).toHaveBeenCalledWith(7, expect.any(Function));
-    expect(connectPtyOutputFresh).not.toHaveBeenCalled();
     unmount();
   });
 

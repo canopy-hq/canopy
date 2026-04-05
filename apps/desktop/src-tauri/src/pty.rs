@@ -60,7 +60,17 @@ pub async fn spawn_terminal(
     }
 
     let last_output = Arc::new(AtomicU64::new(now_millis()));
-    let handle = daemon.attach(pane_id.clone(), on_output, last_output.clone());
+    let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<()>();
+    let handle = daemon.attach(pane_id.clone(), on_output, last_output.clone(), ready_tx);
+
+    // Wait until the attach task forwards the sentinel frame (end of scrollback replay).
+    // This guarantees the TypeScript ChannelEntry has buffered data when the invoke
+    // resolves — eliminating the blank-terminal race between handler wiring and data arrival.
+    // 2 s timeout guards against slow or unavailable daemons.
+    let _ = tokio::time::timeout(
+        std::time::Duration::from_millis(2000),
+        ready_rx,
+    ).await;
 
     {
         let mut s = state.lock().map_err(|e| e.to_string())?;

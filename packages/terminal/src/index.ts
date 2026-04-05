@@ -2,7 +2,6 @@ export { useTerminal } from './useTerminal';
 export {
   spawnTerminal,
   connectPtyOutput,
-  connectPtyOutputFresh,
   writeToPty,
   resizePty,
   closePty,
