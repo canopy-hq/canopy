@@ -127,7 +127,9 @@ pub async fn claim_warm_terminal(
 
     let last_output = Arc::new(AtomicU64::new(now_millis()));
     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<()>();
-    let handle = daemon.attach(pane_id.clone(), on_output, last_output.clone(), ready_tx);
+    // attach_fresh: skip scrollback replay — the warm prompt + cd echo must not
+    // reach the terminal. Only live output (Starship prompt for the new cwd) is streamed.
+    let handle = daemon.attach_fresh(pane_id.clone(), on_output, last_output.clone(), ready_tx);
 
     let _ = tokio::time::timeout(
         std::time::Duration::from_millis(2000),

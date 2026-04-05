@@ -173,6 +173,54 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 }
             }
 
+            // Like "attach" but skips scrollback replay — only live output.
+            // Used for pool-claimed sessions where the scrollback contains the
+            // warm shell prompt + cd echo that must NOT reach the terminal.
+            //
+            // The 200ms sleep ensures the cd+clear output has been broadcast
+            // (and missed by the late subscribe). Only Starship prompt output
+            // reaches the subscriber.
+            "attach_fresh" => {
+                // Wait for cd+clear echo to be broadcast before subscribing.
+                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+                let result = {
+                    let st = state.lock().unwrap();
+                    st.sessions
+                        .get(&pane_id)
+                        .map(|s| s.tx.subscribe())
+                };
+                let mut rx = match result {
+                    Some(r) => r,
+                    None => {
+                        let _ = write_half.write_all(b"{\"ok\":false,\"error\":\"session not found\"}\n").await;
+                        break;
+                    }
+                };
+
+                // Sentinel immediately — no scrollback to replay.
+                if write_half.write_all(&[0u8; 4]).await.is_err() {
+                    return;
+                }
+
+                // Stream live output only
+                loop {
+                    match rx.recv().await {
+                        Ok(data) => {
+                            let len = (data.len() as u32).to_be_bytes();
+                            if write_half.write_all(&len).await.is_err() {
+                                return;
+                            }
+                            if write_half.write_all(&data).await.is_err() {
+                                return;
+                            }
+                        }
+                        Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                        Err(_) => return,
+                    }
+                }
+            }
+
             "write" => {
                 if let Some(arr) = cmd["data"].as_array() {
                     let bytes: Vec<u8> = arr
@@ -256,20 +304,17 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                             }
                         }
 
-                        // Send cd to the shell BEFORE returning the response.
-                        // The echo lands in scrollback before the frontend attaches,
-                        // so connectPtyOutputFresh discards it.
+                        // Send cd + clear: the clear wipes the cd echo from the terminal.
+                        // attach_fresh delays 200ms before subscribing to the broadcast,
+                        // ensuring the cd echo + clear output have been broadcast and
+                        // missed — only Starship prompt output reaches the frontend.
                         if let Some(dir) = &cwd {
-                            let cd_cmd = format!(" cd {}\n", shell_escape(dir));
+                            let cd_cmd = format!(" cd {} && clear\n", shell_escape(dir));
                             let mut st = state.lock().unwrap();
                             if let Some(sess) = st.sessions.get_mut(&pane_id) {
                                 let _ = sess.writer.write_all(cd_cmd.as_bytes());
                                 let _ = sess.writer.flush();
                             }
-                            // Give the PTY line discipline time to echo the cd
-                            // into the scrollback before we return.
-                            drop(st);
-                            std::thread::sleep(std::time::Duration::from_millis(10));
                         }
 
                         // Replenish pool in background

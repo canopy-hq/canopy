@@ -42,6 +42,11 @@ impl ScrollbackBuffer {
     pub fn is_empty(&self) -> bool {
         self.buf.is_empty()
     }
+
+    /// Discard all buffered data.
+    pub fn clear(&mut self) {
+        self.buf.clear();
+    }
 }
 
 #[cfg(test)]

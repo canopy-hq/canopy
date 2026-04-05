@@ -370,10 +370,9 @@ export function useTerminal(
             resizeGraceUntil = Date.now() + 500;
 
             if (fromPool) {
-              // Warm terminal: shell already booted, cd sent by daemon BEFORE
-              // attach started. The cd echo is in the scrollback buffer by the
-              // time we get here. Discard it and wire for live data only —
-              // first byte is the Starship prompt for the new cwd.
+              // Warm terminal: daemon sent cd+clear before returning, and
+              // attach_fresh delays 200ms so cd echo is never received.
+              // Only Starship prompt output reaches the handler.
               connectPtyOutputFresh(newId, (data: Uint8Array) => {
                 debouncedRemoveOverlay();
                 term.write(data);

@@ -192,6 +192,60 @@ impl DaemonClient {
         }
     }
 
+    /// Like `attach` but sends `attach_fresh` — no scrollback replay.
+    /// Used for pool-claimed sessions where we don't want the warm prompt / cd echo.
+    pub fn attach_fresh(
+        &self,
+        pane_id: String,
+        on_output: Channel<Vec<u8>>,
+        last_output: Arc<AtomicU64>,
+        ready_tx: tokio::sync::oneshot::Sender<()>,
+    ) -> tokio::task::JoinHandle<()> {
+        let socket = self.socket.clone();
+
+        tokio::spawn(async move {
+            let msg = format!(
+                "{{\"op\":\"attach_fresh\",\"paneId\":{}}}\n",
+                serde_json::json!(&pane_id)
+            );
+
+            let mut stream = match UnixStream::connect(&socket).await {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("attach_fresh: connect failed: {e}");
+                    return;
+                }
+            };
+
+            if stream.write_all(msg.as_bytes()).await.is_err() {
+                return;
+            }
+
+            let mut len_buf = [0u8; 4];
+            let mut ready_tx = Some(ready_tx);
+            loop {
+                if stream.read_exact(&mut len_buf).await.is_err() {
+                    break;
+                }
+                let len = u32::from_be_bytes(len_buf) as usize;
+                let mut data = vec![0u8; len];
+                if len > 0 {
+                    if stream.read_exact(&mut data).await.is_err() {
+                        break;
+                    }
+                    last_output.store(now_millis(), Ordering::Relaxed);
+                } else {
+                    if let Some(tx) = ready_tx.take() {
+                        let _ = tx.send(());
+                    }
+                }
+                if on_output.send(data).is_err() {
+                    break;
+                }
+            }
+        })
+    }
+
     /// Attach to a PTY session: spawns a background task that reads frames
     /// from the daemon and sends them to `on_output`. Updates `last_output` timestamp
     /// on each chunk (used by the agent watcher for silence detection).
