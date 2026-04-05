@@ -105,6 +105,7 @@ pub fn run() {
             github::github_get_connection,
             github::github_cancel_poll,
             github::github_disconnect,
+            github::github_get_pr_statuses,
         ])
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
