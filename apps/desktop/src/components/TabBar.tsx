@@ -28,7 +28,7 @@ const tabItem = tv({
   base: 'group relative flex h-full max-w-[240px] min-w-[120px] shrink items-center gap-1.5 px-3 transition-colors',
   variants: {
     active: {
-      true: 'bg-bg-secondary text-text-primary shadow-[inset_0_-2px_0_var(--accent)]',
+      true: 'bg-bg-secondary text-text-primary shadow-[inset_0_-3px_0_var(--accent)]',
       false: 'bg-transparent text-text-muted hover:bg-bg-secondary hover:text-text-secondary',
     },
     agentWaiting: { true: 'bg-(--agent-waiting-glow)' },
