@@ -13,6 +13,8 @@ import { tv } from 'tailwind-variants';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
 import { useDragStyle } from '../hooks/useDragStyle';
+import { useDropping } from '../hooks/useDropping';
+import { useFlipAnimation } from '../hooks/useFlipAnimation';
 import { restrictToHorizontalAxis, sortableTransition, useDragSensors } from '../lib/dnd';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import { addTab, closeTab, switchTab, renameTab, reorderTabs } from '../lib/tab-actions';
@@ -75,6 +77,7 @@ const TabItemComponent = memo(
       id: tab.id,
       transition: sortableTransition,
     });
+    const isDropping = useDropping(isDragging, 220);
     const agentStatus = useTabAgentStatus(tab);
     const [editing, setEditing] = useState(false);
     const [frozenWidth, setFrozenWidth] = useState<number | null>(null);
@@ -145,10 +148,11 @@ const TabItemComponent = memo(
     return (
       <button
         ref={mergedRef}
+        data-flip-id={tab.id}
         className={tabItem({
           active: isActive,
           agentWaiting: agentStatus === 'waiting',
-          dragging: isDragging,
+          dragging: isDragging || isDropping,
         })}
         style={
           frozenWidth !== null
@@ -213,7 +217,7 @@ const TabItemComponent = memo(
               iconOnly
               variant="ghost"
               tabIndex={-1}
-              className={closeButton({ active: isActive || isDragging })}
+              className={closeButton({ active: isActive || isDragging || isDropping })}
               onPress={() => void handleClose()}
             >
               <X size={10} strokeWidth={2} />
@@ -239,11 +243,15 @@ export function TabBar() {
   );
   const activeTabId = ui.activeTabId;
   const [dragging, setDragging] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const sensors = useDragSensors();
   useDragStyle(dragging);
+  const { snapshot: flipSnapshot } = useFlipAnimation(scrollRef, 'horizontal');
 
   const handleDragEnd = useCallback(
     ({ active, over }: DragEndEvent) => {
+      // Snapshot before any state update — DOM still has dnd-kit transforms here.
+      flipSnapshot();
       setDragging(false);
       if (!over || active.id === over.id) return;
       const oldIndex = tabs.findIndex((t) => t.id === active.id);
@@ -251,12 +259,10 @@ export function TabBar() {
       const reordered = arrayMove(tabs, oldIndex, newIndex);
       reorderTabs(reordered.map((t) => t.id));
     },
-    [tabs],
+    [tabs, flipSnapshot],
   );
 
   const tabIds = useMemo(() => tabs.map((t) => t.id), [tabs]);
-
-  const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollState, setScrollState] = useState<{ left: boolean; right: boolean }>({
     left: false,
     right: false,
