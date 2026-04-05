@@ -215,7 +215,7 @@ const TabItemComponent = memo(
               iconOnly
               variant="ghost"
               tabIndex={-1}
-              className={closeButton({ active: isActive })}
+              className={closeButton({ active: isActive || isDragging })}
               onPress={() => void handleClose()}
             >
               <X size={10} strokeWidth={2} />
