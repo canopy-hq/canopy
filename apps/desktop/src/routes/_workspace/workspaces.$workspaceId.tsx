@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 
 import { createFileRoute } from '@tanstack/react-router';
+import { Loader2 } from 'lucide-react';
 
 import { PaneContainer } from '../../components/PaneContainer';
 import { TabBar } from '../../components/TabBar';
@@ -12,19 +13,7 @@ import { toggleSidebar } from '../../lib/workspace-actions';
 function CreatingWorktree() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 select-none">
-      <svg
-        className="animate-spin text-accent"
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-      </svg>
+      <Loader2 size={20} className="animate-spin text-accent" />
       <span className="text-[14px] font-medium text-text-primary">Creating worktree…</span>
       <span className="text-[12px] text-text-muted">Setting up your workspace</span>
     </div>

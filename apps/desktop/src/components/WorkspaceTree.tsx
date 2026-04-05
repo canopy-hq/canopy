@@ -16,7 +16,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useNavigate } from '@tanstack/react-router';
-import { ChevronDown, ChevronRight, Laptop, FolderGit2, Plus } from 'lucide-react';
+import { ChevronDown, ChevronRight, Laptop, FolderGit2, Loader2, Plus } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { makeWorkspacePaletteItem } from '../commands/workspace-commands';
@@ -165,19 +165,7 @@ const WorktreeRow = memo(
       >
         <div className="flex items-center gap-1.5">
           {isDeleting ? (
-            <svg
-              className="shrink-0 animate-spin text-text-muted"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-            </svg>
+            <Loader2 size={14} className="shrink-0 animate-spin text-text-muted" />
           ) : (
             <IconWithBadge agentStatus={agentStatus}>
               <FolderGit2 size={14} strokeWidth={1.5} stroke="var(--text-muted)" />

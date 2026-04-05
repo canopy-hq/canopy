@@ -249,8 +249,8 @@ export async function createWorktree(
 }
 
 /**
- * Start async worktree creation: optimistically adds to sidebar, navigates to a new tab
- * that shows a "creating" state, then boots the terminal once the git op completes.
+ * Optimistically adds the worktree to the sidebar, navigates to it, then runs the
+ * git op in the background — showing a "creating" spinner until it completes.
  */
 export function startWorktreeCreation(
   workspaceId: string,
@@ -266,22 +266,18 @@ export function startWorktreeCreation(
   const wtItemId = `${workspaceId}-wt-${name}`;
   const estimatedBranch = newBranch ?? baseBranch ?? name;
 
-  // Optimistically add to sidebar so navigation resolves correctly
   getWorkspaceCollection().update(workspaceId, (draft) => {
     if (!draft.worktrees.some((w) => w.name === name)) {
       draft.worktrees.push({ name, path, branch: estimatedBranch });
     }
   });
 
-  // Mark as creating in ephemeral UI state
   uiCollection.update('ui', (draft) => {
     draft.creatingWorktreeId = wtItemId;
   });
 
-  // Navigate to the new worktree (tab can be opened manually after creation)
   selectWorkspaceItem(wtItemId, navigate);
 
-  // Run git op in background
   void (async () => {
     try {
       const wt = await gitApi.createWorktree(ws.path, name, path, baseBranch, newBranch);
@@ -292,7 +288,6 @@ export function startWorktreeCreation(
           entry.branch = wt.branch;
         }
       });
-      await refreshRepo(workspaceId);
     } catch (err) {
       showErrorToast('Create worktree failed', String(err));
       getWorkspaceCollection().update(workspaceId, (draft) => {
