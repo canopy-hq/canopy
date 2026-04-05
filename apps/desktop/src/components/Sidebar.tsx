@@ -10,14 +10,14 @@ import { WorkspaceTree } from './WorkspaceTree';
 function EmptyState({ onImport }: { onImport: () => void }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 px-4">
-      <span className="text-ui-base font-semibold text-text-primary">No workspaces</span>
-      <span className="text-center text-ui-sm text-text-muted">
+      <span className="text-base font-semibold text-text-primary">No workspaces</span>
+      <span className="text-center text-sm text-text-muted">
         Import a git repository to get started.
       </span>
       <Button
         variant="ghost"
         onPress={onImport}
-        className="mt-2 w-full rounded-md border border-dashed border-border py-1.5 text-ui-md"
+        className="mt-2 w-full rounded-md border border-dashed border-border py-1.5 text-md"
       >
         <Plus size={12} strokeWidth={1.5} />
         Import Repository

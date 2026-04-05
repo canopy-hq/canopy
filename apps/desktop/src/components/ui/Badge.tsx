@@ -9,7 +9,7 @@ const badge = tv({
       warning: 'bg-amber-600/10 text-amber-600',
       error: 'bg-destructive/[0.08] text-destructive',
     },
-    size: { sm: 'rounded-[3px] px-1.25 py-px text-ui-2xs', md: 'rounded px-1.5 py-0.5 text-ui-xs' },
+    size: { sm: 'rounded-[3px] px-1.25 py-px text-2xs', md: 'rounded px-1.5 py-0.5 text-xs' },
     pill: { true: 'rounded-full' },
   },
   defaultVariants: { color: 'neutral', size: 'sm' },
