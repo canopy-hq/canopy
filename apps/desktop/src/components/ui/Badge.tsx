@@ -12,9 +12,9 @@ const badge = tv({
       merged: 'bg-purple-500/10 text-purple-500',
     },
     size: {
-      xs: 'rounded-[3px] px-1 py-px text-2xs',
-      sm: 'rounded px-1.5 py-0.5 text-xs',
-      md: 'rounded px-2 py-0.5 text-sm',
+      xs: 'rounded-sm px-1 py-px text-2xs',
+      sm: 'rounded-sm px-1.5 py-0.5 text-xs',
+      md: 'rounded-md px-2 py-0.5 text-sm',
       lg: 'rounded-md px-2.5 py-1 text-sm',
     },
     pill: { true: 'rounded-full' },

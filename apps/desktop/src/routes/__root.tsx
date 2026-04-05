@@ -14,6 +14,7 @@ import {
 import { FpsOverlay } from '@superagent/fps';
 import { ensureGhosttyInit, spawnTerminal } from '@superagent/terminal';
 import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
+import { LucideProvider } from 'lucide-react';
 
 import { useAllCommands } from '../commands';
 import { AgentOverlay } from '../components/AgentOverlay';
@@ -29,7 +30,12 @@ import { getConnection, GITHUB_CONNECTION_KEY } from '../lib/github';
 import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
 import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
-import { toggleSidebar, refreshRepo, switchWorkspaceItemByIndex } from '../lib/workspace-actions';
+import {
+  toggleSidebar,
+  refreshRepo,
+  switchWorkspaceItemByIndex,
+  openImportDialog,
+} from '../lib/workspace-actions';
 import { onOpenWorkspacePalette } from '../lib/workspace-palette-bridge';
 
 import type { CommandItem } from '@superagent/command-palette';
@@ -111,7 +117,10 @@ function RootLayout() {
     );
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useTauriMenuEvent('menu:settings', () => void navigate({ to: '/settings' }));
+  useTauriMenuEvent(
+    'menu:settings',
+    () => void navigate({ to: '/settings', search: { section: 'appearance' } }),
+  );
   useTauriMenuEvent('menu:fps-overlay', () => setFpsVisible((prev) => !prev), import.meta.env.DEV);
 
   useEffect(() => {
@@ -184,6 +193,7 @@ function RootLayout() {
           }),
       },
       { key: 'b', meta: true, action: () => toggleSidebar() },
+      { key: 'n', meta: true, action: () => void openImportDialog() },
       { key: 'o', meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
       ...([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map((n) => ({
         key: String(n),
@@ -197,22 +207,27 @@ function RootLayout() {
   useKeyboardRegistry(bindings);
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-bg-primary">
-      <Header onSessionsClick={() => setSessionManagerOpen((prev) => !prev)} />
-      <Outlet />
-      <ErrorToastRegion />
-      <CommandMenu
-        isOpen={cmdMenuOpen}
-        onClose={handleCmdMenuClose}
-        items={cmdItems}
-        activeContextId={activeContextId}
-        defaultPanelItem={defaultPanelItem}
-      />
-      <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
-      {sessionManagerOpen && <SessionManager onClose={() => setSessionManagerOpen(false)} />}
-      <AgentToastRegion />
-      {import.meta.env.DEV && <FpsOverlay visible={fpsVisible} />}
-    </div>
+    <LucideProvider strokeWidth={1}>
+      <div className="flex h-screen w-screen flex-col overflow-hidden bg-bg-primary">
+        <Header
+          onSessionsClick={() => setSessionManagerOpen((prev) => !prev)}
+          onSearchClick={() => setCmdMenuOpen(true)}
+        />
+        <Outlet />
+        <ErrorToastRegion />
+        <CommandMenu
+          isOpen={cmdMenuOpen}
+          onClose={handleCmdMenuClose}
+          items={cmdItems}
+          activeContextId={activeContextId}
+          defaultPanelItem={defaultPanelItem}
+        />
+        <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
+        {sessionManagerOpen && <SessionManager onClose={() => setSessionManagerOpen(false)} />}
+        <AgentToastRegion />
+        {import.meta.env.DEV && <FpsOverlay visible={fpsVisible} />}
+      </div>
+    </LucideProvider>
   );
 }
 

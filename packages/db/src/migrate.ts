@@ -39,12 +39,19 @@ export async function runMigrations(): Promise<void> {
     )
   `);
 
-  // Idempotent column migration for existing databases — try/catch because
-  // SQLite has no ALTER TABLE ADD COLUMN IF NOT EXISTS syntax.
-  try {
+  // Idempotent column migrations — check via PRAGMA before ALTER to avoid Tauri SQL plugin logging the duplicate-column error.
+  const tabCols = await db.get<{ cnt: number }>(
+    sql`SELECT COUNT(*) as cnt FROM pragma_table_info('tabs') WHERE name = 'label_is_manual'`,
+  );
+  if (!tabCols || tabCols.cnt === 0) {
     await db.run(sql`ALTER TABLE tabs ADD COLUMN label_is_manual INTEGER NOT NULL DEFAULT 0`);
-  } catch {
-    // Column already exists — safe to ignore
+  }
+
+  const wsCols = await db.get<{ cnt: number }>(
+    sql`SELECT COUNT(*) as cnt FROM pragma_table_info('workspaces') WHERE name = 'color'`,
+  );
+  if (!wsCols || wsCols.cnt === 0) {
+    await db.run(sql`ALTER TABLE workspaces ADD COLUMN color TEXT`);
   }
 
   await db.run(sql`

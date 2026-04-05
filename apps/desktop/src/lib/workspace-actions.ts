@@ -34,6 +34,20 @@ export function getWorkspaceItemIds(ws: Workspace): Set<string> {
   return ids;
 }
 
+export async function openImportDialog(): Promise<void> {
+  try {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: 'Select Git Repository',
+    });
+    if (selected && typeof selected === 'string') await importRepo(selected);
+  } catch {
+    // Dialog not available in test/dev environments
+  }
+}
+
 export async function importRepo(path: string): Promise<void> {
   try {
     const info = await gitApi.importRepo(path);
@@ -47,7 +61,7 @@ export async function importRepo(path: string): Promise<void> {
         id: crypto.randomUUID(),
         path: info.path,
         name: info.name,
-        branches: info.branches,
+        branches: info.branches.filter((b) => b.is_head),
         worktrees: info.worktrees,
         expanded: true,
         position: collection.toArray.length,
@@ -110,7 +124,15 @@ export async function refreshRepo(id: string): Promise<void> {
   try {
     const info = await gitApi.importRepo(ws.path);
     getWorkspaceCollection().update(id, (draft) => {
-      draft.branches = info.branches;
+      const headBranch = info.branches.find((b) => b.is_head);
+      if (headBranch) {
+        const existing = draft.branches.find((b) => b.name === headBranch.name);
+        if (existing) {
+          existing.is_head = true;
+        } else {
+          draft.branches = [headBranch];
+        }
+      }
       // Don't overwrite worktrees — import_repo returns [] now,
       // but we want to keep user-opened worktrees in the sidebar.
     });
@@ -122,6 +144,12 @@ export async function refreshRepo(id: string): Promise<void> {
 export function toggleExpanded(id: string): void {
   getWorkspaceCollection().update(id, (draft) => {
     draft.expanded = !draft.expanded;
+  });
+}
+
+export function setWorkspaceColor(id: string, color: string | null): void {
+  getWorkspaceCollection().update(id, (draft) => {
+    draft.color = color;
   });
 }
 
@@ -273,7 +301,9 @@ export function startWorktreeCreation(
   });
 
   uiCollection.update('ui', (draft) => {
-    draft.creatingWorktreeId = wtItemId;
+    if (!draft.creatingWorktreeIds.includes(wtItemId)) {
+      draft.creatingWorktreeIds.push(wtItemId);
+    }
   });
 
   selectWorkspaceItem(wtItemId, navigate);
@@ -295,7 +325,7 @@ export function startWorktreeCreation(
       });
     } finally {
       uiCollection.update('ui', (draft) => {
-        draft.creatingWorktreeId = null;
+        draft.creatingWorktreeIds = draft.creatingWorktreeIds.filter((id) => id !== wtItemId);
       });
     }
   })();
@@ -342,6 +372,14 @@ export function renameWorktree(workspaceId: string, wtName: string, label: strin
   getWorkspaceCollection().update(workspaceId, (draft) => {
     const wt = draft.worktrees.find((w) => w.name === wtName);
     if (wt) wt.label = label || undefined;
+  });
+}
+
+export function renameWorkspace(id: string, name: string): void {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  getWorkspaceCollection().update(id, (draft) => {
+    draft.name = trimmed;
   });
 }
 

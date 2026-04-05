@@ -232,11 +232,13 @@ pub async fn close_ptys_for_panes(
     Ok(())
 }
 
-/// Get the CWD of the shell process. Since ptyId = child PID, we call libproc directly.
+/// Get the CWD of a PTY session's shell via the daemon (which spawned the shells).
 #[tauri::command]
-pub fn get_pty_cwd(pty_id: u32) -> Result<String, String> {
-    let path = libproc::proc_pid::pidcwd(pty_id as i32).map_err(|e| e.to_string())?;
-    Ok(path.to_string_lossy().to_string())
+pub async fn get_pty_cwd(
+    pane_id: String,
+    daemon: tauri::State<'_, crate::daemon_client::DaemonClient>,
+) -> Result<String, String> {
+    daemon.get_cwd(&pane_id).await
 }
 
 #[cfg(test)]

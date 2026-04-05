@@ -1,11 +1,9 @@
 import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
-import { createPortal } from 'react-dom';
 
 import {
   DndContext,
   closestCenter,
   type DragEndEvent,
-  type DragOverEvent,
   type DraggableSyntheticListeners,
 } from '@dnd-kit/core';
 import {
@@ -21,10 +19,14 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import {
   ChevronDown,
   ChevronRight,
+  Copy,
+  FolderGit2,
+  FolderPlus,
+  FolderX,
+  GitBranchMinus,
   GitPullRequest,
   Laptop,
-  FolderGit2,
-  Loader2,
+  Pencil,
   Plus,
 } from 'lucide-react';
 import { tv } from 'tailwind-variants';
@@ -46,6 +48,7 @@ import { useWorkspacePolling } from '../hooks/useWorkspacePolling';
 import { restrictToVerticalAxis, sortableTransition, useDragSensors } from '../lib/dnd';
 import { GITHUB_CONNECTION_KEY } from '../lib/github';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
+import { closeAllTabs } from '../lib/tab-actions';
 import {
   toggleExpanded,
   selectWorkspaceItem,
@@ -53,43 +56,48 @@ import {
   hideWorktree,
   removeWorktree,
   renameWorktree,
+  renameWorkspace,
   reorderWorkspaces,
+  setWorkspaceColor,
 } from '../lib/workspace-actions';
 import { openWorkspacePalette } from '../lib/workspace-palette-bridge';
 import { CloseProjectModal } from './CloseProjectModal';
 import { RemoveWorktreeModal } from './RemoveWorktreeModal';
 import { StatusDot } from './StatusDot';
-import { Badge, Button, Tooltip } from './ui';
+import { Button, DiffPill, IconWithBadge, Kbd, Spinner, Tooltip, ContextMenu } from './ui';
 
 import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
 import type { PrInfo } from '../lib/github';
 import type { DotStatus } from './StatusDot';
+import type { ContextMenuItemDef } from './ui';
 import type { Workspace } from '@superagent/db';
 
-const DiffPill = memo(function DiffPill({
-  additions,
-  deletions,
-}: {
-  additions: number;
-  deletions: number;
-}) {
-  if (additions === 0 && deletions === 0) return null;
-  return (
-    <span className="inline-flex flex-shrink-0 gap-1.5 rounded bg-white/5 px-2 py-0.5 text-sm font-medium whitespace-nowrap">
-      {additions > 0 && <span className="text-(--git-ahead) tabular-nums">+{additions}</span>}
-      {deletions > 0 && (
-        <span className="text-(--git-behind) tabular-nums">&minus;{deletions}</span>
-      )}
-    </span>
-  );
-});
+const WORKSPACE_COLORS: Array<{ value: string; label: string }> = [
+  { value: '#f59e0b', label: 'Amber' },
+  { value: '#3b82f6', label: 'Blue' },
+  { value: '#22c55e', label: 'Green' },
+  { value: '#6366f1', label: 'Indigo' },
+  { value: '#84cc16', label: 'Lime' },
+  { value: '#f97316', label: 'Orange' },
+  { value: '#ec4899', label: 'Pink' },
+  { value: '#a855f7', label: 'Purple' },
+  { value: '#ef4444', label: 'Red' },
+  { value: '#14b8a6', label: 'Teal' },
+];
 
-const PR_BADGE_COLOR: Record<PrInfo['state'], 'success' | 'neutral' | 'merged'> = {
-  OPEN: 'success',
-  DRAFT: 'neutral',
-  MERGED: 'merged',
-  CLOSED: 'neutral',
+const PR_TEXT_COLOR: Record<PrInfo['state'], string> = {
+  OPEN: 'text-emerald-500',
+  DRAFT: 'text-text-muted',
+  MERGED: 'text-purple-500',
+  CLOSED: 'text-text-muted',
 };
+const PR_BG_COLOR: Record<PrInfo['state'], string> = {
+  OPEN: 'bg-emerald-500/10',
+  DRAFT: 'bg-white/[0.04]',
+  MERGED: 'bg-purple-500/10',
+  CLOSED: 'bg-white/[0.04]',
+};
+
 const PrBadge = memo(function PrBadge({ pr }: { pr: PrInfo }) {
   return (
     <button
@@ -98,31 +106,10 @@ const PrBadge = memo(function PrBadge({ pr }: { pr: PrInfo }) {
         e.stopPropagation();
         void openUrl(pr.url);
       }}
-      className="cursor-pointer"
+      className={`inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-px text-sm font-normal whitespace-nowrap hover:brightness-125 ${PR_TEXT_COLOR[pr.state]} ${PR_BG_COLOR[pr.state]}`}
     >
-      <Badge size="md" color={PR_BADGE_COLOR[pr.state]} className="gap-1.5 hover:brightness-125">
-        <GitPullRequest size={14} strokeWidth={2} />#{pr.number}
-      </Badge>
+      <GitPullRequest size={12} />#{pr.number}
     </button>
-  );
-});
-
-const IconWithBadge = memo(function IconWithBadge({
-  children,
-  agentStatus,
-}: {
-  children: React.ReactNode;
-  agentStatus?: DotStatus;
-}) {
-  return (
-    <div className="relative flex shrink-0 items-center">
-      {children}
-      {agentStatus && agentStatus !== 'idle' && (
-        <div className="absolute -top-0.5 -right-0.5 leading-[0]">
-          <StatusDot status={agentStatus} size={6} />
-        </div>
-      )}
-    </div>
   );
 });
 
@@ -132,33 +119,41 @@ const BranchRow = memo(
     agentStatus,
     diffStat,
     prInfo,
+    isProjectActive,
+    tabCount,
   }: {
     branch: BranchInfo;
     agentStatus?: DotStatus;
     diffStat?: DiffStat;
     prInfo?: PrInfo;
+    isProjectActive?: boolean;
+    tabCount?: number;
   }) {
     return (
-      <div className="my-px mr-1.5 rounded-[5px] border-l-[3px] border-transparent py-0.75 pr-1.5 pl-3">
-        <div className="flex items-center gap-1.5">
+      <div className="py-1.5 pr-3 pl-3">
+        <div className="flex items-center gap-2">
           <IconWithBadge agentStatus={agentStatus}>
-            <Laptop
-              size={14}
-              strokeWidth={1.5}
-              stroke={branch.is_head ? 'var(--accent)' : 'var(--text-muted)'}
-            />
+            <Laptop size={14} stroke={isProjectActive ? 'var(--accent)' : 'var(--text-muted)'} />
           </IconWithBadge>
           <span
-            className={`min-w-0 flex-1 truncate font-mono text-base ${branch.is_head ? 'text-text-primary' : 'text-text-secondary'}`}
+            className={`min-w-0 flex-1 truncate font-mono text-sm leading-none ${branch.is_head ? 'text-text-secondary' : 'text-text-muted'}`}
           >
             {branch.name}
           </span>
-          {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
+          {tabCount != null && tabCount > 0 && (
+            <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.25 py-px font-mono text-xs leading-none text-text-faint tabular-nums">
+              {tabCount}
+            </span>
+          )}
         </div>
-        {(prInfo || branch.is_head) && (
-          <div className="mt-0.5 flex items-center pl-[20px]">
-            {branch.is_head && <span className="text-[11px] text-text-muted">local</span>}
-            <span className="flex-1" />
+        {(diffStat || prInfo) && (
+          <div className="mt-1 flex items-center gap-2 pl-[32px]">
+            {diffStat &&
+              (diffStat.additions > 0 || diffStat.deletions > 0 ? (
+                <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />
+              ) : (
+                <span className="font-mono text-xs text-text-faint">—</span>
+              ))}
             {prInfo && <PrBadge pr={prInfo} />}
           </div>
         )}
@@ -169,6 +164,8 @@ const BranchRow = memo(
     prev.branch.name === next.branch.name &&
     prev.branch.is_head === next.branch.is_head &&
     prev.agentStatus === next.agentStatus &&
+    prev.isProjectActive === next.isProjectActive &&
+    prev.tabCount === next.tabCount &&
     prev.diffStat?.additions === next.diffStat?.additions &&
     prev.diffStat?.deletions === next.diffStat?.deletions &&
     prev.prInfo?.number === next.prInfo?.number &&
@@ -183,6 +180,8 @@ const WorktreeRow = memo(
     diffStat,
     isDeleting,
     prInfo,
+    isProjectActive,
+    tabCount,
   }: {
     worktree: WorktreeInfo & { label?: string };
     workspaceId: string;
@@ -190,6 +189,8 @@ const WorktreeRow = memo(
     diffStat?: DiffStat;
     isDeleting?: boolean;
     prInfo?: PrInfo;
+    isProjectActive?: boolean;
+    tabCount?: number;
   }) {
     const [editing, setEditing] = useState(false);
     const [editValue, setEditValue] = useState('');
@@ -212,15 +213,18 @@ const WorktreeRow = memo(
     }
 
     return (
-      <div
-        className={`group/wt my-px mr-1.5 rounded-[5px] border-l-[3px] border-transparent py-0.75 pr-1.5 pl-3 ${isDeleting ? 'opacity-50' : ''}`}
-      >
-        <div className="flex items-center gap-1.5">
+      <div className={`group/wt py-1.5 pr-3 pl-3 ${isDeleting ? 'opacity-50' : ''}`}>
+        <div className="flex items-center gap-2">
           {isDeleting ? (
-            <Loader2 size={14} className="shrink-0 animate-spin text-text-muted" />
+            <div className="relative flex w-6 shrink-0 items-center justify-center">
+              <Spinner size={14} className="text-destructive/60" />
+            </div>
           ) : (
             <IconWithBadge agentStatus={agentStatus}>
-              <FolderGit2 size={14} strokeWidth={1.5} stroke="var(--text-muted)" />
+              <FolderGit2
+                size={14}
+                stroke={isProjectActive ? 'var(--worktree-icon)' : 'var(--text-muted)'}
+              />
             </IconWithBadge>
           )}
           {editing ? (
@@ -234,27 +238,48 @@ const WorktreeRow = memo(
                 if (e.key === 'Enter') commitEdit();
                 if (e.key === 'Escape') setEditing(false);
               }}
-              className="m-0 min-w-0 flex-1 border-none bg-transparent p-0 font-mono text-lg text-[var(--text-secondary)] outline-none"
+              className="m-0 min-w-0 flex-1 border-none bg-transparent p-0 font-mono text-sm text-[var(--text-secondary)] outline-none"
             />
           ) : (
             <span
-              className="min-w-0 flex-1 truncate font-mono text-lg text-text-secondary"
+              className="min-w-0 flex-1 truncate font-mono text-sm leading-none text-text-muted"
               onDoubleClick={startEditing}
             >
               {displayName}
             </span>
           )}
-          {diffStat && !isDeleting && (
-            <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />
+          {isDeleting ? (
+            <span className="shrink-0 font-mono text-xs text-destructive/50">removing…</span>
+          ) : (
+            !editing &&
+            tabCount != null &&
+            tabCount > 0 && (
+              <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.25 py-px font-mono text-xs leading-none text-text-faint tabular-nums">
+                {tabCount}
+              </span>
+            )
           )}
         </div>
-        <div className="mt-0.5 flex items-center pl-[20px]">
-          <span className="truncate text-[11px] text-text-muted">
-            {isDeleting ? 'Deleting…' : worktree.branch || worktree.name}
-          </span>
-          <span className="flex-1" />
-          {!isDeleting && prInfo && <PrBadge pr={prInfo} />}
-        </div>
+        {!isDeleting &&
+          (diffStat ||
+            prInfo ||
+            (!editing && displayName !== (worktree.branch || worktree.name))) && (
+            <div className="mt-1 flex items-center gap-2 pl-[32px]">
+              {diffStat ? (
+                diffStat.additions > 0 || diffStat.deletions > 0 ? (
+                  <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />
+                ) : (
+                  <span className="font-mono text-xs text-text-faint">—</span>
+                )
+              ) : null}
+              {!editing && displayName !== (worktree.branch || worktree.name) && (
+                <span className="min-w-0 truncate font-mono text-xs text-text-faint">
+                  {worktree.branch || worktree.name}
+                </span>
+              )}
+              {prInfo && <PrBadge pr={prInfo} />}
+            </div>
+          )}
       </div>
     );
   },
@@ -265,6 +290,8 @@ const WorktreeRow = memo(
     prev.workspaceId === next.workspaceId &&
     prev.agentStatus === next.agentStatus &&
     prev.isDeleting === next.isDeleting &&
+    prev.isProjectActive === next.isProjectActive &&
+    prev.tabCount === next.tabCount &&
     prev.diffStat?.additions === next.diffStat?.additions &&
     prev.diffStat?.deletions === next.diffStat?.deletions &&
     prev.prInfo?.number === next.prInfo?.number &&
@@ -272,13 +299,8 @@ const WorktreeRow = memo(
 );
 
 const repoHeader = tv({
-  base: 'flex items-center gap-1.5 border-l-[3px] py-1.5 pr-1.5 pl-3 cursor-grab active:cursor-grabbing touch-none',
-  variants: {
-    selected: {
-      true: 'border-accent bg-accent/[0.04]',
-      false: 'border-transparent hover:bg-accent/[0.04]',
-    },
-  },
+  base: 'flex items-center gap-2 py-1.5 pr-2 pl-3 cursor-grab active:cursor-grabbing touch-none bg-bg-primary brightness-[1.6] transition-[filter]',
+  variants: { selected: { true: 'brightness-[1.0]', false: 'hover:brightness-[1.3]' } },
   defaultVariants: { selected: false },
 });
 
@@ -287,98 +309,154 @@ const RepoHeader = memo(
     workspace,
     agentSummary,
     isSelected,
+    isRenaming,
     onPlusClick,
     onRowClick,
     onContextMenu,
+    onRenameCommit,
+    onRenameCancel,
     dragListeners,
   }: {
     workspace: Workspace;
     agentSummary?: Array<'running' | 'waiting'>;
     isSelected: boolean;
+    isRenaming: boolean;
     onPlusClick: () => void;
     onRowClick: () => void;
     onContextMenu: (e: React.MouseEvent) => void;
+    onRenameCommit: (name: string) => void;
+    onRenameCancel: () => void;
     dragListeners?: DraggableSyntheticListeners;
   }) {
     const childCount = workspace.branches.length + workspace.worktrees.length;
+    const [editValue, setEditValue] = useState('');
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+      if (isRenaming) {
+        setEditValue(workspace.name);
+        requestAnimationFrame(() => inputRef.current?.select());
+      }
+    }, [isRenaming, workspace.name]);
+
+    const iconStyle = useMemo((): React.CSSProperties => {
+      if (workspace.color) {
+        return {
+          '--c': workspace.color,
+          color: isSelected
+            ? 'color-mix(in srgb, var(--c) 100%, white)'
+            : 'color-mix(in srgb, var(--c) 40%, var(--text-faint))',
+          borderColor: isSelected ? 'color-mix(in srgb, var(--c) 80%, transparent)' : 'transparent',
+          backgroundColor: isSelected
+            ? 'color-mix(in srgb, var(--c) 35%, var(--bg-secondary))'
+            : 'color-mix(in srgb, var(--c) 8%, var(--bg-secondary))',
+        } as React.CSSProperties;
+      }
+      return isSelected
+        ? {
+            color: 'var(--text-primary)',
+            borderColor: 'color-mix(in srgb, var(--text-muted) 40%, transparent)',
+            backgroundColor: 'var(--bg-tertiary)',
+          }
+        : {
+            color: 'var(--text-faint)',
+            borderColor: 'transparent',
+            backgroundColor: 'color-mix(in srgb, var(--bg-tertiary) 60%, var(--bg-secondary))',
+          };
+    }, [workspace.color, isSelected]);
+
+    function commitRename() {
+      onRenameCommit(editValue);
+    }
 
     return (
       <div
         className={repoHeader({ selected: isSelected })}
-        onClick={onRowClick}
-        onContextMenu={onContextMenu}
-        {...dragListeners}
+        onClick={isRenaming ? undefined : onRowClick}
+        onContextMenu={isRenaming ? undefined : onContextMenu}
+        {...(isRenaming ? {} : dragListeners)}
       >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'}
-          strokeWidth="1.5"
-          className={`flex-shrink-0 ${isSelected ? 'drop-shadow-[0_0_3px_rgba(59,130,246,0.4)]' : ''}`}
+        <div
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded border text-sm leading-none font-medium transition-colors duration-150"
+          style={iconStyle}
         >
-          <path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z" />
-        </svg>
-        <span
-          className={`flex-1 truncate text-lg font-medium ${isSelected ? 'text-text-primary' : 'text-text-muted'}`}
-        >
-          {workspace.name}
-        </span>
-        {!workspace.expanded && agentSummary && agentSummary.length > 0 && (
+          {workspace.name.charAt(0).toUpperCase()}
+        </div>
+        {isRenaming ? (
+          <input
+            ref={inputRef}
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === 'Enter') commitRename();
+              if (e.key === 'Escape') onRenameCancel();
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="min-w-0 flex-1 border-none bg-transparent font-mono text-lg font-medium text-text-primary outline-none"
+          />
+        ) : (
+          <span className="flex-1 truncate font-mono text-lg font-medium text-text-primary">
+            {workspace.name}
+          </span>
+        )}
+        {!isRenaming && !workspace.expanded && agentSummary && agentSummary.length > 0 && (
           <span className="ml-1 flex items-center gap-0.75">
             {agentSummary.slice(0, 3).map((status, i) => (
               <StatusDot key={i} status={status} size={5} />
             ))}
           </span>
         )}
-        {childCount > 0 && (
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center">
-            <span className="rounded bg-bg-tertiary px-1.25 py-px font-mono text-xs text-text-muted tabular-nums">
-              {childCount}
-            </span>
+        {!isRenaming && !workspace.expanded && childCount > 0 && (
+          <span className="rounded-sm bg-bg-tertiary/60 px-1.25 py-px font-mono text-xs leading-none text-text-faint tabular-nums">
+            {childCount}
           </span>
         )}
-        <Button
-          iconOnly
-          size="sm"
-          variant="ghost"
-          onPress={onRowClick}
-          onClick={(e: React.MouseEvent) => e.stopPropagation()}
-          onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
-        >
-          {workspace.expanded ? (
-            <ChevronDown size={12} strokeWidth={1.5} />
-          ) : (
-            <ChevronRight size={12} strokeWidth={1.5} />
-          )}
-        </Button>
-        <Tooltip label="New branch / worktree" placement="right">
-          <Button
-            iconOnly
-            size="sm"
-            variant="ghost"
-            aria-label="New branch or worktree"
-            onPress={onPlusClick}
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
-            onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
-          >
-            <Plus size={12} strokeWidth={1.5} />
-          </Button>
-        </Tooltip>
+        {!isRenaming && (
+          <>
+            <Button
+              iconOnly
+              size="sm"
+              variant="ghost"
+              onPress={onRowClick}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
+            >
+              {workspace.expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            </Button>
+            <Tooltip label="New branch / worktree" placement="right">
+              <Button
+                iconOnly
+                size="sm"
+                variant="ghost"
+                aria-label="New branch or worktree"
+                onPress={onPlusClick}
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
+              >
+                <Plus size={12} />
+              </Button>
+            </Tooltip>
+          </>
+        )}
       </div>
     );
   },
   (prev, next) =>
     prev.workspace.id === next.workspace.id &&
     prev.workspace.name === next.workspace.name &&
+    prev.workspace.color === next.workspace.color &&
     prev.workspace.expanded === next.workspace.expanded &&
     prev.workspace.branches.length === next.workspace.branches.length &&
     prev.workspace.worktrees.length === next.workspace.worktrees.length &&
     prev.isSelected === next.isSelected &&
+    prev.isRenaming === next.isRenaming &&
     prev.onPlusClick === next.onPlusClick &&
     prev.onRowClick === next.onRowClick &&
     prev.onContextMenu === next.onContextMenu &&
+    prev.onRenameCommit === next.onRenameCommit &&
+    prev.onRenameCancel === next.onRenameCancel &&
     prev.agentSummary?.length === next.agentSummary?.length &&
     (prev.agentSummary ?? []).every((s, i) => s === next.agentSummary?.[i]) &&
     prev.dragListeners === next.dragListeners,
@@ -431,53 +509,52 @@ function getRepoAgentSummary(
   return statuses;
 }
 
-export function WorkspaceTree() {
+export function WorkspaceTree({ onAddProject }: { onAddProject?: () => void }) {
   const rawWorkspaces = useWorkspaces();
   const workspaces = useMemo(
     () => [...rawWorkspaces].sort((a, b) => a.position - b.position),
     [rawWorkspaces],
   );
-  const { selectedItemId, activeContextId, sidebarVisible } = useUiState();
+  const { selectedItemId, activeContextId, sidebarVisible, creatingWorktreeIds } = useUiState();
+  const creatingWorktreeIdSet = useMemo(() => new Set(creatingWorktreeIds), [creatingWorktreeIds]);
+  const tabs = useTabs();
+  const tabCountMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const tab of tabs) {
+      map[tab.workspaceItemId] = (map[tab.workspaceItemId] ?? 0) + 1;
+    }
+    return map;
+  }, [tabs]);
   const [closeTarget, setCloseTarget] = useState<Workspace | null>(null);
   const [removeWtTarget, setRemoveWtTarget] = useState<{
     workspaceId: string;
     name: string;
   } | null>(null);
-  const [deletingWtId, setDeletingWtId] = useState<string | null>(null);
+  const [deletingWtIds, setDeletingWtIds] = useState<Set<string>>(() => new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
   const agentMap = useWorkspaceAgentMap();
   const pageVisible = usePageVisible();
-  const diffStatsMap = useWorkspacePolling(workspaces, sidebarVisible && pageVisible);
+  const diffStatsMap = useWorkspacePolling(
+    workspaces,
+    sidebarVisible && pageVisible,
+    activeContextId ?? undefined,
+  );
   const settings = useSettings();
   const githubConnected = getSetting(settings, GITHUB_CONNECTION_KEY, null) !== null;
   const prMap = usePrPolling(workspaces, sidebarVisible && pageVisible, githubConnected);
   const navigate = useNavigate();
-  const listRef = useRef<HTMLDivElement>(null);
   const sensors = useDragSensors();
   useDragStyle(activeId !== null);
-  const { snapshot: flipSnapshot } = useFlipAnimation(listRef);
+  const workspaceListRef = useRef<HTMLDivElement>(null);
+  const { snapshot: flipSnapshot } = useFlipAnimation(workspaceListRef, 'vertical');
 
-  // IDs that need a top separator — all except the first in the current visual order.
-  // Recomputed on drag-over so separators update live as items shift.
-  const separatorIds = useMemo(() => {
-    const order =
-      activeId && overId && activeId !== overId
-        ? arrayMove(
-            workspaces,
-            workspaces.findIndex((w) => w.id === activeId),
-            workspaces.findIndex((w) => w.id === overId),
-          )
-        : workspaces;
-    return new Set(order.slice(1).map((w) => w.id));
-  }, [workspaces, activeId, overId]);
+  // Stable separators — never update during drag to avoid layout shifts.
+  const separatorIds = useMemo(() => new Set(workspaces.slice(1).map((w) => w.id)), [workspaces]);
 
   const handleDragEnd = useCallback(
     ({ active, over }: DragEndEvent) => {
-      // Snapshot before any state update — DOM still has dnd-kit transforms here.
       flipSnapshot();
       setActiveId(null);
-      setOverId(null);
       if (!over || active.id === over.id) return;
       const oldIndex = workspaces.findIndex((w) => w.id === active.id);
       const newIndex = workspaces.findIndex((w) => w.id === over.id);
@@ -500,23 +577,41 @@ export function WorkspaceTree() {
 
   return (
     <>
-      <div className="px-3 pt-2 pb-1 font-mono text-xs font-semibold tracking-wider text-text-muted uppercase opacity-60">
-        Projects
+      <div className="flex h-10 items-center pr-2 pl-3">
+        <span className="flex-1 font-mono text-2xs font-medium tracking-widest text-text-faint uppercase">
+          Projects
+        </span>
+        {onAddProject && (
+          <Tooltip
+            label={
+              <>
+                Add project <Kbd>⌘N</Kbd>
+              </>
+            }
+            placement="right"
+          >
+            <Button
+              iconOnly
+              size="sm"
+              variant="ghost"
+              onPress={onAddProject}
+              aria-label="Add project"
+            >
+              <FolderPlus size={12} />
+            </Button>
+          </Tooltip>
+        )}
       </div>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         modifiers={[restrictToVerticalAxis]}
         onDragStart={({ active }) => setActiveId(String(active.id))}
-        onDragOver={({ over }: DragOverEvent) => setOverId(over ? String(over.id) : null)}
         onDragEnd={handleDragEnd}
-        onDragCancel={() => {
-          setActiveId(null);
-          setOverId(null);
-        }}
+        onDragCancel={() => setActiveId(null)}
       >
         <SortableContext items={workspaceIds} strategy={verticalListSortingStrategy}>
-          <div ref={listRef}>
+          <div ref={workspaceListRef}>
             {workspaces.map((ws) => (
               <RepoTreeItem
                 key={ws.id}
@@ -524,6 +619,7 @@ export function WorkspaceTree() {
                 agentMap={agentMap}
                 diffStats={diffStatsMap[ws.id]}
                 prStatuses={prMap[ws.id]}
+                tabCounts={tabCountMap}
                 onRequestOpenPalette={handleRequestOpenPalette}
                 onRequestClose={setCloseTarget}
                 onRequestRemoveWt={(name) => setRemoveWtTarget({ workspaceId: ws.id, name })}
@@ -531,7 +627,8 @@ export function WorkspaceTree() {
                 activeContextId={activeContextId}
                 hasSeparator={separatorIds.has(ws.id)}
                 onSelectItem={handleSelectItem}
-                deletingWtId={deletingWtId}
+                deletingWtIds={deletingWtIds}
+                creatingWorktreeIds={creatingWorktreeIdSet}
               />
             ))}
           </div>
@@ -555,16 +652,36 @@ export function WorkspaceTree() {
           worktreeName={removeWtTarget.name}
           onConfirm={(alsoDeleteGit) => {
             const { workspaceId, name } = removeWtTarget;
+            const itemId = `${workspaceId}-wt-${name}`;
             setRemoveWtTarget(null);
+            closeAllTabs(itemId);
+
+            // If the deleted wt is the active context, redirect to the first remaining item.
+            if (activeContextId === itemId) {
+              const ws = workspaces.find((w) => w.id === workspaceId);
+              const fallback = ws
+                ? [
+                    ...ws.branches.map((b) => `${ws.id}-branch-${b.name}`),
+                    ...ws.worktrees
+                      .filter((wt) => wt.name !== name)
+                      .map((wt) => `${ws.id}-wt-${wt.name}`),
+                  ][0]
+                : null;
+              if (fallback) handleSelectItem(fallback);
+            }
+
             if (alsoDeleteGit) {
-              const itemId = `${workspaceId}-wt-${name}`;
-              setDeletingWtId(itemId);
+              setDeletingWtIds((prev) => new Set([...prev, itemId]));
               void removeWorktree(workspaceId, name)
                 .then(() => {
                   hideWorktree(workspaceId, name);
                 })
                 .finally(() => {
-                  setDeletingWtId(null);
+                  setDeletingWtIds((prev) => {
+                    const s = new Set(prev);
+                    s.delete(itemId);
+                    return s;
+                  });
                 });
             } else {
               hideWorktree(workspaceId, name);
@@ -576,96 +693,12 @@ export function WorkspaceTree() {
   );
 }
 
-function ContextMenu({
-  x,
-  y,
-  onClose,
-  items,
-}: {
-  x: number;
-  y: number;
-  onClose: () => void;
-  items: Array<{ label: string; onSelect: () => void; destructive?: boolean }>;
-}) {
-  const buttonRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    buttonRef.current?.focus();
-  }, []);
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-40"
-      onClick={onClose}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        onClose();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose();
-        if (e.key === 'Tab') {
-          e.preventDefault();
-          onClose();
-        }
-      }}
-      role="presentation"
-    >
-      <div
-        className="fixed z-50 min-w-[180px] rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] py-1 shadow-lg"
-        style={{ left: x, top: y }}
-        role="menu"
-        onKeyDown={(e) => {
-          const menuItems =
-            e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
-          const current = document.activeElement as HTMLElement;
-          const idx = Array.from(menuItems).indexOf(current as HTMLButtonElement);
-          if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            menuItems[(idx + 1) % menuItems.length]?.focus();
-          } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            menuItems[(idx - 1 + menuItems.length) % menuItems.length]?.focus();
-          } else if (e.key === 'Home') {
-            e.preventDefault();
-            menuItems[0]?.focus();
-          } else if (e.key === 'End') {
-            e.preventDefault();
-            menuItems[menuItems.length - 1]?.focus();
-          }
-        }}
-      >
-        {items.map((item, i) => (
-          <button
-            key={item.label}
-            ref={i === 0 ? buttonRef : undefined}
-            role="menuitem"
-            tabIndex={i === 0 ? 0 : -1}
-            className={`w-full px-3 py-1.5 text-left text-base outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)] ${item.destructive ? 'text-destructive' : 'text-text-secondary'}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              item.onSelect();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                item.onSelect();
-              }
-            }}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
 function RepoTreeItem({
   ws,
   agentMap,
   diffStats,
   prStatuses,
+  tabCounts,
   onRequestOpenPalette,
   onRequestClose,
   onRequestRemoveWt,
@@ -673,12 +706,14 @@ function RepoTreeItem({
   activeContextId,
   hasSeparator,
   onSelectItem,
-  deletingWtId,
+  deletingWtIds,
+  creatingWorktreeIds,
 }: {
   ws: Workspace;
   agentMap: Record<string, DotStatus>;
   diffStats?: Record<string, DiffStat>;
   prStatuses?: Record<string, PrInfo>;
+  tabCounts: Record<string, number>;
   onRequestOpenPalette: (ws: Workspace) => void;
   onRequestClose: (ws: Workspace) => void;
   onRequestRemoveWt: (name: string) => void;
@@ -686,7 +721,8 @@ function RepoTreeItem({
   activeContextId: string | null;
   hasSeparator: boolean;
   onSelectItem: (itemId: string) => void;
-  deletingWtId: string | null;
+  deletingWtIds: Set<string>;
+  creatingWorktreeIds: Set<string>;
 }) {
   const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
     id: ws.id,
@@ -696,8 +732,11 @@ function RepoTreeItem({
   const agentSummary = useMemo(() => getRepoAgentSummary(ws, agentMap), [ws, agentMap]);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuPos = useRef({ x: 0, y: 0 });
+  const [renamingWs, setRenamingWs] = useState(false);
   const [wtMenuTarget, setWtMenuTarget] = useState<string | null>(null);
   const wtMenuPos = useRef({ x: 0, y: 0 });
+  const [branchMenuTarget, setBranchMenuTarget] = useState<string | null>(null);
+  const branchMenuPos = useRef({ x: 0, y: 0 });
 
   const handlePlusClick = useCallback(() => {
     onRequestOpenPalette(ws);
@@ -714,32 +753,44 @@ function RepoTreeItem({
     setMenuOpen(true);
   }
 
-  const isRepoSelected =
-    !!selectedItemId?.startsWith(ws.id) || !!activeContextId?.startsWith(ws.id);
+  const isActive = !!activeContextId?.startsWith(ws.id);
+  const isRepoSelected = !!selectedItemId?.startsWith(ws.id) || isActive;
+
+  const draggingCls = isDragging || isDropping ? 'pointer-events-none relative z-50' : '';
+  const blockCls =
+    isDragging || isDropping
+      ? 'bg-bg-tertiary'
+      : isActive
+        ? 'bg-bg-tertiary/70'
+        : 'bg-bg-tertiary/40';
 
   return (
     <>
       <div
         ref={setNodeRef}
         data-flip-id={ws.id}
-        className={
-          isDragging || isDropping ? 'pointer-events-none relative z-50 bg-bg-primary' : undefined
-        }
+        className={`${hasSeparator ? 'mt-3' : ''} ${draggingCls} ${blockCls}`.trim() || undefined}
         style={{
           transform: CSS.Transform.toString(
             transform ? { ...transform, scaleX: 1, scaleY: 1 } : null,
           ),
           transition,
+          opacity: 1,
         }}
       >
-        {hasSeparator && <div className={`h-px bg-border${isDragging ? ' invisible' : ''}`} />}
         <RepoHeader
           workspace={ws}
           agentSummary={agentSummary}
           isSelected={isRepoSelected}
+          isRenaming={renamingWs}
           onPlusClick={handlePlusClick}
           onRowClick={handleRowClick}
           onContextMenu={handleContextMenu}
+          onRenameCommit={(name) => {
+            renameWorkspace(ws.id, name);
+            setRenamingWs(false);
+          }}
+          onRenameCancel={() => setRenamingWs(false)}
           dragListeners={listeners}
         />
         {ws.expanded && (
@@ -749,45 +800,82 @@ function RepoTreeItem({
               return (
                 <div
                   key={itemId}
-                  className={`outline-none hover:bg-bg-tertiary ${selectedItemId === itemId ? 'bg-[rgba(59,130,246,0.08)]' : ''}`}
+                  className={`transition-colors outline-none hover:bg-white/[0.06] ${selectedItemId === itemId ? 'bg-accent/[0.08]' : ''}`}
                   onClick={() => onSelectItem(itemId)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    branchMenuPos.current = { x: e.clientX, y: e.clientY };
+                    setBranchMenuTarget(b.name);
+                  }}
                 >
                   <BranchRow
                     branch={b}
                     agentStatus={agentMap[itemId]}
                     diffStat={diffStats?.[b.name]}
                     prInfo={prStatuses?.[b.name]}
+                    isProjectActive={isRepoSelected}
+                    tabCount={tabCounts[itemId]}
                   />
                 </div>
               );
             })}
-            {ws.worktrees.map((wt) => {
-              const itemId = `${ws.id}-wt-${wt.name}`;
-              const isDeleting = deletingWtId === itemId;
-              return (
-                <div
-                  key={itemId}
-                  className={`outline-none ${isDeleting ? 'pointer-events-none' : 'hover:bg-bg-tertiary'} ${selectedItemId === itemId ? 'bg-[rgba(59,130,246,0.08)]' : ''}`}
-                  onClick={() => !isDeleting && onSelectItem(itemId)}
-                  onContextMenu={(e) => {
-                    if (isDeleting) return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    wtMenuPos.current = { x: e.clientX, y: e.clientY };
-                    setWtMenuTarget(wt.name);
-                  }}
-                >
-                  <WorktreeRow
-                    worktree={wt}
-                    workspaceId={ws.id}
-                    agentStatus={agentMap[itemId]}
-                    diffStat={diffStats?.[wt.branch]}
-                    isDeleting={isDeleting}
-                    prInfo={prStatuses?.[wt.branch]}
-                  />
-                </div>
-              );
-            })}
+            {ws.worktrees
+              .filter((wt) => !creatingWorktreeIds.has(`${ws.id}-wt-${wt.name}`))
+              .map((wt) => {
+                const itemId = `${ws.id}-wt-${wt.name}`;
+                const isDeleting = deletingWtIds.has(itemId);
+                return (
+                  <div
+                    key={itemId}
+                    className={`transition-colors outline-none ${isDeleting ? 'pointer-events-none' : 'hover:bg-white/[0.06]'} ${selectedItemId === itemId ? 'bg-accent/[0.08]' : ''}`}
+                    onClick={() => !isDeleting && onSelectItem(itemId)}
+                    onContextMenu={(e) => {
+                      if (isDeleting) return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      wtMenuPos.current = { x: e.clientX, y: e.clientY };
+                      setWtMenuTarget(wt.name);
+                    }}
+                  >
+                    <WorktreeRow
+                      worktree={wt}
+                      workspaceId={ws.id}
+                      agentStatus={agentMap[itemId]}
+                      diffStat={diffStats?.[wt.branch]}
+                      isDeleting={isDeleting}
+                      prInfo={prStatuses?.[wt.branch]}
+                      isProjectActive={isRepoSelected}
+                      tabCount={tabCounts[itemId]}
+                    />
+                  </div>
+                );
+              })}
+            {[...creatingWorktreeIds]
+              .filter((id) => id.startsWith(`${ws.id}-wt-`))
+              .map((id) => {
+                const name = id.slice(`${ws.id}-wt-`.length);
+                const isSelected = selectedItemId === id;
+                return (
+                  <div
+                    key={id}
+                    className={`transition-colors outline-none hover:bg-white/[0.06] ${isSelected ? 'bg-accent/[0.08]' : ''}`}
+                    onClick={() => onSelectItem(id)}
+                  >
+                    <div className="py-1.5 pr-3 pl-3">
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex w-6 shrink-0 items-center justify-center">
+                          <Spinner size={14} className="text-accent/60" />
+                        </div>
+                        <span className="min-w-0 flex-1 truncate font-mono text-sm text-text-faint">
+                          {name}
+                        </span>
+                        <span className="shrink-0 font-mono text-xs text-accent/50">adding…</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
           </>
         )}
       </div>
@@ -796,13 +884,74 @@ function RepoTreeItem({
           x={menuPos.current.x}
           y={menuPos.current.y}
           onClose={() => setMenuOpen(false)}
+          items={
+            [
+              {
+                label: 'Rename',
+                icon: <Pencil size={13} />,
+                onSelect: () => {
+                  setMenuOpen(false);
+                  setRenamingWs(true);
+                },
+              },
+              {
+                type: 'submenu',
+                label: 'Set color',
+                icon: (
+                  <div
+                    className="h-3.5 w-3.5 rounded-sm border border-border/60"
+                    style={
+                      ws.color ? { backgroundColor: ws.color, borderColor: 'transparent' } : {}
+                    }
+                  />
+                ),
+                items: [
+                  {
+                    label: 'No color',
+                    icon: (
+                      <div className="flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-border/60 text-[9px] leading-none text-text-faint">
+                        ✕
+                      </div>
+                    ),
+                    checked: !ws.color,
+                    onSelect: () => setWorkspaceColor(ws.id, null),
+                  },
+                  { type: 'separator' },
+                  ...WORKSPACE_COLORS.map(({ value, label }) => ({
+                    label,
+                    icon: (
+                      <div className="h-3.5 w-3.5 rounded-sm" style={{ backgroundColor: value }} />
+                    ),
+                    checked: ws.color === value,
+                    onSelect: () => setWorkspaceColor(ws.id, value),
+                  })),
+                ] satisfies ContextMenuItemDef[],
+              },
+              {
+                label: 'Close Project',
+                icon: <FolderX size={13} />,
+                destructive: true,
+                onSelect: () => {
+                  setMenuOpen(false);
+                  onRequestClose(ws);
+                },
+              },
+            ] satisfies ContextMenuItemDef[]
+          }
+        />
+      )}
+      {branchMenuTarget && (
+        <ContextMenu
+          x={branchMenuPos.current.x}
+          y={branchMenuPos.current.y}
+          onClose={() => setBranchMenuTarget(null)}
           items={[
             {
-              label: 'Close Project',
-              destructive: true,
+              label: 'Copy Path',
+              icon: <Copy size={13} />,
               onSelect: () => {
-                setMenuOpen(false);
-                onRequestClose(ws);
+                setBranchMenuTarget(null);
+                void navigator.clipboard.writeText(ws.path);
               },
             },
           ]}
@@ -815,7 +964,17 @@ function RepoTreeItem({
           onClose={() => setWtMenuTarget(null)}
           items={[
             {
+              label: 'Copy Path',
+              icon: <Copy size={13} />,
+              onSelect: () => {
+                const wt = ws.worktrees.find((w) => w.name === wtMenuTarget);
+                setWtMenuTarget(null);
+                if (wt) void navigator.clipboard.writeText(wt.path);
+              },
+            },
+            {
               label: 'Close Worktree',
+              icon: <GitBranchMinus size={13} />,
               destructive: true,
               onSelect: () => {
                 const name = wtMenuTarget;

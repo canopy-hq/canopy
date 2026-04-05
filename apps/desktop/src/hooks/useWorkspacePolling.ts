@@ -100,6 +100,7 @@ export function branchStateEqual(
 export function useWorkspacePolling(
   workspaces: Workspace[],
   enabled: boolean,
+  resetKey?: string,
 ): Record<string, Record<string, DiffStat>> {
   const [statsMap, setStatsMap] = useState<StatsMap>(loadCachedStatsMap);
   const workspacesRef = useRef(workspaces);
@@ -113,13 +114,16 @@ export function useWorkspacePolling(
   }, [workspaces]);
 
   const workspaceKey = useMemo(
-    () => workspaces.map((ws) => `${ws.id}:${ws.expanded ? 1 : 0}`).join(','),
-    [workspaces],
+    () =>
+      workspaces.map((ws) => `${ws.id}:${ws.expanded ? 1 : 0}`).join(',') +
+      (resetKey != null ? `|${resetKey}` : ''),
+    [workspaces, resetKey],
   );
 
   useEffect(() => {
     if (!enabled) return;
     noChangeCountRef.current = 0;
+    prevBranchStateRef.current = {};
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;

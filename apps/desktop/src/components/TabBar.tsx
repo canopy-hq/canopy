@@ -8,7 +8,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, X } from 'lucide-react';
+import { Pencil, Plus, X, XCircle, XSquare } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
@@ -17,9 +17,18 @@ import { useDropping } from '../hooks/useDropping';
 import { useFlipAnimation } from '../hooks/useFlipAnimation';
 import { restrictToHorizontalAxis, sortableTransition, useDragSensors } from '../lib/dnd';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
-import { addTab, closeTab, switchTab, renameTab, reorderTabs } from '../lib/tab-actions';
+import {
+  addTab,
+  closeTab,
+  switchTab,
+  renameTab,
+  reorderTabs,
+  closeAllTabs,
+  closeAllTabsExcept,
+} from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
-import { Button, Kbd, Tooltip } from './ui';
+import { Badge, Button, Kbd, Tooltip } from './ui';
+import { ContextMenu } from './ui/ContextMenu';
 
 import type { DotStatus } from './StatusDot';
 import type { Tab } from '@superagent/db';
@@ -37,14 +46,14 @@ const newTabLabel = (
 );
 
 const tabItem = tv({
-  base: 'group relative flex h-full max-w-[240px] min-w-[120px] shrink items-center gap-1.5 px-3 transition-colors touch-none',
+  base: 'group relative flex h-full max-w-[240px] min-w-[120px] shrink items-center gap-2 px-3.5 transition-colors touch-none',
   variants: {
     active: {
-      true: 'bg-bg-secondary text-text-primary shadow-[inset_0_-3px_0_var(--accent)]',
-      false: 'bg-transparent text-text-muted hover:bg-bg-secondary hover:text-text-secondary',
+      true: 'bg-bg-primary text-text-primary',
+      false: 'bg-transparent text-text-muted hover:bg-bg-primary/50 hover:text-text-secondary',
     },
     agentWaiting: { true: 'bg-(--agent-waiting-glow)' },
-    dragging: { true: 'pointer-events-none z-50 bg-bg-secondary' },
+    dragging: { true: 'pointer-events-none z-50 bg-bg-primary' },
   },
   defaultVariants: { active: false, agentWaiting: false, dragging: false },
 });
@@ -82,13 +91,14 @@ const TabItemComponent = memo(
     const [editing, setEditing] = useState(false);
     const [frozenWidth, setFrozenWidth] = useState<number | null>(null);
     const [draft, setDraft] = useState('');
-    const buttonRef = useRef<HTMLButtonElement | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+    const buttonRef = useRef<HTMLDivElement | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const originalLabelRef = useRef('');
     const committedRef = useRef(false);
 
     const mergedRef = useCallback(
-      (node: HTMLButtonElement | null) => {
+      (node: HTMLDivElement | null) => {
         setNodeRef(node);
         buttonRef.current = node;
       },
@@ -146,84 +156,138 @@ const TabItemComponent = memo(
     };
 
     return (
-      <button
-        ref={mergedRef}
-        data-flip-id={tab.id}
-        className={tabItem({
-          active: isActive,
-          agentWaiting: agentStatus === 'waiting',
-          dragging: isDragging || isDropping,
-        })}
-        style={
-          frozenWidth !== null
-            ? { ...dndStyle, width: frozenWidth, minWidth: frozenWidth, maxWidth: frozenWidth }
-            : dndStyle
-        }
-        onClick={editing ? undefined : () => switchTab(tab.id)}
-        onMouseDown={(e) => {
-          if (e.button === 1) {
-            e.preventDefault();
-            void handleClose();
+      <>
+        <div
+          ref={mergedRef}
+          data-flip-id={tab.id}
+          className={tabItem({
+            active: isActive,
+            agentWaiting: agentStatus === 'waiting',
+            dragging: isDragging || isDropping,
+          })}
+          style={
+            frozenWidth !== null
+              ? { ...dndStyle, width: frozenWidth, minWidth: frozenWidth, maxWidth: frozenWidth }
+              : dndStyle
           }
-        }}
-        title={tab.label}
-        {...listeners}
-        {...attributes}
-      >
-        {agentStatus !== 'idle' && !editing && <StatusDot status={agentStatus} size={8} />}
-        {editing ? (
-          <input
-            ref={inputRef}
-            className="w-full min-w-0 bg-transparent text-md text-text-primary outline-none"
-            value={draft}
-            maxLength={20}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
+          onClick={editing ? undefined : () => switchTab(tab.id)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setContextMenu({ x: e.clientX, y: e.clientY });
+          }}
+          onMouseDown={(e) => {
+            if (e.button === 1) {
+              e.preventDefault();
+              handleClose();
+            }
+          }}
+          {...listeners}
+          {...attributes}
+        >
+          {agentStatus !== 'idle' && !editing && <StatusDot status={agentStatus} size={8} />}
+          {editing ? (
+            <input
+              ref={inputRef}
+              className="w-full min-w-0 bg-transparent font-mono text-md text-text-primary outline-none"
+              value={draft}
+              maxLength={20}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  confirmRename();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  cancelRename();
+                } else {
+                  e.stopPropagation();
+                }
+              }}
+              onBlur={handleBlur}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <span
+              className="flex-1 truncate text-left font-mono text-md"
+              onDoubleClick={(e) => {
                 e.stopPropagation();
-                confirmRename();
-              } else if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
-                cancelRename();
-              } else {
-                e.stopPropagation();
-              }
-            }}
-            onBlur={handleBlur}
-            onClick={(e) => e.stopPropagation()}
-          />
-        ) : (
-          <span
-            className="flex-1 truncate text-left text-md"
-            onDoubleClick={(e) => {
-              e.stopPropagation();
-              startEditing();
-            }}
-          >
-            {tab.label}
-          </span>
-        )}
-        {agentStatus === 'waiting' && !editing && (
-          <span className="rounded-full bg-[rgba(251,191,36,0.25)] px-2 py-1 text-xs leading-none font-normal text-(--agent-waiting)">
-            input
-          </span>
-        )}
-        {!editing && (
-          <Tooltip label={closeTabLabel} placement="bottom">
-            <Button
-              iconOnly
-              variant="ghost"
-              excludeFromTabOrder
-              className={closeButton({ active: isActive || isDragging || isDropping })}
-              onPress={() => void handleClose()}
+                startEditing();
+              }}
             >
-              <X size={10} strokeWidth={2} />
-            </Button>
-          </Tooltip>
+              {tab.label}
+            </span>
+          )}
+          {agentStatus === 'waiting' && !editing && (
+            <Badge pill color="warning" size="xs">
+              input
+            </Badge>
+          )}
+          {!editing && (
+            <Tooltip label={closeTabLabel} placement="bottom">
+              <button
+                type="button"
+                aria-label="Close tab"
+                className={closeButton({ active: isActive || isDragging || isDropping })}
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleClose();
+                }}
+              >
+                <X size={10} />
+              </button>
+            </Tooltip>
+          )}
+        </div>
+        {contextMenu && (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={() => setContextMenu(null)}
+            items={[
+              {
+                type: 'action',
+                label: 'Rename',
+                icon: <Pencil size={13} />,
+                onSelect: () => {
+                  setContextMenu(null);
+                  startEditing();
+                },
+              },
+              {
+                type: 'action',
+                label: 'Close',
+                icon: <X size={13} />,
+                onSelect: () => {
+                  setContextMenu(null);
+                  closeTab(tab.id);
+                },
+              },
+              {
+                type: 'action',
+                label: 'Close All',
+                icon: <XSquare size={13} />,
+                onSelect: () => {
+                  setContextMenu(null);
+                  closeAllTabs(tab.workspaceItemId);
+                },
+              },
+              {
+                type: 'action',
+                label: 'Close Others',
+                icon: <XCircle size={13} />,
+                onSelect: () => {
+                  setContextMenu(null);
+                  closeAllTabsExcept(tab.id);
+                },
+              },
+            ]}
+          />
         )}
-      </button>
+      </>
     );
   },
   (prev, next) => prev.tab === next.tab && prev.isActive === next.isActive,
@@ -317,7 +381,7 @@ export function TabBar() {
   }
 
   return (
-    <div className="flex h-9 shrink-0 items-center border-b border-border bg-bg-primary">
+    <div className="flex h-10 shrink-0 items-center bg-bg-secondary">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -341,13 +405,12 @@ export function TabBar() {
       <Tooltip label={newTabLabel} placement="bottom">
         <Button
           iconOnly
-          size="sm"
           variant="ghost"
           onPress={() => addTab()}
           aria-label="New Tab"
-          className="mx-1 shrink-0"
+          className="my-1 mr-3 ml-1 shrink-0"
         >
-          <Plus size={14} strokeWidth={1.5} />
+          <Plus size={14} />
         </Button>
       </Tooltip>
     </div>

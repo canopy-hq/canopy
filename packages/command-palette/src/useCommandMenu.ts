@@ -25,6 +25,7 @@ type MenuAction =
   | { type: 'SET_SECTION'; section: MenuSection }
   | { type: 'DRILL_INTO'; item: CommandItem }
   | { type: 'DRILL_BACK' }
+  | { type: 'DRILL_BACK_TO'; index: number }
   | { type: 'SET_SELECTED'; id: string | null }
   | { type: 'OPEN_PANEL'; item: CommandItem }
   | { type: 'CLOSE_PANEL' }
@@ -53,10 +54,18 @@ function reducer(state: MenuState, action: MenuAction): MenuState {
       };
     case 'DRILL_BACK':
       return { ...state, drillStack: state.drillStack.slice(0, -1), selectedId: null };
+    case 'DRILL_BACK_TO':
+      return {
+        ...state,
+        panelItem: null,
+        drillStack: state.drillStack.slice(0, action.index + 1),
+        query: '',
+        selectedId: null,
+      };
     case 'SET_SELECTED':
       return { ...state, selectedId: action.id };
     case 'OPEN_PANEL':
-      return { ...state, panelItem: action.item, query: '', selectedId: null };
+      return { ...state, panelItem: action.item, drillStack: [], query: '', selectedId: null };
     case 'CLOSE_PANEL':
       return { ...state, panelItem: null };
     case 'RESET':

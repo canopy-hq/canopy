@@ -78,8 +78,9 @@ function makeTab(opts?: { workspaceItemId?: string; label?: string }): Tab {
 }
 
 export function renameTab(id: string, label: string, manual: boolean): void {
-  const trimmed = label.trim().slice(0, 20);
-  if (!trimmed) return;
+  const raw = label.trim();
+  if (!raw) return;
+  const trimmed = raw.length > 20 ? `${raw.slice(0, 20)}…` : raw;
   getTabCollection().update(id, (draft) => {
     draft.label = trimmed;
     draft.labelIsManual = manual;
@@ -190,12 +191,14 @@ export function setActiveContext(contextId: string): void {
       draft.contextActiveTabIds = updatedContextActiveTabIds;
       draft.activeContextId = contextId;
       draft.activeTabId = newActiveTabId;
+      draft.selectedItemId = contextId;
     });
   } else {
     uiCollection.update('ui', (draft) => {
       draft.contextActiveTabIds = updatedContextActiveTabIds;
       draft.activeContextId = contextId;
       draft.activeTabId = '';
+      draft.selectedItemId = contextId;
     });
   }
 }
@@ -367,6 +370,22 @@ export function setPtyId(paneId: PaneId, ptyId: number): void {
   const tab = getTabCollection().toArray.find((t) => t.id === getUiState().activeTabId);
   if (!tab) return;
   setPtyIdInTab(tab.id, paneId, ptyId);
+}
+
+export function closeAllTabs(contextId: string): void {
+  const col = getTabCollection();
+  const tabs = col.toArray.filter((t) => t.workspaceItemId === contextId);
+  for (const tab of tabs) closeTab(tab.id);
+}
+
+export function closeAllTabsExcept(tabId: string): void {
+  const col = getTabCollection();
+  const tab = col.toArray.find((t) => t.id === tabId);
+  if (!tab) return;
+  const others = col.toArray.filter(
+    (t) => t.workspaceItemId === tab.workspaceItemId && t.id !== tabId,
+  );
+  for (const other of others) closeTab(other.id);
 }
 
 export function reorderTabs(orderedIds: string[]): void {
