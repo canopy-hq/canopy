@@ -340,7 +340,15 @@ export function useTerminal(
             let fromPool = false;
 
             try {
-              const status = await getPoolStatus();
+              // Race pool status against a tight timeout — if the daemon doesn't
+              // support pool_status (old binary), send_cmd hangs forever with no
+              // response. 200ms is generous for a local Unix socket round-trip.
+              const status = await Promise.race([
+                getPoolStatus(),
+                new Promise<never>((_, reject) =>
+                  setTimeout(() => reject(new Error('pool_status timeout')), 200),
+                ),
+              ]);
               if (status.ready > 0) {
                 result = await claimWarmTerminal(paneId, savedCwd, term.rows, term.cols);
                 fromPool = true;
@@ -348,7 +356,7 @@ export function useTerminal(
                 result = await spawnTerminal(paneId, savedCwd, term.rows, term.cols);
               }
             } catch {
-              // Pool claim failed (or pool_status failed) — fall back to cold spawn
+              // Pool claim failed, pool_status timed out, or old daemon — fall back to cold spawn
               result = await spawnTerminal(paneId, savedCwd, term.rows, term.cols);
             }
 
