@@ -9,6 +9,7 @@ import {
   useSensors,
   type DragStartEvent,
   type DragEndEvent,
+  type Modifier,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -228,12 +229,14 @@ const TabItemComponent = memo(
   (prev, next) => prev.tab === next.tab && prev.isActive === next.isActive,
 );
 
+const restrictToHorizontalAxis: Modifier = ({ transform }) => ({ ...transform, y: 0 });
+
 function TabDragGhost({ tab }: { tab: Tab }) {
   return (
     <div
       className={`${tabItem({ active: true })} pointer-events-none cursor-grabbing opacity-90 shadow-md`}
     >
-      <span className="flex-1 truncate text-left text-xs">{tab.label}</span>
+      <span className="flex-1 truncate text-left text-md">{tab.label}</span>
       <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm opacity-60">
         <X size={10} strokeWidth={2} />
       </span>
@@ -343,6 +346,7 @@ export function TabBar() {
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
+        modifiers={[restrictToHorizontalAxis]}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}

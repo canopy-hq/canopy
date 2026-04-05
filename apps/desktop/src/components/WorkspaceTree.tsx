@@ -6,11 +6,14 @@ import { createPortal } from 'react-dom';
 import {
   DndContext,
   DragOverlay,
+  PointerSensor,
   closestCenter,
+  useSensor,
+  useSensors,
   type DragStartEvent,
   type DragEndEvent,
-  type DraggableAttributes,
   type DraggableSyntheticListeners,
+  type Modifier,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -19,7 +22,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { useNavigate } from '@tanstack/react-router';
-import { ChevronDown, ChevronRight, Laptop, FolderGit2, Plus, GripVertical } from 'lucide-react';
+import { ChevronDown, ChevronRight, Laptop, FolderGit2, Plus } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { makeWorkspacePaletteItem } from '../commands/workspace-commands';
@@ -222,35 +225,26 @@ const RepoHeader = memo(
     isSelected,
     onPlusClick,
     onRowClick,
-    dragHandleRef,
-    dragHandleListeners,
-    dragHandleAttributes,
+    dragListeners,
   }: {
     workspace: Workspace;
     agentSummary?: Array<'running' | 'waiting'>;
     isSelected: boolean;
     onPlusClick: () => void;
     onRowClick: () => void;
-    dragHandleRef?: (node: HTMLElement | null) => void;
-    dragHandleListeners?: DraggableSyntheticListeners;
-    dragHandleAttributes?: DraggableAttributes;
+    dragListeners?: DraggableSyntheticListeners;
   }) {
     const childCount = workspace.branches.length + workspace.worktrees.length;
 
     return (
-      <div className={repoHeader({ selected: isSelected })} onClick={onRowClick}>
+      <div
+        className={`${repoHeader({ selected: isSelected })} cursor-grab active:cursor-grabbing`}
+        style={{ touchAction: 'none' }}
+        onClick={onRowClick}
+        {...dragListeners}
+      >
         {/* Hidden chevron for React ARIA Tree expand/collapse */}
         <AriaButton slot="chevron" className="hidden" />
-        <button
-          ref={dragHandleRef}
-          className="mr-0.5 flex shrink-0 cursor-grab items-center justify-center rounded p-0.5 opacity-0 transition-opacity group-hover/repo:opacity-40 hover:!opacity-80 active:cursor-grabbing"
-          style={{ touchAction: 'none' }}
-          onClick={(e) => e.stopPropagation()}
-          {...dragHandleListeners}
-          {...dragHandleAttributes}
-        >
-          <GripVertical size={12} strokeWidth={1.5} />
-        </button>
         <svg
           width="14"
           height="14"
@@ -289,6 +283,7 @@ const RepoHeader = memo(
           variant="ghost"
           onPress={onRowClick}
           onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
         >
           {workspace.expanded ? (
             <ChevronDown size={12} strokeWidth={1.5} />
@@ -305,6 +300,7 @@ const RepoHeader = memo(
             aria-label="New branch or worktree"
             onPress={onPlusClick}
             onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
           >
             <Plus size={12} strokeWidth={1.5} />
           </Button>
@@ -323,9 +319,7 @@ const RepoHeader = memo(
     prev.onRowClick === next.onRowClick &&
     prev.agentSummary?.length === next.agentSummary?.length &&
     (prev.agentSummary ?? []).every((s, i) => s === next.agentSummary?.[i]) &&
-    prev.dragHandleRef === next.dragHandleRef &&
-    prev.dragHandleListeners === next.dragHandleListeners &&
-    prev.dragHandleAttributes === next.dragHandleAttributes,
+    prev.dragListeners === next.dragListeners,
 );
 
 /**
@@ -384,10 +378,12 @@ function getRepoAgentSummary(
   return statuses;
 }
 
+const restrictToVerticalAxis: Modifier = ({ transform }) => ({ ...transform, x: 0 });
+
 function WorkspaceDragGhost({ ws }: { ws: Workspace }) {
+  const childCount = ws.branches.length + ws.worktrees.length;
   return (
-    <div className="flex items-center gap-[6px] rounded-md border-l-[3px] border-accent bg-bg-secondary px-3 py-[6px] opacity-90 shadow-lg ring-1 ring-accent/20">
-      <GripVertical size={12} strokeWidth={1.5} className="shrink-0 text-text-muted" />
+    <div className="flex items-center gap-1.5 border-l-[3px] border-accent bg-accent/[0.04] py-1.5 pr-1.5 pl-3 opacity-90 shadow-lg">
       <svg
         width="14"
         height="14"
@@ -395,11 +391,18 @@ function WorkspaceDragGhost({ ws }: { ws: Workspace }) {
         fill="none"
         stroke="var(--accent)"
         strokeWidth="1.5"
-        className="shrink-0"
+        className="shrink-0 drop-shadow-[0_0_3px_rgba(59,130,246,0.4)]"
       >
         <path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z" />
       </svg>
-      <span className="flex-1 truncate text-sm font-medium text-text-primary">{ws.name}</span>
+      <span className="flex-1 truncate text-lg font-medium text-text-primary">{ws.name}</span>
+      {childCount > 0 && (
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center">
+          <span className="rounded bg-bg-tertiary px-1.25 py-px font-mono text-xs text-text-muted tabular-nums">
+            {childCount}
+          </span>
+        </span>
+      )}
     </div>
   );
 }
@@ -417,6 +420,7 @@ export function WorkspaceTree() {
   const pageVisible = usePageVisible();
   const diffStatsMap = useWorkspacePolling(workspaces, sidebarVisible && pageVisible);
   const navigate = useNavigate();
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const activeWs = useMemo(
     () => (activeId ? workspaces.find((w) => w.id === activeId) : null),
@@ -488,7 +492,9 @@ export function WorkspaceTree() {
         Projects
       </div>
       <DndContext
+        sensors={sensors}
         collisionDetection={closestCenter}
+        modifiers={[restrictToVerticalAxis]}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
@@ -657,9 +663,7 @@ function RepoTreeItem({
   activeContextId: string | null;
   hasSeparator: boolean;
 }) {
-  const { setNodeRef, setActivatorNodeRef, attributes, listeners, isDragging } = useSortable({
-    id: ws.id,
-  });
+  const { setNodeRef, listeners, isDragging } = useSortable({ id: ws.id });
   const agentSummary = useMemo(() => getRepoAgentSummary(ws, agentMap), [ws, agentMap]);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuPos = useRef({ x: 0, y: 0 });
@@ -705,9 +709,7 @@ function RepoTreeItem({
               }
               onPlusClick={handlePlusClick}
               onRowClick={handleRowClick}
-              dragHandleRef={setActivatorNodeRef}
-              dragHandleListeners={listeners}
-              dragHandleAttributes={attributes}
+              dragListeners={listeners}
             />
           </div>
         </TreeItemContent>
