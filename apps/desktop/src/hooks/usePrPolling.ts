@@ -1,10 +1,19 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 
+import { getSettingCollection, getSetting, setSetting } from '@superagent/db';
+
 import { getPrStatuses } from '../lib/github';
 import { getExpandedWorkspacePaths } from '../lib/workspace-utils';
 
 import type { PrInfo } from '../lib/github';
 import type { Workspace } from '@superagent/db';
+
+const PR_SETTING_KEY = 'prStatuses';
+
+function loadCachedPrMap(): PrMap {
+  const settings = getSettingCollection().toArray;
+  return getSetting<PrMap>(settings, PR_SETTING_KEY, {});
+}
 
 const PR_POLL_MS = 30_000;
 
@@ -44,7 +53,7 @@ export function usePrPolling(
   enabled: boolean,
   githubConnected: boolean,
 ): PrMap {
-  const [prMap, setPrMap] = useState<PrMap>({});
+  const [prMap, setPrMap] = useState<PrMap>(loadCachedPrMap);
   const workspacesRef = useRef(workspaces);
   const noChangeCountRef = useRef(0);
   const prevPrMapRef = useRef(prMap);
@@ -60,10 +69,7 @@ export function usePrPolling(
     inaccessiblePathsRef.current = new Set();
   }, [githubConnected]);
 
-  const workspaceKey = useMemo(
-    () => workspaces.map((ws) => `${ws.id}:${ws.expanded ? 1 : 0}`).join(','),
-    [workspaces],
-  );
+  const workspaceKey = useMemo(() => workspaces.map((ws) => ws.id).join(','), [workspaces]);
 
   useEffect(() => {
     if (!enabled || !githubConnected) return;
@@ -127,6 +133,7 @@ export function usePrPolling(
               `[pr-poll] updated: ${totalPrs} PR(s) across ${Object.keys(merged).length} workspace(s)`,
             );
             setPrMap(merged);
+            setSetting(PR_SETTING_KEY, merged);
           } else {
             noChangeCountRef.current += 1;
           }
