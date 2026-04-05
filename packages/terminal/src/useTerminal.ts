@@ -130,9 +130,21 @@ export function useTerminal(
       // Unconditional resize IPC on cached remount — ptyId is the real pid,
       // proxy.sessions is already populated, so this call succeeds immediately.
       void resizePty(ptyId, term.rows, term.cols);
-      // Double rAF: first rAF queues after current frame's layout, second fires
-      // after ghostty-web's WASM renderer has completed at least one paint cycle.
-      requestAnimationFrame(() => requestAnimationFrame(() => removeOverlay()));
+      // Double rAF: let ghostty-web's render loop paint at least one frame
+      // after reparenting, then reveal. The resize cycle after overlay
+      // removal forces a full canvas repaint with on-screen anti-aliasing —
+      // cached terminals rendered offscreen (detached from DOM) can have
+      // subtly different AA on macOS WKWebView, making text appear bolder.
+      // Because the resize + repaint happens synchronously before the
+      // browser paints the frame, the stale rendering is never visible.
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          removeOverlay();
+          const c = term.cols;
+          term.resize(c + 1, term.rows);
+          term.resize(c, term.rows);
+        }),
+      );
     } else {
       // === NEW TERMINAL: spawn (ptyId === -1) or reconnect (ptyId > 0) ===
       const termFontSize = getSetting<number>(
@@ -194,21 +206,40 @@ export function useTerminal(
           overlay.remove();
         }
       };
-      // One-shot overlay removal: schedule the timer on the FIRST byte only.
-      // This reveals the terminal at first_byte+80ms+2×rAF (~112ms) regardless
-      // of how long Starship keeps emitting — the canvas fills in while visible,
-      // which looks responsive. The double-rAF ensures the WASM renderer has
-      // painted at least one frame after the first write before uncovering.
-      const debouncedRemoveOverlay = () => {
-        if (overlayRemoved || overlayTimer !== null) return; // one-shot
-        overlayTimer = setTimeout(() => {
-          overlayTimer = null;
+      // Overlay removal: wait for the shell prompt to finish rendering.
+      //
+      // Shell startup has multiple phases — zsh/bash init emits early escape
+      // sequences (clear screen, cursor position), then there is often a gap
+      // before Starship generates the actual prompt. Removing the overlay
+      // during that gap would briefly flash an empty terminal with a cursor
+      // at (0,0).
+      //
+      // Strategy: require BOTH conditions before revealing:
+      //   1. Minimum 300ms since the first PTY byte (lets Starship finish)
+      //   2. Output has settled (no bytes for 150ms)
+      // Capped at 800ms to avoid blocking on very slow prompts.
+      let firstByteAt = 0;
+      const overlayMinDelay = 300;
+      const overlaySettleMs = 150;
+      const overlayMaxWait = 800;
+      const doRemoveOverlay = () => {
+        overlayTimer = null;
+        requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              removeOverlay();
-            });
+            removeOverlay();
           });
-        }, 80);
+        });
+      };
+      const scheduleOverlayRemoval = () => {
+        if (overlayRemoved) return;
+        if (!firstByteAt) firstByteAt = Date.now();
+        if (overlayTimer !== null) clearTimeout(overlayTimer);
+
+        const elapsed = Date.now() - firstByteAt;
+        const minRemaining = Math.max(overlayMinDelay - elapsed, 0);
+        const delay = Math.max(minRemaining, overlaySettleMs);
+        const maxRemaining = Math.max(overlayMaxWait - elapsed, 0);
+        overlayTimer = setTimeout(doRemoveOverlay, Math.min(delay, maxRemaining));
       };
 
       if (term.element) {
@@ -350,8 +381,8 @@ export function useTerminal(
                 // is removed ~112ms after the first prompt byte regardless of how
                 // long Starship keeps emitting.
                 connectPtyOutput(newId, (data: Uint8Array) => {
-                  debouncedRemoveOverlay();
                   term.write(data);
+                  scheduleOverlayRemoval();
                 });
               } else {
                 // Reconnect: Tauri Channel messages are queued before the invoke
@@ -448,8 +479,13 @@ export function useTerminal(
         container.removeChild(el);
       }
     };
+    // ptyId intentionally excluded: the spawn callback handles PTY connection,
+    // overlay removal, and caching internally. Including ptyId would re-run the
+    // effect on spawn completion (-1 → real), triggering cleanup → premature
+    // overlay removal before the shell prompt is ready. The useLayoutEffect
+    // above handles sync fit+resize when ptyId changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerRef, ptyId, wasmReady]);
+  }, [containerRef, wasmReady]);
 
   return termRef;
 }
