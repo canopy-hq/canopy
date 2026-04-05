@@ -481,6 +481,7 @@ export function WorkspaceTree() {
                 activeContextId={activeContextId}
                 hasSeparator={separatorIds.has(ws.id)}
                 onSelectItem={handleSelectItem}
+                deletingWtId={deletingWtId}
               />
             ))}
           </div>
@@ -621,6 +622,7 @@ function RepoTreeItem({
   activeContextId,
   hasSeparator,
   onSelectItem,
+  deletingWtId,
 }: {
   ws: Workspace;
   agentMap: Record<string, DotStatus>;
@@ -632,6 +634,7 @@ function RepoTreeItem({
   activeContextId: string | null;
   hasSeparator: boolean;
   onSelectItem: (itemId: string) => void;
+  deletingWtId: string | null;
 }) {
   const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
     id: ws.id,
