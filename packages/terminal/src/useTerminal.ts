@@ -370,26 +370,27 @@ export function useTerminal(
             resizeGraceUntil = Date.now() + 500;
 
             if (fromPool) {
-              // Warm terminal: shell already booted, cd+clear sent by daemon during claim.
-              // Discard old scrollback (warm prompt at $HOME). Buffer live output for
-              // 100ms without writing to the terminal — this captures the cd echo +
-              // clear sequence. Then flush all at once: the clear in the buffer wipes
-              // the cd echo, so the terminal only ever shows the clean post-clear state.
-              const poolBuffer: Uint8Array[] = [];
-              let poolFlushed = false;
+              // Warm terminal: shell already booted. Discard warm session scrollback
+              // and silently eat all output while cd+clear runs — the terminal never
+              // sees the cd echo. After the discard window, switch to live passthrough
+              // and remove the overlay. The Starship prompt for the new cwd arrives
+              // as normal live output.
+              let poolLive = false;
               connectPtyOutputFresh(newId, (data: Uint8Array) => {
-                if (poolFlushed) {
-                  term.write(data);
-                } else {
-                  poolBuffer.push(data);
-                }
+                if (poolLive) term.write(data);
               });
+              // Shell escape: wrap in single quotes, escape embedded quotes
+              const escaped = savedCwd ? `'${savedCwd.replace(/'/g, "'\\''")}'` : '~';
+              // cd + clear via printf (builtin, instant — no external command lookup).
+              // Space prefix keeps it out of shell history.
+              void writeToPty(newId, ` cd ${escaped} && printf '\\033[2J\\033[3J\\033[H'\n`);
+              // 250ms: enough for cd + printf + Starship to finish in most repos.
+              // If Starship is slower, the terminal appears blank briefly then the
+              // prompt fills in — still much faster than cold spawn.
               setTimeout(() => {
-                poolFlushed = true;
-                for (const chunk of poolBuffer) term.write(chunk);
-                poolBuffer.length = 0;
-                requestAnimationFrame(() => requestAnimationFrame(() => removeOverlay()));
-              }, 100);
+                poolLive = true;
+                removeOverlay();
+              }, 250);
             } else if (isNew) {
               connectPtyOutput(newId, (data: Uint8Array) => {
                 debouncedRemoveOverlay();

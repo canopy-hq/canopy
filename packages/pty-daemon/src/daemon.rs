@@ -256,16 +256,6 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                             }
                         }
 
-                        // Send cd + clear to the shell
-                        if let Some(dir) = &cwd {
-                            let cd_cmd = format!(" cd {} && clear\n", shell_escape(dir));
-                            let mut st = state.lock().unwrap();
-                            if let Some(sess) = st.sessions.get_mut(&pane_id) {
-                                let _ = sess.writer.write_all(cd_cmd.as_bytes());
-                                let _ = sess.writer.flush();
-                            }
-                        }
-
                         // Replenish pool in background
                         let state_clone = state.clone();
                         tokio::spawn(async move {
