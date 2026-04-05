@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState } from 'react';
+import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 
 import { CommandMenu } from '@superagent/command-palette';
 import {
@@ -30,6 +30,9 @@ import { collectRestorablePaneIds, containsPtyId, resetLeafPtyIds } from '../lib
 import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
 import { toggleSidebar, refreshRepo, switchWorkspaceItemByIndex } from '../lib/workspace-actions';
+import { onOpenWorkspacePalette } from '../lib/workspace-palette-bridge';
+
+import type { CommandItem } from '@superagent/command-palette';
 
 // Pre-initialize ghostty-web WASM at module load so it's ready before the user
 // opens their first terminal — eliminates the empty-container frame on first use.
@@ -37,6 +40,7 @@ void ensureGhosttyInit();
 
 function RootLayout() {
   const [cmdMenuOpen, setCmdMenuOpen] = useState(false);
+  const [defaultPanelItem, setDefaultPanelItem] = useState<CommandItem | null>(null);
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [sessionManagerOpen, setSessionManagerOpen] = useState(false);
   const [fpsVisible, setFpsVisible] = useState(false);
@@ -110,14 +114,34 @@ function RootLayout() {
     document.documentElement.setAttribute('data-theme', theme);
   }, []);
 
+  useEffect(() => {
+    return onOpenWorkspacePalette((item) => {
+      setDefaultPanelItem(item);
+      setCmdMenuOpen(true);
+    });
+  }, []);
+
   // Hydrate GitHub connection status into settings for the header icon
   useEffect(() => {
     void getConnection().then((conn) => setSetting(GITHUB_CONNECTION_KEY, conn));
   }, []);
 
+  const handleCmdMenuClose = useCallback(() => {
+    setCmdMenuOpen(false);
+    setDefaultPanelItem(null);
+  }, []);
+
   const bindings: Keybinding[] = useMemo(
     () => [
-      { key: 'k', meta: true, action: () => setCmdMenuOpen((prev) => !prev) },
+      {
+        key: 'k',
+        meta: true,
+        action: () =>
+          setCmdMenuOpen((prev) => {
+            if (prev) setDefaultPanelItem(null);
+            return !prev;
+          }),
+      },
       { key: 'b', meta: true, action: () => toggleSidebar() },
       { key: 'o', meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
       ...([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map((n) => ({
@@ -138,9 +162,10 @@ function RootLayout() {
       <ErrorToastRegion />
       <CommandMenu
         isOpen={cmdMenuOpen}
-        onClose={() => setCmdMenuOpen(false)}
+        onClose={handleCmdMenuClose}
         items={cmdItems}
         activeContextId={activeContextId}
+        defaultPanelItem={defaultPanelItem}
       />
       <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
       {sessionManagerOpen && <SessionManager onClose={() => setSessionManagerOpen(false)} />}
