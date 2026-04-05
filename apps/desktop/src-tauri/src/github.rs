@@ -88,33 +88,15 @@ pub struct PrStatusResult {
 
 // ── Search query builder ─────────────────────────────────────────────
 
-const SEARCH_QUERY_MAX_LEN: usize = 256;
-
 /// Build GitHub search queries for PR lookup. Chunks branch lists to stay under
 /// the ~256-char search query limit. Branch names are always quoted.
 pub fn build_search_queries(owner_repo: &str, branches: &[String]) -> Vec<String> {
-    if branches.is_empty() {
-        return Vec::new();
-    }
-
-    let prefix = format!("is:pr repo:{owner_repo} ");
-    let mut queries = Vec::new();
-    let mut current = prefix.clone();
-
-    for branch in branches {
-        let term = format!("head:\"{branch}\" ");
-        if current.len() + term.len() > SEARCH_QUERY_MAX_LEN && current.len() > prefix.len() {
-            queries.push(current.trim_end().to_string());
-            current = prefix.clone();
-        }
-        current.push_str(&term);
-    }
-
-    if current.len() > prefix.len() {
-        queries.push(current.trim_end().to_string());
-    }
-
-    queries
+    // Each branch must be a separate search query because GitHub search
+    // treats multiple `head:` qualifiers as AND (not OR).
+    branches
+        .iter()
+        .map(|branch| format!("is:pr repo:{owner_repo} head:\"{branch}\""))
+        .collect()
 }
 
 /// Parse PR nodes from a GraphQL search response alias (e.g., "s0").
@@ -154,7 +136,7 @@ pub fn parse_search_results(response: &serde_json::Value, alias: &str) -> Vec<Pr
 
 // ── PR Status command ────────────────────────────────────────────────────────
 
-const MAX_ALIASES_PER_REQUEST: usize = 8;
+const MAX_ALIASES_PER_REQUEST: usize = 30;
 
 /// Build one GraphQL query body containing multiple aliased search calls.
 fn build_aliased_graphql(alias_queries: &[(String, String)]) -> String {
@@ -357,6 +339,9 @@ pub async fn github_get_pr_statuses(
     for handle in gql_handles {
         match handle.await {
             Ok(Ok((owner_repo, prs, has_access_error))) => {
+                if !prs.is_empty() {
+                    eprintln!("[github] {owner_repo}: found {} PRs", prs.len());
+                }
                 if has_access_error {
                     failed_owner_repos.insert(owner_repo.clone());
                 }
@@ -569,6 +554,13 @@ pub async fn github_poll_token(device_code: String, interval: u64, expires_in: u
         let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
 
         if let Ok(success) = serde_json::from_str::<TokenSuccessResponse>(&body) {
+            let scopes: Vec<&str> = success.scope.split(',').map(|s| s.trim()).collect();
+            if !scopes.contains(&"repo") {
+                return Err(format!(
+                    "GitHub granted insufficient scopes: '{}'. The 'repo' scope is required for PR status. Please revoke the app at https://github.com/settings/applications and try again.",
+                    success.scope
+                ));
+            }
             store_token(&success.access_token)?;
             return fetch_github_user(&http.0, &success.access_token).await;
         }
@@ -697,41 +689,20 @@ mod tests {
     fn build_search_queries_multiple_branches() {
         let branches: Vec<String> = (0..5).map(|i| format!("branch-{i}")).collect();
         let queries = build_search_queries("nept/superagent", &branches);
-        assert_eq!(queries.len(), 1);
-        let q = &queries[0];
-        assert!(q.starts_with("is:pr repo:nept/superagent "));
-        for b in &branches {
-            assert!(q.contains(&format!("head:\"{b}\"")));
+        // Each branch gets its own query (GitHub AND's multiple head: qualifiers)
+        assert_eq!(queries.len(), 5);
+        for (i, q) in queries.iter().enumerate() {
+            assert_eq!(q, &format!("is:pr repo:nept/superagent head:\"branch-{i}\""));
         }
-    }
-
-    #[test]
-    fn build_search_queries_chunks_long_branch_lists() {
-        let branches: Vec<String> = (0..30).map(|i| format!("feature/very-long-branch-name-{i:03}")).collect();
-        let queries = build_search_queries("nept/superagent", &branches);
-        assert!(queries.len() > 1, "Should split into multiple queries");
-        let mut found: Vec<String> = Vec::new();
-        for q in &queries {
-            assert!(q.starts_with("is:pr repo:nept/superagent "));
-            for b in &branches {
-                if q.contains(&format!("head:\"{b}\"")) {
-                    found.push(b.clone());
-                }
-            }
-        }
-        found.sort();
-        let mut expected = branches.clone();
-        expected.sort();
-        assert_eq!(found, expected);
     }
 
     #[test]
     fn build_search_queries_quotes_special_chars() {
         let branches = vec!["feat/my-branch".to_string(), "fix/issue#42".to_string()];
         let queries = build_search_queries("nept/superagent", &branches);
-        assert_eq!(queries.len(), 1);
-        assert!(queries[0].contains("head:\"feat/my-branch\""));
-        assert!(queries[0].contains("head:\"fix/issue#42\""));
+        assert_eq!(queries.len(), 2);
+        assert_eq!(queries[0], "is:pr repo:nept/superagent head:\"feat/my-branch\"");
+        assert_eq!(queries[1], "is:pr repo:nept/superagent head:\"fix/issue#42\"");
     }
 
     #[test]
