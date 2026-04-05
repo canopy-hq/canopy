@@ -73,8 +73,8 @@ const IconWithBadge = memo(function IconWithBadge({
   agentStatus?: DotStatus;
 }) {
   return (
-    <div className="relative shrink-0">
-      <div className="block text-[0px] leading-[0]">{children}</div>
+    <div className="relative flex shrink-0 items-center">
+      {children}
       {agentStatus && agentStatus !== 'idle' && (
         <div className="absolute -top-0.5 -right-0.5 leading-[0]">
           <StatusDot status={agentStatus} size={6} />
