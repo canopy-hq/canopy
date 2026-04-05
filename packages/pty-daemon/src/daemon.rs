@@ -47,6 +47,9 @@ struct PtySession {
     child_pid: u32,
     scrollback: ScrollbackBuffer,
     tx: broadcast::Sender<Vec<u8>>,
+    /// Shared pane ID that the reader thread uses for session lookups.
+    /// Updated by the claim handler when remapping pool → real pane ID.
+    current_pane_id: Arc<Mutex<String>>,
 }
 
 pub struct DaemonState {
@@ -238,10 +241,14 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
 
                 let resp = match claimed {
                     Some((temp_pane_id, pid)) => {
-                        // Remap session key: temp → real pane_id
+                        // Remap session key: temp → real pane_id.
+                        // Update the shared pane ID FIRST so the reader thread
+                        // follows the remap and continues finding the session.
                         {
                             let mut st = state.lock().unwrap();
                             if let Some(session) = st.sessions.remove(&temp_pane_id) {
+                                // Tell the reader thread about the new key
+                                *session.current_pane_id.lock().unwrap() = pane_id.clone();
                                 let _ = session.master.resize(PtySize {
                                     rows, cols, pixel_width: 0, pixel_height: 0,
                                 });
@@ -377,6 +384,11 @@ pub fn do_spawn(
     // broadcast::channel capacity: 256 chunks before lagging
     let (tx, _) = broadcast::channel::<Vec<u8>>(256);
 
+    // Shared pane ID: the reader thread uses this to look up the session.
+    // When a pool session is claimed, the claim handler updates this to the
+    // real pane ID so the reader thread follows the remap.
+    let shared_pane_id = Arc::new(Mutex::new(pane_id.clone()));
+
     {
         let mut st = state.lock().unwrap();
         st.sessions.insert(
@@ -388,6 +400,7 @@ pub fn do_spawn(
                 child_pid,
                 scrollback: ScrollbackBuffer::new(SCROLLBACK_CAP),
                 tx,
+                current_pane_id: shared_pane_id.clone(),
             },
         );
     }
@@ -398,6 +411,7 @@ pub fn do_spawn(
     // subscribes to tx BEFORE copying scrollback (both under the same lock),
     // so a chunk is received via scrollback OR broadcast, never both/neither.
     let state_clone = state.clone();
+    let original_pane_id = pane_id.clone();
     std::thread::spawn(move || {
         let mut buf = [0u8; 4096];
         let mut pool_readied = false;
@@ -406,9 +420,10 @@ pub fn do_spawn(
                 Ok(0) | Err(_) => break,
                 Ok(n) => {
                     let data = buf[..n].to_vec();
+                    let current_id = shared_pane_id.lock().unwrap().clone();
                     let tx = {
                         let mut st = state_clone.lock().unwrap();
-                        if let Some(sess) = st.sessions.get_mut(&pane_id) {
+                        if let Some(sess) = st.sessions.get_mut(&current_id) {
                             sess.scrollback.push(&data);
                             Some(sess.tx.clone())
                         } else {
@@ -418,18 +433,18 @@ pub fn do_spawn(
                     if let Some(tx) = tx {
                         let _ = tx.send(data);
                     }
-                    if !pool_readied && pane_id.starts_with("__pool_") {
+                    if !pool_readied && original_pane_id.starts_with("__pool_") {
                         pool_readied = true;
                         let mut st = state_clone.lock().unwrap();
-                        st.pool.mark_ready(&pane_id);
+                        st.pool.mark_ready(&original_pane_id);
                     }
                 }
             }
         }
         // Clean up dead pool entries on EOF
-        if pane_id.starts_with("__pool_") {
+        if original_pane_id.starts_with("__pool_") {
             let mut st = state_clone.lock().unwrap();
-            st.pool.remove_dead(&pane_id);
+            st.pool.remove_dead(&original_pane_id);
         }
     });
 
