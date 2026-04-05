@@ -370,25 +370,19 @@ export function useTerminal(
             resizeGraceUntil = Date.now() + 500;
 
             if (fromPool) {
-              // Warm terminal: shell already booted. Discard warm session scrollback
-              // and silently eat all output while cd runs — the terminal never sees
-              // the cd echo. After the discard window, switch to live passthrough
-              // and remove the overlay on first live byte (the Starship prompt).
-              let poolLive = false;
-              connectPtyOutputFresh(newId, (data: Uint8Array) => {
-                if (!poolLive) return;
-                debouncedRemoveOverlay();
-                term.write(data);
-              });
+              // Warm terminal: shell already booted. DON'T wire the output handler
+              // yet — ChannelEntry buffers data when no handler is set. Send cd now;
+              // its echo goes to the buffer. After cd finishes, discard the buffer
+              // (echo gone) and wire the handler. First live byte after that is the
+              // Starship prompt → reveal.
               const escaped = savedCwd ? `'${savedCwd.replace(/'/g, "'\\''")}'` : '~';
-              // Space prefix keeps it out of shell history.
               void writeToPty(newId, ` cd ${escaped}\n`);
-              // 150ms: enough for cd echo + prompt start to finish.
-              // After this, the next output is the Starship prompt which
-              // triggers debouncedRemoveOverlay on first byte.
               setTimeout(() => {
-                poolLive = true;
-              }, 150);
+                connectPtyOutputFresh(newId, (data: Uint8Array) => {
+                  debouncedRemoveOverlay();
+                  term.write(data);
+                });
+              }, 100);
             } else if (isNew) {
               connectPtyOutput(newId, (data: Uint8Array) => {
                 debouncedRemoveOverlay();
