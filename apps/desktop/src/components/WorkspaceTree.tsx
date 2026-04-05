@@ -360,6 +360,32 @@ const RepoHeader = memo(
   }) {
     const childCount = workspace.branches.length + workspace.worktrees.length;
 
+    const iconStyle = useMemo((): React.CSSProperties => {
+      if (workspace.color) {
+        return {
+          '--c': workspace.color,
+          color: isSelected
+            ? 'color-mix(in srgb, var(--c) 100%, white)'
+            : 'color-mix(in srgb, var(--c) 40%, var(--text-faint))',
+          borderColor: isSelected ? 'color-mix(in srgb, var(--c) 80%, transparent)' : 'transparent',
+          backgroundColor: isSelected
+            ? 'color-mix(in srgb, var(--c) 35%, var(--bg-secondary))'
+            : 'color-mix(in srgb, var(--c) 8%, var(--bg-secondary))',
+        } as React.CSSProperties;
+      }
+      return isSelected
+        ? {
+            color: 'var(--text-primary)',
+            borderColor: 'color-mix(in srgb, var(--text-muted) 40%, transparent)',
+            backgroundColor: 'var(--bg-tertiary)',
+          }
+        : {
+            color: 'var(--text-faint)',
+            borderColor: 'transparent',
+            backgroundColor: 'color-mix(in srgb, var(--bg-tertiary) 60%, var(--bg-secondary))',
+          };
+    }, [workspace.color, isSelected]);
+
     return (
       <div
         className={repoHeader({ selected: isSelected })}
@@ -369,33 +395,7 @@ const RepoHeader = memo(
       >
         <div
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded border text-sm leading-none font-medium transition-colors duration-150"
-          style={
-            workspace.color
-              ? ({
-                  '--c': workspace.color,
-                  color: isSelected
-                    ? 'color-mix(in srgb, var(--c) 100%, white)'
-                    : 'color-mix(in srgb, var(--c) 40%, var(--text-faint))',
-                  borderColor: isSelected
-                    ? 'color-mix(in srgb, var(--c) 80%, transparent)'
-                    : 'transparent',
-                  backgroundColor: isSelected
-                    ? 'color-mix(in srgb, var(--c) 35%, var(--bg-secondary))'
-                    : 'color-mix(in srgb, var(--c) 8%, var(--bg-secondary))',
-                } as React.CSSProperties)
-              : isSelected
-                ? {
-                    color: 'var(--text-primary)',
-                    borderColor: 'color-mix(in srgb, var(--text-muted) 40%, transparent)',
-                    backgroundColor: 'var(--bg-tertiary)',
-                  }
-                : {
-                    color: 'var(--text-faint)',
-                    borderColor: 'transparent',
-                    backgroundColor:
-                      'color-mix(in srgb, var(--bg-tertiary) 60%, var(--bg-secondary))',
-                  }
-          }
+          style={iconStyle}
         >
           {workspace.name.charAt(0).toUpperCase()}
         </div>
@@ -510,6 +510,7 @@ export function WorkspaceTree({ onAddProject }: { onAddProject?: () => void }) {
     [rawWorkspaces],
   );
   const { selectedItemId, activeContextId, sidebarVisible, creatingWorktreeIds } = useUiState();
+  const creatingWorktreeIdSet = useMemo(() => new Set(creatingWorktreeIds), [creatingWorktreeIds]);
   const tabs = useTabs();
   const tabCountMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -617,7 +618,7 @@ export function WorkspaceTree({ onAddProject }: { onAddProject?: () => void }) {
                 hasSeparator={separatorIds.has(ws.id)}
                 onSelectItem={handleSelectItem}
                 deletingWtIds={deletingWtIds}
-                creatingWorktreeIds={creatingWorktreeIds}
+                creatingWorktreeIds={creatingWorktreeIdSet}
               />
             ))}
           </div>
@@ -711,7 +712,7 @@ function RepoTreeItem({
   hasSeparator: boolean;
   onSelectItem: (itemId: string) => void;
   deletingWtIds: Set<string>;
-  creatingWorktreeIds: string[];
+  creatingWorktreeIds: Set<string>;
 }) {
   const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
     id: ws.id,
@@ -803,7 +804,7 @@ function RepoTreeItem({
               );
             })}
             {ws.worktrees
-              .filter((wt) => !creatingWorktreeIds.includes(`${ws.id}-wt-${wt.name}`))
+              .filter((wt) => !creatingWorktreeIds.has(`${ws.id}-wt-${wt.name}`))
               .map((wt) => {
                 const itemId = `${ws.id}-wt-${wt.name}`;
                 const isDeleting = deletingWtIds.has(itemId);
@@ -833,7 +834,7 @@ function RepoTreeItem({
                   </div>
                 );
               })}
-            {creatingWorktreeIds
+            {[...creatingWorktreeIds]
               .filter((id) => id.startsWith(`${ws.id}-wt-`))
               .map((id) => {
                 const name = id.slice(`${ws.id}-wt-`.length);
