@@ -371,14 +371,25 @@ export function useTerminal(
 
             if (fromPool) {
               // Warm terminal: shell already booted, cd+clear sent by daemon during claim.
-              // Discard old scrollback (warm prompt at $HOME) so it doesn't flash.
-              // Let cd+clear execute behind the overlay, then reveal after a short
-              // fixed delay — long enough for cd+clear+prompt to finish, short enough
-              // to feel instant.
-              connectPtyOutputFresh(newId, (data: Uint8Array) => term.write(data));
+              // Discard old scrollback (warm prompt at $HOME). Buffer live output for
+              // 100ms without writing to the terminal — this captures the cd echo +
+              // clear sequence. Then flush all at once: the clear in the buffer wipes
+              // the cd echo, so the terminal only ever shows the clean post-clear state.
+              const poolBuffer: Uint8Array[] = [];
+              let poolFlushed = false;
+              connectPtyOutputFresh(newId, (data: Uint8Array) => {
+                if (poolFlushed) {
+                  term.write(data);
+                } else {
+                  poolBuffer.push(data);
+                }
+              });
               setTimeout(() => {
+                poolFlushed = true;
+                for (const chunk of poolBuffer) term.write(chunk);
+                poolBuffer.length = 0;
                 requestAnimationFrame(() => requestAnimationFrame(() => removeOverlay()));
-              }, 150);
+              }, 100);
             } else if (isNew) {
               connectPtyOutput(newId, (data: Uint8Array) => {
                 debouncedRemoveOverlay();
