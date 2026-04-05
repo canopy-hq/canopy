@@ -54,7 +54,7 @@ export function AgentToastRegion() {
               <Text slot="title" className="ui-base font-semibold text-text-primary">
                 {toast.content.agentName}
               </Text>
-              <span className="min-w-0 flex-1 truncate text-right ui-sm text-text-muted">
+              <span className="ui-sm min-w-0 flex-1 truncate text-right text-text-muted">
                 {toast.content.workspace}/{toast.content.branch}
               </span>
               <Button
@@ -68,7 +68,7 @@ export function AgentToastRegion() {
               </Button>
             </div>
 
-            <Text slot="description" className="mt-1 block ui-sm text-text-muted">
+            <Text slot="description" className="ui-sm mt-1 block text-text-muted">
               {eventDescription(toast.content.type)}
             </Text>
 

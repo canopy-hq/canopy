@@ -71,7 +71,7 @@ function SettingsRoute() {
         <div data-tauri-drag-region className="h-[38px] flex-shrink-0" />
 
         <button
-          className="flex items-center gap-1.5 px-5 py-2 ui-base text-text-muted transition-colors hover:text-text-primary"
+          className="ui-base flex items-center gap-1.5 px-5 py-2 text-text-muted transition-colors hover:text-text-primary"
           onClick={navigateBack}
           aria-label="Back to app"
         >
@@ -84,7 +84,7 @@ function SettingsRoute() {
         <nav className="flex-1 space-y-4 px-3">
           {NAV.map((group) => (
             <div key={group.label}>
-              <div className="mb-1 px-2 ui-sm font-semibold tracking-wider text-text-muted/60 uppercase">
+              <div className="ui-sm mb-1 px-2 font-semibold tracking-wider text-text-muted/60 uppercase">
                 {group.label}
               </div>
               <div className="space-y-0.5">

@@ -180,11 +180,11 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
         <Dialog className="outline-none" aria-label="Agent Overview">
           {/* Header */}
           <div className="flex items-center gap-2 border-b border-border p-4">
-            <Heading slot="title" className="m-0 text-sm font-semibold text-text-primary">
+            <Heading slot="title" className="m-0 text-lg font-semibold text-text-primary">
               Agent Overview
             </Heading>
             {(runningCount > 0 || waitingCount > 0) && (
-              <span className="flex items-center gap-1.5 ui-sm">
+              <span className="ui-sm flex items-center gap-1.5">
                 {runningCount > 0 && (
                   <span className="text-(--agent-running)">{runningCount} running</span>
                 )}
@@ -203,7 +203,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
             {!hasAgents ? (
               /* Empty state */
               <div className="flex flex-col items-center justify-center gap-2 px-4 py-8">
-                <span className="text-sm font-semibold text-text-muted">No agents running</span>
+                <span className="text-lg font-semibold text-text-muted">No agents running</span>
                 <span className="ui-base text-text-muted opacity-60">
                   Start an AI agent in any terminal to see it here
                 </span>
@@ -213,7 +213,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
               Object.entries(groupedRows).map(([wsName, rows]) => (
                 <div key={wsName}>
                   {/* Group header */}
-                  <div className="px-4 pt-2 pb-1 ui-sm font-semibold text-text-muted">{wsName}</div>
+                  <div className="ui-sm px-4 pt-2 pb-1 font-semibold text-text-muted">{wsName}</div>
                   {/* Agent rows */}
                   {rows.map((row) => {
                     const flatIndex = flatRows.indexOf(row);
@@ -234,13 +234,13 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                         data-selected={isSelected}
                       >
                         <StatusDot status={row.agent.status} size={8} />
-                        <span className="shrink-0 ui-base text-text-primary">
+                        <span className="ui-base shrink-0 text-text-primary">
                           {row.agent.agentName}
                         </span>
-                        <span className="flex-1 truncate ui-base text-text-muted">
+                        <span className="ui-base flex-1 truncate text-text-muted">
                           {row.workspaceName}
                         </span>
-                        <span className="shrink-0 ui-sm text-text-muted tabular-nums">
+                        <span className="ui-sm shrink-0 text-text-muted tabular-nums">
                           {formatDuration(row.agent.startedAt)}
                         </span>
                       </div>

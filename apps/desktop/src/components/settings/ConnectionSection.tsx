@@ -104,8 +104,8 @@ export function ConnectionSection() {
   return (
     <div className="space-y-8">
       <section>
-        <h2 className="mb-1 ui-base font-semibold text-text-primary">GitHub</h2>
-        <p className="mb-4 ui-md text-text-muted">
+        <h2 className="ui-base mb-1 font-semibold text-text-primary">GitHub</h2>
+        <p className="ui-md mb-4 text-text-muted">
           Connect your GitHub account for PR status, CI checks, and more.
         </p>
         <GitHubAuth
@@ -145,12 +145,12 @@ function WorktreeBaseDir() {
 
   return (
     <section>
-      <h2 className="mb-1 ui-base font-semibold text-text-primary">Worktree Base Directory</h2>
-      <p className="mb-3 ui-md text-text-muted">
+      <h2 className="ui-base mb-1 font-semibold text-text-primary">Worktree Base Directory</h2>
+      <p className="ui-md mb-3 text-text-muted">
         New worktrees will be created inside this directory.
       </p>
       <div className="flex items-center gap-2 rounded-lg bg-bg-secondary px-4 py-3">
-        <span className="min-w-0 flex-1 truncate font-mono ui-md text-text-primary">
+        <span className="ui-md min-w-0 flex-1 truncate font-mono text-text-primary">
           {currentDir}
         </span>
         <Button variant="ghost" size="sm" onPress={handleChoose}>
@@ -189,7 +189,7 @@ function GitHubAuth({
           alt={auth.connection.username}
           className="h-8 w-8 rounded-full"
         />
-        <span className="flex-1 ui-base font-medium text-text-primary">
+        <span className="ui-base flex-1 font-medium text-text-primary">
           {auth.connection.username}
         </span>
         <Button variant="destructive-ghost" size="sm" onPress={onDisconnect}>

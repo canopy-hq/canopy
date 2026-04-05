@@ -11,13 +11,13 @@ function EmptyState({ onImport }: { onImport: () => void }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 px-4">
       <span className="ui-base font-semibold text-text-primary">No workspaces</span>
-      <span className="text-center ui-sm text-text-muted">
+      <span className="ui-sm text-center text-text-muted">
         Import a git repository to get started.
       </span>
       <Button
         variant="ghost"
         onPress={onImport}
-        className="mt-2 w-full rounded-md border border-dashed border-border py-1.5 ui-md"
+        className="ui-md mt-2 w-full rounded-md border border-dashed border-border py-1.5"
       >
         <Plus size={12} strokeWidth={1.5} />
         Import Repository

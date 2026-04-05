@@ -22,6 +22,12 @@
 @theme {
   --font-sans: 'Geist', system-ui, sans-serif;
   --font-mono: 'Geist Mono', monospace;
+  --text-2xs: 9px;
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-md: 12px;
+  --text-base: 13px;
+  --text-lg: 14px;
   --color-bg-primary: var(--bg-primary);
   --color-bg-secondary: var(--bg-secondary);
   --color-bg-tertiary: var(--bg-tertiary);
@@ -40,37 +46,6 @@
   --color-git-ahead: var(--git-ahead);
   --color-git-behind: var(--git-behind);
   --color-destructive: var(--destructive);
-}
-
-/* UI text size scale. The ui-* prefix (no text- prefix) is intentional: tailwind-merge
-   classifies unknown text-* classes as text-color utilities, which causes it to strip
-   the actual color class when both a size and a color appear together in tv() variants. */
-:root {
-  --ui-2xs: 9px;
-  --ui-xs: 10px;
-  --ui-sm: 11px;
-  --ui-md: 12px;
-  --ui-base: 13px;
-  --ui-lg: 14px;
-}
-
-@utility ui-2xs {
-  font-size: var(--ui-2xs);
-}
-@utility ui-xs {
-  font-size: var(--ui-xs);
-}
-@utility ui-sm {
-  font-size: var(--ui-sm);
-}
-@utility ui-md {
-  font-size: var(--ui-md);
-}
-@utility ui-base {
-  font-size: var(--ui-base);
-}
-@utility ui-lg {
-  font-size: var(--ui-lg);
 }
 
 /* Default theme: Obsidian (matches previous hardcoded values) */

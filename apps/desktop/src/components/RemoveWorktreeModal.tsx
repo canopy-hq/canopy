@@ -42,7 +42,7 @@ export function RemoveWorktreeModal({
             Remove &ldquo;{worktreeName}&rdquo;
           </Heading>
 
-          <p className="mt-3 ui-base leading-relaxed text-text-muted">
+          <p className="ui-base mt-3 leading-relaxed text-text-muted">
             This will remove the worktree from the sidebar. You can re-open it later from the
             workspace palette.
           </p>
@@ -58,7 +58,7 @@ export function RemoveWorktreeModal({
           </label>
 
           {deleteGit && (
-            <p className="mt-2 ui-md leading-relaxed text-destructive">
+            <p className="ui-md mt-2 leading-relaxed text-destructive">
               This will run <code className="rounded bg-bg-tertiary px-1">git worktree remove</code>{' '}
               and delete the working directory. Uncommitted changes will be lost.
             </p>

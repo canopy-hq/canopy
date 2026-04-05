@@ -78,8 +78,8 @@ export function AppearanceSection() {
 
   return (
     <section className="space-y-8">
-      <h2 className="mb-1 ui-base font-semibold text-text-primary">Theme</h2>
-      <p className="mb-4 ui-md text-text-muted">Choose a theme for the application.</p>
+      <h2 className="ui-base mb-1 font-semibold text-text-primary">Theme</h2>
+      <p className="ui-md mb-4 text-text-muted">Choose a theme for the application.</p>
       <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label="Theme selection">
         {themeNames.map((name) => (
           <div
@@ -104,8 +104,8 @@ export function AppearanceSection() {
       </div>
 
       <div>
-        <h2 className="mb-1 ui-base font-semibold text-text-primary">Terminal Font Size</h2>
-        <p className="mb-3 ui-md text-text-muted">Adjust the font size used in terminal panes.</p>
+        <h2 className="ui-base mb-1 font-semibold text-text-primary">Terminal Font Size</h2>
+        <p className="ui-md mb-3 text-text-muted">Adjust the font size used in terminal panes.</p>
         <div className="flex items-center gap-3">
           <input
             type="range"
@@ -117,7 +117,7 @@ export function AppearanceSection() {
             className="h-1 w-40 cursor-pointer appearance-none rounded-full bg-border accent-accent"
             aria-label="Terminal font size"
           />
-          <span className="min-w-[3ch] text-center ui-base text-text-primary tabular-nums">
+          <span className="ui-base min-w-[3ch] text-center text-text-primary tabular-nums">
             {currentFontSize}
           </span>
         </div>
