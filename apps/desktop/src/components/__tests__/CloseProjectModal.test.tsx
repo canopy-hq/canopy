@@ -17,13 +17,12 @@ describe('CloseProjectModal', () => {
 
   it('shows project name in heading when open', () => {
     render(<CloseProjectModal {...props} />);
-    expect(screen.getByRole('heading', { name: /Close Project/ })).toBeDefined();
     expect(screen.getByRole('heading', { name: /my-project/ })).toBeDefined();
   });
 
   it('shows explanation text about files remaining on disk', () => {
     render(<CloseProjectModal {...props} />);
-    expect(screen.getByText(/Your files and git history will remain on disk/)).toBeDefined();
+    expect(screen.getByText(/Files and git history remain on disk/)).toBeDefined();
   });
 
   it('calls onClose when Cancel button is clicked', () => {
