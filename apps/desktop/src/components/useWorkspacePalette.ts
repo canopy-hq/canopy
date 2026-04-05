@@ -23,6 +23,8 @@ export type PaletteItemKind = 'create' | 'branch' | 'worktree';
 export interface PaletteItem {
   id: string;
   kind: PaletteItemKind;
+  /** Display name — set for 'create' items (the sanitized branch/worktree name). */
+  label?: string;
   /** Present for 'branch' items (main list and base picker). */
   branch?: BranchDetail;
   /** Present for 'worktree' items. */
@@ -46,7 +48,6 @@ export interface UseWorkspacePaletteReturn {
   isCreateMode: boolean;
   sanitizedName: string;
   baseBranch: string;
-  setBaseBranch: (b: string) => void;
   pickingBase: boolean;
   setPickingBase: (v: boolean) => void;
   // Navigation (same contract as useCommandMenu)
@@ -97,9 +98,12 @@ export function useWorkspacePalette(
       })
       .catch(() => {});
     fetchRemote(workspace.path)
-      .then(() => listAllBranches(workspace.path))
+      .then(() => {
+        if (stale) return;
+        return listAllBranches(workspace.path);
+      })
       .then((b) => {
-        if (!stale) setBranches(b);
+        if (b && !stale) setBranches(b);
       })
       .catch((e) => console.warn('[useWorkspacePalette] fetch remote failed:', e));
 
@@ -174,8 +178,11 @@ export function useWorkspacePalette(
       kind: 'worktree',
       worktree: wt,
     }));
-    // id encodes the sanitized name so PaletteRow can read it without extra props
-    const createItem: PaletteItem = { id: `create:${sanitizedName}`, kind: 'create' };
+    const createItem: PaletteItem = {
+      id: `create:${sanitizedName}`,
+      kind: 'create',
+      label: sanitizedName,
+    };
 
     if (tab === 'worktrees') {
       return worktreeItems.length > 0
@@ -256,7 +263,6 @@ export function useWorkspacePalette(
     isCreateMode,
     sanitizedName,
     baseBranch,
-    setBaseBranch,
     pickingBase,
     setPickingBase,
     sections,

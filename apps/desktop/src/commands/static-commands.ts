@@ -1,29 +1,9 @@
-import { addTab } from '../lib/tab-actions';
 import { importRepo, toggleSidebar } from '../lib/workspace-actions';
 
 import type { Nav, CommandItem } from '@superagent/command-palette';
-import type { UiState } from '@superagent/db';
 
-export function buildStaticCommands(navigate: Nav, uiState: UiState): CommandItem[] {
-  const inProject = !!uiState.activeContextId;
-  const items: CommandItem[] = [];
-
-  if (inProject) {
-    items.push({
-      id: 'action:new-tab',
-      label: 'New Tab',
-      category: 'action',
-      keywords: ['terminal', 'open', 'create'],
-      shortcut: '⌘T',
-      icon: 'plus',
-      action: ({ close }) => {
-        addTab();
-        close();
-      },
-    });
-  }
-
-  items.push(
+export function buildStaticCommands(navigate: Nav): CommandItem[] {
+  return [
     {
       id: 'action:add-project',
       label: 'Add Project',
@@ -68,7 +48,5 @@ export function buildStaticCommands(navigate: Nav, uiState: UiState): CommandIte
         close();
       },
     },
-  );
-
-  return items;
+  ];
 }

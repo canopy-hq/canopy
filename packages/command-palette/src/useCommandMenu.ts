@@ -77,7 +77,6 @@ function buildDefaultSections(
   const actionItems = items.filter(
     (i) =>
       i.category === 'action' &&
-      i.id !== 'action:new-tab' &&
       (!i.contextId || (activeContextId != null && activeContextId.startsWith(i.contextId))),
   );
   if (actionItems.length > 0) {

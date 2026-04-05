@@ -456,7 +456,7 @@ function PaletteRow({
         className={`flex-1 truncate ${item.kind === 'create' ? 'text-accent' : ''} ${isBasePicked ? 'font-medium' : ''}`}
       >
         {item.kind === 'create'
-          ? `Create "${item.id.slice(7)}"` // id format: 'create:{sanitizedName}'
+          ? `Create "${item.label ?? ''}"`
           : (item.branch?.name ?? item.worktree?.name ?? '')}
       </span>
 
