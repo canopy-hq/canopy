@@ -57,11 +57,8 @@ pub struct GitHubConnection {
 // ── Keychain helpers (via `security` CLI to avoid per-binary ACL prompts) ─
 
 fn store_token(token: &str) -> Result<(), String> {
-    // Delete any existing entry first (ignore errors if not found)
-    let _ = std::process::Command::new("security")
-        .args(["delete-generic-password", "-s", KEYCHAIN_SERVICE, "-a", KEYCHAIN_USER])
-        .output();
-
+    // Note: token is visible in process args for a few ms. Acceptable tradeoff
+    // for a local desktop app vs. the keyring crate's per-binary ACL prompts.
     let output = std::process::Command::new("security")
         .args([
             "add-generic-password",
@@ -89,8 +86,11 @@ fn load_token() -> Result<Option<String>, String> {
         .map_err(|e| format!("keychain load error: {e}"))?;
 
     if !output.status.success() {
-        // Exit code 44 = item not found
-        return Ok(None);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if stderr.contains("could not be found") {
+            return Ok(None);
+        }
+        return Err(format!("keychain load error: {stderr}"));
     }
     let token = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if token.is_empty() {
