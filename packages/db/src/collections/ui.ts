@@ -15,6 +15,8 @@ export interface UiState {
   activeTabId: string;
   activeContextId: string;
   contextActiveTabIds: Record<string, string>;
+  // Ephemeral creation state (not persisted)
+  creatingWorktreeId: string | null;
 }
 
 const INITIAL_UI_STATE: UiState = {
@@ -25,6 +27,7 @@ const INITIAL_UI_STATE: UiState = {
   activeTabId: '',
   activeContextId: '',
   contextActiveTabIds: {},
+  creatingWorktreeId: null,
 };
 
 export const uiCollection = createCollection(

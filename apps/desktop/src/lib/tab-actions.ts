@@ -86,11 +86,12 @@ export function renameTab(id: string, label: string, manual: boolean): void {
   });
 }
 
-export function addTab(): void {
+export function addTab(workspaceItemId?: string): void {
   const ui = getUiState();
-  if (!ui.activeContextId) return;
-  const tab = makeTab({ workspaceItemId: ui.activeContextId });
-  storePaneCwd(tab.paneRoot.id, ui.activeContextId);
+  const itemId = workspaceItemId ?? ui.activeContextId;
+  if (!itemId) return;
+  const tab = makeTab({ workspaceItemId: itemId });
+  storePaneCwd(tab.paneRoot.id, itemId);
   insertTabAndActivate(tab);
 }
 

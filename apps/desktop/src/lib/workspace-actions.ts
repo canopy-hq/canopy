@@ -16,6 +16,8 @@ import { collectAllLeafPaneIds, collectLeafPtyIds } from './pane-tree-ops';
 import { closeTab } from './tab-actions';
 import { showErrorToast, showInfoToast } from './toast';
 
+type NavigateFn = (opts: { to: string; params?: Record<string, string> }) => void;
+
 import type { Workspace } from '@superagent/db';
 
 /** Returns true for branch/worktree IDs — the only items that carry selection state. */
@@ -244,6 +246,59 @@ export async function createWorktree(
   } catch (err) {
     showErrorToast('Create worktree failed', String(err));
   }
+}
+
+/**
+ * Optimistically adds the worktree to the sidebar, navigates to it, then runs the
+ * git op in the background — showing a "creating" spinner until it completes.
+ */
+export function startWorktreeCreation(
+  workspaceId: string,
+  name: string,
+  path: string,
+  baseBranch: string | undefined,
+  newBranch: string | undefined,
+  navigate: NavigateFn,
+): void {
+  const ws = getWorkspaceCollection().toArray.find((w) => w.id === workspaceId);
+  if (!ws) return;
+
+  const wtItemId = `${workspaceId}-wt-${name}`;
+  const estimatedBranch = newBranch ?? baseBranch ?? name;
+
+  getWorkspaceCollection().update(workspaceId, (draft) => {
+    if (!draft.worktrees.some((w) => w.name === name)) {
+      draft.worktrees.push({ name, path, branch: estimatedBranch });
+    }
+  });
+
+  uiCollection.update('ui', (draft) => {
+    draft.creatingWorktreeId = wtItemId;
+  });
+
+  selectWorkspaceItem(wtItemId, navigate);
+
+  void (async () => {
+    try {
+      const wt = await gitApi.createWorktree(ws.path, name, path, baseBranch, newBranch);
+      getWorkspaceCollection().update(workspaceId, (draft) => {
+        const entry = draft.worktrees.find((w) => w.name === name);
+        if (entry) {
+          entry.path = wt.path;
+          entry.branch = wt.branch;
+        }
+      });
+    } catch (err) {
+      showErrorToast('Create worktree failed', String(err));
+      getWorkspaceCollection().update(workspaceId, (draft) => {
+        draft.worktrees = draft.worktrees.filter((w) => w.name !== name);
+      });
+    } finally {
+      uiCollection.update('ui', (draft) => {
+        draft.creatingWorktreeId = null;
+      });
+    }
+  })();
 }
 
 export async function removeWorktree(workspaceId: string, name: string): Promise<void> {

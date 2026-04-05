@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 
 import { createFileRoute } from '@tanstack/react-router';
+import { Loader2 } from 'lucide-react';
 
 import { PaneContainer } from '../../components/PaneContainer';
 import { TabBar } from '../../components/TabBar';
@@ -8,6 +9,16 @@ import { Button, Kbd } from '../../components/ui';
 import { useUiState, useTabs } from '../../hooks/useCollections';
 import { setActiveContext, addTab } from '../../lib/tab-actions';
 import { toggleSidebar } from '../../lib/workspace-actions';
+
+function CreatingWorktree() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 select-none">
+      <Loader2 size={20} className="animate-spin text-accent" />
+      <span className="text-[14px] font-medium text-text-primary">Creating worktree…</span>
+      <span className="text-[12px] text-text-muted">Setting up your workspace</span>
+    </div>
+  );
+}
 
 function WorkspaceRoute() {
   const { workspaceId } = Route.useParams();
@@ -23,11 +34,15 @@ function WorkspaceRoute() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId]);
 
+  const isCreating = ui.creatingWorktreeId === workspaceId;
+
   return (
     <>
       <TabBar />
       <div className="relative min-h-0 flex-1">
-        {activeTab ? (
+        {isCreating ? (
+          <CreatingWorktree />
+        ) : activeTab ? (
           <div key={activeTab.id} className="absolute inset-0">
             <PaneContainer root={activeTab.paneRoot} />
           </div>
@@ -48,7 +63,7 @@ function EmptyState() {
 
       <Button
         variant="ghost"
-        onPress={addTab}
+        onPress={() => addTab()}
         className="w-80 justify-start gap-3 px-4 py-2.5 text-lg"
       >
         <svg

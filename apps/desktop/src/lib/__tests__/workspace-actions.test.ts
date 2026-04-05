@@ -13,6 +13,7 @@ let _uiState: UiState = {
   activeTabId: '',
   activeContextId: '',
   contextActiveTabIds: {},
+  creatingWorktreeId: null,
 };
 
 const mockSetSetting = vi.fn();
@@ -93,6 +94,7 @@ describe('importRepo', () => {
       activeTabId: '',
       activeContextId: '',
       contextActiveTabIds: {},
+      creatingWorktreeId: null,
     };
     vi.clearAllMocks();
   });

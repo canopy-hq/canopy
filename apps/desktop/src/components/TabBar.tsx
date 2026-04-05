@@ -343,7 +343,7 @@ export function TabBar() {
           iconOnly
           size="sm"
           variant="ghost"
-          onPress={addTab}
+          onPress={() => addTab()}
           aria-label="New Tab"
           className="mx-1 shrink-0"
         >

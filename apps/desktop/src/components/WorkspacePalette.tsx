@@ -88,11 +88,11 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
         if (!item.branch) return;
         if (pickingBase) {
           // Selecting a base branch → create worktree from the typed name
-          void handleCreateWorktree({ base: item.branch.name });
+          handleCreateWorktree({ base: item.branch.name });
           return;
         }
         if (item.branch.is_head || item.branch.is_in_worktree) return;
-        void handleCreateWorktree({ existingBranch: item.branch.name });
+        handleCreateWorktree({ existingBranch: item.branch.name });
         return;
       }
       if (item.kind === 'worktree' && item.worktree && !item.worktree.isInSidebar) {
@@ -127,7 +127,7 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
           e.preventDefault();
           // ⌘↩ bypasses the base picker and creates immediately with current base
           if (e.metaKey && isCreateMode && !pickingBase) {
-            void handleCreateWorktree();
+            handleCreateWorktree();
             break;
           }
           const item = flatItems.find((i) => i.id === selectedId);

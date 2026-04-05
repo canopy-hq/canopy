@@ -14,6 +14,7 @@ let _uiState: UiState = {
   activeTabId: '',
   activeContextId: '',
   contextActiveTabIds: {},
+  creatingWorktreeId: null,
 };
 
 const _workspaces: Workspace[] = [
@@ -107,6 +108,7 @@ function resetState() {
     activeTabId: '',
     activeContextId: '',
     contextActiveTabIds: {},
+    creatingWorktreeId: null,
   };
   mockSetSetting.mockClear();
 }
