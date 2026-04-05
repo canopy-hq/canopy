@@ -1,4 +1,4 @@
-import { tv, type VariantProps } from 'tailwind-variants';
+import { tv, type VariantProps } from '../../lib/tv';
 
 const badge = tv({
   base: 'inline-flex shrink-0 items-center font-medium leading-none whitespace-nowrap',

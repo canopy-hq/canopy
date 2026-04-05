@@ -8,7 +8,8 @@ import {
   type CssThemeProperties,
 } from '@superagent/terminal';
 import { useLiveQuery } from '@tanstack/react-db';
-import { tv } from 'tailwind-variants';
+
+import { tv } from '../../lib/tv';
 
 const themeCard = tv({
   base: 'flex cursor-pointer flex-col gap-2 rounded-lg border p-2 transition-colors',

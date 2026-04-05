@@ -5,12 +5,12 @@ import { createPortal } from 'react-dom';
 
 import { useNavigate } from '@tanstack/react-router';
 import { ChevronDown, ChevronRight, Laptop, FolderGit2, Plus } from 'lucide-react';
-import { tv } from 'tailwind-variants';
 
 import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useCollections';
 import { usePageVisible } from '../hooks/usePageVisible';
 import { useWorkspacePolling } from '../hooks/useWorkspacePolling';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
+import { tv } from '../lib/tv';
 import {
   toggleExpanded,
   selectWorkspaceItem,

@@ -1,6 +1,6 @@
 import { Button as AriaButton, type ButtonProps as AriaButtonProps } from 'react-aria-components';
 
-import { tv, type VariantProps } from 'tailwind-variants';
+import { tv, type VariantProps } from '../../lib/tv';
 
 const button = tv({
   base: 'inline-flex items-center justify-center gap-1.5 rounded-lg font-medium outline-none transition disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-border-focus',

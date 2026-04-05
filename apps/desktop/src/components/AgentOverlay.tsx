@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
 
 import { useNavigate } from '@tanstack/react-router';
-import { tv } from 'tailwind-variants';
 
 import { useAgents, useWorkspaces, useTabs } from '../hooks/useCollections';
 import { containsPtyId } from '../lib/pane-tree-ops';
 import { jumpToPane } from '../lib/tab-actions';
+import { tv } from '../lib/tv';
 import { StatusDot } from './StatusDot';
 
 import type { AgentInfo } from '@superagent/db';

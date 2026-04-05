@@ -40,15 +40,37 @@
   --color-git-ahead: var(--git-ahead);
   --color-git-behind: var(--git-behind);
   --color-destructive: var(--destructive);
+}
 
-  /* UI text size scale — "ui-" prefix avoids collisions with Tailwind's built-in
-     text-xs/sm/base/lg names (which map to different sizes, e.g. text-xs = 12px). */
+/* UI text size scale — defined outside @theme to avoid polluting Tailwind's --text-*
+   namespace, which can cause WebKit to misresolve var(--text-primary) references
+   used by color tokens in @layer theme. */
+:root {
   --text-ui-2xs: 9px;
   --text-ui-xs: 10px;
   --text-ui-sm: 11px;
   --text-ui-md: 12px;
   --text-ui-base: 13px;
   --text-ui-lg: 14px;
+}
+
+@utility text-ui-2xs {
+  font-size: var(--text-ui-2xs);
+}
+@utility text-ui-xs {
+  font-size: var(--text-ui-xs);
+}
+@utility text-ui-sm {
+  font-size: var(--text-ui-sm);
+}
+@utility text-ui-md {
+  font-size: var(--text-ui-md);
+}
+@utility text-ui-base {
+  font-size: var(--text-ui-base);
+}
+@utility text-ui-lg {
+  font-size: var(--text-ui-lg);
 }
 
 /* Default theme: Obsidian (matches previous hardcoded values) */

@@ -1,5 +1,4 @@
-import { tv } from 'tailwind-variants';
-
+import { tv } from '../lib/tv';
 import { StatusDot } from './StatusDot';
 
 import type { DotStatus } from './StatusDot';

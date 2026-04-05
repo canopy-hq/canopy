@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Modal, ModalOverlay } from 'react-aria-components';
 
-import { tv } from 'tailwind-variants';
-
 import {
   listAllBranches,
   listWorktrees,
@@ -12,6 +10,7 @@ import {
   type BranchDetail,
   type WorktreeInfo,
 } from '../lib/git';
+import { tv } from '../lib/tv';
 import { createWorktree, openWorktree } from '../lib/workspace-actions';
 import { Badge, Button, Kbd } from './ui';
 

@@ -1,11 +1,11 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Plus, X } from 'lucide-react';
-import { tv } from 'tailwind-variants';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import { addTab, closeTab, switchTab, renameTab } from '../lib/tab-actions';
+import { tv } from '../lib/tv';
 import { StatusDot } from './StatusDot';
 import { Button, Kbd, Tooltip } from './ui';
 

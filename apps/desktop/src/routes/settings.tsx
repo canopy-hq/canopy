@@ -3,10 +3,10 @@ import { useEffect, useCallback } from 'react';
 import { getUiState } from '@superagent/db';
 import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router';
 import { ChevronLeft, Palette, GitBranch } from 'lucide-react';
-import { tv } from 'tailwind-variants';
 
 import { AppearanceSection } from '../components/settings/AppearanceSection';
 import { ConnectionSection } from '../components/settings/ConnectionSection';
+import { tv } from '../lib/tv';
 
 type SectionId = 'appearance' | 'git';
 
