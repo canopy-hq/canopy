@@ -1,8 +1,14 @@
 import { spawn } from 'node:child_process';
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const desktopDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+// Derive a worktree-specific app identifier so parallel dev instances don't conflict.
+// The repo root dir name differs per worktree (e.g., "superagent.main", "superagent.fix-90-...").
+const repoRoot = resolve(desktopDir, '../..');
+const worktreeSlug = basename(repoRoot).replace(/[^a-zA-Z0-9-]/g, '-');
+const devIdentifier = `com.superagent.app.dev-${worktreeSlug}`;
 
 // Start Vite directly so it picks its own port atomically — no probe/race condition.
 const vite = spawn('bun', ['run', 'dev'], {
@@ -29,7 +35,6 @@ const port = await new Promise<number>((resolve, reject) => {
 vite.stdout!.on('data', (chunk: Buffer) => process.stdout.write(chunk));
 
 // Resolve the codesign runner script (signs dev binary to prevent Keychain prompts)
-const repoRoot = resolve(desktopDir, '../..');
 const codesignRunner = resolve(repoRoot, 'scripts/cargo-codesign.sh');
 
 // Use the codesign runner if it exists and is executable, otherwise plain cargo
@@ -38,7 +43,12 @@ const runnerArgs = (await Bun.file(codesignRunner).exists()) ? ['--runner', code
 // Start Tauri pointed at the actual port Vite bound.
 const tauri = spawn(
   'tauri',
-  ['dev', ...runnerArgs, '--config', `{"build":{"devUrl":"http://localhost:${port}"}}`],
+  [
+    'dev',
+    ...runnerArgs,
+    '--config',
+    `{"identifier":"${devIdentifier}","build":{"devUrl":"http://localhost:${port}"}}`,
+  ],
   { stdio: 'inherit', env: process.env },
 );
 
