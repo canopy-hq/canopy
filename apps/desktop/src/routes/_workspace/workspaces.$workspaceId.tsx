@@ -63,7 +63,7 @@ function EmptyState() {
 
       <Button
         variant="ghost"
-        onPress={addTab}
+        onPress={() => addTab()}
         className="w-80 justify-start gap-3 px-4 py-2.5 text-lg"
       >
         <svg

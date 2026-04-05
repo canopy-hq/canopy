@@ -13,6 +13,7 @@ let _uiState: UiState = {
   activeTabId: '',
   activeContextId: '',
   contextActiveTabIds: {},
+  creatingWorktreeId: null,
 };
 
 const mockSetSetting = vi.fn();
