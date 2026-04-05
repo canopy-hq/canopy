@@ -74,7 +74,13 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                     .as_array()
                     .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
                     .unwrap_or_default();
-                let result = do_spawn(state.clone(), pane_id, cwd, rows, cols, command, args);
+                let state_clone = state.clone();
+                let result = match tokio::task::spawn_blocking(move || {
+                    do_spawn(state_clone, pane_id, cwd, rows, cols, command, args)
+                }).await {
+                    Ok(r) => r,
+                    Err(e) => Err(format!("spawn_blocking: {e}")),
+                };
                 let resp = match result {
                     Ok((pid, is_new)) => format!("{{\"ok\":true,\"pid\":{pid},\"new\":{is_new}}}\n"),
                     Err(e) => format!("{{\"ok\":false,\"error\":{}}}\n", serde_json::json!(e)),

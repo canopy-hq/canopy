@@ -1,6 +1,8 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
+
+use tokio::sync::Mutex as TokioMutex;
 
 use sysinfo::{System, Pid, ProcessesToUpdate};
 
@@ -40,14 +42,14 @@ pub async fn spawn_terminal(
     cols: Option<u16>,
     on_output: Channel<Vec<u8>>,
     app: tauri::AppHandle,
-    state: tauri::State<'_, Mutex<PtyState>>,
+    state: tauri::State<'_, TokioMutex<PtyState>>,
     daemon: tauri::State<'_, DaemonClient>,
-    watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
+    watcher_state: tauri::State<'_, std::sync::Mutex<AgentWatcherState>>,
 ) -> Result<SpawnResult, String> {
     let (pid, is_new) = daemon.spawn(&pane_id, cwd.as_deref(), rows.unwrap_or(24), cols.unwrap_or(80)).await?;
 
     {
-        let mut s = state.lock().map_err(|e| e.to_string())?;
+        let mut s = state.lock().await;
         s.sessions.insert(pid, pane_id.clone());
         // Abort any previous attach task for this pane before starting a new one.
         // Multiple concurrent attach tasks for the same paneId each broadcast the
@@ -73,7 +75,7 @@ pub async fn spawn_terminal(
     ).await;
 
     {
-        let mut s = state.lock().map_err(|e| e.to_string())?;
+        let mut s = state.lock().await;
         s.attach_handles.insert(pane_id.clone(), handle);
     }
 
@@ -93,11 +95,11 @@ pub async fn spawn_terminal(
 pub async fn write_to_pty(
     pty_id: u32,
     data: Vec<u8>,
-    state: tauri::State<'_, Mutex<PtyState>>,
+    state: tauri::State<'_, TokioMutex<PtyState>>,
     daemon: tauri::State<'_, DaemonClient>,
 ) -> Result<(), String> {
     let pane_id = {
-        let s = state.lock().map_err(|e| e.to_string())?;
+        let s = state.lock().await;
         s.sessions.get(&pty_id).cloned().ok_or_else(|| format!("PTY {pty_id} not found"))?
     };
     daemon.write(&pane_id, &data).await
@@ -108,11 +110,11 @@ pub async fn resize_pty(
     pty_id: u32,
     rows: u16,
     cols: u16,
-    state: tauri::State<'_, Mutex<PtyState>>,
+    state: tauri::State<'_, TokioMutex<PtyState>>,
     daemon: tauri::State<'_, DaemonClient>,
 ) -> Result<(), String> {
     let pane_id = {
-        let s = state.lock().map_err(|e| e.to_string())?;
+        let s = state.lock().await;
         s.sessions.get(&pty_id).cloned().ok_or_else(|| format!("PTY {pty_id} not found"))?
     };
     daemon.resize(&pane_id, rows, cols).await
@@ -121,12 +123,12 @@ pub async fn resize_pty(
 #[tauri::command]
 pub async fn close_pty(
     pty_id: u32,
-    state: tauri::State<'_, Mutex<PtyState>>,
+    state: tauri::State<'_, TokioMutex<PtyState>>,
     daemon: tauri::State<'_, DaemonClient>,
-    watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
+    watcher_state: tauri::State<'_, std::sync::Mutex<AgentWatcherState>>,
 ) -> Result<(), String> {
     let pane_id = {
-        let mut s = state.lock().map_err(|e| e.to_string())?;
+        let mut s = state.lock().await;
         let pane_id = s.sessions.remove(&pty_id).ok_or_else(|| format!("PTY {pty_id} not found"))?;
         if let Some(handle) = s.attach_handles.remove(&pane_id) {
             handle.abort();
@@ -157,10 +159,10 @@ pub struct PtySessionInfo {
 /// List all active PTY sessions with live CPU/memory stats.
 /// Refreshes only the tracked PIDs (not the entire process table).
 #[tauri::command]
-pub fn list_pty_sessions(
-    state: tauri::State<'_, Mutex<PtyState>>,
+pub async fn list_pty_sessions(
+    state: tauri::State<'_, TokioMutex<PtyState>>,
 ) -> Result<Vec<PtySessionInfo>, String> {
-    let mut s = state.lock().map_err(|e| e.to_string())?;
+    let mut s = state.lock().await;
 
     let pids: Vec<Pid> = s.sessions.keys().map(|&id| Pid::from_u32(id)).collect();
     if !pids.is_empty() {
@@ -186,14 +188,14 @@ pub fn list_pty_sessions(
 #[tauri::command]
 pub async fn close_ptys_for_panes(
     pane_ids: Vec<String>,
-    state: tauri::State<'_, Mutex<PtyState>>,
+    state: tauri::State<'_, TokioMutex<PtyState>>,
     daemon: tauri::State<'_, DaemonClient>,
-    watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
+    watcher_state: tauri::State<'_, std::sync::Mutex<AgentWatcherState>>,
 ) -> Result<(), String> {
     let pane_set: std::collections::HashSet<&str> = pane_ids.iter().map(|s| s.as_str()).collect();
 
     let to_close: Vec<(u32, String)> = {
-        let mut s = state.lock().map_err(|e| e.to_string())?;
+        let mut s = state.lock().await;
         let mut found = Vec::new();
         s.sessions.retain(|&pty_id, pane_id| {
             if pane_set.contains(pane_id.as_str()) {

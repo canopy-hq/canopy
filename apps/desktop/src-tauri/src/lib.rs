@@ -69,7 +69,7 @@ pub fn run() {
             }
 
             app.manage(DaemonClient::new(socket));
-            app.manage(Mutex::new(pty::PtyState::new()));
+            app.manage(tokio::sync::Mutex::new(pty::PtyState::new()));
             app.manage(Mutex::new(agent_watcher::AgentWatcherState::new()));
             app.manage(github::PollCancelFlag(std::sync::atomic::AtomicBool::new(false)));
             app.manage(github::HttpClient(github::build_http_client()));

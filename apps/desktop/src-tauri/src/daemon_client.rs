@@ -14,6 +14,8 @@ pub struct DaemonClient {
     pub socket: PathBuf,
     // Persistent stream for fire-and-forget ops (write, resize)
     cmd_stream: Arc<Mutex<Option<UnixStream>>>,
+    // Persistent stream for request-response ops (spawn, close)
+    rpc_stream: Arc<Mutex<Option<BufReader<UnixStream>>>>,
 }
 
 impl DaemonClient {
@@ -21,6 +23,7 @@ impl DaemonClient {
         Self {
             socket,
             cmd_stream: Arc::new(Mutex::new(None)),
+            rpc_stream: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -53,17 +56,32 @@ impl DaemonClient {
         Err("daemon did not start within timeout".to_string())
     }
 
-    /// Send a command that expects a JSON response (per-call connection).
+    /// Send a command that expects a JSON response on the persistent RPC stream.
     async fn send_cmd(&self, msg: &str) -> Result<serde_json::Value, String> {
-        let mut stream = UnixStream::connect(&self.socket)
+        let mut guard = self.rpc_stream.lock().await;
+
+        // Try existing stream
+        if let Some(reader) = guard.as_mut() {
+            if reader.get_mut().write_all(msg.as_bytes()).await.is_ok() {
+                let mut line = String::new();
+                if reader.read_line(&mut line).await.is_ok() && !line.is_empty() {
+                    return serde_json::from_str(line.trim()).map_err(|e| e.to_string());
+                }
+            }
+            // Stream broken, fall through to reconnect
+        }
+
+        // Reconnect and retry
+        let stream = UnixStream::connect(&self.socket)
             .await
             .map_err(|e| format!("connect: {e}"))?;
-        stream.write_all(msg.as_bytes()).await.map_err(|e| e.to_string())?;
-
-        let mut reader = BufReader::new(&mut stream);
+        let mut reader = BufReader::new(stream);
+        reader.get_mut().write_all(msg.as_bytes()).await.map_err(|e| e.to_string())?;
         let mut line = String::new();
         reader.read_line(&mut line).await.map_err(|e| e.to_string())?;
-        serde_json::from_str(line.trim()).map_err(|e| e.to_string())
+        let result = serde_json::from_str(line.trim()).map_err(|e| e.to_string());
+        *guard = Some(reader);
+        result
     }
 
     /// Send a fire-and-forget command on the persistent command stream.
