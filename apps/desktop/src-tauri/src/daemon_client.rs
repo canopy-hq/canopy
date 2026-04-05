@@ -66,8 +66,16 @@ impl DaemonClient {
             match reader.get_mut().write_all(msg.as_bytes()).await {
                 Ok(()) => {
                     let mut line = String::new();
-                    reader.read_line(&mut line).await.map_err(|e| e.to_string())?;
-                    return serde_json::from_str(line.trim()).map_err(|e| e.to_string());
+                    match reader.read_line(&mut line).await {
+                        Ok(_) => {
+                            return serde_json::from_str(line.trim()).map_err(|e| e.to_string());
+                        }
+                        Err(e) => {
+                            eprintln!("rpc_stream read failed, dropping connection: {e}");
+                            *guard = None;
+                            return Err(e.to_string());
+                        }
+                    }
                 }
                 Err(e) => {
                     eprintln!("rpc_stream write failed, reconnecting: {e}");
