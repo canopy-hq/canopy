@@ -371,14 +371,14 @@ export function useTerminal(
 
             if (fromPool) {
               // Warm terminal: shell already booted, cd+clear sent by daemon during claim.
-              // Discard old scrollback (warm prompt at $HOME + cd/clear command echo) and
-              // wire for live data only. The overlay stays up until the FIRST live byte
-              // (the new prompt after cd+clear finishes) — same pattern as cold spawn but
-              // much faster since the shell is already running.
-              connectPtyOutputFresh(newId, (data: Uint8Array) => {
-                debouncedRemoveOverlay();
-                term.write(data);
-              });
+              // Discard old scrollback (warm prompt at $HOME) so it doesn't flash.
+              // Let cd+clear execute behind the overlay, then reveal after a short
+              // fixed delay — long enough for cd+clear+prompt to finish, short enough
+              // to feel instant.
+              connectPtyOutputFresh(newId, (data: Uint8Array) => term.write(data));
+              setTimeout(() => {
+                requestAnimationFrame(() => requestAnimationFrame(() => removeOverlay()));
+              }, 150);
             } else if (isNew) {
               connectPtyOutput(newId, (data: Uint8Array) => {
                 debouncedRemoveOverlay();
