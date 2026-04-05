@@ -13,7 +13,7 @@ import { closePty, closePtysForPanes, disposeCached } from '@superagent/terminal
 
 import * as gitApi from './git';
 import { collectAllLeafPaneIds, collectLeafPtyIds } from './pane-tree-ops';
-import { addTab, closeTab } from './tab-actions';
+import { closeTab } from './tab-actions';
 import { showErrorToast, showInfoToast } from './toast';
 
 type NavigateFn = (opts: { to: string; params?: Record<string, string> }) => void;
@@ -278,9 +278,8 @@ export function startWorktreeCreation(
     draft.creatingWorktreeId = wtItemId;
   });
 
-  // Navigate to worktree and open a tab for it
+  // Navigate to the new worktree (tab can be opened manually after creation)
   selectWorkspaceItem(wtItemId, navigate);
-  addTab(wtItemId);
 
   // Run git op in background
   void (async () => {
