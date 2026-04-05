@@ -106,20 +106,22 @@ export function useTerminal(
       term = cached.term;
       fitAddon = cached.fitAddon;
 
+      // Overlay prevents ghosting (stale canvas visible for one frame before
+      // ghostty-web repaints). It must be a sibling of el inside container, NOT
+      // a child of el (term.element/wrapper): mutating el's children can trigger
+      // ghostty-web's internal DOM observers and cause it to re-attach keyboard
+      // listeners, producing visual duplication and double-typed characters.
+      // container.style.position = 'relative' establishes a positioning context so
+      // that position:absolute;inset:0 on the overlay resolves against container.
+      container.style.position = 'relative';
+      const transitionOverlay = document.createElement('div');
+      transitionOverlay.style.cssText = `position:absolute;inset:0;background:${themeBg};z-index:1;pointer-events:none`;
+      container.appendChild(transitionOverlay);
+      removeOverlay = () => transitionOverlay.remove();
+
       const el = term.element;
-      if (el) {
-        // Overlay goes INSIDE el (which has position:relative) and is inserted BEFORE
-        // el enters the DOM. This guarantees the stale canvas is never visible for even
-        // one frame — the overlay is already in place when the browser first paints el
-        // in its new container. Using container as the overlay parent failed because
-        // container has no positioning context, so position:absolute;inset:0 was
-        // resolved relative to a higher ancestor and the canvas showed through.
-        const transitionOverlay = document.createElement('div');
-        transitionOverlay.style.cssText = `position:absolute;inset:0;background:${themeBg};z-index:1;pointer-events:none`;
-        el.appendChild(transitionOverlay);
-        removeOverlay = () => transitionOverlay.remove();
-        container.appendChild(el);
-      }
+      if (el) container.appendChild(el);
+
       connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
       fitAddon.fit();
       // Unconditional resize IPC on cached remount — ptyId is the real pid,
