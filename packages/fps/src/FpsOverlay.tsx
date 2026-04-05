@@ -44,7 +44,7 @@ function Sparkline({ history }: { history: number[] }) {
       <polyline
         points={points}
         fill="none"
-        stroke={fpsColor(history[history.length - 1])}
+        stroke={fpsColor(history[history.length - 1]!)}
         strokeWidth={1.5}
         strokeLinejoin="round"
         strokeLinecap="round"

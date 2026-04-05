@@ -697,7 +697,6 @@ pub async fn poll_all_workspace_states(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
     use tempfile::TempDir;
 
     /// Create a test repo with an initial commit so branches exist
@@ -719,7 +718,7 @@ mod tests {
     #[test]
     fn test_import_repo() {
         let tmp = TempDir::new().unwrap();
-        let repo = init_repo_with_commit(tmp.path());
+        let _repo = init_repo_with_commit(tmp.path());
         let path = tmp.path().to_string_lossy().to_string();
 
         // Create extra branches that should NOT appear in import

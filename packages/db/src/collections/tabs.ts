@@ -74,7 +74,7 @@ export async function hydrateTabCollection(): Promise<void> {
   );
 }
 
-function commitTabAndUi(dbFn: () => Promise<void>, mutateFn: () => void): void {
+function commitTabAndUi(dbFn: () => Promise<unknown>, mutateFn: () => void): void {
   const tabCol = getTabCollection();
   const tx = createTransaction({
     mutationFn: async ({ transaction }) => {

@@ -108,8 +108,8 @@ describe('importRepo', () => {
     await importRepo('/Users/pierre/new-repo');
 
     expect(_workspaces).toHaveLength(1);
-    expect(_workspaces[0].path).toBe('/Users/pierre/new-repo');
-    expect(_workspaces[0].name).toBe('new-repo');
+    expect(_workspaces[0]!.path).toBe('/Users/pierre/new-repo');
+    expect(_workspaces[0]!.name).toBe('new-repo');
   });
 
   it('does not insert when path already exists — selects existing + shows info toast', async () => {
