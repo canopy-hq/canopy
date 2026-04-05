@@ -150,7 +150,7 @@ const TabItemComponent = memo(
     return (
       <button
         ref={mergedRef}
-        className={tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}
+        className={`${tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}${isDragging ? ' relative z-50 bg-bg-primary' : ''}`}
         style={
           frozenWidth !== null
             ? { ...dndStyle, width: frozenWidth, minWidth: frozenWidth, maxWidth: frozenWidth }
