@@ -41,15 +41,16 @@ const newTabLabel = (
 );
 
 const tabItem = tv({
-  base: 'group relative flex h-full max-w-[240px] min-w-[120px] shrink items-center gap-1.5 px-3 transition-colors',
+  base: 'group relative flex h-full max-w-[240px] min-w-[120px] shrink items-center gap-1.5 px-3 transition-colors touch-none',
   variants: {
     active: {
       true: 'bg-bg-secondary text-text-primary shadow-[inset_0_-3px_0_var(--accent)]',
       false: 'bg-transparent text-text-muted hover:bg-bg-secondary hover:text-text-secondary',
     },
     agentWaiting: { true: 'bg-(--agent-waiting-glow)' },
+    dragging: { true: 'pointer-events-none z-50 bg-bg-primary' },
   },
-  defaultVariants: { active: false, agentWaiting: false },
+  defaultVariants: { active: false, agentWaiting: false, dragging: false },
 });
 
 const closeButton = tv({
@@ -144,14 +145,16 @@ const TabItemComponent = memo(
     const dndStyle: React.CSSProperties = {
       transform: CSS.Transform.toString(transform ? { ...transform, scaleX: 1, scaleY: 1 } : null),
       transition,
-      touchAction: 'none',
-      ...(isDragging && { background: 'var(--bg-primary)' }),
     };
 
     return (
       <button
         ref={mergedRef}
-        className={`${tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}${isDragging ? ' pointer-events-none relative z-50' : ''}`}
+        className={tabItem({
+          active: isActive,
+          agentWaiting: agentStatus === 'waiting',
+          dragging: isDragging,
+        })}
         style={
           frozenWidth !== null
             ? { ...dndStyle, width: frozenWidth, minWidth: frozenWidth, maxWidth: frozenWidth }

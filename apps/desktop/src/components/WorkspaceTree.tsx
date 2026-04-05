@@ -73,10 +73,10 @@ const IconWithBadge = memo(function IconWithBadge({
   agentStatus?: DotStatus;
 }) {
   return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
-      <div style={{ display: 'block', lineHeight: 0, fontSize: 0 }}>{children}</div>
+    <div className="relative shrink-0">
+      <div className="block text-[0px] leading-[0]">{children}</div>
       {agentStatus && agentStatus !== 'idle' && (
-        <div style={{ position: 'absolute', top: -2, right: -2, lineHeight: 0 }}>
+        <div className="absolute -top-0.5 -right-0.5 leading-[0]">
           <StatusDot status={agentStatus} size={6} />
         </div>
       )}
@@ -203,7 +203,7 @@ const WorktreeRow = memo(
 );
 
 const repoHeader = tv({
-  base: 'flex items-center gap-1.5 border-l-[3px] py-1.5 pr-1.5 pl-3',
+  base: 'flex items-center gap-1.5 border-l-[3px] py-1.5 pr-1.5 pl-3 cursor-grab active:cursor-grabbing touch-none',
   variants: {
     selected: {
       true: 'border-accent bg-accent/[0.04]',
@@ -232,12 +232,7 @@ const RepoHeader = memo(
     const childCount = workspace.branches.length + workspace.worktrees.length;
 
     return (
-      <div
-        className={`${repoHeader({ selected: isSelected })} cursor-grab active:cursor-grabbing`}
-        style={{ touchAction: 'none' }}
-        onClick={onRowClick}
-        {...dragListeners}
-      >
+      <div className={repoHeader({ selected: isSelected })} onClick={onRowClick} {...dragListeners}>
         <svg
           width="14"
           height="14"
