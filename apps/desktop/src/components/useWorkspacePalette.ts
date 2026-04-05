@@ -46,6 +46,7 @@ export interface UseWorkspacePaletteReturn {
   setTab: (t: 'all' | 'worktrees') => void;
   // Create flow
   isCreateMode: boolean;
+  isCreating: boolean;
   sanitizedName: string;
   baseBranch: string;
   pickingBase: boolean;
@@ -75,6 +76,7 @@ export function useWorkspacePalette(
   const [allWorktrees, setAllWorktrees] = useState<WorktreeInfo[]>([]);
   const [baseBranch, setBaseBranch] = useState('');
   const [pickingBase, setPickingBase] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [_selectedId, _setSelectedId] = useState<string | null>(null);
 
   // Load data when workspace changes
@@ -241,8 +243,16 @@ export function useWorkspacePalette(
       if (!wtName) return;
       const wtPath = buildWorktreePath(workspace.name, wtName);
       const newBranch = existingBranch ? undefined : wtName;
-      await createWorktree(workspace.id, wtName, wtPath, existingBranch ?? base, newBranch);
-      ctx.close();
+      setIsCreating(true);
+      try {
+        await Promise.all([
+          createWorktree(workspace.id, wtName, wtPath, existingBranch ?? base, newBranch),
+          new Promise<void>((resolve) => setTimeout(resolve, 10_000)),
+        ]);
+        ctx.close();
+      } finally {
+        setIsCreating(false);
+      }
     },
     [sanitizedName, workspace, baseBranch, ctx],
   );
@@ -261,6 +271,7 @@ export function useWorkspacePalette(
     tab,
     setTab,
     isCreateMode,
+    isCreating,
     sanitizedName,
     baseBranch,
     pickingBase,

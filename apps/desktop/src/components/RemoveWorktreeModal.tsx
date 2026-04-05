@@ -6,7 +6,7 @@ import { Button } from './ui';
 export interface RemoveWorktreeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (alsoDeleteGit: boolean) => void;
+  onConfirm: (alsoDeleteGit: boolean) => Promise<void>;
   worktreeName: string;
 }
 
@@ -17,12 +17,22 @@ export function RemoveWorktreeModal({
   worktreeName,
 }: RemoveWorktreeModalProps) {
   const [deleteGit, setDeleteGit] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+
+  const handleConfirm = useCallback(async () => {
+    setIsPending(true);
+    try {
+      await onConfirm(deleteGit);
+    } finally {
+      setIsPending(false);
+    }
+  }, [onConfirm, deleteGit]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !isPending) onClose();
     },
-    [onClose],
+    [onClose, isPending],
   );
 
   if (!isOpen) return null;
@@ -67,14 +77,15 @@ export function RemoveWorktreeModal({
           )}
 
           <div className="mt-6 flex justify-end gap-2">
-            <Button variant="secondary" onPress={onClose}>
+            <Button variant="secondary" isDisabled={isPending} onPress={onClose}>
               Cancel
             </Button>
             <Button
               variant={deleteGit ? 'destructive' : 'primary'}
-              onPress={() => onConfirm(deleteGit)}
+              isDisabled={isPending}
+              onPress={handleConfirm}
             >
-              {deleteGit ? 'Delete Worktree' : 'Remove from Sidebar'}
+              {isPending ? 'Deleting…' : deleteGit ? 'Delete Worktree' : 'Remove from Sidebar'}
             </Button>
           </div>
         </Dialog>

@@ -112,36 +112,47 @@ fn enumerate_worktrees(repo: &Repository) -> Result<Vec<WorktreeInfo>, String> {
 }
 
 #[tauri::command]
-pub fn import_repo(path: String) -> Result<RepoInfo, String> {
-    let repo = Repository::open(&path).map_err(|e| e.to_string())?;
-    let name = Path::new(&path)
-        .file_name()
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_else(|| path.clone());
-    let all_branches = enumerate_branches(&repo, true)?;
-    let head_only: Vec<BranchInfo> = all_branches.into_iter().filter(|b| b.is_head).collect();
-    Ok(RepoInfo {
-        path,
-        name,
-        branches: head_only,
-        worktrees: Vec::new(),
+pub async fn import_repo(path: String) -> Result<RepoInfo, String> {
+    tokio::task::spawn_blocking(move || {
+        let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+        let name = Path::new(&path)
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| path.clone());
+        let all_branches = enumerate_branches(&repo, true)?;
+        let head_only: Vec<BranchInfo> = all_branches.into_iter().filter(|b| b.is_head).collect();
+        Ok(RepoInfo {
+            path,
+            name,
+            branches: head_only,
+            worktrees: Vec::new(),
+        })
     })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn list_branches(repo_path: String) -> Result<Vec<BranchInfo>, String> {
-    let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
-    enumerate_branches(&repo, false)
+pub async fn list_branches(repo_path: String) -> Result<Vec<BranchInfo>, String> {
+    tokio::task::spawn_blocking(move || {
+        let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
+        enumerate_branches(&repo, false)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn list_worktrees(repo_path: String) -> Result<Vec<WorktreeInfo>, String> {
-    let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
-    enumerate_worktrees(&repo)
+pub async fn list_worktrees(repo_path: String) -> Result<Vec<WorktreeInfo>, String> {
+    tokio::task::spawn_blocking(move || {
+        let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
+        enumerate_worktrees(&repo)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
-#[tauri::command]
-pub fn list_all_branches(repo_path: String) -> Result<Vec<BranchDetail>, String> {
+fn list_all_branches_sync(repo_path: String) -> Result<Vec<BranchDetail>, String> {
     let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
 
     // Collect worktree branch names for cross-reference
@@ -195,6 +206,13 @@ pub fn list_all_branches(repo_path: String) -> Result<Vec<BranchDetail>, String>
     }
 
     Ok(details)
+}
+
+#[tauri::command]
+pub async fn list_all_branches(repo_path: String) -> Result<Vec<BranchDetail>, String> {
+    tokio::task::spawn_blocking(move || list_all_branches_sync(repo_path))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 fn fetch_remote_sync(repo_path: &str) -> Result<(), String> {
@@ -274,41 +292,49 @@ pub async fn fetch_remote(repo_path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn create_branch(
+pub async fn create_branch(
     repo_path: String,
     name: String,
     base: String,
 ) -> Result<BranchInfo, String> {
-    let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
-    let base_branch = repo
-        .find_branch(&base, BranchType::Local)
-        .map_err(|e| e.to_string())?;
-    let commit = base_branch
-        .get()
-        .peel_to_commit()
-        .map_err(|e| e.to_string())?;
-    let branch = repo
-        .branch(&name, &commit, false)
-        .map_err(|e| e.to_string())?;
-    Ok(BranchInfo {
-        name,
-        is_head: branch.is_head(),
-        ahead: 0,
-        behind: 0,
+    tokio::task::spawn_blocking(move || {
+        let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
+        let base_branch = repo
+            .find_branch(&base, BranchType::Local)
+            .map_err(|e| e.to_string())?;
+        let commit = base_branch
+            .get()
+            .peel_to_commit()
+            .map_err(|e| e.to_string())?;
+        let branch = repo
+            .branch(&name, &commit, false)
+            .map_err(|e| e.to_string())?;
+        Ok(BranchInfo {
+            name,
+            is_head: branch.is_head(),
+            ahead: 0,
+            behind: 0,
+        })
     })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn delete_branch(repo_path: String, name: String) -> Result<(), String> {
-    let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
-    let mut branch = repo
-        .find_branch(&name, BranchType::Local)
-        .map_err(|e| e.to_string())?;
-    if branch.is_head() {
-        return Err("Cannot delete the currently checked-out branch.".to_string());
-    }
-    branch.delete().map_err(|e| e.to_string())?;
-    Ok(())
+pub async fn delete_branch(repo_path: String, name: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
+        let mut branch = repo
+            .find_branch(&name, BranchType::Local)
+            .map_err(|e| e.to_string())?;
+        if branch.is_head() {
+            return Err("Cannot delete the currently checked-out branch.".to_string());
+        }
+        branch.delete().map_err(|e| e.to_string())?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Find a branch commit, trying local first then origin remote.
@@ -361,8 +387,7 @@ fn find_local_or_tracking_branch<'repo>(
     }
 }
 
-#[tauri::command]
-pub fn create_worktree(
+fn create_worktree_sync(
     repo_path: String,
     name: String,
     path: String,
@@ -431,7 +456,19 @@ pub fn create_worktree(
 }
 
 #[tauri::command]
-pub fn remove_worktree(repo_path: String, name: String) -> Result<(), String> {
+pub async fn create_worktree(
+    repo_path: String,
+    name: String,
+    path: String,
+    base_branch: Option<String>,
+    new_branch: Option<String>,
+) -> Result<WorktreeInfo, String> {
+    tokio::task::spawn_blocking(move || create_worktree_sync(repo_path, name, path, base_branch, new_branch))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn remove_worktree_sync(repo_path: String, name: String) -> Result<(), String> {
     let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
     let wt = repo
         .find_worktree(&name)
@@ -448,6 +485,13 @@ pub fn remove_worktree(repo_path: String, name: String) -> Result<(), String> {
     prune_opts.valid(true).working_tree(true);
     wt.prune(Some(&mut prune_opts)).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn remove_worktree(repo_path: String, name: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || remove_worktree_sync(repo_path, name))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// Compute diff stats between a base tree and a branch tip tree.
@@ -715,18 +759,18 @@ mod tests {
         repo
     }
 
-    #[test]
-    fn test_import_repo() {
+    #[tokio::test]
+    async fn test_import_repo() {
         let tmp = TempDir::new().unwrap();
         let _repo = init_repo_with_commit(tmp.path());
         let path = tmp.path().to_string_lossy().to_string();
 
         // Create extra branches that should NOT appear in import
-        let branches = list_branches(path.clone()).unwrap();
+        let branches = list_branches(path.clone()).await.unwrap();
         let default_branch = &branches[0].name;
-        create_branch(path.clone(), "extra-branch".to_string(), default_branch.clone()).unwrap();
+        create_branch(path.clone(), "extra-branch".to_string(), default_branch.clone()).await.unwrap();
 
-        let info = import_repo(path).unwrap();
+        let info = import_repo(path).await.unwrap();
         assert_eq!(info.name, tmp.path().file_name().unwrap().to_string_lossy());
         // Should only have the HEAD branch
         assert_eq!(info.branches.len(), 1);
@@ -735,54 +779,54 @@ mod tests {
         assert!(info.worktrees.is_empty());
     }
 
-    #[test]
-    fn test_create_and_list_branches() {
+    #[tokio::test]
+    async fn test_create_and_list_branches() {
         let tmp = TempDir::new().unwrap();
         let _repo = init_repo_with_commit(tmp.path());
         let path = tmp.path().to_string_lossy().to_string();
 
         // Get the default branch name
-        let branches_before = list_branches(path.clone()).unwrap();
+        let branches_before = list_branches(path.clone()).await.unwrap();
         let default_branch = &branches_before[0].name;
 
         create_branch(path.clone(), "feature/test".to_string(), default_branch.clone())
-            .unwrap();
-        let branches = list_branches(path).unwrap();
+            .await.unwrap();
+        let branches = list_branches(path).await.unwrap();
         assert!(branches.iter().any(|b| b.name == "feature/test"));
     }
 
-    #[test]
-    fn test_delete_branch() {
+    #[tokio::test]
+    async fn test_delete_branch() {
         let tmp = TempDir::new().unwrap();
         let _repo = init_repo_with_commit(tmp.path());
         let path = tmp.path().to_string_lossy().to_string();
 
-        let branches = list_branches(path.clone()).unwrap();
+        let branches = list_branches(path.clone()).await.unwrap();
         let default_branch = &branches[0].name;
 
         create_branch(path.clone(), "to-delete".to_string(), default_branch.clone())
-            .unwrap();
-        delete_branch(path.clone(), "to-delete".to_string()).unwrap();
-        let branches = list_branches(path).unwrap();
+            .await.unwrap();
+        delete_branch(path.clone(), "to-delete".to_string()).await.unwrap();
+        let branches = list_branches(path).await.unwrap();
         assert!(!branches.iter().any(|b| b.name == "to-delete"));
     }
 
-    #[test]
-    fn test_delete_head_branch_fails() {
+    #[tokio::test]
+    async fn test_delete_head_branch_fails() {
         let tmp = TempDir::new().unwrap();
         let _repo = init_repo_with_commit(tmp.path());
         let path = tmp.path().to_string_lossy().to_string();
 
-        let branches = list_branches(path.clone()).unwrap();
+        let branches = list_branches(path.clone()).await.unwrap();
         let head_branch = branches.iter().find(|b| b.is_head).unwrap();
 
-        let result = delete_branch(path, head_branch.name.clone());
+        let result = delete_branch(path, head_branch.name.clone()).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Cannot delete"));
     }
 
-    #[test]
-    fn test_create_and_remove_worktree() {
+    #[tokio::test]
+    async fn test_create_and_remove_worktree() {
         let tmp = TempDir::new().unwrap();
         let _repo = init_repo_with_commit(tmp.path());
         let path = tmp.path().to_string_lossy().to_string();
@@ -796,28 +840,28 @@ mod tests {
             None,
             None,
         )
-        .unwrap();
+        .await.unwrap();
         assert_eq!(wt.name, "test-wt");
         assert!(wt_path.exists());
 
         // Now remove it
-        remove_worktree(path.clone(), "test-wt".to_string()).unwrap();
+        remove_worktree(path.clone(), "test-wt".to_string()).await.unwrap();
         // After prune, the worktree dir may still exist but git won't list it
-        let info = import_repo(path).unwrap();
+        let info = import_repo(path).await.unwrap();
         assert!(!info.worktrees.iter().any(|w| w.name == "test-wt"));
     }
 
-    #[test]
-    fn test_list_all_branches() {
+    #[tokio::test]
+    async fn test_list_all_branches() {
         let tmp = TempDir::new().unwrap();
         let _repo = init_repo_with_commit(tmp.path());
         let path = tmp.path().to_string_lossy().to_string();
 
-        let branches_before = list_branches(path.clone()).unwrap();
+        let branches_before = list_branches(path.clone()).await.unwrap();
         let default_branch = &branches_before[0].name;
-        create_branch(path.clone(), "feature/test".to_string(), default_branch.clone()).unwrap();
+        create_branch(path.clone(), "feature/test".to_string(), default_branch.clone()).await.unwrap();
 
-        let details = list_all_branches(path).unwrap();
+        let details = list_all_branches(path).await.unwrap();
         assert!(details.len() >= 2);
 
         let head = details.iter().find(|b| b.is_head).unwrap();
@@ -830,16 +874,16 @@ mod tests {
         assert!(!feat.is_in_worktree);
     }
 
-    #[test]
-    fn test_list_all_branches_detects_worktree() {
+    #[tokio::test]
+    async fn test_list_all_branches_detects_worktree() {
         let tmp = TempDir::new().unwrap();
         let _repo = init_repo_with_commit(tmp.path());
         let path = tmp.path().to_string_lossy().to_string();
 
-        let branches = list_branches(path.clone()).unwrap();
+        let branches = list_branches(path.clone()).await.unwrap();
         let default_branch = &branches[0].name;
 
-        create_branch(path.clone(), "wt-branch".to_string(), default_branch.clone()).unwrap();
+        create_branch(path.clone(), "wt-branch".to_string(), default_branch.clone()).await.unwrap();
         let wt_tmp = TempDir::new().unwrap();
         let wt_path = wt_tmp.path().join("test-wt");
         create_worktree(
@@ -848,36 +892,36 @@ mod tests {
             wt_path.to_string_lossy().to_string(),
             Some("wt-branch".to_string()),
             None,
-        ).unwrap();
+        ).await.unwrap();
 
-        let details = list_all_branches(path).unwrap();
+        let details = list_all_branches(path).await.unwrap();
         let wt_branch = details.iter().find(|b| b.name == "wt-branch").unwrap();
         assert!(wt_branch.is_in_worktree);
     }
 
-    #[test]
-    fn test_ahead_behind_no_upstream() {
+    #[tokio::test]
+    async fn test_ahead_behind_no_upstream() {
         let tmp = TempDir::new().unwrap();
         let _repo = init_repo_with_commit(tmp.path());
         let info =
-            import_repo(tmp.path().to_string_lossy().to_string()).unwrap();
+            import_repo(tmp.path().to_string_lossy().to_string()).await.unwrap();
         for branch in &info.branches {
             assert_eq!(branch.ahead, 0);
             assert_eq!(branch.behind, 0);
         }
     }
 
-    #[test]
-    fn test_get_diff_stats() {
+    #[tokio::test]
+    async fn test_get_diff_stats() {
         let tmp = TempDir::new().unwrap();
         let repo = init_repo_with_commit(tmp.path());
         let path = tmp.path().to_string_lossy().to_string();
 
-        let branches = list_branches(path.clone()).unwrap();
+        let branches = list_branches(path.clone()).await.unwrap();
         let default_branch = &branches[0].name;
 
         // Create a feature branch and add a file on it
-        create_branch(path.clone(), "feature/stats".to_string(), default_branch.clone()).unwrap();
+        create_branch(path.clone(), "feature/stats".to_string(), default_branch.clone()).await.unwrap();
 
         // Checkout the feature branch and create a file
         let branch = repo
@@ -942,15 +986,19 @@ mod tests {
         let repo = init_repo_with_commit(dir);
         let path = dir.to_string_lossy().to_string();
 
-        let branches = list_branches(path.clone()).unwrap();
-        let default_branch = &branches[0].name;
+        let branches = {
+            let r = Repository::open(&path).unwrap();
+            enumerate_branches(&r, false).unwrap()
+        };
+        let default_branch = branches[0].name.clone();
 
-        create_branch(
-            path.clone(),
-            "feature/batch-test".to_string(),
-            default_branch.clone(),
-        )
-        .unwrap();
+        // Create the feature branch directly via git2
+        {
+            let r = Repository::open(&path).unwrap();
+            let branch = r.find_branch(&default_branch, BranchType::Local).unwrap();
+            let commit = branch.get().peel_to_commit().unwrap();
+            r.branch("feature/batch-test", &commit, false).unwrap();
+        }
 
         // Add a file on the feature branch
         let branch = repo
@@ -1039,15 +1087,15 @@ mod tests {
         assert!(stats3.is_empty(), "Repo 3 should have empty stats");
     }
 
-    #[test]
-    fn test_enumerate_branches_lightweight() {
+    #[tokio::test]
+    async fn test_enumerate_branches_lightweight() {
         let tmp = TempDir::new().unwrap();
         let repo = init_repo_with_commit(tmp.path());
         let path = tmp.path().to_string_lossy().to_string();
 
-        let branches = list_branches(path.clone()).unwrap();
+        let branches = list_branches(path.clone()).await.unwrap();
         let default_branch = &branches[0].name;
-        create_branch(path.clone(), "feature/light".to_string(), default_branch.clone()).unwrap();
+        create_branch(path.clone(), "feature/light".to_string(), default_branch.clone()).await.unwrap();
 
         let full = enumerate_branches(&repo, false).unwrap();
         let light = enumerate_branches(&repo, true).unwrap();
@@ -1113,8 +1161,8 @@ mod tests {
         assert!(result.unwrap_err().contains("origin"));
     }
 
-    #[test]
-    fn test_fetch_remote_prunes_deleted_branch() {
+    #[tokio::test]
+    async fn test_fetch_remote_prunes_deleted_branch() {
         // Set up a bare "remote" repo
         let remote_dir = TempDir::new().unwrap();
         let remote_repo = Repository::init_bare(remote_dir.path()).unwrap();
@@ -1141,7 +1189,7 @@ mod tests {
         let clone_path = clone_dir.path().to_string_lossy().to_string();
 
         // Verify remote branch exists in clone
-        let branches_before = list_all_branches(clone_path.clone()).unwrap();
+        let branches_before = list_all_branches(clone_path.clone()).await.unwrap();
         assert!(branches_before.iter().any(|b| b.name == "feature/stale"));
 
         // Delete the branch on the remote
@@ -1155,7 +1203,7 @@ mod tests {
         fetch_remote_sync(&clone_path).unwrap();
 
         // Verify the stale remote tracking branch is gone
-        let branches_after = list_all_branches(clone_path).unwrap();
+        let branches_after = list_all_branches(clone_path).await.unwrap();
         assert!(!branches_after.iter().any(|b| b.name == "feature/stale"));
     }
 }

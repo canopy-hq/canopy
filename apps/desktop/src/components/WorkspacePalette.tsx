@@ -51,6 +51,7 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
     tab,
     setTab,
     isCreateMode,
+    isCreating,
     sanitizedName,
     baseBranch,
     pickingBase,
@@ -316,6 +317,28 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
+
+  if (isCreating) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 px-6 py-12">
+        <svg
+          className="animate-spin text-accent"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+        </svg>
+        <span className="text-[13px] font-medium text-text-primary">Creating worktree…</span>
+        <span className="text-[11px] text-text-muted">Setting up your workspace</span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col">
