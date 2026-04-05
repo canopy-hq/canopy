@@ -50,10 +50,13 @@ pub fn run() {
             // Locate daemon socket and binary.
             // Always use the canonical app data dir so all dev worktrees (which may
             // override the identifier for single-instance scoping) share one daemon.
-            let data_dir = std::env::var("SUPERAGENT_DATA_DIR")
-                .map(std::path::PathBuf::from)
-                .unwrap_or_else(|_| app.path().app_data_dir().expect("app data dir"));
-            std::fs::create_dir_all(&data_dir).ok();
+            let data_dir = match std::env::var("SUPERAGENT_DATA_DIR") {
+                Ok(dir) => std::path::PathBuf::from(dir),
+                Err(_) => app.path().app_data_dir()?,
+            };
+            if let Err(e) = std::fs::create_dir_all(&data_dir) {
+                eprintln!("Warning: could not create data dir {}: {e}", data_dir.display());
+            }
             let socket = data_dir.join("pty-daemon.sock");
             let bin = std::env::current_exe()
                 .ok()
