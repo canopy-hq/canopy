@@ -356,9 +356,9 @@ export function useTerminal(
             resizeGraceUntil = Date.now() + 500;
 
             if (fromPool) {
-              // Warm terminal: daemon sent cd+clear before returning, and
-              // attach_fresh delays 200ms so cd echo is never received.
-              // Only the shell prompt output reaches the handler.
+              // Warm terminal: daemon sent cd+clear+sentinel before returning.
+              // attach_fresh scans for the OSC sentinel and discards everything
+              // before it — only live shell output reaches the handler.
               // Hide cursor while waiting — ghostty renders it at open().
               term.write('\x1b[?25l');
               let cursorRestored = false;

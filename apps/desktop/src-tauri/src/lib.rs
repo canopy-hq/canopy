@@ -72,7 +72,9 @@ pub fn run() {
             let drain_socket = socket.clone();
             tauri::async_runtime::spawn(async move {
                 let client = DaemonClient::new(drain_socket);
-                let _ = client.drain_pool().await;
+                if let Err(e) = client.drain_pool().await {
+                    eprintln!("Warning: failed to drain stale pool entries: {e}");
+                }
             });
 
             app.manage(DaemonClient::new(socket));

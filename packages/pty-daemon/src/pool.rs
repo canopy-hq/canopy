@@ -44,6 +44,11 @@ impl Pool {
         });
     }
 
+    /// Get a mutable reference to an entry by temp_pane_id.
+    pub fn entry_mut(&mut self, temp_pane_id: &str) -> Option<&mut PoolEntry> {
+        self.entries.iter_mut().find(|e| e.temp_pane_id == temp_pane_id)
+    }
+
     /// Mark a warm session as ready (called when first output byte received).
     pub fn mark_ready(&mut self, temp_pane_id: &str) {
         if let Some(entry) = self.entries.iter_mut().find(|e| e.temp_pane_id == temp_pane_id) {
@@ -52,8 +57,10 @@ impl Pool {
     }
 
     /// Claim a ready session. Returns (temp_pane_id, pid) or None if pool empty.
+    /// Requires both Ready status and a valid pid (> 0) to avoid racing with
+    /// pool_warm_one which sets pid after spawn completes.
     pub fn claim(&mut self) -> Option<(String, u32)> {
-        let idx = self.entries.iter().position(|e| e.status == WarmStatus::Ready)?;
+        let idx = self.entries.iter().position(|e| e.status == WarmStatus::Ready && e.pid > 0)?;
         let entry = self.entries.remove(idx)?;
         Some((entry.temp_pane_id, entry.pid))
     }
@@ -146,6 +153,20 @@ mod tests {
         let mut pool = make_pool_with_entries(&[WarmStatus::Ready, WarmStatus::Ready]);
         pool.remove_dead("__pool_0");
         assert_eq!(pool.status(), (1, 0));
+    }
+
+    #[test]
+    fn claim_returns_none_when_ready_but_pid_zero() {
+        let mut pool = Pool::new();
+        pool.add_entry("__pool_0".to_string(), 0);
+        pool.mark_ready("__pool_0");
+        // pid=0 means spawn hasn't completed yet — must not be claimable
+        assert!(pool.claim().is_none());
+        // Once pid is set, claim succeeds
+        pool.entry_mut("__pool_0").unwrap().pid = 42;
+        let (id, pid) = pool.claim().unwrap();
+        assert_eq!(id, "__pool_0");
+        assert_eq!(pid, 42);
     }
 
     #[test]

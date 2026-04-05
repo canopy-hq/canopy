@@ -219,27 +219,34 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                                         tail.drain(..keep_from);
                                     }
                                 }
-                                Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                                Err(broadcast::error::RecvError::Lagged(_)) => {
+                                    // Lagged chunks are lost — reset scan state so we
+                                    // don't carry stale partial bytes across the gap.
+                                    tail.clear();
+                                    continue;
+                                }
                                 Err(_) => return None,
                             }
                         }
                     },
                 ).await;
 
-                // Send sentinel frame (marks "ready" for the Tauri attach_impl)
+                // Clear scrollback in all outcomes so future regular attach
+                // never replays cd/clear/sentinel bytes.
+                {
+                    let mut st = state.lock().unwrap();
+                    if let Some(sess) = st.sessions.get_mut(&pane_id) {
+                        sess.scrollback.clear();
+                    }
+                }
+
+                // Send sentinel frame — signals "ready" to the Tauri attach_impl.
                 if write_half.write_all(&[0u8; 4]).await.is_err() {
                     return;
                 }
 
                 let mut rx = match scan_result {
                     Ok(Some((leftover, rx_back))) => {
-                        // Clear scrollback so future regular attach doesn't see cd echo
-                        {
-                            let mut st = state.lock().unwrap();
-                            if let Some(sess) = st.sessions.get_mut(&pane_id) {
-                                sess.scrollback.clear();
-                            }
-                        }
                         // Forward any bytes that came after the sentinel
                         if !leftover.is_empty() {
                             let len = (leftover.len() as u32).to_be_bytes();
@@ -250,7 +257,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                     }
                     Ok(None) => return, // channel closed
                     Err(_) => {
-                        // Timeout — sentinel never arrived, re-subscribe and stream anyway
+                        // Timeout — re-subscribe at broadcast head and stream live output.
                         let st = state.lock().unwrap();
                         match st.sessions.get(&pane_id).map(|s| s.tx.subscribe()) {
                             Some(r) => r,
@@ -338,46 +345,39 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 let rows = cmd["rows"].as_u64().unwrap_or(24) as u16;
                 let cols = cmd["cols"].as_u64().unwrap_or(80) as u16;
 
-                let claimed = {
-                    let mut st = state.lock().unwrap();
-                    st.pool.claim()
+                // Build the cd+clear+sentinel command outside the lock
+                let cd_cmd = match &cwd {
+                    Some(dir) => format!(
+                        " cd {} && clear && printf '\\x1b]555;poolready\\x07'\n",
+                        shell_escape(dir),
+                    ),
+                    None => "clear && printf '\\x1b]555;poolready\\x07'\n".to_string(),
                 };
 
-                let resp = match claimed {
-                    Some((temp_pane_id, pid)) => {
-                        // Remap session key: temp → real pane_id.
-                        // Update the shared pane ID FIRST so the reader thread
-                        // follows the remap and continues finding the session.
-                        {
-                            let mut st = state.lock().unwrap();
+                // Single lock: claim → remap → resize → write cd/clear
+                let claimed = {
+                    let mut st = state.lock().unwrap();
+                    match st.pool.claim() {
+                        Some((temp_pane_id, pid)) => {
                             if let Some(mut session) = st.sessions.remove(&temp_pane_id) {
-                                // Tell the reader thread about the new key
                                 *session.current_pane_id.lock().unwrap() = pane_id.clone();
+                                // Resize BEFORE cd/clear so clear runs at user's dimensions
                                 let _ = session.master.resize(PtySize {
                                     rows, cols, pixel_width: 0, pixel_height: 0,
                                 });
                                 session.scrollback.clear();
+                                let _ = session.writer.write_all(cd_cmd.as_bytes());
+                                let _ = session.writer.flush();
                                 st.sessions.insert(pane_id.clone(), session);
                             }
+                            Some(pid)
                         }
+                        None => None,
+                    }
+                };
 
-                        // Send cd + clear + sentinel: the sentinel is an OSC sequence
-                        // that attach_fresh scans for — all output before it is discarded.
-                        // This replaces the old 200ms sleep with a deterministic protocol.
-                        let cd_cmd = match &cwd {
-                            Some(dir) => format!(
-                                " cd {} && clear && printf '\\x1b]555;poolready\\x07'\n",
-                                shell_escape(dir),
-                            ),
-                            None => "clear && printf '\\x1b]555;poolready\\x07'\n".to_string(),
-                        };
-                        {
-                            let mut st = state.lock().unwrap();
-                            if let Some(sess) = st.sessions.get_mut(&pane_id) {
-                                let _ = sess.writer.write_all(cd_cmd.as_bytes());
-                                let _ = sess.writer.flush();
-                            }
-                        }
+                let resp = match claimed {
+                    Some(pid) => {
 
                         // Replenish pool in background
                         let state_clone = state.clone();
@@ -446,14 +446,33 @@ fn shell_escape(s: &str) -> String {
 fn pool_warm_one(state: &Arc<Mutex<DaemonState>>) -> Result<(), String> {
     let temp_id = {
         let mut st = state.lock().unwrap();
-        st.pool.next_temp_id()
+        let id = st.pool.next_temp_id();
+        // Register pool entry BEFORE spawning so mark_ready (from reader thread)
+        // always finds the entry — closes the race where fast shell output could
+        // call mark_ready before add_entry.
+        st.pool.add_entry(id.clone(), 0);
+        id
     };
-    let (pid, _) = do_spawn(state.clone(), temp_id.clone(), None, 24, 80, None, vec![])?;
-    {
-        let mut st = state.lock().unwrap();
-        st.pool.add_entry(temp_id, pid);
+    let spawn_result = do_spawn(state.clone(), temp_id.clone(), None, 24, 80, None, vec![]);
+    match spawn_result {
+        Ok((pid, _)) => {
+            let mut st = state.lock().unwrap();
+            // Set the real pid. mark_ready may have already fired from the reader
+            // thread, but claim() requires both Ready status AND pid > 0, so the
+            // entry won't be handed out until this line executes.
+            if let Some(entry) = st.pool.entry_mut(&temp_id) {
+                entry.pid = pid;
+            }
+            Ok(())
+        }
+        Err(e) => {
+            // Remove the pre-registered entry so it doesn't permanently occupy
+            // a pool slot and block deficit-based replenishment.
+            let mut st = state.lock().unwrap();
+            st.pool.remove_dead(&temp_id);
+            Err(e)
+        }
     }
-    Ok(())
 }
 
 /// Returns `(pid, is_new)` where `is_new` is false when the session already existed.

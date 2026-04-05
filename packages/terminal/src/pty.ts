@@ -10,7 +10,8 @@ const encoder = new TextEncoder();
 // they share one promise → one Rust spawn_terminal call → one ChannelEntry.
 const pendingSpawns = new Map<string, Promise<{ ptyId: number; isNew: boolean }>>();
 
-export async function spawnTerminal(
+function invokeWithChannel(
+  command: string,
   paneId: string,
   cwd?: string,
   rows?: number,
@@ -21,13 +22,10 @@ export async function spawnTerminal(
 
   const promise = (async () => {
     const entry = createChannelEntry();
-
     const channel = new Channel<number[]>();
-    channel.onmessage = (data: number[]) => {
-      entry.onData(data);
-    };
+    channel.onmessage = (data: number[]) => entry.onData(data);
 
-    const { pty_id, is_new } = await invoke<{ pty_id: number; is_new: boolean }>('spawn_terminal', {
+    const { pty_id, is_new } = await invoke<{ pty_id: number; is_new: boolean }>(command, {
       paneId,
       cwd,
       rows,
@@ -43,39 +41,27 @@ export async function spawnTerminal(
   return promise;
 }
 
-/** Debug only — not used in hot path. The claim flow tries claimWarmTerminal directly. */
-export async function getPoolStatus(): Promise<{ ready: number; warming: number }> {
-  return invoke<{ ready: number; warming: number }>('pool_status');
-}
-
-export async function claimWarmTerminal(
+export function spawnTerminal(
   paneId: string,
   cwd?: string,
   rows?: number,
   cols?: number,
 ): Promise<{ ptyId: number; isNew: boolean }> {
-  const existing = pendingSpawns.get(paneId);
-  if (existing) return existing;
+  return invokeWithChannel('spawn_terminal', paneId, cwd, rows, cols);
+}
 
-  const promise = (async () => {
-    const entry = createChannelEntry();
+export function claimWarmTerminal(
+  paneId: string,
+  cwd?: string,
+  rows?: number,
+  cols?: number,
+): Promise<{ ptyId: number; isNew: boolean }> {
+  return invokeWithChannel('claim_warm_terminal', paneId, cwd, rows, cols);
+}
 
-    const channel = new Channel<number[]>();
-    channel.onmessage = (data: number[]) => {
-      entry.onData(data);
-    };
-
-    const { pty_id, is_new } = await invoke<{ pty_id: number; is_new: boolean }>(
-      'claim_warm_terminal',
-      { paneId, cwd, rows, cols, onOutput: channel },
-    );
-
-    outputRegistry.set(pty_id, entry);
-    return { ptyId: pty_id, isNew: is_new };
-  })().finally(() => pendingSpawns.delete(paneId));
-
-  pendingSpawns.set(paneId, promise);
-  return promise;
+/** Debug only — not used in hot path. */
+export async function getPoolStatus(): Promise<{ ready: number; warming: number }> {
+  return invoke<{ ready: number; warming: number }>('pool_status');
 }
 
 /** Wire (or re-wire) a PTY's output to a handler. Flushes buffered scrollback on first call (reconnect path). */
