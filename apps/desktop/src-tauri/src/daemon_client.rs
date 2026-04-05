@@ -114,6 +114,41 @@ impl DaemonClient {
         }
     }
 
+    /// Claim a warm session from the pool, remapping it to the given pane_id.
+    /// Returns `(pid, is_new=true)` on success. Returns Err if pool is empty.
+    pub async fn claim(&self, pane_id: &str, cwd: Option<&str>, rows: u16, cols: u16) -> Result<(u32, bool), String> {
+        let mut obj = serde_json::json!({
+            "op": "claim",
+            "paneId": pane_id,
+            "rows": rows,
+            "cols": cols,
+        });
+        if let Some(cwd) = cwd {
+            obj["cwd"] = serde_json::json!(cwd);
+        }
+        let msg = format!("{obj}\n");
+
+        let resp = self.send_cmd(&msg).await?;
+        if resp["ok"].as_bool() == Some(true) {
+            let pid = resp["pid"]
+                .as_u64()
+                .map(|p| p as u32)
+                .ok_or_else(|| "daemon: claim returned no pid".to_string())?;
+            Ok((pid, true))
+        } else {
+            Err(resp["error"].as_str().unwrap_or("claim failed").to_string())
+        }
+    }
+
+    /// Query pool readiness.
+    pub async fn pool_status(&self) -> Result<(u32, u32), String> {
+        let msg = "{\"op\":\"pool_status\",\"paneId\":\"\"}\n".to_string();
+        let resp = self.send_cmd(&msg).await?;
+        let ready = resp["ready"].as_u64().unwrap_or(0) as u32;
+        let warming = resp["warming"].as_u64().unwrap_or(0) as u32;
+        Ok((ready, warming))
+    }
+
     /// Write data to a PTY session (fire-and-forget, persistent stream).
     pub async fn write(&self, pane_id: &str, data: &[u8]) -> Result<(), String> {
         let msg = format!(

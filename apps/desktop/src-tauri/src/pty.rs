@@ -89,6 +89,67 @@ pub async fn spawn_terminal(
     Ok(SpawnResult { pty_id: pid, is_new })
 }
 
+#[derive(serde::Serialize)]
+pub struct PoolStatus {
+    pub ready: u32,
+    pub warming: u32,
+}
+
+#[tauri::command]
+pub async fn pool_status(
+    daemon: tauri::State<'_, DaemonClient>,
+) -> Result<PoolStatus, String> {
+    let (ready, warming) = daemon.pool_status().await?;
+    Ok(PoolStatus { ready, warming })
+}
+
+#[tauri::command]
+pub async fn claim_warm_terminal(
+    pane_id: String,
+    cwd: Option<String>,
+    rows: Option<u16>,
+    cols: Option<u16>,
+    on_output: Channel<Vec<u8>>,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<PtyState>>,
+    daemon: tauri::State<'_, DaemonClient>,
+    watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
+) -> Result<SpawnResult, String> {
+    let (pid, is_new) = daemon.claim(&pane_id, cwd.as_deref(), rows.unwrap_or(24), cols.unwrap_or(80)).await?;
+
+    {
+        let mut s = state.lock().map_err(|e| e.to_string())?;
+        s.sessions.insert(pid, pane_id.clone());
+        if let Some(old_handle) = s.attach_handles.remove(&pane_id) {
+            old_handle.abort();
+        }
+    }
+
+    let last_output = Arc::new(AtomicU64::new(now_millis()));
+    let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<()>();
+    let handle = daemon.attach(pane_id.clone(), on_output, last_output.clone(), ready_tx);
+
+    let _ = tokio::time::timeout(
+        std::time::Duration::from_millis(2000),
+        ready_rx,
+    ).await;
+
+    {
+        let mut s = state.lock().map_err(|e| e.to_string())?;
+        s.attach_handles.insert(pane_id.clone(), handle);
+    }
+
+    let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
+    {
+        let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
+        ws.last_outputs.insert(pid, last_output.clone());
+        ws.cancel_senders.insert(pid, cancel_tx);
+    }
+    agent_watcher::start_watching(pid, pid, app, last_output, cancel_rx);
+
+    Ok(SpawnResult { pty_id: pid, is_new })
+}
+
 #[tauri::command]
 pub async fn write_to_pty(
     pty_id: u32,
