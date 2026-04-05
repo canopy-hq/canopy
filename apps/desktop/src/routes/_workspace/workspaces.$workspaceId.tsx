@@ -4,7 +4,7 @@ import { createFileRoute } from '@tanstack/react-router';
 
 import { PaneContainer } from '../../components/PaneContainer';
 import { TabBar } from '../../components/TabBar';
-import { Button } from '../../components/ui';
+import { Button, Kbd } from '../../components/ui';
 import { useUiState, useTabs } from '../../hooks/useCollections';
 import { setActiveContext, addTab } from '../../lib/tab-actions';
 import { toggleSidebar } from '../../lib/workspace-actions';
@@ -39,14 +39,6 @@ function WorkspaceRoute() {
   );
 }
 
-function KbdBadge({ children }: { children: string }) {
-  return (
-    <span className="inline-flex min-w-[22px] items-center justify-center rounded-[5px] border border-border bg-bg-tertiary px-[5px] text-[12px] leading-[22px] text-text-muted">
-      {children}
-    </span>
-  );
-}
-
 function EmptyState() {
   return (
     <div className="flex h-full flex-1 flex-col items-center justify-center gap-1 select-none">
@@ -75,7 +67,7 @@ function EmptyState() {
           <path d="M9 10h3" />
         </svg>
         <span className="flex-1 text-left">New Terminal</span>
-        <KbdBadge>⌘T</KbdBadge>
+        <Kbd>⌘T</Kbd>
       </Button>
 
       <Button
@@ -98,7 +90,7 @@ function EmptyState() {
           <path d="M6 1v14" />
         </svg>
         <span className="flex-1 text-left">Toggle Sidebar</span>
-        <KbdBadge>⌘B</KbdBadge>
+        <Kbd>⌘B</Kbd>
       </Button>
     </div>
   );

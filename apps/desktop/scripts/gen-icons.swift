@@ -1,7 +1,7 @@
 #!/usr/bin/swift
 /// gen-icons.swift — Run from apps/desktop/
 /// Generates a macOS-style icon from logo-source.png:
-///   • squircle clip mask (~22.4% corner radius, matches macOS)
+///   • squircle clip mask (superellipse n=5, continuous curvature — true macOS shape)
 ///   • solid background color
 ///   • diagonal specular border highlight (top-left ↔ bottom-right)
 ///   • outputs icon.png + ICNS + Tauri bundle PNGs via sips + iconutil
@@ -13,11 +13,11 @@ import Foundation
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 let bgColor        = NSColor(srgbRed: 10/255, green: 10/255, blue: 20/255, alpha: 1)
-let canvasInset:       CGFloat = 0.08   // transparent margin around squircle (% of canvas)
-let cornerRadiusRatio: CGFloat = 0.224  // ~22.4% — matches macOS squircle
+let canvasInset:       CGFloat = 0.1  // transparent margin around squircle (% of canvas)
+let squircleExponent:  CGFloat = 5.0    // superellipse exponent (macOS ≈ 5); higher → squarer
 let paddingRatio:      CGFloat = 0.095  // logo padding each side (% of squircle)
 let borderWidth:       CGFloat = 7.0    // specular stroke width (at 1024px)
-let borderOpacity:     CGFloat = 0.28   // max highlight opacity (corners)
+let borderOpacity:     CGFloat = 0.50   // max highlight opacity (corners)
 // ────────────────────────────────────────────────────────────────────────────
 
 func fail(_ msg: String) -> Never {
@@ -58,9 +58,25 @@ else { fail("Could not create CGContext") }
 
 let inset        = iconSize * canvasInset
 let squircleRect = CGRect(x: 0, y: 0, width: iconSize, height: iconSize).insetBy(dx: inset, dy: inset)
-let radius       = squircleRect.width * cornerRadiusRatio
 let logoPad      = inset + squircleRect.width * paddingRatio
-let squirclePath = CGPath(roundedRect: squircleRect, cornerWidth: radius, cornerHeight: radius, transform: nil)
+// True superellipse: |x/rx|^n + |y/ry|^n = 1  — continuous curvature, no abrupt arc transitions
+let squirclePath: CGPath = {
+    let cx = squircleRect.midX, cy = squircleRect.midY
+    let rx = squircleRect.width / 2, ry = squircleRect.height / 2
+    let path = CGMutablePath()
+    let steps = 2000
+    for i in 0 ..< steps {
+        let t = 2 * CGFloat.pi * CGFloat(i) / CGFloat(steps)
+        let c = cos(t), s = sin(t)
+        let pt = CGPoint(
+            x: cx + rx * pow(abs(c), 2.0 / squircleExponent) * (c < 0 ? -1 : 1),
+            y: cy + ry * pow(abs(s), 2.0 / squircleExponent) * (s < 0 ? -1 : 1)
+        )
+        if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
+    }
+    path.closeSubpath()
+    return path
+}()
 
 ctx.addPath(squirclePath)
 ctx.clip()
@@ -82,9 +98,10 @@ ctx.clip()
 let gradColors: [CGColor] = [
     NSColor(white: 1, alpha: borderOpacity).cgColor,
     NSColor(white: 1, alpha: 0).cgColor,
+    NSColor(white: 1, alpha: 0).cgColor,
     NSColor(white: 1, alpha: borderOpacity).cgColor,
 ]
-guard let gradient = CGGradient(colorsSpace: cs, colors: gradColors as CFArray, locations: [0, 0.5, 1] as [CGFloat])
+guard let gradient = CGGradient(colorsSpace: cs, colors: gradColors as CFArray, locations: [0, 0.35, 0.65, 1] as [CGFloat])
 else { fail("Could not create gradient") }
 ctx.drawLinearGradient(gradient,
     start: CGPoint(x: squircleRect.minX, y: squircleRect.maxY),

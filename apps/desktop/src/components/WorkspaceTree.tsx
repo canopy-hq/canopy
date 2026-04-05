@@ -40,7 +40,7 @@ const DiffPill = memo(function DiffPill({
 }) {
   if (additions === 0 && deletions === 0) return null;
   return (
-    <span className="inline-flex flex-shrink-0 gap-1 rounded bg-white/5 px-1.5 py-px text-[11px] font-medium whitespace-nowrap">
+    <span className="inline-flex flex-shrink-0 gap-1 rounded bg-white/5 px-1.5 py-px text-ui-sm font-medium whitespace-nowrap">
       {additions > 0 && <span className="text-(--git-ahead) tabular-nums">+{additions}</span>}
       {deletions > 0 && (
         <span className="text-(--git-behind) tabular-nums">&minus;{deletions}</span>
@@ -80,8 +80,8 @@ const BranchRow = memo(
     diffStat?: DiffStat;
   }) {
     return (
-      <div className="my-px mr-1.5 rounded-[5px] border-l-[3px] border-transparent py-[3px] pr-1.5 pl-[12px]">
-        <div className="flex items-center gap-[6px]">
+      <div className="my-px mr-1.5 rounded-[5px] border-l-[3px] border-transparent py-0.75 pr-1.5 pl-3">
+        <div className="flex items-center gap-1.5">
           <IconWithBadge agentStatus={agentStatus}>
             <Laptop
               size={14}
@@ -90,14 +90,14 @@ const BranchRow = memo(
             />
           </IconWithBadge>
           <span
-            className={`min-w-0 flex-1 truncate text-[13px] ${branch.is_head ? 'text-text-primary' : 'text-text-secondary'}`}
+            className={`min-w-0 flex-1 truncate text-ui-base ${branch.is_head ? 'text-text-primary' : 'text-text-secondary'}`}
           >
             {branch.name}
           </span>
           {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
         </div>
         {branch.is_head && (
-          <span className="mt-0.5 block truncate pl-[20px] text-[11px] text-text-muted">local</span>
+          <span className="mt-0.5 block truncate pl-5 text-ui-sm text-text-muted">local</span>
         )}
       </div>
     );
@@ -144,8 +144,8 @@ const WorktreeRow = memo(
     }
 
     return (
-      <div className="group/wt my-px mr-1.5 rounded-[5px] border-l-[3px] border-transparent py-[3px] pr-1.5 pl-[12px]">
-        <div className="flex items-center gap-[6px]">
+      <div className="group/wt my-px mr-1.5 rounded-[5px] border-l-[3px] border-transparent py-0.75 pr-1.5 pl-3">
+        <div className="flex items-center gap-1.5">
           <IconWithBadge agentStatus={agentStatus}>
             <FolderGit2 size={14} strokeWidth={1.5} stroke="var(--text-muted)" />
           </IconWithBadge>
@@ -172,7 +172,7 @@ const WorktreeRow = memo(
           )}
           {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
         </div>
-        <span className="mt-0.5 block truncate pl-[20px] text-[11px] text-text-muted">
+        <span className="mt-0.5 block truncate pl-5 text-ui-sm text-text-muted">
           {worktree.branch || worktree.name}
         </span>
       </div>
@@ -189,7 +189,7 @@ const WorktreeRow = memo(
 );
 
 const repoHeader = tv({
-  base: 'flex items-center gap-[6px] border-l-[3px] py-[6px] pr-[6px] pl-[12px]',
+  base: 'flex items-center gap-1.5 border-l-[3px] py-1.5 pr-1.5 pl-3',
   variants: {
     selected: {
       true: 'border-accent bg-accent/[0.04]',
@@ -237,7 +237,7 @@ const RepoHeader = memo(
         </span>
         {/* Show agent summary dots when collapsed (individual dots are hidden) */}
         {!workspace.expanded && agentSummary && agentSummary.length > 0 && (
-          <span className="ml-1 flex items-center gap-[3px]">
+          <span className="ml-1 flex items-center gap-0.75">
             {agentSummary.slice(0, 3).map((status, i) => (
               <StatusDot key={i} status={status} size={5} />
             ))}
@@ -246,7 +246,7 @@ const RepoHeader = memo(
         {/* Always show branch/worktree count */}
         {childCount > 0 && (
           <span className="flex h-6 w-6 shrink-0 items-center justify-center">
-            <span className="rounded bg-bg-tertiary px-[5px] py-px font-mono text-[10px] text-text-muted tabular-nums">
+            <span className="rounded bg-bg-tertiary px-1.25 py-px font-mono text-ui-xs text-text-muted tabular-nums">
               {childCount}
             </span>
           </span>
@@ -402,7 +402,7 @@ export function WorkspaceTree() {
 
   return (
     <>
-      <div className="px-3 pt-2 pb-1 font-mono text-[10px] font-semibold tracking-wider text-text-muted uppercase opacity-60">
+      <div className="px-3 pt-2 pb-1 font-mono text-ui-xs font-semibold tracking-wider text-text-muted uppercase opacity-60">
         Projects
       </div>
       <Tree
@@ -521,7 +521,7 @@ function ContextMenu({
             ref={i === 0 ? buttonRef : undefined}
             role="menuitem"
             tabIndex={i === 0 ? 0 : -1}
-            className={`w-full px-3 py-1.5 text-left text-[13px] outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)] ${item.destructive ? 'text-[var(--destructive)]' : 'text-[var(--text-secondary)]'}`}
+            className={`w-full px-3 py-1.5 text-left text-ui-base outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)] ${item.destructive ? 'text-destructive' : 'text-text-secondary'}`}
             onClick={(e) => {
               e.stopPropagation();
               item.onSelect();
