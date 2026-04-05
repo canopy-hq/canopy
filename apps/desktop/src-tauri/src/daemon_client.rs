@@ -60,18 +60,23 @@ impl DaemonClient {
     async fn send_cmd(&self, msg: &str) -> Result<serde_json::Value, String> {
         let mut guard = self.rpc_stream.lock().await;
 
-        // Try existing stream
+        // Try existing stream — only attempt write; if write succeeds the daemon
+        // received the command, so we must NOT retry (would duplicate the op).
         if let Some(reader) = guard.as_mut() {
-            if reader.get_mut().write_all(msg.as_bytes()).await.is_ok() {
-                let mut line = String::new();
-                if reader.read_line(&mut line).await.is_ok() && !line.is_empty() {
+            match reader.get_mut().write_all(msg.as_bytes()).await {
+                Ok(()) => {
+                    let mut line = String::new();
+                    reader.read_line(&mut line).await.map_err(|e| e.to_string())?;
                     return serde_json::from_str(line.trim()).map_err(|e| e.to_string());
                 }
+                Err(_) => {
+                    // Write failed — stream is dead, safe to reconnect and retry.
+                    *guard = None;
+                }
             }
-            // Stream broken, fall through to reconnect
         }
 
-        // Reconnect and retry
+        // Connect (or reconnect after write failure)
         let stream = UnixStream::connect(&self.socket)
             .await
             .map_err(|e| format!("connect: {e}"))?;
