@@ -42,6 +42,33 @@ pub struct BranchDetail {
     pub is_in_worktree: bool,
 }
 
+/// Extract (owner, repo) from the `origin` remote URL if it's a GitHub URL.
+pub fn parse_github_remote(repo_path: &str) -> Option<(String, String)> {
+    let repo = Repository::open(repo_path).ok()?;
+    let remote = repo.find_remote("origin").ok()?;
+    let url = remote.url()?;
+
+    if let Some(path) = url.strip_prefix("https://github.com/") {
+        return parse_owner_repo(path);
+    }
+    if let Some(path) = url.strip_prefix("git@github.com:") {
+        return parse_owner_repo(path);
+    }
+
+    None
+}
+
+fn parse_owner_repo(path: &str) -> Option<(String, String)> {
+    let path = path.strip_suffix(".git").unwrap_or(path);
+    let mut parts = path.splitn(2, '/');
+    let owner = parts.next()?.to_string();
+    let repo = parts.next()?.to_string();
+    if owner.is_empty() || repo.is_empty() || repo.contains('/') {
+        return None;
+    }
+    Some((owner, repo))
+}
+
 fn enumerate_branches(repo: &Repository, lightweight: bool) -> Result<Vec<BranchInfo>, String> {
     let mut branches = Vec::new();
     for branch_result in repo
@@ -1205,5 +1232,67 @@ mod tests {
         // Verify the stale remote tracking branch is gone
         let branches_after = list_all_branches(clone_path).await.unwrap();
         assert!(!branches_after.iter().any(|b| b.name == "feature/stale"));
+    }
+
+    #[test]
+    fn parse_github_remote_https() {
+        let tmp = TempDir::new().unwrap();
+        let repo = init_repo_with_commit(tmp.path());
+        repo.remote("origin", "https://github.com/nept/superagent").unwrap();
+        let result = parse_github_remote(&tmp.path().to_string_lossy());
+        assert_eq!(result, Some(("nept".to_string(), "superagent".to_string())));
+    }
+
+    #[test]
+    fn parse_github_remote_https_with_git_suffix() {
+        let tmp = TempDir::new().unwrap();
+        let repo = init_repo_with_commit(tmp.path());
+        repo.remote("origin", "https://github.com/nept/superagent.git").unwrap();
+        let result = parse_github_remote(&tmp.path().to_string_lossy());
+        assert_eq!(result, Some(("nept".to_string(), "superagent".to_string())));
+    }
+
+    #[test]
+    fn parse_github_remote_ssh() {
+        let tmp = TempDir::new().unwrap();
+        let repo = init_repo_with_commit(tmp.path());
+        repo.remote("origin", "git@github.com:nept/superagent.git").unwrap();
+        let result = parse_github_remote(&tmp.path().to_string_lossy());
+        assert_eq!(result, Some(("nept".to_string(), "superagent".to_string())));
+    }
+
+    #[test]
+    fn parse_github_remote_ssh_no_suffix() {
+        let tmp = TempDir::new().unwrap();
+        let repo = init_repo_with_commit(tmp.path());
+        repo.remote("origin", "git@github.com:nept/superagent").unwrap();
+        let result = parse_github_remote(&tmp.path().to_string_lossy());
+        assert_eq!(result, Some(("nept".to_string(), "superagent".to_string())));
+    }
+
+    #[test]
+    fn parse_github_remote_non_github_host() {
+        let tmp = TempDir::new().unwrap();
+        let repo = init_repo_with_commit(tmp.path());
+        repo.remote("origin", "https://gitlab.com/nept/superagent").unwrap();
+        let result = parse_github_remote(&tmp.path().to_string_lossy());
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn parse_github_remote_no_origin() {
+        let tmp = TempDir::new().unwrap();
+        let _repo = init_repo_with_commit(tmp.path());
+        let result = parse_github_remote(&tmp.path().to_string_lossy());
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn parse_github_remote_local_path() {
+        let tmp = TempDir::new().unwrap();
+        let repo = init_repo_with_commit(tmp.path());
+        repo.remote("origin", "/some/local/path").unwrap();
+        let result = parse_github_remote(&tmp.path().to_string_lossy());
+        assert_eq!(result, None);
     }
 }

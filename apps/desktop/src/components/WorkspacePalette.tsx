@@ -511,7 +511,7 @@ function BranchMeta({
   if (pickingBase) {
     // In base picker, just show HEAD badge if applicable
     return branch.is_head ? (
-      <Badge color="accent" size="sm">
+      <Badge color="accent" size="xs">
         HEAD
       </Badge>
     ) : null;
@@ -520,18 +520,18 @@ function BranchMeta({
   return (
     <>
       {branch.is_head && (
-        <Badge color="accent" size="sm">
+        <Badge color="accent" size="xs">
           HEAD
         </Badge>
       )}
       {branch.is_local && !branch.is_head && (
-        <Badge color="warning" size="sm">
+        <Badge color="warning" size="xs">
           local
         </Badge>
       )}
-      {!branch.is_local && <Badge size="sm">origin</Badge>}
+      {!branch.is_local && <Badge size="xs">origin</Badge>}
       {branch.is_in_worktree && (
-        <Badge color="error" size="sm">
+        <Badge color="error" size="xs">
           in worktree
         </Badge>
       )}

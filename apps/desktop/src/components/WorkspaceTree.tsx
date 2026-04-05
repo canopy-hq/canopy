@@ -15,18 +15,36 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { getSetting } from '@superagent/db';
 import { useNavigate } from '@tanstack/react-router';
-import { ChevronDown, ChevronRight, Laptop, FolderGit2, Loader2, Plus } from 'lucide-react';
+import { openUrl } from '@tauri-apps/plugin-opener';
+import {
+  ChevronDown,
+  ChevronRight,
+  GitPullRequest,
+  Laptop,
+  FolderGit2,
+  Loader2,
+  Plus,
+} from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { makeWorkspacePaletteItem } from '../commands/workspace-commands';
-import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useCollections';
+import {
+  useWorkspaces,
+  useAgents,
+  useTabs,
+  useUiState,
+  useSettings,
+} from '../hooks/useCollections';
 import { useDragStyle } from '../hooks/useDragStyle';
 import { useDropping } from '../hooks/useDropping';
 import { useFlipAnimation } from '../hooks/useFlipAnimation';
 import { usePageVisible } from '../hooks/usePageVisible';
+import { usePrPolling } from '../hooks/usePrPolling';
 import { useWorkspacePolling } from '../hooks/useWorkspacePolling';
 import { restrictToVerticalAxis, sortableTransition, useDragSensors } from '../lib/dnd';
+import { GITHUB_CONNECTION_KEY } from '../lib/github';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import {
   toggleExpanded,
@@ -41,9 +59,10 @@ import { openWorkspacePalette } from '../lib/workspace-palette-bridge';
 import { CloseProjectModal } from './CloseProjectModal';
 import { RemoveWorktreeModal } from './RemoveWorktreeModal';
 import { StatusDot } from './StatusDot';
-import { Button, Tooltip } from './ui';
+import { Badge, Button, Tooltip } from './ui';
 
 import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
+import type { PrInfo } from '../lib/github';
 import type { DotStatus } from './StatusDot';
 import type { Workspace } from '@superagent/db';
 
@@ -56,12 +75,35 @@ const DiffPill = memo(function DiffPill({
 }) {
   if (additions === 0 && deletions === 0) return null;
   return (
-    <span className="inline-flex flex-shrink-0 gap-1 rounded bg-white/5 px-1.5 py-px text-sm font-medium whitespace-nowrap">
+    <span className="inline-flex flex-shrink-0 gap-1.5 rounded bg-white/5 px-2 py-0.5 text-sm font-medium whitespace-nowrap">
       {additions > 0 && <span className="text-(--git-ahead) tabular-nums">+{additions}</span>}
       {deletions > 0 && (
         <span className="text-(--git-behind) tabular-nums">&minus;{deletions}</span>
       )}
     </span>
+  );
+});
+
+const PR_BADGE_COLOR: Record<PrInfo['state'], 'success' | 'neutral' | 'merged'> = {
+  OPEN: 'success',
+  DRAFT: 'neutral',
+  MERGED: 'merged',
+  CLOSED: 'neutral',
+};
+const PrBadge = memo(function PrBadge({ pr }: { pr: PrInfo }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        void openUrl(pr.url);
+      }}
+      className="cursor-pointer"
+    >
+      <Badge size="md" color={PR_BADGE_COLOR[pr.state]} className="gap-1.5 hover:brightness-125">
+        <GitPullRequest size={14} strokeWidth={2} />#{pr.number}
+      </Badge>
+    </button>
   );
 });
 
@@ -89,10 +131,12 @@ const BranchRow = memo(
     branch,
     agentStatus,
     diffStat,
+    prInfo,
   }: {
     branch: BranchInfo;
     agentStatus?: DotStatus;
     diffStat?: DiffStat;
+    prInfo?: PrInfo;
   }) {
     return (
       <div className="my-px mr-1.5 rounded-[5px] border-l-[3px] border-transparent py-0.75 pr-1.5 pl-3">
@@ -111,8 +155,12 @@ const BranchRow = memo(
           </span>
           {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
         </div>
-        {branch.is_head && (
-          <span className="mt-0.5 block truncate pl-5 text-sm text-text-muted">local</span>
+        {(prInfo || branch.is_head) && (
+          <div className="mt-0.5 flex items-center pl-[20px]">
+            {branch.is_head && <span className="text-[11px] text-text-muted">local</span>}
+            <span className="flex-1" />
+            {prInfo && <PrBadge pr={prInfo} />}
+          </div>
         )}
       </div>
     );
@@ -122,7 +170,9 @@ const BranchRow = memo(
     prev.branch.is_head === next.branch.is_head &&
     prev.agentStatus === next.agentStatus &&
     prev.diffStat?.additions === next.diffStat?.additions &&
-    prev.diffStat?.deletions === next.diffStat?.deletions,
+    prev.diffStat?.deletions === next.diffStat?.deletions &&
+    prev.prInfo?.number === next.prInfo?.number &&
+    prev.prInfo?.state === next.prInfo?.state,
 );
 
 const WorktreeRow = memo(
@@ -132,12 +182,14 @@ const WorktreeRow = memo(
     agentStatus,
     diffStat,
     isDeleting,
+    prInfo,
   }: {
     worktree: WorktreeInfo & { label?: string };
     workspaceId: string;
     agentStatus?: DotStatus;
     diffStat?: DiffStat;
     isDeleting?: boolean;
+    prInfo?: PrInfo;
   }) {
     const [editing, setEditing] = useState(false);
     const [editValue, setEditValue] = useState('');
@@ -196,9 +248,13 @@ const WorktreeRow = memo(
             <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />
           )}
         </div>
-        <span className="mt-0.5 block truncate pl-5 font-mono text-sm text-text-muted">
-          {isDeleting ? 'Deleting…' : worktree.branch || worktree.name}
-        </span>
+        <div className="mt-0.5 flex items-center pl-[20px]">
+          <span className="truncate text-[11px] text-text-muted">
+            {isDeleting ? 'Deleting…' : worktree.branch || worktree.name}
+          </span>
+          <span className="flex-1" />
+          {!isDeleting && prInfo && <PrBadge pr={prInfo} />}
+        </div>
       </div>
     );
   },
@@ -210,7 +266,9 @@ const WorktreeRow = memo(
     prev.agentStatus === next.agentStatus &&
     prev.isDeleting === next.isDeleting &&
     prev.diffStat?.additions === next.diffStat?.additions &&
-    prev.diffStat?.deletions === next.diffStat?.deletions,
+    prev.diffStat?.deletions === next.diffStat?.deletions &&
+    prev.prInfo?.number === next.prInfo?.number &&
+    prev.prInfo?.state === next.prInfo?.state,
 );
 
 const repoHeader = tv({
@@ -391,6 +449,9 @@ export function WorkspaceTree() {
   const agentMap = useWorkspaceAgentMap();
   const pageVisible = usePageVisible();
   const diffStatsMap = useWorkspacePolling(workspaces, sidebarVisible && pageVisible);
+  const settings = useSettings();
+  const githubConnected = getSetting(settings, GITHUB_CONNECTION_KEY, null) !== null;
+  const prMap = usePrPolling(workspaces, sidebarVisible && pageVisible, githubConnected);
   const navigate = useNavigate();
   const listRef = useRef<HTMLDivElement>(null);
   const sensors = useDragSensors();
@@ -462,6 +523,7 @@ export function WorkspaceTree() {
                 ws={ws}
                 agentMap={agentMap}
                 diffStats={diffStatsMap[ws.id]}
+                prStatuses={prMap[ws.id]}
                 onRequestOpenPalette={handleRequestOpenPalette}
                 onRequestClose={setCloseTarget}
                 onRequestRemoveWt={(name) => setRemoveWtTarget({ workspaceId: ws.id, name })}
@@ -603,6 +665,7 @@ function RepoTreeItem({
   ws,
   agentMap,
   diffStats,
+  prStatuses,
   onRequestOpenPalette,
   onRequestClose,
   onRequestRemoveWt,
@@ -615,6 +678,7 @@ function RepoTreeItem({
   ws: Workspace;
   agentMap: Record<string, DotStatus>;
   diffStats?: Record<string, DiffStat>;
+  prStatuses?: Record<string, PrInfo>;
   onRequestOpenPalette: (ws: Workspace) => void;
   onRequestClose: (ws: Workspace) => void;
   onRequestRemoveWt: (name: string) => void;
@@ -692,6 +756,7 @@ function RepoTreeItem({
                     branch={b}
                     agentStatus={agentMap[itemId]}
                     diffStat={diffStats?.[b.name]}
+                    prInfo={prStatuses?.[b.name]}
                   />
                 </div>
               );
@@ -718,6 +783,7 @@ function RepoTreeItem({
                     agentStatus={agentMap[itemId]}
                     diffStat={diffStats?.[wt.branch]}
                     isDeleting={isDeleting}
+                    prInfo={prStatuses?.[wt.branch]}
                   />
                 </div>
               );

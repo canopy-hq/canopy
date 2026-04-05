@@ -1,11 +1,26 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 
-import { getWorkspaceCollection } from '@superagent/db';
+import {
+  getSettingCollection,
+  getSetting,
+  getWorkspaceCollection,
+  setSetting,
+} from '@superagent/db';
 
 import { pollAllWorkspaceStates } from '../lib/git';
+import { getExpandedWorkspacePaths } from '../lib/workspace-utils';
 
 import type { DiffStat, WorkspacePollState } from '../lib/git';
 import type { Workspace } from '@superagent/db';
+
+type StatsMap = Record<string, Record<string, DiffStat>>;
+
+const DIFF_STATS_SETTING_KEY = 'diffStatsMap';
+
+function loadCachedStatsMap(): StatsMap {
+  const settings = getSettingCollection().toArray;
+  return getSetting<StatsMap>(settings, DIFF_STATS_SETTING_KEY, {});
+}
 
 const POLL_MS = 3_000;
 
@@ -86,7 +101,7 @@ export function useWorkspacePolling(
   workspaces: Workspace[],
   enabled: boolean,
 ): Record<string, Record<string, DiffStat>> {
-  const [statsMap, setStatsMap] = useState<Record<string, Record<string, DiffStat>>>({});
+  const [statsMap, setStatsMap] = useState<StatsMap>(loadCachedStatsMap);
   const workspacesRef = useRef(workspaces);
   const noChangeCountRef = useRef(0);
   const prevStatsRef = useRef(statsMap);
@@ -111,15 +126,11 @@ export function useWorkspacePolling(
 
     function poll() {
       const current = workspacesRef.current;
-      const expandedWs = current.filter((ws) => ws.expanded);
-      const pathToId = new Map(expandedWs.map((ws) => [ws.path, ws.id]));
-      const paths = expandedWs.map((ws) => ws.path);
+      const { paths, pathToId, expandedIds } = getExpandedWorkspacePaths(current);
       if (paths.length === 0) {
         timer = setTimeout(poll, getInterval(noChangeCountRef.current));
         return;
       }
-
-      const expandedIds = new Set(expandedWs.map((ws) => ws.id));
 
       pollAllWorkspaceStates(paths)
         .then(async (result) => {
@@ -190,7 +201,10 @@ export function useWorkspacePolling(
 
           if (diffStatsChanged || branchChanged) {
             noChangeCountRef.current = 0;
-            if (diffStatsChanged) setStatsMap(mergedStats);
+            if (diffStatsChanged) {
+              setStatsMap(mergedStats);
+              setSetting(DIFF_STATS_SETTING_KEY, mergedStats);
+            }
           } else {
             noChangeCountRef.current += 1;
           }
