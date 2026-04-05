@@ -290,9 +290,11 @@ export function CommandMenu({
             </>
           ) : (
             <>
-              {/* Breadcrumb (drill-down) */}
-              {drillStack.length > 0 && (
-                <div className="flex items-center gap-1 border-b border-border px-3 py-2 text-[11px] text-text-muted">
+              {/* Breadcrumb — always visible */}
+              <div className="flex items-center gap-1 border-b border-border px-3 py-2 text-[11px] text-text-muted">
+                {drillStack.length === 0 ? (
+                  <span className="text-text-primary">root</span>
+                ) : (
                   <button
                     type="button"
                     tabIndex={-1}
@@ -301,25 +303,25 @@ export function CommandMenu({
                   >
                     root
                   </button>
-                  {drillStack.map((crumb, i) => (
-                    <span key={crumb.id} className="flex items-center gap-1">
-                      <span className="opacity-40">/</span>
-                      {i === drillStack.length - 1 ? (
-                        <span className="text-text-primary">{crumb.label}</span>
-                      ) : (
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          onClick={() => dispatch({ type: 'DRILL_INTO', item: drillStack[i]! })}
-                          className="cursor-pointer transition-colors hover:text-text-primary"
-                        >
-                          {crumb.label}
-                        </button>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              )}
+                )}
+                {drillStack.map((crumb, i) => (
+                  <span key={crumb.id} className="flex items-center gap-1">
+                    <span className="opacity-40">/</span>
+                    {i === drillStack.length - 1 ? (
+                      <span className="text-text-primary">{crumb.label}</span>
+                    ) : (
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => dispatch({ type: 'DRILL_INTO', item: drillStack[i]! })}
+                        className="cursor-pointer transition-colors hover:text-text-primary"
+                      >
+                        {crumb.label}
+                      </button>
+                    )}
+                  </span>
+                ))}
+              </div>
 
               {/* Search input */}
               <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
