@@ -33,7 +33,7 @@ export function prMapEqual(a: PrMap, b: PrMap): boolean {
   for (const wsId of bKeys) {
     const aWs = a[wsId];
     const bWs = b[wsId];
-    if (!aWs) return false;
+    if (!aWs || !bWs) return false;
     const aK = Object.keys(aWs);
     const bK = Object.keys(bWs);
     if (aK.length !== bK.length) return false;
@@ -120,10 +120,10 @@ export function usePrPolling(
           const prev = prevPrMapRef.current;
           const merged: PrMap = {};
           for (const wsId in prev) {
-            if (!expandedIds.has(wsId)) merged[wsId] = prev[wsId];
+            if (!expandedIds.has(wsId)) merged[wsId] = prev[wsId]!;
           }
           for (const wsId in nextPrMap) {
-            merged[wsId] = nextPrMap[wsId];
+            merged[wsId] = nextPrMap[wsId]!;
           }
 
           const totalPrs = Object.values(merged).reduce((n, m) => n + Object.keys(m).length, 0);
