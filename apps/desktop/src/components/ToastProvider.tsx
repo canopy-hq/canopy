@@ -25,17 +25,17 @@ export function ErrorToastRegion() {
             <ToastContent className="flex-1">
               <Text
                 slot="title"
-                className={`block text-sm font-medium ${isInfo ? 'text-blue-400' : 'text-red-400'}`}
+                className={`block text-lg font-medium ${isInfo ? 'text-blue-400' : 'text-red-400'}`}
               >
                 {toast.content.title}
               </Text>
               {toast.content.description && (
-                <Text slot="description" className="mt-1 block text-xs text-gray-400">
+                <Text slot="description" className="mt-1 block text-md text-gray-400">
                   {toast.content.description}
                 </Text>
               )}
             </ToastContent>
-            <Button slot="close" className="text-xs text-gray-500 hover:text-gray-300">
+            <Button slot="close" className="text-md text-gray-500 hover:text-gray-300">
               Dismiss
             </Button>
           </Toast>

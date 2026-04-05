@@ -62,7 +62,7 @@ function FpsOverlayInner() {
       style={{ background: 'rgba(0,0,0,0.75)' }}
       aria-label={`${fps} frames per second`}
     >
-      <div className="px-2 py-1 font-mono text-xs" style={{ color: fpsColor(fps) }}>
+      <div className="px-2 py-1 font-mono text-md" style={{ color: fpsColor(fps) }}>
         {fps} FPS
       </div>
       <Sparkline history={history} />

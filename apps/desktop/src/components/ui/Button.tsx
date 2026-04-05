@@ -16,7 +16,7 @@ const button = tv({
       link: 'bg-transparent text-accent hover:underline pressed:opacity-70',
       accent: 'bg-accent/[0.08] text-accent hover:bg-accent/[0.12] pressed:bg-accent/[0.18]',
     },
-    size: { sm: 'rounded px-2 py-[5px] text-[11px]', md: 'h-8 px-4 text-[13px]' },
+    size: { sm: 'rounded px-2 py-1.25 text-sm', md: 'h-8 px-4 text-base' },
     iconOnly: { true: 'h-7 w-7 p-0' },
   },
   compoundVariants: [

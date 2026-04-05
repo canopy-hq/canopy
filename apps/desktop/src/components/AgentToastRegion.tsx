@@ -51,10 +51,10 @@ export function AgentToastRegion() {
                 status={toast.content.type === 'agent-waiting' ? 'waiting' : 'idle'}
                 size={8}
               />
-              <Text slot="title" className="text-[13px] font-semibold text-text-primary">
+              <Text slot="title" className="text-base font-semibold text-text-primary">
                 {toast.content.agentName}
               </Text>
-              <span className="min-w-0 flex-1 truncate text-right text-[11px] text-text-muted">
+              <span className="min-w-0 flex-1 truncate text-right text-sm text-text-muted">
                 {toast.content.workspace}/{toast.content.branch}
               </span>
               <Button
@@ -68,7 +68,7 @@ export function AgentToastRegion() {
               </Button>
             </div>
 
-            <Text slot="description" className="mt-1 block text-[11px] text-text-muted">
+            <Text slot="description" className="mt-1 block text-sm text-text-muted">
               {eventDescription(toast.content.type)}
             </Text>
 
