@@ -370,9 +370,11 @@ export function useTerminal(
 
             if (fromPool) {
               // Warm terminal: shell already booted, cd+clear already sent by daemon.
-              // Connect output and remove overlay immediately — no waiting for first byte.
+              // Scrollback replay contains [old prompt][cd cmd][clear escape][new prompt].
+              // Keep overlay up for 2 rAFs so ghostty-web processes the clear sequence
+              // behind the overlay — user only sees the final prompt, no flicker.
               connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
-              removeOverlay();
+              requestAnimationFrame(() => requestAnimationFrame(() => removeOverlay()));
             } else if (isNew) {
               connectPtyOutput(newId, (data: Uint8Array) => {
                 debouncedRemoveOverlay();
