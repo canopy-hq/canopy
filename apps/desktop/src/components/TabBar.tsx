@@ -28,7 +28,7 @@ const tabItem = tv({
   base: 'group relative flex h-full max-w-[240px] min-w-[120px] shrink items-center gap-1.5 px-3 transition-colors',
   variants: {
     active: {
-      true: 'bg-bg-secondary text-text-primary shadow-[inset_0_-2px_0_var(--accent)]',
+      true: 'bg-bg-secondary text-text-primary shadow-[inset_0_-3px_0_var(--accent)]',
       false: 'bg-transparent text-text-muted hover:bg-bg-secondary hover:text-text-secondary',
     },
     agentWaiting: { true: 'bg-(--agent-waiting-glow)' },
@@ -134,7 +134,7 @@ const TabItemComponent = memo(
         {editing ? (
           <input
             ref={inputRef}
-            className="w-full min-w-0 bg-transparent text-xs text-text-primary outline-none"
+            className="w-full min-w-0 bg-transparent text-md text-text-primary outline-none"
             value={draft}
             maxLength={20}
             onChange={(e) => setDraft(e.target.value)}
@@ -156,7 +156,7 @@ const TabItemComponent = memo(
           />
         ) : (
           <span
-            className="flex-1 truncate text-left text-xs"
+            className="flex-1 truncate text-left text-md"
             onDoubleClick={(e) => {
               e.stopPropagation();
               startEditing();
@@ -166,7 +166,7 @@ const TabItemComponent = memo(
           </span>
         )}
         {agentStatus === 'waiting' && !editing && (
-          <span className="rounded-full bg-[rgba(251,191,36,0.25)] px-2 py-1 text-ui-xs leading-none font-normal text-(--agent-waiting)">
+          <span className="rounded-full bg-[rgba(251,191,36,0.25)] px-2 py-1 text-xs leading-none font-normal text-(--agent-waiting)">
             input
           </span>
         )}

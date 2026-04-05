@@ -189,11 +189,11 @@ export function SessionManager({ onClose }: SessionManagerProps) {
         <Dialog className="flex min-h-0 flex-col outline-none" aria-label="PTY Session Manager">
           {/* Header */}
           <div className="flex shrink-0 items-center gap-2 border-b border-border p-4">
-            <Heading slot="title" className="m-0 text-sm font-semibold text-text-primary">
+            <Heading slot="title" className="m-0 text-lg font-semibold text-text-primary">
               PTY Sessions
             </Heading>
             {rows.length > 0 && (
-              <span className="text-ui-sm text-text-muted">
+              <span className="text-sm text-text-muted">
                 {rows.length} {rows.length === 1 ? 'session' : 'sessions'}
               </span>
             )}
@@ -215,8 +215,8 @@ export function SessionManager({ onClose }: SessionManagerProps) {
           <div className="min-h-0 flex-1 overflow-y-auto py-2">
             {rows.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 px-4 py-8">
-                <span className="text-sm font-semibold text-text-muted">No active sessions</span>
-                <span className="text-ui-base text-text-muted opacity-60">
+                <span className="text-lg font-semibold text-text-muted">No active sessions</span>
+                <span className="text-base text-text-muted opacity-60">
                   Open a terminal tab to start a PTY session
                 </span>
               </div>
@@ -225,7 +225,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                 <div key={wsName}>
                   {/* Group header */}
                   <div className="flex items-center px-4 pt-2 pb-1">
-                    <span className="flex-1 text-ui-sm font-semibold tracking-wide text-text-muted uppercase opacity-60">
+                    <span className="flex-1 text-sm font-semibold tracking-wide text-text-muted uppercase opacity-60">
                       {wsName}
                     </span>
                     <Button
@@ -246,18 +246,18 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                       className="flex items-center gap-2 px-4 py-2 hover:bg-bg-tertiary/50"
                     >
                       {/* Tab label */}
-                      <span className="min-w-0 flex-1 truncate text-ui-base text-text-primary">
+                      <span className="min-w-0 flex-1 truncate text-base text-text-primary">
                         {row.tab?.label ?? '—'}
                       </span>
 
                       {/* Stats */}
-                      <span className="shrink-0 text-ui-sm text-text-muted tabular-nums">
+                      <span className="shrink-0 text-sm text-text-muted tabular-nums">
                         PID {row.info.ptyId}
                       </span>
-                      <span className="w-[48px] shrink-0 text-right text-ui-sm text-text-muted tabular-nums">
+                      <span className="w-[48px] shrink-0 text-right text-sm text-text-muted tabular-nums">
                         {row.info.cpuPercent.toFixed(1)}%
                       </span>
-                      <span className="w-[44px] shrink-0 text-right text-ui-sm text-text-muted tabular-nums">
+                      <span className="w-[44px] shrink-0 text-right text-sm text-text-muted tabular-nums">
                         {row.info.memoryMb}MB
                       </span>
 
