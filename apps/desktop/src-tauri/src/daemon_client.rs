@@ -201,49 +201,7 @@ impl DaemonClient {
         last_output: Arc<AtomicU64>,
         ready_tx: tokio::sync::oneshot::Sender<()>,
     ) -> tokio::task::JoinHandle<()> {
-        let socket = self.socket.clone();
-
-        tokio::spawn(async move {
-            let msg = format!(
-                "{{\"op\":\"attach_fresh\",\"paneId\":{}}}\n",
-                serde_json::json!(&pane_id)
-            );
-
-            let mut stream = match UnixStream::connect(&socket).await {
-                Ok(s) => s,
-                Err(e) => {
-                    eprintln!("attach_fresh: connect failed: {e}");
-                    return;
-                }
-            };
-
-            if stream.write_all(msg.as_bytes()).await.is_err() {
-                return;
-            }
-
-            let mut len_buf = [0u8; 4];
-            let mut ready_tx = Some(ready_tx);
-            loop {
-                if stream.read_exact(&mut len_buf).await.is_err() {
-                    break;
-                }
-                let len = u32::from_be_bytes(len_buf) as usize;
-                let mut data = vec![0u8; len];
-                if len > 0 {
-                    if stream.read_exact(&mut data).await.is_err() {
-                        break;
-                    }
-                    last_output.store(now_millis(), Ordering::Relaxed);
-                } else {
-                    if let Some(tx) = ready_tx.take() {
-                        let _ = tx.send(());
-                    }
-                }
-                if on_output.send(data).is_err() {
-                    break;
-                }
-            }
-        })
+        self.attach_impl("attach_fresh", pane_id, on_output, last_output, ready_tx)
     }
 
     /// Attach to a PTY session: spawns a background task that reads frames
@@ -263,18 +221,31 @@ impl DaemonClient {
         last_output: Arc<AtomicU64>,
         ready_tx: tokio::sync::oneshot::Sender<()>,
     ) -> tokio::task::JoinHandle<()> {
+        self.attach_impl("attach", pane_id, on_output, last_output, ready_tx)
+    }
+
+    fn attach_impl(
+        &self,
+        op: &str,
+        pane_id: String,
+        on_output: Channel<Vec<u8>>,
+        last_output: Arc<AtomicU64>,
+        ready_tx: tokio::sync::oneshot::Sender<()>,
+    ) -> tokio::task::JoinHandle<()> {
         let socket = self.socket.clone();
+        let op = op.to_string();
 
         tokio::spawn(async move {
             let msg = format!(
-                "{{\"op\":\"attach\",\"paneId\":{}}}\n",
+                "{{\"op\":{},\"paneId\":{}}}\n",
+                serde_json::json!(&op),
                 serde_json::json!(&pane_id)
             );
 
             let mut stream = match UnixStream::connect(&socket).await {
                 Ok(s) => s,
                 Err(e) => {
-                    eprintln!("attach: connect failed: {e}");
+                    eprintln!("{op}: connect failed: {e}");
                     return;
                 }
             };
@@ -296,18 +267,12 @@ impl DaemonClient {
                     if stream.read_exact(&mut data).await.is_err() {
                         break;
                     }
-                    // Only update the activity timestamp for real output, not the
-                    // zero-length sentinel frame.
                     last_output.store(now_millis(), Ordering::Relaxed);
                 } else {
-                    // Sentinel: scrollback replay complete. Signal spawn_terminal so it
-                    // can return to TypeScript with a fully-buffered ChannelEntry.
                     if let Some(tx) = ready_tx.take() {
                         let _ = tx.send(());
                     }
                 }
-                // Forward the frame — including the empty sentinel — to TypeScript.
-                // An empty Vec<u8> arrives as `rawData.length === 0` in channel.onmessage.
                 if on_output.send(data).is_err() {
                     break;
                 }

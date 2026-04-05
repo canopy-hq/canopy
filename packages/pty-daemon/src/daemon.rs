@@ -178,7 +178,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
             // warm shell prompt + cd echo that must NOT reach the terminal.
             //
             // The 200ms sleep ensures the cd+clear output has been broadcast
-            // (and missed by the late subscribe). Only Starship prompt output
+            // (and missed by the late subscribe). Only shell prompt output
             // reaches the subscriber.
             "attach_fresh" => {
                 // Wait for cd+clear echo to be broadcast before subscribing.
@@ -307,7 +307,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                         // Send cd + clear: the clear wipes the cd echo from the terminal.
                         // attach_fresh delays 200ms before subscribing to the broadcast,
                         // ensuring the cd echo + clear output have been broadcast and
-                        // missed — only Starship prompt output reaches the frontend.
+                        // missed — only shell prompt output reaches the frontend.
                         if let Some(dir) = &cwd {
                             let cd_cmd = format!(" cd {} && clear\n", shell_escape(dir));
                             let mut st = state.lock().unwrap();
@@ -377,7 +377,7 @@ fn pool_warm_one(state: &Arc<Mutex<DaemonState>>) -> Result<(), String> {
 }
 
 /// Returns `(pid, is_new)` where `is_new` is false when the session already existed.
-pub fn do_spawn(
+fn do_spawn(
     state: Arc<Mutex<DaemonState>>,
     pane_id: String,
     cwd: Option<String>,

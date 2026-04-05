@@ -36,7 +36,7 @@ import { terminalThemes, type ThemeName } from './themes';
  *
  * isNew=true (fresh shell): buffer is empty. Overlay is removed ~112ms after
  * the FIRST output byte (one-shot timer + double-rAF). The terminal continues
- * filling in while visible — looks responsive even if Starship is still emitting.
+ * filling in while visible — looks responsive even if the prompt is still emitting.
  *
  * isNew=false (restored session): Tauri Channel messages (scrollback) are queued
  * before the invoke response, so the buffer is populated when setHandler runs.
@@ -204,7 +204,7 @@ export function useTerminal(
       };
       // One-shot overlay removal: schedule the timer on the FIRST byte only.
       // This reveals the terminal at first_byte+80ms+2×rAF (~112ms) regardless
-      // of how long Starship keeps emitting — the canvas fills in while visible,
+      // of how long the prompt keeps emitting — the canvas fills in while visible,
       // which looks responsive. The double-rAF ensures the WASM renderer has
       // painted at least one frame after the first write before uncovering.
       const debouncedRemoveOverlay = () => {
@@ -258,7 +258,7 @@ export function useTerminal(
       const lastSentSize = { rows: 0, cols: 0 };
       // Grace period: suppress resize IPC for 500ms after spawn to let React
       // re-renders and layout settle. Prevents spurious SIGWINCH that causes
-      // zsh/Starship to redraw the prompt (visible as flicker on version badges).
+      // the shell to redraw the prompt (visible as flicker on version badges).
       // After the grace period, one final sync resize is sent.
       let resizeGraceUntil = 0;
       term.onResize(({ cols, rows }) => {
@@ -372,8 +372,15 @@ export function useTerminal(
             if (fromPool) {
               // Warm terminal: daemon sent cd+clear before returning, and
               // attach_fresh delays 200ms so cd echo is never received.
-              // Only Starship prompt output reaches the handler.
+              // Only the shell prompt output reaches the handler.
+              // Hide cursor while waiting — ghostty renders it at open().
+              term.write('\x1b[?25l');
+              let cursorRestored = false;
               connectPtyOutputFresh(newId, (data: Uint8Array) => {
+                if (!cursorRestored) {
+                  cursorRestored = true;
+                  term.write('\x1b[?25h');
+                }
                 debouncedRemoveOverlay();
                 term.write(data);
               });
