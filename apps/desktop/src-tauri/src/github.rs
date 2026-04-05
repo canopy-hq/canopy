@@ -339,9 +339,6 @@ pub async fn github_get_pr_statuses(
     for handle in gql_handles {
         match handle.await {
             Ok(Ok((owner_repo, prs, has_access_error))) => {
-                if !prs.is_empty() {
-                    eprintln!("[github] {owner_repo}: found {} PRs", prs.len());
-                }
                 if has_access_error {
                     failed_owner_repos.insert(owner_repo.clone());
                 }
