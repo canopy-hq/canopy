@@ -6,6 +6,7 @@ import {
   ArrowUp,
   ChevronLeft,
   CornerDownLeft,
+  Delete,
   GitBranch,
   GitFork,
   Plus,
@@ -210,7 +211,7 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
             <Kbd>
               <CornerDownLeft size={9} />
             </Kbd>{' '}
-            create now
+            create
           </span>
           <span className="ml-auto font-mono opacity-80">
             git worktree add -b <span className="text-accent">{sanitizedName}</span>
@@ -229,11 +230,14 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
             <Kbd>
               <CornerDownLeft size={9} />
             </Kbd>{' '}
-            create from selected
+            create
           </span>
           {sep}
           <span className="flex items-center gap-1">
-            <Kbd>⌫</Kbd> back
+            <Kbd>
+              <Delete size={9} />
+            </Kbd>{' '}
+            back
           </span>
         </>
       );
@@ -271,7 +275,7 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
             <Kbd>
               <CornerDownLeft size={9} />
             </Kbd>{' '}
-            {selectedItem.worktree?.isInSidebar ? 'already opened' : 'open in sidebar'}
+            {selectedItem.worktree?.isInSidebar ? 'already open' : 'open'}
           </span>
         </>
       );
@@ -284,11 +288,11 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
           <Kbd>
             <CornerDownLeft size={9} />
           </Kbd>{' '}
-          select
+          open
         </span>
         {sep}
         <span className="flex items-center gap-1">
-          <Kbd>Tab</Kbd> switch
+          <Kbd>Tab</Kbd> filter
         </span>
         {sep}
         <span>type to create</span>
@@ -405,8 +409,8 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
         )}
       </div>
 
-      {/* Footer hints — same style as CommandMenu */}
-      <div className="flex shrink-0 items-center gap-2.5 border-t border-border px-3 py-2 text-[11px] text-text-muted opacity-60">
+      {/* Footer hints */}
+      <div className="flex shrink-0 items-center gap-2.5 border-t border-border bg-bg-primary/40 px-3 py-2 text-[11px] text-text-muted/60">
         {getFooterHint()}
       </div>
     </div>

@@ -7,6 +7,7 @@ import {
   ChevronRight,
   CornerDownLeft,
   Cpu,
+  Delete,
   FolderGit2,
   GitBranch,
   GitFork,
@@ -26,7 +27,7 @@ const SECTION_CYCLE: MenuSection[] = ['root', 'projects', 'tabs', 'pty', 'agents
 
 export function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="rounded bg-bg-secondary px-1 py-0.5 text-[10px] leading-none text-text-muted">
+    <kbd className="rounded border border-border/60 bg-bg-primary px-1 py-0.5 text-[10px] leading-none text-text-muted">
       {children}
     </kbd>
   );
@@ -437,7 +438,7 @@ export function CommandMenu({
               </div>
 
               {/* Footer hints */}
-              <div className="flex shrink-0 items-center gap-2.5 border-t border-border px-3 py-2 text-[11px] text-text-muted opacity-60">
+              <div className="flex shrink-0 items-center gap-2.5 border-t border-border bg-bg-primary/40 px-3 py-2 text-[11px] text-text-muted/60">
                 <span className="flex items-center gap-1">
                   <Kbd>
                     <ArrowUp size={9} />
@@ -452,15 +453,18 @@ export function CommandMenu({
                   <Kbd>
                     <CornerDownLeft size={9} />
                   </Kbd>{' '}
-                  select
+                  open
                 </span>
                 <span>·</span>
                 <span className="flex items-center gap-1">
-                  <Kbd>Tab</Kbd> section
+                  <Kbd>Tab</Kbd> filter
                 </span>
                 <span>·</span>
                 <span className="flex items-center gap-1">
-                  <Kbd>⌫</Kbd> {drillStack.length > 0 || section !== 'root' ? 'back' : '—'}
+                  <Kbd>
+                    <Delete size={9} />
+                  </Kbd>{' '}
+                  {drillStack.length > 0 || section !== 'root' ? 'back' : '—'}
                 </span>
                 <span>·</span>
                 <span className="flex items-center gap-1">
