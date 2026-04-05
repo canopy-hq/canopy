@@ -28,7 +28,7 @@ const SECTION_CYCLE: MenuSection[] = ['root', 'projects', 'tabs', 'pty', 'agents
 
 export function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="rounded border border-border/60 bg-bg-primary px-1 py-0.5 text-[10px] leading-none text-text-muted">
+    <kbd className="inline-flex items-center gap-0.5 rounded border border-border/60 bg-bg-primary px-1 py-0.5 text-[10px] leading-none text-text-muted">
       {children}
     </kbd>
   );

@@ -227,6 +227,10 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
             create
           </span>
           {sep}
+          <span className="flex items-center gap-1">
+            <Kbd>Tab</Kbd> filter
+          </span>
+          {sep}
           {back}
           {sep}
           {close}
