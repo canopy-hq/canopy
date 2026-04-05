@@ -17,6 +17,7 @@ interface MenuState {
   section: MenuSection;
   drillStack: CommandItem[];
   selectedId: string | null;
+  panelItem: CommandItem | null;
 }
 
 type MenuAction =
@@ -25,9 +26,17 @@ type MenuAction =
   | { type: 'DRILL_INTO'; item: CommandItem }
   | { type: 'DRILL_BACK' }
   | { type: 'SET_SELECTED'; id: string | null }
+  | { type: 'OPEN_PANEL'; item: CommandItem }
+  | { type: 'CLOSE_PANEL' }
   | { type: 'RESET' };
 
-const INITIAL_STATE: MenuState = { query: '', section: 'root', drillStack: [], selectedId: null };
+const INITIAL_STATE: MenuState = {
+  query: '',
+  section: 'root',
+  drillStack: [],
+  selectedId: null,
+  panelItem: null,
+};
 
 function reducer(state: MenuState, action: MenuAction): MenuState {
   switch (action.type) {
@@ -46,6 +55,10 @@ function reducer(state: MenuState, action: MenuAction): MenuState {
       return { ...state, drillStack: state.drillStack.slice(0, -1), selectedId: null };
     case 'SET_SELECTED':
       return { ...state, selectedId: action.id };
+    case 'OPEN_PANEL':
+      return { ...state, panelItem: action.item, query: '', selectedId: null };
+    case 'CLOSE_PANEL':
+      return { ...state, panelItem: null };
     case 'RESET':
       return INITIAL_STATE;
   }
@@ -60,9 +73,28 @@ function buildDefaultSections(
 ): SectionData[] {
   const sections: SectionData[] = [];
 
+  // Active workspace section — shown first so the most relevant actions are immediately visible
+  const actionItems = items.filter(
+    (i) =>
+      i.category === 'action' &&
+      (!i.contextId || (activeContextId != null && activeContextId.startsWith(i.contextId))),
+  );
+  if (actionItems.length > 0) {
+    const activeWsItem = activeContextId
+      ? items.find(
+          (i) =>
+            i.category === 'workspace' &&
+            activeContextId.startsWith(i.id.replace(/^workspace:/, '')),
+        )
+      : null;
+    sections.push({
+      id: 'actions',
+      label: activeWsItem ? activeWsItem.label : 'Quick Actions',
+      items: actionItems,
+    });
+  }
+
   const allTabs = items.filter((i) => i.category === 'tab');
-  // Filter to tabs belonging to the active project via their stable contextId.
-  // Falls back to all tabs (capped) when no context is active.
   const currentTabs = activeContextId
     ? allTabs.filter((i) => i.contextId === activeContextId)
     : allTabs.slice(0, MAX_DEFAULT_PER_SECTION);
@@ -85,19 +117,25 @@ function buildDefaultSections(
   if (agentItems.length > 0)
     sections.push({ id: 'agents-default', label: 'Running Agents', items: agentItems });
 
-  const actionItems = items.filter((i) => i.category === 'action' && i.id !== 'action:new-tab');
-  if (actionItems.length > 0)
-    sections.push({ id: 'actions', label: 'Quick Actions', items: actionItems });
+  const globalItems = items.filter((i) => i.category === 'global');
+  if (globalItems.length > 0) sections.push({ id: 'global', label: 'Global', items: globalItems });
 
   return sections;
 }
 
 function filterByCategorySection(items: CommandItem[], section: MenuSection): CommandItem[] {
-  if (section === 'projects') return items.filter((i) => i.category === 'workspace');
-  if (section === 'tabs') return items.filter((i) => i.category === 'tab');
-  if (section === 'pty') return items.filter((i) => i.category === 'pty');
-  if (section === 'agents') return items.filter((i) => i.category === 'agent');
-  return items;
+  switch (section) {
+    case 'projects':
+      return items.filter((i) => i.category === 'workspace');
+    case 'tabs':
+      return items.filter((i) => i.category === 'tab');
+    case 'pty':
+      return items.filter((i) => i.category === 'pty');
+    case 'agents':
+      return items.filter((i) => i.category === 'agent');
+    default:
+      return items;
+  }
 }
 
 function groupByField(items: CommandItem[]): SectionData[] {
@@ -129,9 +167,11 @@ function groupByField(items: CommandItem[]): SectionData[] {
 
 export function useCommandMenu(items: CommandItem[], activeContextId?: string | null) {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
-  const { query, section, drillStack, selectedId: selectedIdState } = state;
+  const { query, section, drillStack, selectedId: rawSelectedId, panelItem } = state;
 
   const sections = useMemo((): SectionData[] => {
+    if (panelItem) return [];
+
     if (drillStack.length > 0) {
       const parent = drillStack[drillStack.length - 1]!;
       const children = parent.children?.() ?? [];
@@ -158,22 +198,23 @@ export function useCommandMenu(items: CommandItem[], activeContextId?: string | 
 
     return buildDefaultSections(items, activeContextId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    // selectedIdState excluded — section content is independent of which item is highlighted
-  }, [query, section, drillStack, items, activeContextId]);
+    // rawSelectedId excluded — section content is independent of which item is highlighted
+  }, [query, section, drillStack, panelItem, items, activeContextId]);
 
   const flatItems = useMemo(() => sections.flatMap((s) => s.items), [sections]);
 
   const selectedId = useMemo(() => {
-    if (selectedIdState !== null && flatItems.some((i) => i.id === selectedIdState)) {
-      return selectedIdState;
+    if (rawSelectedId !== null && flatItems.some((i) => i.id === rawSelectedId)) {
+      return rawSelectedId;
     }
     return flatItems[0]?.id ?? null;
-  }, [selectedIdState, flatItems]);
+  }, [rawSelectedId, flatItems]);
 
   return {
     query: state.query,
     section: state.section,
     drillStack: state.drillStack,
+    panelItem: state.panelItem,
     selectedId,
     dispatch,
     sections,
