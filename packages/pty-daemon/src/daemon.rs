@@ -953,4 +953,92 @@ mod tests {
 
         let _ = std::fs::remove_file(&socket);
     }
+
+    #[tokio::test]
+    async fn pool_claim_returns_warm_session() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // Wait for pool to warm up (shells need to boot + emit prompt)
+        tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
+
+        // Check pool status
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"pool_status","paneId":""}"#).await;
+        let status = read_json_line(&mut conn).await;
+        let ready = status["ready"].as_u64().unwrap_or(0);
+        assert!(ready >= 1, "pool should have at least 1 ready session; got status: {status}");
+
+        // Claim a warm session
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(
+            &mut conn2,
+            r#"{"op":"claim","paneId":"real-pane-1","cwd":"/tmp","rows":30,"cols":120}"#,
+        ).await;
+        let resp = read_json_line(&mut conn2).await;
+        assert_eq!(resp["ok"], true, "claim failed: {resp}");
+        let pid = resp["pid"].as_u64().unwrap();
+        assert!(pid > 0, "claim returned invalid pid");
+
+        // The session should now be accessible under the real pane_id
+        let mut conn3 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn3, r#"{"op":"attach","paneId":"real-pane-1"}"#).await;
+        let scrollback = drain_scrollback(&mut conn3).await;
+        // Just verify attach succeeds and sentinel is received
+        let _ = scrollback;
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn pool_claim_fallback_when_empty() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // Claim immediately after boot — pool may still be warming
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(
+            &mut conn,
+            r#"{"op":"claim","paneId":"eager-1","cwd":"/tmp","rows":24,"cols":80}"#,
+        ).await;
+        let resp = read_json_line(&mut conn).await;
+
+        // May succeed (if pool warmed fast) or fail with "pool empty" — both are valid.
+        assert!(
+            resp["ok"].as_bool().is_some(),
+            "claim response should have ok field: {resp}"
+        );
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn pool_replenishes_after_claim() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // Wait for pool to warm
+        tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
+
+        // Claim one
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(
+            &mut conn,
+            r#"{"op":"claim","paneId":"rep-1","cwd":"/tmp","rows":24,"cols":80}"#,
+        ).await;
+        let resp = read_json_line(&mut conn).await;
+        assert_eq!(resp["ok"], true, "first claim failed: {resp}");
+
+        // Wait for replenishment
+        tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
+
+        // Pool should have refilled
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"pool_status","paneId":""}"#).await;
+        let status = read_json_line(&mut conn2).await;
+        let total = status["ready"].as_u64().unwrap_or(0) + status["warming"].as_u64().unwrap_or(0);
+        assert!(total >= 1, "pool should have replenished; got status: {status}");
+
+        let _ = std::fs::remove_file(&socket);
+    }
 }
