@@ -149,12 +149,13 @@ impl DaemonClient {
     /// Attach to a PTY session: spawns a background task that reads frames
     /// from the daemon and sends them to `on_output`. Updates `last_output` timestamp
     /// on each chunk (used by the agent watcher for silence detection).
+    /// Returns the JoinHandle so callers can abort a superseded attach task.
     pub fn attach(
         &self,
         pane_id: String,
         on_output: Channel<Vec<u8>>,
         last_output: Arc<AtomicU64>,
-    ) {
+    ) -> tokio::task::JoinHandle<()> {
         let socket = self.socket.clone();
 
         tokio::spawn(async move {
@@ -197,6 +198,6 @@ impl DaemonClient {
                     break;
                 }
             }
-        });
+        })
     }
 }
