@@ -1,25 +1,22 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Plus } from 'lucide-react';
 
 import { useUiState, useWorkspaces } from '../hooks/useCollections';
-import { importRepo, setSidebarWidth } from '../lib/workspace-actions';
+import { openImportDialog, setSidebarWidth } from '../lib/workspace-actions';
 import { Button } from './ui';
 import { WorkspaceTree } from './WorkspaceTree';
 
 function EmptyState({ onImport }: { onImport: () => void }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 px-4">
-      <span className="text-base font-semibold text-text-primary">No workspaces</span>
-      <span className="text-center text-sm text-text-muted">
-        Import a git repository to get started.
-      </span>
+    <div className="flex h-full flex-col items-center justify-center gap-3 px-4">
+      <span className="font-mono text-sm text-text-faint">No repositories</span>
       <Button
         variant="ghost"
         onPress={onImport}
-        className="mt-2 w-full rounded-md border border-dashed border-border py-1.5 text-md"
+        className="w-full rounded-md border border-dashed border-border/40 py-1.5 text-sm"
       >
-        <Plus size={12} strokeWidth={1.5} />
+        <Plus size={12} />
         Import Repository
       </Button>
     </div>
@@ -34,26 +31,12 @@ export function Sidebar() {
 
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const dragAbortRef = useRef<AbortController | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
 
-  const handleImport = useCallback(async () => {
-    try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: 'Select Git Repository',
-      });
-      if (selected && typeof selected === 'string') {
-        await importRepo(selected);
-      }
-    } catch {
-      // Dialog not available in test/dev environments
-    }
-  }, []);
+  const handleImport = useCallback(() => void openImportDialog(), []);
 
   useEffect(() => {
     return () => {
-      document.body.style.cursor = '';
       dragAbortRef.current?.abort();
     };
   }, []);
@@ -62,7 +45,7 @@ export function Sidebar() {
     (e: React.MouseEvent) => {
       e.preventDefault();
       dragRef.current = { startX: e.clientX, startWidth: width };
-      document.body.style.cursor = 'col-resize';
+      setIsResizing(true);
 
       dragAbortRef.current?.abort();
       const ac = new AbortController();
@@ -81,7 +64,7 @@ export function Sidebar() {
         'mouseup',
         () => {
           dragRef.current = null;
-          document.body.style.cursor = '';
+          setIsResizing(false);
           ac.abort();
         },
         { signal: ac.signal },
@@ -93,24 +76,28 @@ export function Sidebar() {
   if (!visible) return null;
 
   return (
-    <div className="flex shrink-0 flex-row bg-bg-secondary" style={{ width: `${width}px` }}>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex-1 overflow-y-auto py-2">
-          {workspaces.length === 0 ? <EmptyState onImport={handleImport} /> : <WorkspaceTree />}
+    <>
+      {/* Full-screen overlay during resize — locks cursor and blocks hover on other elements */}
+      {isResizing && <div className="fixed inset-0 z-[9999]" style={{ cursor: 'col-resize' }} />}
+      <div className="flex shrink-0 flex-row bg-bg-secondary" style={{ width: `${width}px` }}>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex-1 overflow-y-auto pb-3">
+            {workspaces.length === 0 ? (
+              <EmptyState onImport={handleImport} />
+            ) : (
+              <WorkspaceTree onAddProject={handleImport} />
+            )}
+          </div>
         </div>
-        <div className="shrink-0 border-t border-border p-2">
-          <Button variant="secondary" onPress={handleImport} className="w-full">
-            <Plus size={12} strokeWidth={1.5} />
-            Add project
-          </Button>
+        <div className="group relative w-px shrink-0">
+          <div className="pointer-events-none absolute inset-y-0 left-1/2 z-[200] w-px -translate-x-1/2 bg-border/20 transition-all group-hover:w-[3px] group-hover:bg-accent" />
+          <div
+            className="absolute inset-0 -right-[4px] -left-[4px] z-50"
+            style={{ cursor: 'col-resize' }}
+            onMouseDown={handleMouseDown}
+          />
         </div>
       </div>
-      <div className="relative w-px shrink-0 bg-border">
-        <div
-          className="absolute inset-0 -right-px -left-px z-10 cursor-col-resize transition-colors hover:bg-accent"
-          onMouseDown={handleMouseDown}
-        />
-      </div>
-    </div>
+    </>
   );
 }

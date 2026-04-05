@@ -201,12 +201,8 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
           {/* Body */}
           <div className="scrollbar-none flex-1 overflow-y-auto py-2">
             {!hasAgents ? (
-              /* Empty state */
-              <div className="flex flex-col items-center justify-center gap-2 px-4 py-8">
-                <span className="text-lg font-semibold text-text-muted">No agents running</span>
-                <span className="text-base text-text-muted opacity-60">
-                  Start an AI agent in any terminal to see it here
-                </span>
+              <div className="flex items-center justify-center py-8 font-mono text-sm text-text-faint">
+                No agents running
               </div>
             ) : (
               /* Agent rows grouped by workspace */

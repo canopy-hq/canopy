@@ -135,6 +135,17 @@ impl DaemonClient {
         self.send_noack(&msg).await
     }
 
+    /// Get the current working directory of a PTY session's shell process.
+    pub async fn get_cwd(&self, pane_id: &str) -> Result<String, String> {
+        let msg = format!("{{\"op\":\"cwd\",\"paneId\":{}}}\n", serde_json::json!(pane_id));
+        let resp = self.send_cmd(&msg).await?;
+        if resp["ok"].as_bool() == Some(true) {
+            resp["cwd"].as_str().map(String::from).ok_or_else(|| "no cwd in response".to_string())
+        } else {
+            Err(resp["error"].as_str().unwrap_or("cwd failed").to_string())
+        }
+    }
+
     /// Close a PTY session and kill its process.
     pub async fn close(&self, pane_id: &str) -> Result<(), String> {
         let msg = format!("{{\"op\":\"close\",\"paneId\":{}}}\n", serde_json::json!(pane_id));

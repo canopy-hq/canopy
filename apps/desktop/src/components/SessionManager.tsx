@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Dialog, Heading, Modal, ModalOverlay } from 'react-aria-components';
+import { Dialog, Modal, ModalOverlay } from 'react-aria-components';
 
 import { closePty, listPtySessions } from '@superagent/terminal';
 import { useNavigate } from '@tanstack/react-router';
@@ -114,8 +114,6 @@ export function SessionManager({ onClose }: SessionManagerProps) {
     setKilling((prev) => new Set(prev).add(ptyId));
     try {
       await closePty(ptyId);
-      // Only mark pane as killed if the tab still exists; orphan sessions
-      // (PTY alive in daemon but tab already deleted) just need closePty.
       if (row.tab) killPaneInTab(row.tab.id, paneId);
       setSessions((prev) => prev.filter((s) => s.ptyId !== ptyId));
     } finally {
@@ -165,10 +163,10 @@ export function SessionManager({ onClose }: SessionManagerProps) {
       }}
       isDismissable
       isKeyboardDismissDisabled
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[120px]"
     >
       <Modal
-        className="flex max-h-[60vh] w-[600px] flex-col rounded-xl border border-border font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+        className="flex max-h-[70vh] w-[600px] flex-col overflow-hidden rounded-xl border border-border/60 font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
         style={{
           background: 'color-mix(in srgb, var(--bg-secondary) 85%, transparent)',
           WebkitBackdropFilter: 'blur(12px)',
@@ -177,21 +175,17 @@ export function SessionManager({ onClose }: SessionManagerProps) {
       >
         <Dialog className="flex min-h-0 flex-col outline-none" aria-label="PTY Session Manager">
           {/* Header */}
-          <div className="flex shrink-0 items-center gap-2 border-b border-border p-4">
-            <Heading slot="title" className="m-0 text-lg font-semibold text-text-primary">
-              PTY Sessions
-            </Heading>
+          <div className="flex shrink-0 items-center gap-2 border-b border-border/40 px-3 py-2.5">
+            <span className="flex-1 text-[13px] text-text-primary">PTY Sessions</span>
             {rows.length > 0 && (
-              <span className="text-sm text-text-muted">
+              <span className="font-mono text-[11px] text-text-faint tabular-nums">
                 {rows.length} {rows.length === 1 ? 'session' : 'sessions'}
               </span>
             )}
-            <div className="flex-1" />
             {rows.length > 0 && (
               <Button
                 variant="destructive-ghost"
                 size="sm"
-                className="shrink-0"
                 onPress={() => void handleKillAll()}
                 isDisabled={rows.every((r) => killing.has(r.info.ptyId))}
               >
@@ -200,21 +194,17 @@ export function SessionManager({ onClose }: SessionManagerProps) {
             )}
           </div>
 
-          {/* Body — scrollable */}
-          <div className="min-h-0 flex-1 overflow-y-auto py-2">
+          {/* Body */}
+          <div className="min-h-0 flex-1 overflow-y-auto py-1">
             {rows.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-2 px-4 py-8">
-                <span className="text-lg font-semibold text-text-muted">No active sessions</span>
-                <span className="text-base text-text-muted opacity-60">
-                  Open a terminal tab to start a PTY session
-                </span>
+              <div className="flex items-center justify-center py-8 font-mono text-sm text-text-faint">
+                No active sessions
               </div>
             ) : (
               Array.from(grouped.entries()).map(([wsName, groupRows]) => (
                 <div key={wsName}>
-                  {/* Group header */}
-                  <div className="flex items-center px-4 pt-2 pb-1">
-                    <span className="flex-1 text-sm font-semibold tracking-wide text-text-muted uppercase opacity-60">
+                  <div className="flex h-7 items-center px-3">
+                    <span className="flex-1 font-mono text-[10px] font-medium tracking-widest text-text-faint uppercase">
                       {wsName}
                     </span>
                     <Button
@@ -228,64 +218,36 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                     </Button>
                   </div>
 
-                  {/* Session rows */}
                   {groupRows.map((row) => (
                     <div
                       key={row.info.ptyId}
-                      className="flex items-center gap-2 px-4 py-2 hover:bg-bg-tertiary/50"
+                      role="button"
+                      tabIndex={row.tab ? 0 : -1}
+                      onClick={() => handleJump(row)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleJump(row);
+                      }}
+                      className={`flex h-9 items-center gap-3 px-3 text-[13px] text-text-primary outline-none ${
+                        row.tab
+                          ? 'cursor-pointer hover:bg-bg-tertiary/50'
+                          : 'cursor-default opacity-50'
+                      }`}
                     >
-                      {/* Tab label */}
-                      <span className="min-w-0 flex-1 truncate text-base text-text-primary">
-                        {row.tab?.label ?? '—'}
+                      <span className="min-w-0 flex-1 truncate">{row.tab?.label ?? '—'}</span>
+                      <span className="shrink-0 font-mono text-[11px] text-text-faint tabular-nums">
+                        {row.info.cpuPercent.toFixed(1)}% · {row.info.memoryMb}MB
                       </span>
-
-                      {/* Stats */}
-                      <span className="shrink-0 text-sm text-text-muted tabular-nums">
-                        PID {row.info.ptyId}
-                      </span>
-                      <span className="w-[48px] shrink-0 text-right text-sm text-text-muted tabular-nums">
-                        {row.info.cpuPercent.toFixed(1)}%
-                      </span>
-                      <span className="w-[44px] shrink-0 text-right text-sm text-text-muted tabular-nums">
-                        {row.info.memoryMb}MB
-                      </span>
-
-                      {/* Jump */}
-                      <Button
-                        variant="ghost"
-                        iconOnly
-                        isDisabled={!row.tab}
-                        aria-label="Go to tab"
-                        className="shrink-0 p-1"
-                        onPress={() => handleJump(row)}
-                      >
-                        <svg
-                          width="13"
-                          height="13"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="destructive-ghost"
+                          size="sm"
+                          className="shrink-0"
+                          onPress={() => void handleKill(row)}
+                          isDisabled={killing.has(row.info.ptyId)}
                         >
-                          <path d="M6 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-3" />
-                          <path d="M10 2h4v4" />
-                          <line x1="14" y1="2" x2="7" y2="9" />
-                        </svg>
-                      </Button>
-
-                      {/* Kill */}
-                      <Button
-                        variant="destructive-ghost"
-                        size="sm"
-                        className="shrink-0"
-                        onPress={() => void handleKill(row)}
-                        isDisabled={killing.has(row.info.ptyId)}
-                      >
-                        Kill
-                      </Button>
+                          kill
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>

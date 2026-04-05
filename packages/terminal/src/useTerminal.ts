@@ -165,7 +165,7 @@ export function useTerminal(
       // wrapper, which can cause browsers to apply implicit padding/outline.
       const wrapper = document.createElement('div');
       wrapper.style.cssText =
-        'position:relative;width:100%;height:100%;outline:none;padding:0;margin:0;border:none';
+        'position:absolute;inset:12px;outline:none;padding:0;margin:0;border:none';
       wrapper.style.background = themeBg;
       container.appendChild(wrapper);
 

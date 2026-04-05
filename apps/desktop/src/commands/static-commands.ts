@@ -1,4 +1,4 @@
-import { importRepo, toggleSidebar } from '../lib/workspace-actions';
+import { openImportDialog, toggleSidebar } from '../lib/workspace-actions';
 
 import type { Nav, CommandItem } from '@superagent/command-palette';
 
@@ -10,19 +10,10 @@ export function buildStaticCommands(navigate: Nav): CommandItem[] {
       category: 'global',
       keywords: ['import', 'repository', 'repo', 'open', 'folder'],
       icon: 'folder',
+      shortcut: '⌘N',
       action: async ({ close }) => {
         close();
-        try {
-          const { open } = await import('@tauri-apps/plugin-dialog');
-          const selected = await open({
-            directory: true,
-            multiple: false,
-            title: 'Select Git Repository',
-          });
-          if (selected && typeof selected === 'string') await importRepo(selected);
-        } catch {
-          // Dialog not available in test/dev environments
-        }
+        await openImportDialog();
       },
     },
     {
@@ -44,7 +35,7 @@ export function buildStaticCommands(navigate: Nav): CommandItem[] {
       keywords: ['preferences', 'config', 'theme'],
       icon: 'settings',
       action: ({ close }) => {
-        navigate({ to: '/settings' });
+        navigate({ to: '/settings', search: { section: 'appearance' } });
         close();
       },
     },

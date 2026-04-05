@@ -1,23 +1,25 @@
+import { useCallback, useState } from 'react';
+
 import { tv } from 'tailwind-variants';
 
 import { StatusDot } from './StatusDot';
+import { Tooltip } from './ui';
 
 import type { DotStatus } from './StatusDot';
 
-/**
- * Floating CWD overlay for a terminal pane.
- *
- * Positioned absolute top-right, shows the last 2 path segments
- * of the current working directory. Falls back to '~' when empty.
- *
- * When an agent is running or waiting, shows a StatusDot and agent name
- * before the CWD text.
- */
-
 const wrapper = tv({
-  base: 'absolute top-0 right-0 z-10 rounded-bl-[6px] px-4 py-1 font-mono text-md leading-none pointer-events-none flex items-center gap-1 backdrop-blur-[4px]',
+  base: 'absolute top-0 right-0 z-10 rounded-bl-[6px] px-4 py-1 font-mono text-md leading-none flex items-center gap-1 backdrop-blur-[4px] cursor-pointer select-none',
   variants: { focused: { true: 'text-text-primary', false: 'text-text-muted' } },
 });
+
+function formatCwd(cwd: string): { display: string; truncated: boolean } {
+  const segments = cwd.split('/').filter(Boolean);
+  if (segments.length === 0) return { display: '~', truncated: false };
+  if (segments.length <= 4) return { display: segments.join('/'), truncated: false };
+  const head = segments.slice(0, 2).join('/');
+  const tail = segments.slice(-2).join('/');
+  return { display: `${head}/…/${tail}`, truncated: true };
+}
 
 export function PaneHeader({
   cwd,
@@ -30,14 +32,25 @@ export function PaneHeader({
   agentStatus?: DotStatus;
   agentName?: string;
 }) {
-  const displayPath = cwd ? cwd.split('/').filter(Boolean).slice(-2).join('/') : '~';
+  const [copied, setCopied] = useState(false);
+
+  const { display, truncated } = formatCwd(cwd);
+
+  const handleCopy = useCallback(() => {
+    if (!cwd) return;
+    void navigator.clipboard.writeText(cwd).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 600);
+    });
+  }, [cwd]);
 
   const showAgent = agentStatus && agentStatus !== 'idle';
 
-  return (
+  const content = (
     <div
       className={wrapper({ focused: isFocused })}
       style={{ background: 'color-mix(in srgb, var(--bg-tertiary) 85%, transparent)' }}
+      onClick={handleCopy}
     >
       {showAgent && <StatusDot status={agentStatus} size={8} />}
       {showAgent && agentName && (
@@ -46,7 +59,19 @@ export function PaneHeader({
           <span className="text-sm text-text-muted opacity-40">&middot;</span>
         </>
       )}
-      {displayPath}
+      <span className={`transition-opacity duration-75 ${copied ? 'opacity-30' : ''}`}>
+        {display}
+      </span>
     </div>
   );
+
+  if (truncated) {
+    return (
+      <Tooltip label={cwd} placement="bottom">
+        {content}
+      </Tooltip>
+    );
+  }
+
+  return content;
 }

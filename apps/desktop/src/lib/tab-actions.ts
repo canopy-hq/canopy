@@ -369,6 +369,22 @@ export function setPtyId(paneId: PaneId, ptyId: number): void {
   setPtyIdInTab(tab.id, paneId, ptyId);
 }
 
+export function closeAllTabs(contextId: string): void {
+  const col = getTabCollection();
+  const tabs = col.toArray.filter((t) => t.workspaceItemId === contextId);
+  for (const tab of tabs) closeTab(tab.id);
+}
+
+export function closeAllTabsExcept(tabId: string): void {
+  const col = getTabCollection();
+  const tab = col.toArray.find((t) => t.id === tabId);
+  if (!tab) return;
+  const others = col.toArray.filter(
+    (t) => t.workspaceItemId === tab.workspaceItemId && t.id !== tabId,
+  );
+  for (const other of others) closeTab(other.id);
+}
+
 export function reorderTabs(orderedIds: string[]): void {
   const col = getTabCollection();
   for (let i = 0; i < orderedIds.length; i++) {

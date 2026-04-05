@@ -36,37 +36,36 @@ export function RemoveWorktreeModal({
       onKeyDown={handleKeyDown}
       role="presentation"
     >
-      <div className="w-[480px] rounded-lg border border-border bg-bg-secondary p-6">
+      <div className="w-[420px] rounded-lg border border-border/60 bg-bg-secondary p-5">
         <Dialog className="outline-none" aria-label="Remove Worktree">
-          <Heading slot="title" className="text-[16px] font-semibold text-text-primary">
+          <Heading slot="title" className="font-mono text-base font-medium text-text-primary">
             Remove &ldquo;{worktreeName}&rdquo;
           </Heading>
 
-          <p className="mt-3 text-base leading-relaxed text-text-muted">
-            This will remove the worktree from the sidebar. You can re-open it later from the
-            workspace palette.
+          <p className="mt-2 text-sm leading-relaxed text-text-muted">
+            Removes the worktree from the sidebar. You can re-open it later from the workspace
+            palette.
           </p>
 
-          <label className="mt-4 flex items-center gap-2">
+          <label className="mt-4 flex cursor-pointer items-center gap-2">
             <input
               type="checkbox"
               checked={deleteGit}
               onChange={(e) => setDeleteGit(e.target.checked)}
               className="accent-destructive"
             />
-            <span className="text-base text-text-muted">
-              Also delete the git worktree from disk
-            </span>
+            <span className="text-sm text-text-muted">Also delete the git worktree from disk</span>
           </label>
 
           {deleteGit && (
-            <p className="mt-2 text-md leading-relaxed text-destructive">
-              This will run <code className="rounded bg-bg-tertiary px-1">git worktree remove</code>{' '}
-              and delete the working directory. Uncommitted changes will be lost.
+            <p className="mt-2 text-sm leading-relaxed text-destructive/80">
+              Runs{' '}
+              <code className="rounded-sm bg-bg-tertiary px-1 font-mono">git worktree remove</code>{' '}
+              and deletes the working directory. Uncommitted changes will be lost.
             </p>
           )}
 
-          <div className="mt-6 flex justify-end gap-2">
+          <div className="mt-5 flex justify-end gap-2">
             <Button variant="secondary" onPress={onClose}>
               Cancel
             </Button>

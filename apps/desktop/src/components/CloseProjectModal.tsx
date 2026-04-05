@@ -34,18 +34,18 @@ export function CloseProjectModal({
       onKeyDown={handleKeyDown}
       role="presentation"
     >
-      <div className="w-[480px] rounded-lg border border-border bg-bg-secondary p-6">
+      <div className="w-[420px] rounded-lg border border-border/60 bg-bg-secondary p-5">
         <Dialog className="outline-none" aria-label="Close Project">
-          <Heading slot="title" className="text-[16px] font-semibold text-text-primary">
-            Close Project &ldquo;{projectName}&rdquo;
+          <Heading slot="title" className="font-mono text-base font-medium text-text-primary">
+            Close &ldquo;{projectName}&rdquo;
           </Heading>
 
-          <p className="mt-3 text-base leading-relaxed text-text-muted">
-            This will close all workspaces inside this project and kill all active terminals. Your
-            files and git history will remain on disk.
+          <p className="mt-2 text-sm leading-relaxed text-text-muted">
+            Closes all workspaces inside this project and kills all active terminals. Files and git
+            history remain on disk.
           </p>
 
-          <div className="mt-6 flex justify-end gap-2">
+          <div className="mt-5 flex justify-end gap-2">
             <Button variant="secondary" onPress={onClose}>
               Cancel
             </Button>

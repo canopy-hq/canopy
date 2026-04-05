@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
 
 import { createFileRoute } from '@tanstack/react-router';
-import { Loader2 } from 'lucide-react';
+import { Loader2, PanelLeft, SquareTerminal } from 'lucide-react';
 
 import { PaneContainer } from '../../components/PaneContainer';
 import { TabBar } from '../../components/TabBar';
-import { Button, Kbd } from '../../components/ui';
+import { Kbd } from '../../components/ui';
 import { useUiState, useTabs } from '../../hooks/useCollections';
 import { setActiveContext, addTab } from '../../lib/tab-actions';
 import { toggleSidebar } from '../../lib/workspace-actions';
@@ -13,9 +13,8 @@ import { toggleSidebar } from '../../lib/workspace-actions';
 function CreatingWorktree() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 select-none">
-      <Loader2 size={20} className="animate-spin text-accent" />
-      <span className="text-[14px] font-medium text-text-primary">Creating worktree…</span>
-      <span className="text-[12px] text-text-muted">Setting up your workspace</span>
+      <Loader2 size={16} className="animate-spin text-text-faint" />
+      <span className="font-mono text-sm text-text-faint">Creating worktree…</span>
     </div>
   );
 }
@@ -34,7 +33,7 @@ function WorkspaceRoute() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId]);
 
-  const isCreating = ui.creatingWorktreeId === workspaceId;
+  const isCreating = ui.creatingWorktreeIds.includes(workspaceId);
 
   return (
     <>
@@ -56,57 +55,25 @@ function WorkspaceRoute() {
 
 function EmptyState() {
   return (
-    <div className="flex h-full flex-1 flex-col items-center justify-center gap-1 select-none">
-      <div className="mb-8 font-mono text-[42px] font-semibold tracking-[-2px] text-text-muted opacity-25">
-        {'{ }'}
-      </div>
-
-      <Button
-        variant="ghost"
-        onPress={() => addTab()}
-        className="w-80 justify-start gap-3 px-4 py-2.5 text-lg"
+    <div className="flex h-full flex-1 flex-col items-center justify-center gap-2 select-none">
+      <button
+        type="button"
+        onClick={() => addTab()}
+        className="flex w-72 items-center gap-3 rounded-md px-4 py-3 text-text-faint transition-colors hover:bg-white/[0.04] hover:text-text-muted"
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="shrink-0"
-        >
-          <rect x="1" y="2.5" width="14" height="11" rx="2" />
-          <path d="M4.5 6l2.5 2-2.5 2" />
-          <path d="M9 10h3" />
-        </svg>
-        <span className="flex-1 text-left">New Terminal</span>
+        <SquareTerminal size={15} className="shrink-0" />
+        <span className="flex-1 text-left font-mono text-base">New Terminal</span>
         <Kbd>⌘T</Kbd>
-      </Button>
-
-      <Button
-        variant="ghost"
-        onPress={() => toggleSidebar()}
-        className="w-80 justify-start gap-3 px-4 py-2.5 text-lg"
+      </button>
+      <button
+        type="button"
+        onClick={() => toggleSidebar()}
+        className="flex w-72 items-center gap-3 rounded-md px-4 py-3 text-text-faint transition-colors hover:bg-white/[0.04] hover:text-text-muted"
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="shrink-0"
-        >
-          <rect x="1" y="1" width="14" height="14" rx="2" />
-          <path d="M6 1v14" />
-        </svg>
-        <span className="flex-1 text-left">Toggle Sidebar</span>
+        <PanelLeft size={15} className="shrink-0" />
+        <span className="flex-1 text-left font-mono text-base">Toggle Sidebar</span>
         <Kbd>⌘B</Kbd>
-      </Button>
+      </button>
     </div>
   );
 }

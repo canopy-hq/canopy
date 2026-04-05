@@ -34,6 +34,20 @@ export function getWorkspaceItemIds(ws: Workspace): Set<string> {
   return ids;
 }
 
+export async function openImportDialog(): Promise<void> {
+  try {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: 'Select Git Repository',
+    });
+    if (selected && typeof selected === 'string') await importRepo(selected);
+  } catch {
+    // Dialog not available in test/dev environments
+  }
+}
+
 export async function importRepo(path: string): Promise<void> {
   try {
     const info = await gitApi.importRepo(path);
@@ -122,6 +136,12 @@ export async function refreshRepo(id: string): Promise<void> {
 export function toggleExpanded(id: string): void {
   getWorkspaceCollection().update(id, (draft) => {
     draft.expanded = !draft.expanded;
+  });
+}
+
+export function setWorkspaceColor(id: string, color: string | null): void {
+  getWorkspaceCollection().update(id, (draft) => {
+    draft.color = color;
   });
 }
 
@@ -273,7 +293,9 @@ export function startWorktreeCreation(
   });
 
   uiCollection.update('ui', (draft) => {
-    draft.creatingWorktreeId = wtItemId;
+    if (!draft.creatingWorktreeIds.includes(wtItemId)) {
+      draft.creatingWorktreeIds.push(wtItemId);
+    }
   });
 
   selectWorkspaceItem(wtItemId, navigate);
@@ -295,7 +317,7 @@ export function startWorktreeCreation(
       });
     } finally {
       uiCollection.update('ui', (draft) => {
-        draft.creatingWorktreeId = null;
+        draft.creatingWorktreeIds = draft.creatingWorktreeIds.filter((id) => id !== wtItemId);
       });
     }
   })();

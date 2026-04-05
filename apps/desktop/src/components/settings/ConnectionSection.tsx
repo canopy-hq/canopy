@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 import { getSetting, getSettingCollection, setSetting } from '@superagent/db';
 import { useLiveQuery } from '@tanstack/react-db';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { Check, GitBranch, Loader2 } from 'lucide-react';
 
 import { DEFAULT_WORKTREE_BASE, WORKTREE_BASE_DIR_KEY } from '../../lib/git';
 import {
@@ -17,6 +18,10 @@ import {
 } from '../../lib/github';
 import { showErrorToast } from '../../lib/toast';
 import { Button } from '../ui';
+
+const sectionLabel = 'mb-3 font-mono text-xs font-medium tracking-widest text-text-faint uppercase';
+const sectionDesc = 'mb-4 text-base text-text-muted';
+const card = 'rounded-md border border-border/20 bg-bg-secondary';
 
 function friendlyError(raw: string): string {
   if (raw.includes('keychain')) return 'Could not access the system keychain.';
@@ -68,6 +73,7 @@ export function ConnectionSection() {
     try {
       const deviceCode = await startDeviceFlow();
       setAuth({ status: 'connecting', deviceCode });
+      void navigator.clipboard.writeText(deviceCode.userCode);
       await openUrl(deviceCode.verificationUri);
       const connection = await pollToken(
         deviceCode.deviceCode,
@@ -104,8 +110,8 @@ export function ConnectionSection() {
   return (
     <div className="space-y-8">
       <section>
-        <h2 className="mb-1 text-base font-semibold text-text-primary">GitHub</h2>
-        <p className="mb-4 text-md text-text-muted">
+        <div className={sectionLabel}>GitHub</div>
+        <p className={sectionDesc}>
           Connect your GitHub account for PR status, CI checks, and more.
         </p>
         <GitHubAuth
@@ -145,12 +151,12 @@ function WorktreeBaseDir() {
 
   return (
     <section>
-      <h2 className="mb-1 text-base font-semibold text-text-primary">Worktree Base Directory</h2>
-      <p className="mb-3 text-md text-text-muted">
+      <div className={sectionLabel}>Worktree Base Directory</div>
+      <p className="mb-3 text-base text-text-muted">
         New worktrees will be created inside this directory.
       </p>
-      <div className="flex items-center gap-2 rounded-lg bg-bg-secondary px-4 py-3">
-        <span className="min-w-0 flex-1 truncate font-mono text-md text-text-primary">
+      <div className={`flex items-center gap-2 px-4 py-3 ${card}`}>
+        <span className="min-w-0 flex-1 truncate font-mono text-base text-text-primary">
           {currentDir}
         </span>
         <Button variant="ghost" size="sm" onPress={handleChoose}>
@@ -166,6 +172,62 @@ function WorktreeBaseDir() {
   );
 }
 
+function ConnectingCard({
+  deviceCode,
+  onCancel,
+}: {
+  deviceCode: DeviceCodeInfo;
+  onCancel: () => void;
+}) {
+  const [copied, setCopied] = useState(true); // auto-copied on mount
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    timerRef.current = setTimeout(() => setCopied(false), 3000);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  const handleCopy = useCallback(() => {
+    void navigator.clipboard.writeText(deviceCode.userCode);
+    setCopied(true);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setCopied(false), 3000);
+  }, [deviceCode.userCode]);
+
+  return (
+    <div className={`px-4 py-4 ${card}`}>
+      <p className="mb-3 text-sm text-text-muted">
+        Enter this code on GitHub to authorize Superagent:
+      </p>
+      <div className="mb-3 flex items-center justify-between gap-4">
+        <span className="font-mono text-2xl font-bold tracking-widest text-text-primary select-all">
+          {deviceCode.userCode}
+        </span>
+        <Button variant="ghost" size="sm" onPress={handleCopy}>
+          {copied ? (
+            <>
+              <Check size={13} /> Copied
+            </>
+          ) : (
+            'Copy code'
+          )}
+        </Button>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-sm text-text-muted">
+          <Loader2 size={12} className="animate-spin" />
+          Waiting for authorization…
+        </span>
+        <Button variant="destructive-ghost" size="sm" onPress={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function GitHubAuth({
   auth,
   onConnect,
@@ -177,56 +239,37 @@ function GitHubAuth({
   onDisconnect: () => void;
   onCancel: () => void;
 }) {
-  if (auth.status === 'loading') {
-    return <div className="text-md text-text-muted">Checking connection...</div>;
+  if (auth.status === 'connecting') {
+    return <ConnectingCard deviceCode={auth.deviceCode} onCancel={onCancel} />;
   }
 
-  if (auth.status === 'connected') {
-    return (
-      <div className="flex items-center gap-3 rounded-lg bg-bg-secondary px-4 py-3">
+  const isConnected = auth.status === 'connected';
+
+  return (
+    <div className={`flex items-center gap-3 px-4 py-3 ${card}`}>
+      {isConnected ? (
         <img
           src={auth.connection.avatarUrl}
           alt={auth.connection.username}
-          className="h-8 w-8 rounded-full"
+          className="h-7 w-7 rounded-full"
         />
-        <span className="flex-1 text-base font-medium text-text-primary">
-          {auth.connection.username}
-        </span>
+      ) : (
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-bg-tertiary">
+          <GitBranch size={14} className="text-text-faint" />
+        </div>
+      )}
+      <span className="flex-1 font-mono text-base text-text-primary">
+        {isConnected ? auth.connection.username : 'Not connected'}
+      </span>
+      {isConnected ? (
         <Button variant="destructive-ghost" size="sm" onPress={onDisconnect}>
           Disconnect
         </Button>
-      </div>
-    );
-  }
-
-  if (auth.status === 'connecting') {
-    return (
-      <div className="space-y-3 rounded-lg bg-bg-secondary px-4 py-3">
-        <div className="flex items-center justify-between">
-          <span className="text-md text-text-muted">Enter this code on GitHub:</span>
-          <Button
-            size="sm"
-            onPress={() => void navigator.clipboard.writeText(auth.deviceCode.userCode)}
-          >
-            Copy code
-          </Button>
-        </div>
-        <div className="text-center font-mono text-2xl font-bold tracking-widest text-text-primary select-all">
-          {auth.deviceCode.userCode}
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-md text-text-muted">Waiting for authorization...</span>
-          <Button variant="ghost" size="sm" onPress={onCancel}>
-            Cancel
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <Button variant="primary" size="sm" onPress={onConnect}>
-      Connect GitHub
-    </Button>
+      ) : (
+        <Button variant="primary" size="sm" onPress={() => void onConnect()}>
+          Connect
+        </Button>
+      )}
+    </div>
   );
 }

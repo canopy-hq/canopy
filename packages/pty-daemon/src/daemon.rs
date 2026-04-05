@@ -8,6 +8,35 @@ use tokio::sync::broadcast;
 
 use crate::scrollback::ScrollbackBuffer;
 
+/// Get the current working directory of a process on macOS via proc_pidinfo(PROC_PIDVNODEPATHINFO).
+/// proc_pid::pidcwd from the libproc crate reads /proc/{pid}/cwd which only exists on Linux.
+#[cfg(target_os = "macos")]
+fn get_pid_cwd(pid: u32) -> Result<String, String> {
+    use std::ffi::c_void;
+
+    const PROC_PIDVNODEPATHINFO: i32 = 9;
+    // sizeof(struct proc_vnodepathinfo) on macOS 64-bit = 2 × (sizeof(vnode_info)=152 + MAXPATHLEN=1024) = 2352
+    const INFO_SIZE: usize = 2352;
+    // pvi_cdir.vip_path starts at offset sizeof(vnode_info) = 152 inside the struct
+    const PATH_OFFSET: usize = 152;
+
+    extern "C" {
+        fn proc_pidinfo(pid: i32, flavor: i32, arg: u64, buf: *mut c_void, size: i32) -> i32;
+    }
+
+    let mut buf = vec![0u8; INFO_SIZE];
+    let ret = unsafe {
+        proc_pidinfo(pid as i32, PROC_PIDVNODEPATHINFO, 0, buf.as_mut_ptr() as *mut c_void, INFO_SIZE as i32)
+    };
+    if ret <= 0 {
+        return Err(format!("proc_pidinfo failed (ret={ret}, errno={})", std::io::Error::last_os_error()));
+    }
+
+    let path_bytes = &buf[PATH_OFFSET..];
+    let end = path_bytes.iter().position(|&b| b == 0).unwrap_or(path_bytes.len());
+    std::str::from_utf8(&path_bytes[..end]).map(String::from).map_err(|e| e.to_string())
+}
+
 const SCROLLBACK_CAP: usize = 100 * 1024; // 100KB per session
 
 struct PtySession {
@@ -172,6 +201,21 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                     let _ = sess.child.wait();
                 }
                 let _ = write_half.write_all(b"{\"ok\":true}\n").await;
+            }
+
+            "cwd" => {
+                let pid = {
+                    let st = state.lock().unwrap();
+                    st.sessions.get(&pane_id).map(|s| s.child_pid)
+                };
+                let resp = match pid {
+                    Some(pid) => match get_pid_cwd(pid) {
+                        Ok(path) => format!("{{\"ok\":true,\"cwd\":{}}}\n", serde_json::json!(path)),
+                        Err(e) => format!("{{\"ok\":false,\"error\":{}}}\n", serde_json::json!(e)),
+                    },
+                    None => "{\"ok\":false,\"error\":\"session not found\"}\n".to_string(),
+                };
+                let _ = write_half.write_all(resp.as_bytes()).await;
             }
 
             "list" => {

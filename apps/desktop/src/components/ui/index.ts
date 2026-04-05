@@ -1,3 +1,6 @@
+export { ContextMenu } from './ContextMenu';
+export type { ContextMenuItemDef, ContextMenuAction, ContextMenuSubmenuItem } from './ContextMenu';
+
 export { Button } from './Button';
 export type { ButtonProps, ButtonVariants } from './Button';
 

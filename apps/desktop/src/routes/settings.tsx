@@ -7,6 +7,7 @@ import { tv } from 'tailwind-variants';
 
 import { AppearanceSection } from '../components/settings/AppearanceSection';
 import { ConnectionSection } from '../components/settings/ConnectionSection';
+import { Button } from '../components/ui';
 
 type SectionId = 'appearance' | 'git';
 
@@ -32,7 +33,7 @@ const SECTIONS: Record<SectionId, () => React.JSX.Element> = {
 };
 
 const navItem = tv({
-  base: 'flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-md transition-colors',
+  base: 'flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-base transition-colors',
   variants: {
     active: {
       true: 'bg-bg-tertiary text-text-primary',
@@ -67,24 +68,21 @@ function SettingsRoute() {
 
   return (
     <div className="fixed inset-0 z-50 flex bg-bg-primary">
-      <div className="flex w-[220px] flex-shrink-0 flex-col border-r border-border bg-bg-secondary">
-        <div data-tauri-drag-region className="h-[38px] flex-shrink-0" />
+      {/* Left sidebar */}
+      <div className="flex w-[220px] flex-shrink-0 flex-col border-r border-border/40 bg-bg-secondary">
+        <div data-tauri-drag-region className="h-12 flex-shrink-0" />
+        <div className="px-3 py-2">
+          <Button variant="link" size="md" onPress={navigateBack} aria-label="Back to app">
+            <ChevronLeft size={14} />
+            Back
+          </Button>
+        </div>
+        <div className="mb-2 border-b border-border/20" />
 
-        <button
-          className="flex items-center gap-1.5 px-5 py-2 text-base text-text-muted transition-colors hover:text-text-primary"
-          onClick={navigateBack}
-          aria-label="Back to app"
-        >
-          <ChevronLeft size={14} strokeWidth={1.8} />
-          <span>Back</span>
-        </button>
-
-        <div className="px-5 pt-3 pb-4 text-[15px] font-bold text-text-primary">Settings</div>
-
-        <nav className="flex-1 space-y-4 px-3">
+        <nav className="flex-1 space-y-4 px-3 pt-3">
           {NAV.map((group) => (
             <div key={group.label}>
-              <div className="mb-1 px-2 text-sm font-semibold tracking-wider text-text-muted/60 uppercase">
+              <div className="mb-1 px-2 font-mono text-2xs font-medium tracking-widest text-text-faint uppercase">
                 {group.label}
               </div>
               <div className="space-y-0.5">
@@ -94,7 +92,7 @@ function SettingsRoute() {
                     className={navItem({ active: activeSection === item.id })}
                     onClick={() => void navigate({ to: '/settings', search: { section: item.id } })}
                   >
-                    <item.icon size={13} strokeWidth={1.8} />
+                    <item.icon size={13} />
                     {item.label}
                   </button>
                 ))}
@@ -104,9 +102,10 @@ function SettingsRoute() {
         </nav>
       </div>
 
+      {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        <div data-tauri-drag-region className="h-[38px] flex-shrink-0" />
-        <div className="max-w-lg px-8 pb-6">
+        <div data-tauri-drag-region className="h-12 flex-shrink-0" />
+        <div className="max-w-lg px-8 py-6">
           <ActiveComponent />
         </div>
       </div>

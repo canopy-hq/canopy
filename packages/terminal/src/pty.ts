@@ -73,8 +73,8 @@ export async function closePtysForPanes(paneIds: string[]): Promise<void> {
   return invoke('close_ptys_for_panes', { paneIds });
 }
 
-export async function getPtyCwd(ptyId: number): Promise<string> {
-  return invoke<string>('get_pty_cwd', { ptyId });
+export async function getPtyCwd(paneId: string): Promise<string> {
+  return invoke<string>('get_pty_cwd', { paneId });
 }
 
 export interface PtySessionInfo {
