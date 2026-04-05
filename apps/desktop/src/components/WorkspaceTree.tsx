@@ -628,7 +628,7 @@ function RepoTreeItem({
           transition,
         }}
       >
-        {hasSeparator && !isDragging && <div className="h-px bg-border" />}
+        {hasSeparator && <div className={`h-px bg-border${isDragging ? ' invisible' : ''}`} />}
         <RepoHeader
           workspace={ws}
           agentSummary={agentSummary}
