@@ -622,7 +622,7 @@ function RepoTreeItem({
     <>
       <div
         ref={setNodeRef}
-        className={isDragging ? 'relative z-50 bg-bg-primary' : undefined}
+        className={isDragging ? 'pointer-events-none relative z-50 bg-bg-primary' : undefined}
         style={{
           transform: CSS.Transform.toString(
             transform ? { ...transform, scaleX: 1, scaleY: 1 } : null,
