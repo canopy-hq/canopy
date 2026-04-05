@@ -12,8 +12,8 @@ import {
 import {
   ArrowDown,
   ArrowUp,
+  Check,
   ChevronLeft,
-  Command,
   CornerDownLeft,
   Delete,
   GitBranch,
@@ -22,7 +22,7 @@ import {
   X,
 } from 'lucide-react';
 
-import { Badge } from './ui';
+import { Badge, Button } from './ui';
 import { useWorkspacePalette, type PaletteItem } from './useWorkspacePalette';
 
 import type { PanelContext } from '@superagent/command-palette';
@@ -36,7 +36,7 @@ export interface WorkspacePalettePanelProps {
 // ── Icon ───────────────────────────────────────────────────────────────────────
 
 function PaletteIcon({ kind }: { kind: PaletteItem['kind'] }) {
-  const props = { size: 12, strokeWidth: 1.5, className: 'shrink-0 text-text-muted' } as const;
+  const props = { size: 12, className: 'shrink-0 text-text-muted' } as const;
   if (kind === 'create') return <Plus {...props} className="shrink-0 text-accent" />;
   if (kind === 'branch') return <GitBranch {...props} />;
   return <GitFork {...props} />;
@@ -198,17 +198,10 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
         </Kbd>
       </FooterHint>
     );
-    const close = (
-      <FooterHint label="close">
-        <Kbd>Esc</Kbd>
-      </FooterHint>
-    );
     const tail = (
       <>
         <FooterSep />
         {back}
-        <FooterSep />
-        {close}
       </>
     );
 
@@ -221,19 +214,6 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
             <Kbd>
               <CornerDownLeft size={9} />
             </Kbd>
-          </FooterHint>
-          <FooterSep />
-          <FooterHint label="create">
-            <Kbd>
-              <Command size={9} />
-            </Kbd>
-            <Kbd>
-              <CornerDownLeft size={9} />
-            </Kbd>
-          </FooterHint>
-          <FooterSep />
-          <FooterHint label="filter">
-            <Kbd>Tab</Kbd>
           </FooterHint>
           {tail}
           <span className="ml-auto font-mono opacity-80">
@@ -248,12 +228,6 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
       return (
         <>
           {nav}
-          <FooterSep />
-          <FooterHint label="create">
-            <Kbd>
-              <CornerDownLeft size={9} />
-            </Kbd>
-          </FooterHint>
           {tail}
         </>
       );
@@ -306,10 +280,6 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
             <CornerDownLeft size={9} />
           </Kbd>
         </FooterHint>
-        <FooterSep />
-        <FooterHint label="filter">
-          <Kbd>Tab</Kbd>
-        </FooterHint>
         {tail}
       </>
     );
@@ -337,19 +307,19 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
           }
         />
         {query && (
-          <button
-            type="button"
-            tabIndex={-1}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
+          <Button
+            variant="ghost"
+            iconOnly
+            size="sm"
+            onMouseDown={(e: React.MouseEvent) => e.preventDefault()}
+            onPress={() => {
               setQuery('');
               inputRef.current?.focus();
             }}
             aria-label="Clear"
-            className="cursor-pointer rounded px-1 text-text-muted transition-colors hover:text-text-primary"
           >
             <X size={11} />
-          </button>
+          </Button>
         )}
       </div>
 
@@ -376,16 +346,15 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
       {/* Base picker header */}
       {pickingBase && (
         <div className="flex items-center gap-1.5 border-b border-border px-3 py-1.5">
-          <button
-            type="button"
-            tabIndex={-1}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setPickingBase(false)}
-            className="flex cursor-pointer items-center gap-1 text-[11px] text-text-muted transition-colors hover:text-text-primary"
+          <Button
+            variant="link"
+            onMouseDown={(e: React.MouseEvent) => e.preventDefault()}
+            onPress={() => setPickingBase(false)}
+            className="flex cursor-pointer items-center gap-1 text-[11px]"
           >
-            <ChevronLeft size={11} strokeWidth={1.5} />
+            <ChevronLeft size={11} />
             back
-          </button>
+          </Button>
           <span className="text-[11px] text-text-muted opacity-40">/</span>
           <span className="text-[11px] text-text-primary">
             base for <span className="text-accent">{sanitizedName}</span>
@@ -396,7 +365,7 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
       {/* List — same structure and styling as CommandMenu */}
       <div ref={listRef} className="max-h-[340px] min-h-0 overflow-y-auto py-1">
         {sections.length === 0 ? (
-          <div className="flex items-center justify-center py-8 text-[13px] text-text-muted">
+          <div className="flex items-center justify-center py-8 font-mono text-sm text-text-faint">
             {query ? `No results for "${query}"` : 'No branches'}
           </div>
         ) : (
@@ -490,11 +459,7 @@ function PaletteRow({
       )}
 
       {/* Base picker check */}
-      {isBasePicked && (
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="var(--accent)" className="shrink-0">
-          <path d="M6 10.8l-2.4-2.4L2 10l4 4 8-8-1.6-1.6z" />
-        </svg>
-      )}
+      {isBasePicked && <Check size={12} className="shrink-0 text-accent" />}
     </div>
   );
 }
@@ -519,26 +484,20 @@ function BranchMeta({
 
   return (
     <>
-      {branch.is_head && (
+      {branch.is_head ? (
         <Badge color="accent" size="xs">
-          HEAD
+          checked out
         </Badge>
-      )}
-      {branch.is_local && !branch.is_head && (
+      ) : branch.is_in_worktree ? (
         <Badge color="warning" size="xs">
-          local
-        </Badge>
-      )}
-      {!branch.is_local && <Badge size="xs">origin</Badge>}
-      {branch.is_in_worktree && (
-        <Badge color="error" size="xs">
           in worktree
         </Badge>
-      )}
-      {(branch.is_head || branch.is_in_worktree) && (
-        <span className="shrink-0 text-[11px] text-text-muted">
-          {branch.is_head ? 'checked out' : 'in use'}
-        </span>
+      ) : branch.is_local ? (
+        <Badge color="neutral" size="xs">
+          local
+        </Badge>
+      ) : (
+        <Badge size="xs">origin</Badge>
       )}
     </>
   );

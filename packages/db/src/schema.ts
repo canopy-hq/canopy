@@ -10,6 +10,7 @@ export const workspaces = sqliteTable('workspaces', {
   worktrees: text('worktrees').notNull().default('[]'),
   expanded: integer('expanded', { mode: 'boolean' }).notNull().default(true),
   position: integer('position').notNull().default(0),
+  color: text('color'),
 });
 
 export const tabs = sqliteTable('tabs', {

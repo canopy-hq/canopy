@@ -5,7 +5,6 @@ import {
   ArrowDown,
   ArrowUp,
   ChevronRight,
-  Command,
   CornerDownLeft,
   Cpu,
   Delete,
@@ -253,7 +252,7 @@ export function CommandMenu({
                     <button
                       type="button"
                       tabIndex={-1}
-                      onClick={() => dispatch({ type: 'DRILL_INTO', item: drillStack[i]! })}
+                      onClick={() => dispatch({ type: 'DRILL_BACK_TO', index: i })}
                       className="cursor-pointer transition-colors hover:text-text-primary"
                     >
                       {crumb.label}
@@ -324,9 +323,6 @@ export function CommandMenu({
 
               {/* Search input */}
               <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
-                <Kbd>
-                  <Command size={9} />K
-                </Kbd>
                 <input
                   ref={inputRef}
                   type="text"
@@ -463,10 +459,6 @@ export function CommandMenu({
                     </FooterHint>
                   </>
                 )}
-                <FooterSep />
-                <FooterHint label="close">
-                  <Kbd>Esc</Kbd>
-                </FooterHint>
               </FooterBar>
             </>
           )}

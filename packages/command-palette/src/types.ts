@@ -45,7 +45,11 @@ export interface CommandItem {
   action?: (ctx: CommandContext) => void | Promise<void>;
 }
 
-export type Nav = (opts: { to: string; params?: Record<string, string> }) => void;
+export type Nav = (opts: {
+  to: string;
+  params?: Record<string, string>;
+  search?: Record<string, unknown>;
+}) => void;
 
 export interface CommandMenuProps {
   isOpen: boolean;

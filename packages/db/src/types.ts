@@ -25,6 +25,7 @@ export interface Workspace {
   worktrees: WorktreeInfo[];
   expanded: boolean;
   position: number;
+  color?: string | null;
 }
 
 // ── Tab / Pane ───────────────────────────────────────────────────────────────

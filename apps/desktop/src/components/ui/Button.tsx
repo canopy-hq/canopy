@@ -3,7 +3,7 @@ import { Button as AriaButton, type ButtonProps as AriaButtonProps } from 'react
 import { tv, type VariantProps } from 'tailwind-variants';
 
 const button = tv({
-  base: 'inline-flex items-center justify-center gap-1.5 rounded-lg font-medium outline-none transition disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-border-focus',
+  base: 'inline-flex items-center justify-center gap-1.5 rounded-md font-medium outline-none transition disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-border-focus',
   variants: {
     variant: {
       primary: 'bg-accent text-white hover:opacity-90 pressed:opacity-75',
@@ -13,10 +13,14 @@ const button = tv({
       destructive: 'bg-destructive text-white hover:opacity-90 pressed:opacity-75',
       'destructive-ghost':
         'bg-transparent text-destructive/80 hover:bg-destructive/10 pressed:bg-destructive/[0.15]',
-      link: 'bg-transparent text-accent hover:underline pressed:opacity-70',
+      link: 'bg-transparent text-text-muted hover:text-text-primary pressed:opacity-70',
       accent: 'bg-accent/[0.08] text-accent hover:bg-accent/[0.12] pressed:bg-accent/[0.18]',
     },
-    size: { sm: 'rounded px-2 py-1.25 text-sm', md: 'h-8 px-4 text-base' },
+    size: {
+      sm: 'rounded-md px-2 py-1.25 text-sm',
+      md: 'h-8 px-4 text-base',
+      lg: 'h-9 px-3 text-lg',
+    },
     iconOnly: { true: 'h-7 w-7 p-0' },
   },
   compoundVariants: [

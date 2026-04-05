@@ -64,7 +64,7 @@ export function AgentToastRegion() {
                 aria-label="Close notification"
                 className="h-5 w-5"
               >
-                <X size={10} strokeWidth={2} />
+                <X size={10} />
               </Button>
             </div>
 

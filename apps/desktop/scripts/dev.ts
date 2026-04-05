@@ -1,10 +1,18 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const desktopDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = resolve(desktopDir, '../..');
+
+const rebuild = process.argv.includes('--rebuild');
+if (rebuild) {
+  const daemonBin = resolve(repoRoot, 'target/debug/superagent-pty-daemon');
+  spawnSync('pkill', ['-f', 'superagent-pty-daemon'], { stdio: 'ignore' });
+  spawnSync('rm', ['-f', daemonBin], { stdio: 'ignore' });
+  console.log('[dev] daemon killed and binary removed — will rebuild on start');
+}
 
 // Worktree-scoped identifier so each dev worktree gets its own single-instance lock.
 const worktreeHash = new Bun.CryptoHasher('md5').update(repoRoot).digest('hex').slice(0, 8);

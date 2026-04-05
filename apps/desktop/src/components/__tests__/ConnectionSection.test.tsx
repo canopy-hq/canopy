@@ -38,10 +38,10 @@ describe('ConnectionSection', () => {
     expect(await findByText('GitHub')).toBeInTheDocument();
   });
 
-  it('shows Connect GitHub button when disconnected', async () => {
+  it('shows Connect button when disconnected', async () => {
     mockGetConnection.mockResolvedValue(null);
     const { findByText } = render(<ConnectionSection />);
-    expect(await findByText('Connect GitHub')).toBeInTheDocument();
+    expect(await findByText('Connect')).toBeInTheDocument();
   });
 
   it('shows username when connected', async () => {

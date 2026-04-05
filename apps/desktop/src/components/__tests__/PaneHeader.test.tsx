@@ -1,4 +1,4 @@
-import { render, cleanup, within } from '@testing-library/react';
+import { render, cleanup } from '@testing-library/react';
 import { describe, it, expect, afterEach } from 'vitest';
 
 import { PaneHeader } from '../PaneHeader';
@@ -6,35 +6,39 @@ import { PaneHeader } from '../PaneHeader';
 describe('PaneHeader', () => {
   afterEach(cleanup);
 
-  it('renders last 2 path segments', () => {
+  it('renders nothing when no agent is active', () => {
     const { container } = render(<PaneHeader cwd="/Users/pierre/project/src" isFocused={false} />);
-    expect(within(container).getByText('project/src')).toBeInTheDocument();
+    expect(container.firstChild).toBeNull();
   });
 
-  it('renders ~ when cwd is empty string', () => {
-    const { container } = render(<PaneHeader cwd="" isFocused={false} />);
-    expect(within(container).getByText('~')).toBeInTheDocument();
+  it('renders nothing when agentStatus is idle', () => {
+    const { container } = render(<PaneHeader cwd="/a/b" isFocused={false} agentStatus="idle" />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders overlay when agent is running', () => {
+    const { container } = render(
+      <PaneHeader cwd="/a/b" isFocused={false} agentStatus="running" agentName="Claude" />,
+    );
+    expect(container.firstChild).not.toBeNull();
+  });
+
+  it('shows agent name when provided', () => {
+    const { getByText } = render(
+      <PaneHeader cwd="/a/b" isFocused={false} agentStatus="running" agentName="Claude" />,
+    );
+    expect(getByText('Claude')).toBeInTheDocument();
   });
 
   it('applies focused text color when isFocused=true', () => {
-    const { container } = render(<PaneHeader cwd="/a/b" isFocused={true} />);
+    const { container } = render(<PaneHeader cwd="/a/b" isFocused={true} agentStatus="running" />);
     const el = container.firstChild as HTMLElement;
     expect(el.className).toContain('text-text-primary');
   });
 
   it('applies muted text color when isFocused=false', () => {
-    const { container } = render(<PaneHeader cwd="/a/b" isFocused={false} />);
+    const { container } = render(<PaneHeader cwd="/a/b" isFocused={false} agentStatus="running" />);
     const el = container.firstChild as HTMLElement;
     expect(el.className).toContain('text-text-muted');
-  });
-
-  it('handles single-segment path', () => {
-    const { container } = render(<PaneHeader cwd="/home" isFocused={false} />);
-    expect(within(container).getByText('home')).toBeInTheDocument();
-  });
-
-  it('handles deeply nested path showing only last 2 segments', () => {
-    const { container } = render(<PaneHeader cwd="/a/b/c/d/e/f" isFocused={false} />);
-    expect(within(container).getByText('e/f')).toBeInTheDocument();
   });
 });

@@ -8,6 +8,7 @@ import {
   getTabCollection,
 } from '@superagent/db';
 import { useTerminal, getPtyCwd } from '@superagent/terminal';
+import { CircleX } from 'lucide-react';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
 import { setFocus, setPtyId, renameTab } from '../lib/tab-actions';
@@ -49,6 +50,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
   }, [paneId]);
 
   // Poll CWD from Rust side every 2 seconds and persist changes.
+  const refreshCwdRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (realPtyId === null) return;
 
@@ -56,7 +58,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
 
     const poll = async () => {
       try {
-        const newCwd = await getPtyCwd(realPtyId);
+        const newCwd = await getPtyCwd(paneId);
         if (!cancelled && newCwd) {
           setCwd((prev) => {
             if (prev === newCwd) return prev;
@@ -64,9 +66,13 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
             return newCwd;
           });
         }
-      } catch {
-        // PTY may be dead
+      } catch (e) {
+        console.error('[cwd] getPtyCwd failed:', e);
       }
+    };
+
+    refreshCwdRef.current = () => {
+      void poll();
     };
 
     void poll();
@@ -74,6 +80,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
 
     return () => {
       cancelled = true;
+      refreshCwdRef.current = null;
       clearInterval(interval);
     };
   }, [realPtyId, paneId]);
@@ -98,29 +105,9 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
 
   if (ptyId === -2) {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-bg-primary">
-        <svg
-          width="28"
-          height="28"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-text-muted opacity-40"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="12" r="9" />
-          <line x1="9" y1="9" x2="15" y2="15" />
-          <line x1="15" y1="9" x2="9" y2="15" />
-        </svg>
-        <div className="flex flex-col items-center gap-1 text-center">
-          <span className="text-lg font-semibold text-text-muted">Session terminated</span>
-          <span className="max-w-[260px] text-md leading-relaxed text-text-muted opacity-60">
-            This PTY session was forcefully killed. Open a new tab to start a fresh terminal.
-          </span>
-        </div>
+      <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-bg-primary select-none">
+        <CircleX size={20} className="text-text-faint opacity-60" aria-hidden="true" />
+        <span className="font-mono text-sm text-text-faint">Session terminated</span>
       </div>
     );
   }
@@ -133,6 +120,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
       isFocused={isFocused}
       cwd={cwd}
       containerRef={containerRef}
+      refreshCwdRef={refreshCwdRef}
       onPtySpawned={(id) => {
         setRealPtyId(id);
         setPtyId(paneId, id);
@@ -170,6 +158,7 @@ function TerminalPaneInner({
   isFocused,
   cwd,
   containerRef,
+  refreshCwdRef,
   onPtySpawned,
 }: {
   paneId: string;
@@ -178,6 +167,7 @@ function TerminalPaneInner({
   isFocused: boolean;
   cwd: string;
   containerRef: React.RefObject<HTMLDivElement | null>;
+  refreshCwdRef: React.RefObject<(() => void) | null>;
   onPtySpawned: (id: number) => void;
 }) {
   const handleCommand = useCallback(
@@ -188,8 +178,10 @@ function TerminalPaneInner({
         const label = cmd.length > 10 ? `${cmd.slice(0, 10)}...` : cmd;
         renameTab(tab.id, label, false);
       }
+      // Refresh CWD immediately after each command (e.g. cd)
+      setTimeout(() => refreshCwdRef.current?.(), 150);
     },
-    [paneId, isFocused],
+    [paneId, isFocused, refreshCwdRef],
   );
 
   const termRef = useTerminal(
