@@ -326,11 +326,10 @@ export function useTerminal(
       function startPtyConnection() {
         if (ptyId > 0) {
           // Reconnect: PTY already running in daemon (cold app restart).
-          // Keep overlay until first scrollback byte to avoid empty-canvas flash.
-          connectPtyOutput(ptyId, (data: Uint8Array) => {
-            removeOverlay();
-            term.write(data);
-          });
+          // setHandler flushes buffered scrollback synchronously → overlay safe to
+          // remove immediately after connectPtyOutput returns.
+          connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
+          removeOverlay();
           setCached(ptyId, term, fitAddon);
         } else {
           // Spawn: PTY started at exact fitted dimensions → lastSentSize = spawn dims
@@ -360,12 +359,10 @@ export function useTerminal(
                   term.write(data);
                 });
               } else {
-                // Restored session: remove overlay on first data byte (not immediately)
-                // to avoid flashing a blank terminal when the shell hasn't output yet.
-                connectPtyOutput(newId, (data: Uint8Array) => {
-                  removeOverlay();
-                  term.write(data);
-                });
+                // Restored session: setHandler flushes buffered scrollback synchronously
+                // → remove overlay immediately after connecting. Safe even for idle shells.
+                connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
+                removeOverlay();
               }
               setCached(newId, term, fitAddon);
               onPtySpawned(newId);
