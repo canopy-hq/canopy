@@ -8,6 +8,7 @@ import {
   writeToPty,
   resizePty,
   connectPtyOutput,
+  connectPtyOutputFresh,
   spawnTerminal,
   claimWarmTerminal,
   getPoolStatus,
@@ -369,12 +370,15 @@ export function useTerminal(
             resizeGraceUntil = Date.now() + 500;
 
             if (fromPool) {
-              // Warm terminal: shell already booted, cd+clear already sent by daemon.
-              // Scrollback replay contains [old prompt][cd cmd][clear escape][new prompt].
-              // Keep overlay up for 2 rAFs so ghostty-web processes the clear sequence
-              // behind the overlay — user only sees the final prompt, no flicker.
-              connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
-              requestAnimationFrame(() => requestAnimationFrame(() => removeOverlay()));
+              // Warm terminal: shell already booted, cd+clear sent by daemon during claim.
+              // Discard old scrollback (warm prompt at $HOME + cd/clear command echo) and
+              // wire for live data only. The overlay stays up until the FIRST live byte
+              // (the new prompt after cd+clear finishes) — same pattern as cold spawn but
+              // much faster since the shell is already running.
+              connectPtyOutputFresh(newId, (data: Uint8Array) => {
+                debouncedRemoveOverlay();
+                term.write(data);
+              });
             } else if (isNew) {
               connectPtyOutput(newId, (data: Uint8Array) => {
                 debouncedRemoveOverlay();
