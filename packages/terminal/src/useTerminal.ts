@@ -105,6 +105,14 @@ export function useTerminal(
       // === CACHED PATH: remount after pane restructure — re-parent existing terminal ===
       term = cached.term;
       fitAddon = cached.fitAddon;
+
+      // Overlay prevents ghosting: without it, the stale canvas is visible for one
+      // frame between appendChild and the browser's next paint.
+      const transitionOverlay = document.createElement('div');
+      transitionOverlay.style.cssText = `position:absolute;inset:0;background:${themeBg};z-index:1;pointer-events:none`;
+      container.appendChild(transitionOverlay);
+      removeOverlay = () => transitionOverlay.remove();
+
       const el = term.element;
       if (el) {
         container.appendChild(el);
@@ -114,6 +122,8 @@ export function useTerminal(
       // Unconditional resize IPC on cached remount — ptyId is the real pid,
       // proxy.sessions is already populated, so this call succeeds immediately.
       void resizePty(ptyId, term.rows, term.cols);
+      // One rAF is enough — connectPtyOutput already flushed latest content synchronously.
+      requestAnimationFrame(() => removeOverlay());
     } else {
       // === NEW TERMINAL: spawn (ptyId === -1) or reconnect (ptyId > 0) ===
       const termFontSize = getSetting<number>(
