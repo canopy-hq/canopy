@@ -11,7 +11,6 @@ import {
   connectPtyOutputFresh,
   spawnTerminal,
   claimWarmTerminal,
-  getPoolStatus,
 } from './pty';
 import { getCached, setCached } from './terminal-cache';
 import { DEFAULT_TERMINAL_FONT_SIZE } from './terminal-font-size';
@@ -341,23 +340,10 @@ export function useTerminal(
             let fromPool = false;
 
             try {
-              // Race pool status against a tight timeout — if the daemon doesn't
-              // support pool_status (old binary), send_cmd hangs forever with no
-              // response. 200ms is generous for a local Unix socket round-trip.
-              const status = await Promise.race([
-                getPoolStatus(),
-                new Promise<never>((_, reject) =>
-                  setTimeout(() => reject(new Error('pool_status timeout')), 200),
-                ),
-              ]);
-              if (status.ready > 0) {
-                result = await claimWarmTerminal(paneId, savedCwd, term.rows, term.cols);
-                fromPool = true;
-              } else {
-                result = await spawnTerminal(paneId, savedCwd, term.rows, term.cols);
-              }
+              result = await claimWarmTerminal(paneId, savedCwd, term.rows, term.cols);
+              fromPool = true;
             } catch {
-              // Pool claim failed, pool_status timed out, or old daemon — fall back to cold spawn
+              // Pool empty, claim failed, or old daemon — cold spawn
               result = await spawnTerminal(paneId, savedCwd, term.rows, term.cols);
             }
 

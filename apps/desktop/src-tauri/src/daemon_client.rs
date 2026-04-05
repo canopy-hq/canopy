@@ -140,6 +140,13 @@ impl DaemonClient {
         }
     }
 
+    /// Drain all unclaimed pool entries (kill their shells).
+    pub async fn drain_pool(&self) -> Result<(), String> {
+        let msg = "{\"op\":\"drain_pool\",\"paneId\":\"\"}\n";
+        let resp = self.send_cmd(msg).await?;
+        if resp["ok"].as_bool() == Some(true) { Ok(()) } else { Err("drain_pool failed".into()) }
+    }
+
     /// Query pool readiness.
     pub async fn pool_status(&self) -> Result<(u32, u32), String> {
         let msg = "{\"op\":\"pool_status\",\"paneId\":\"\"}\n".to_string();

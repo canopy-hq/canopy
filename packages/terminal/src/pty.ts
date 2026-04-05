@@ -43,6 +43,7 @@ export async function spawnTerminal(
   return promise;
 }
 
+/** Debug only — not used in hot path. The claim flow tries claimWarmTerminal directly. */
 export async function getPoolStatus(): Promise<{ ready: number; warming: number }> {
   return invoke<{ ready: number; warming: number }>('pool_status');
 }

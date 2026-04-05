@@ -68,6 +68,13 @@ pub fn run() {
                 eprintln!("Warning: could not start PTY daemon: {e}");
             }
 
+            // Drain stale pool entries from a previous app session
+            let drain_socket = socket.clone();
+            tauri::async_runtime::spawn(async move {
+                let client = DaemonClient::new(drain_socket);
+                let _ = client.drain_pool().await;
+            });
+
             app.manage(DaemonClient::new(socket));
             app.manage(Mutex::new(pty::PtyState::new()));
             app.manage(Mutex::new(agent_watcher::AgentWatcherState::new()));

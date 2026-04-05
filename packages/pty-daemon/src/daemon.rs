@@ -69,9 +69,13 @@ pub async fn run(socket_path: String) {
     let state = Arc::new(Mutex::new(DaemonState::new()));
 
     for _ in 0..2 {
-        if let Err(e) = pool_warm_one(&state) {
-            eprintln!("pool: warm failed: {e}");
-        }
+        let state_clone = state.clone();
+        tokio::spawn(async move {
+            let res = tokio::task::spawn_blocking(move || pool_warm_one(&state_clone)).await;
+            if let Ok(Err(e)) = res {
+                eprintln!("pool: warm failed: {e}");
+            }
+        });
     }
 
     loop {
@@ -173,17 +177,14 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 }
             }
 
-            // Like "attach" but skips scrollback replay — only live output.
-            // Used for pool-claimed sessions where the scrollback contains the
-            // warm shell prompt + cd echo that must NOT reach the terminal.
+            // Like "attach" but skips scrollback replay — only live output after
+            // the pool sentinel. Used for pool-claimed sessions where the scrollback
+            // contains the warm shell prompt + cd echo that must NOT reach the terminal.
             //
-            // The 200ms sleep ensures the cd+clear output has been broadcast
-            // (and missed by the late subscribe). Only shell prompt output
-            // reaches the subscriber.
+            // Subscribes to the broadcast immediately and discards all bytes until
+            // the OSC sentinel \x1b]555;poolready\x07 is found. This is deterministic
+            // and eliminates the old 200ms sleep.
             "attach_fresh" => {
-                // Wait for cd+clear echo to be broadcast before subscribing.
-                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-
                 let result = {
                     let st = state.lock().unwrap();
                     st.sessions
@@ -198,12 +199,67 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                     }
                 };
 
-                // Sentinel immediately — no scrollback to replay.
+                // Scan for sentinel, with a 5s timeout to avoid infinite block
+                const SENTINEL: &[u8] = b"\x1b]555;poolready\x07";
+                let scan_result = tokio::time::timeout(
+                    std::time::Duration::from_secs(5),
+                    async move {
+                        let mut tail: Vec<u8> = Vec::new();
+                        loop {
+                            match rx.recv().await {
+                                Ok(data) => {
+                                    tail.extend_from_slice(&data);
+                                    if let Some(pos) = tail.windows(SENTINEL.len()).position(|w| w == SENTINEL) {
+                                        let after = pos + SENTINEL.len();
+                                        return Some((tail[after..].to_vec(), rx));
+                                    }
+                                    // Keep only last SENTINEL.len()-1 bytes for cross-chunk matching
+                                    if tail.len() > SENTINEL.len() - 1 {
+                                        let keep_from = tail.len() - (SENTINEL.len() - 1);
+                                        tail.drain(..keep_from);
+                                    }
+                                }
+                                Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                                Err(_) => return None,
+                            }
+                        }
+                    },
+                ).await;
+
+                // Send sentinel frame (marks "ready" for the Tauri attach_impl)
                 if write_half.write_all(&[0u8; 4]).await.is_err() {
                     return;
                 }
 
-                // Stream live output only
+                let mut rx = match scan_result {
+                    Ok(Some((leftover, rx_back))) => {
+                        // Clear scrollback so future regular attach doesn't see cd echo
+                        {
+                            let mut st = state.lock().unwrap();
+                            if let Some(sess) = st.sessions.get_mut(&pane_id) {
+                                sess.scrollback.clear();
+                            }
+                        }
+                        // Forward any bytes that came after the sentinel
+                        if !leftover.is_empty() {
+                            let len = (leftover.len() as u32).to_be_bytes();
+                            if write_half.write_all(&len).await.is_err() { return; }
+                            if write_half.write_all(&leftover).await.is_err() { return; }
+                        }
+                        rx_back
+                    }
+                    Ok(None) => return, // channel closed
+                    Err(_) => {
+                        // Timeout — sentinel never arrived, re-subscribe and stream anyway
+                        let st = state.lock().unwrap();
+                        match st.sessions.get(&pane_id).map(|s| s.tx.subscribe()) {
+                            Some(r) => r,
+                            None => return,
+                        }
+                    }
+                };
+
+                // Stream live output
                 loop {
                     match rx.recv().await {
                         Ok(data) => {
@@ -294,22 +350,28 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                         // follows the remap and continues finding the session.
                         {
                             let mut st = state.lock().unwrap();
-                            if let Some(session) = st.sessions.remove(&temp_pane_id) {
+                            if let Some(mut session) = st.sessions.remove(&temp_pane_id) {
                                 // Tell the reader thread about the new key
                                 *session.current_pane_id.lock().unwrap() = pane_id.clone();
                                 let _ = session.master.resize(PtySize {
                                     rows, cols, pixel_width: 0, pixel_height: 0,
                                 });
+                                session.scrollback.clear();
                                 st.sessions.insert(pane_id.clone(), session);
                             }
                         }
 
-                        // Send cd + clear: the clear wipes the cd echo from the terminal.
-                        // attach_fresh delays 200ms before subscribing to the broadcast,
-                        // ensuring the cd echo + clear output have been broadcast and
-                        // missed — only shell prompt output reaches the frontend.
-                        if let Some(dir) = &cwd {
-                            let cd_cmd = format!(" cd {} && clear\n", shell_escape(dir));
+                        // Send cd + clear + sentinel: the sentinel is an OSC sequence
+                        // that attach_fresh scans for — all output before it is discarded.
+                        // This replaces the old 200ms sleep with a deterministic protocol.
+                        let cd_cmd = match &cwd {
+                            Some(dir) => format!(
+                                " cd {} && clear && printf '\\x1b]555;poolready\\x07'\n",
+                                shell_escape(dir),
+                            ),
+                            None => "clear && printf '\\x1b]555;poolready\\x07'\n".to_string(),
+                        };
+                        {
                             let mut st = state.lock().unwrap();
                             if let Some(sess) = st.sessions.get_mut(&pane_id) {
                                 let _ = sess.writer.write_all(cd_cmd.as_bytes());
@@ -332,6 +394,24 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                         format!("{{\"ok\":false,\"error\":\"pool empty\"}}\n")
                     }
                 };
+                let _ = write_half.write_all(resp.as_bytes()).await;
+            }
+
+            "drain_pool" => {
+                let drained = {
+                    let mut st = state.lock().unwrap();
+                    let pane_ids = st.pool.drain();
+                    let mut count = 0usize;
+                    for id in pane_ids {
+                        if let Some(mut sess) = st.sessions.remove(&id) {
+                            let _ = sess.child.kill();
+                            let _ = sess.child.wait();
+                            count += 1;
+                        }
+                    }
+                    count
+                };
+                let resp = format!("{{\"ok\":true,\"drained\":{drained}}}\n");
                 let _ = write_half.write_all(resp.as_bytes()).await;
             }
 
@@ -1024,16 +1104,7 @@ mod tests {
     async fn pool_claim_returns_warm_session() {
         let socket = temp_socket();
         start_daemon(&socket).await;
-
-        // Wait for pool to warm up (shells need to boot + emit prompt)
-        tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
-
-        // Check pool status
-        let mut conn = UnixStream::connect(&socket).await.unwrap();
-        send_line(&mut conn, r#"{"op":"pool_status","paneId":""}"#).await;
-        let status = read_json_line(&mut conn).await;
-        let ready = status["ready"].as_u64().unwrap_or(0);
-        assert!(ready >= 1, "pool should have at least 1 ready session; got status: {status}");
+        wait_pool_ready(&socket, 3000).await;
 
         // Claim a warm session
         let mut conn2 = UnixStream::connect(&socket).await.unwrap();
@@ -1082,9 +1153,7 @@ mod tests {
     async fn pool_replenishes_after_claim() {
         let socket = temp_socket();
         start_daemon(&socket).await;
-
-        // Wait for pool to warm
-        tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
+        wait_pool_ready(&socket, 3000).await;
 
         // Claim one
         let mut conn = UnixStream::connect(&socket).await.unwrap();
@@ -1095,15 +1164,163 @@ mod tests {
         let resp = read_json_line(&mut conn).await;
         assert_eq!(resp["ok"], true, "first claim failed: {resp}");
 
-        // Wait for replenishment
-        tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
+        // Wait for replenishment (pool should refill after claim)
+        wait_pool_ready(&socket, 3000).await;
 
-        // Pool should have refilled
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    /// Poll pool_status until at least one session is ready, or panic after timeout.
+    async fn wait_pool_ready(socket: &str, timeout_ms: u64) {
+        let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_millis(timeout_ms);
+        loop {
+            let mut conn = UnixStream::connect(socket).await.unwrap();
+            send_line(&mut conn, r#"{"op":"pool_status","paneId":""}"#).await;
+            let status = read_json_line(&mut conn).await;
+            if status["ready"].as_u64().unwrap_or(0) >= 1 {
+                return;
+            }
+            if tokio::time::Instant::now() > deadline {
+                panic!("pool not ready within {timeout_ms}ms; last status: {status}");
+            }
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn attach_fresh_skips_cd_echo_via_sentinel() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+        wait_pool_ready(&socket, 3000).await;
+
+        // Claim with cwd /tmp
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(
+            &mut conn,
+            r#"{"op":"claim","paneId":"sentinel-1","cwd":"/tmp","rows":24,"cols":80}"#,
+        ).await;
+        let resp = read_json_line(&mut conn).await;
+        assert_eq!(resp["ok"], true, "claim failed: {resp}");
+
+        // attach_fresh — should skip cd echo and sentinel
+        let mut attach = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut attach, r#"{"op":"attach_fresh","paneId":"sentinel-1"}"#).await;
+
+        // First: sentinel frame (zero-length)
+        let sentinel = read_frame(&mut attach).await;
+        assert!(sentinel.is_empty(), "expected sentinel (zero-length frame)");
+
+        // Read a few live frames — should NOT contain "cd /tmp" or the OSC sentinel
+        let mut live = Vec::new();
+        for _ in 0..20 {
+            tokio::select! {
+                frame = read_frame(&mut attach) => {
+                    live.extend_from_slice(&frame);
+                }
+                _ = tokio::time::sleep(tokio::time::Duration::from_millis(500)) => {
+                    break;
+                }
+            }
+        }
+        let text = String::from_utf8_lossy(&live);
+        assert!(
+            !text.contains("cd /tmp"),
+            "cd echo leaked into attach_fresh stream; got: {text:?}"
+        );
+        assert!(
+            !text.contains("poolready"),
+            "sentinel leaked into attach_fresh stream; got: {text:?}"
+        );
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn scrollback_clean_after_claim() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+        wait_pool_ready(&socket, 3000).await;
+
+        // Claim
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(
+            &mut conn,
+            r#"{"op":"claim","paneId":"sb-clean-1","cwd":"/tmp","rows":24,"cols":80}"#,
+        ).await;
+        let resp = read_json_line(&mut conn).await;
+        assert_eq!(resp["ok"], true, "claim failed: {resp}");
+
+        // attach_fresh first — this triggers scrollback clear after sentinel
+        let mut fresh = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut fresh, r#"{"op":"attach_fresh","paneId":"sb-clean-1"}"#).await;
+        let sentinel = read_frame(&mut fresh).await;
+        assert!(sentinel.is_empty(), "expected sentinel frame");
+        drop(fresh);
+
+        // Small delay for any post-sentinel output to land in scrollback
+        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+
+        // Regular attach — scrollback should be clean (cleared by attach_fresh)
+        let mut attach = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut attach, r#"{"op":"attach","paneId":"sb-clean-1"}"#).await;
+        let scrollback = drain_scrollback(&mut attach).await;
+
+        let text = String::from_utf8_lossy(&scrollback);
+        assert!(
+            !text.contains("poolready"),
+            "sentinel string leaked into scrollback; got: {text:?}"
+        );
+        assert!(
+            !text.contains("cd '/tmp'"),
+            "cd echo leaked into scrollback; got: {text:?}"
+        );
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn drain_pool_kills_entries() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+        wait_pool_ready(&socket, 3000).await;
+
+        // Drain
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"drain_pool","paneId":""}"#).await;
+        let resp = read_json_line(&mut conn).await;
+        assert_eq!(resp["ok"], true, "drain_pool failed: {resp}");
+
+        // Pool should be empty
         let mut conn2 = UnixStream::connect(&socket).await.unwrap();
         send_line(&mut conn2, r#"{"op":"pool_status","paneId":""}"#).await;
         let status = read_json_line(&mut conn2).await;
-        let total = status["ready"].as_u64().unwrap_or(0) + status["warming"].as_u64().unwrap_or(0);
-        assert!(total >= 1, "pool should have replenished; got status: {status}");
+        assert_eq!(status["ready"].as_u64().unwrap_or(99), 0, "pool should be empty after drain");
+        assert_eq!(status["warming"].as_u64().unwrap_or(99), 0, "pool should be empty after drain");
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn claim_without_cwd_emits_sentinel() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+        wait_pool_ready(&socket, 3000).await;
+
+        // Claim without cwd
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(
+            &mut conn,
+            r#"{"op":"claim","paneId":"nocwd-1","rows":24,"cols":80}"#,
+        ).await;
+        let resp = read_json_line(&mut conn).await;
+        assert_eq!(resp["ok"], true, "claim failed: {resp}");
+
+        // attach_fresh should still receive the sentinel
+        let mut attach = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut attach, r#"{"op":"attach_fresh","paneId":"nocwd-1"}"#).await;
+
+        let sentinel = read_frame(&mut attach).await;
+        assert!(sentinel.is_empty(), "expected sentinel (zero-length frame)");
 
         let _ = std::fs::remove_file(&socket);
     }

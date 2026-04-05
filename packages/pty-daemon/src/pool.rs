@@ -79,6 +79,13 @@ impl Pool {
     pub fn all_pane_ids(&self) -> Vec<String> {
         self.entries.iter().map(|e| e.temp_pane_id.clone()).collect()
     }
+
+    /// Remove all entries and return their temp pane IDs.
+    pub fn drain(&mut self) -> Vec<String> {
+        let ids: Vec<String> = self.entries.iter().map(|e| e.temp_pane_id.clone()).collect();
+        self.entries.clear();
+        ids
+    }
 }
 
 #[cfg(test)]
@@ -152,5 +159,14 @@ mod tests {
         let pool = make_pool_with_entries(&[WarmStatus::Ready, WarmStatus::Warming]);
         let ids = pool.all_pane_ids();
         assert_eq!(ids, vec!["__pool_0", "__pool_1"]);
+    }
+
+    #[test]
+    fn drain_removes_all_and_returns_ids() {
+        let mut pool = make_pool_with_entries(&[WarmStatus::Ready, WarmStatus::Warming]);
+        let ids = pool.drain();
+        assert_eq!(ids, vec!["__pool_0", "__pool_1"]);
+        assert_eq!(pool.status(), (0, 0));
+        assert_eq!(pool.deficit(), POOL_SIZE);
     }
 }
