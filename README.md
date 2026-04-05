@@ -1,5 +1,7 @@
 # Superagent
 
+[![CI](https://github.com/nept/superagent/actions/workflows/ci.yml/badge.svg)](https://github.com/nept/superagent/actions/workflows/ci.yml)
+
 Monorepo for the Superagent desktop app.
 
 ## Dev Setup
