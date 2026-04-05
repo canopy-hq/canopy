@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { createPortal } from 'react-dom';
 
 import {
@@ -380,10 +380,11 @@ export function WorkspaceTree() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   useEffect(() => {
-    document.body.style.cursor = dragging ? 'grabbing' : '';
-    return () => {
-      document.body.style.cursor = '';
-    };
+    if (!dragging) return;
+    const style = document.createElement('style');
+    style.textContent = '* { cursor: grabbing !important; }';
+    document.head.appendChild(style);
+    return () => style.remove();
   }, [dragging]);
 
   const handleDragEnd = useCallback(
@@ -424,19 +425,20 @@ export function WorkspaceTree() {
       >
         <SortableContext items={workspaceIds} strategy={verticalListSortingStrategy}>
           {workspaces.map((ws, i) => (
-            <RepoTreeItem
-              key={ws.id}
-              ws={ws}
-              agentMap={agentMap}
-              diffStats={diffStatsMap[ws.id]}
-              onRequestOpenPalette={handleRequestOpenPalette}
-              onRequestClose={setCloseTarget}
-              onRequestRemoveWt={(name) => setRemoveWtTarget({ workspaceId: ws.id, name })}
-              selectedItemId={selectedItemId}
-              activeContextId={activeContextId}
-              hasSeparator={i > 0}
-              onSelectItem={handleSelectItem}
-            />
+            <React.Fragment key={ws.id}>
+              {i > 0 && !dragging && <div className="h-px bg-border" />}
+              <RepoTreeItem
+                ws={ws}
+                agentMap={agentMap}
+                diffStats={diffStatsMap[ws.id]}
+                onRequestOpenPalette={handleRequestOpenPalette}
+                onRequestClose={setCloseTarget}
+                onRequestRemoveWt={(name) => setRemoveWtTarget({ workspaceId: ws.id, name })}
+                selectedItemId={selectedItemId}
+                activeContextId={activeContextId}
+                onSelectItem={handleSelectItem}
+              />
+            </React.Fragment>
           ))}
         </SortableContext>
       </DndContext>
@@ -563,7 +565,6 @@ function RepoTreeItem({
   onRequestRemoveWt,
   selectedItemId,
   activeContextId,
-  hasSeparator,
   onSelectItem,
 }: {
   ws: Workspace;
@@ -574,7 +575,6 @@ function RepoTreeItem({
   onRequestRemoveWt: (name: string) => void;
   selectedItemId: string | null;
   activeContextId: string | null;
-  hasSeparator: boolean;
   onSelectItem: (itemId: string) => void;
 }) {
   const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({ id: ws.id });
@@ -614,7 +614,6 @@ function RepoTreeItem({
           zIndex: isDragging ? 10 : undefined,
         }}
       >
-        {hasSeparator && !isDragging && <div className="h-px bg-border" />}
         <div className="group/repo" onContextMenu={handleContextMenu}>
           <RepoHeader
             workspace={ws}

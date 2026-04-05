@@ -150,7 +150,7 @@ const TabItemComponent = memo(
     return (
       <button
         ref={mergedRef}
-        className={`${tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}${isDragging ? ' opacity-50' : ''}`}
+        className={tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}
         style={
           frozenWidth !== null
             ? { ...dndStyle, width: frozenWidth, minWidth: frozenWidth, maxWidth: frozenWidth }
@@ -246,10 +246,11 @@ export function TabBar() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   useEffect(() => {
-    document.body.style.cursor = dragging ? 'grabbing' : '';
-    return () => {
-      document.body.style.cursor = '';
-    };
+    if (!dragging) return;
+    const style = document.createElement('style');
+    style.textContent = '* { cursor: grabbing !important; }';
+    document.head.appendChild(style);
+    return () => style.remove();
   }, [dragging]);
 
   const handleDragEnd = useCallback(
