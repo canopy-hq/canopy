@@ -23,11 +23,6 @@ export function disposeCached(ptyId: number): void {
   }
 }
 
-/** Remove a cache entry without disposing the Terminal instance. */
-export function evictCached(ptyId: number): void {
-  cache.delete(ptyId);
-}
-
 export function getAllCached(): Map<number, CachedEntry> {
   return cache;
 }

@@ -11,7 +11,7 @@ import {
   connectPtyOutputFresh,
   spawnTerminal,
 } from './pty';
-import { evictCached, getCached, setCached } from './terminal-cache';
+import { getCached, setCached } from './terminal-cache';
 import { DEFAULT_TERMINAL_FONT_SIZE } from './terminal-font-size';
 import { terminalThemes, type ThemeName } from './themes';
 
@@ -97,9 +97,6 @@ export function useTerminal(
     let ptyResizeTimer: ReturnType<typeof setTimeout> | null = null;
     // Hoisted so cleanup can always call it (no-op for the cached path).
     let removeOverlay = () => {};
-    // Tracks the real ptyId assigned to the cache entry created this run.
-    // Updated after spawn resolves; used in cleanup to evict the right entry.
-    let cachedPtyId = ptyId;
     const cached = getCached(ptyId);
     let term: Terminal;
     let fitAddon: FitAddon;
@@ -109,15 +106,18 @@ export function useTerminal(
       term = cached.term;
       fitAddon = cached.fitAddon;
 
-      // Overlay prevents ghosting: without it, the stale canvas is visible for one
-      // frame between appendChild and the browser's next paint.
-      const transitionOverlay = document.createElement('div');
-      transitionOverlay.style.cssText = `position:absolute;inset:0;background:${themeBg};z-index:1;pointer-events:none`;
-      container.appendChild(transitionOverlay);
-      removeOverlay = () => transitionOverlay.remove();
-
       const el = term.element;
       if (el) {
+        // Overlay goes INSIDE el (which has position:relative) and is inserted BEFORE
+        // el enters the DOM. This guarantees the stale canvas is never visible for even
+        // one frame — the overlay is already in place when the browser first paints el
+        // in its new container. Using container as the overlay parent failed because
+        // container has no positioning context, so position:absolute;inset:0 was
+        // resolved relative to a higher ancestor and the canvas showed through.
+        const transitionOverlay = document.createElement('div');
+        transitionOverlay.style.cssText = `position:absolute;inset:0;background:${themeBg};z-index:1;pointer-events:none`;
+        el.appendChild(transitionOverlay);
+        removeOverlay = () => transitionOverlay.remove();
         container.appendChild(el);
       }
       connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
@@ -125,8 +125,9 @@ export function useTerminal(
       // Unconditional resize IPC on cached remount — ptyId is the real pid,
       // proxy.sessions is already populated, so this call succeeds immediately.
       void resizePty(ptyId, term.rows, term.cols);
-      // One rAF is enough — connectPtyOutput already flushed latest content synchronously.
-      requestAnimationFrame(() => removeOverlay());
+      // Double rAF: first rAF queues after current frame's layout, second fires
+      // after ghostty-web's WASM renderer has completed at least one paint cycle.
+      requestAnimationFrame(() => requestAnimationFrame(() => removeOverlay()));
     } else {
       // === NEW TERMINAL: spawn (ptyId === -1) or reconnect (ptyId > 0) ===
       const termFontSize = getSetting<number>(
@@ -357,7 +358,6 @@ export function useTerminal(
                 connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
                 removeOverlay();
               }
-              cachedPtyId = newId;
               setCached(newId, term, fitAddon);
               onPtySpawned(newId);
 
@@ -439,11 +439,8 @@ export function useTerminal(
       document.body.classList.remove('resizing');
       if (ptyResizeTimer !== null) clearTimeout(ptyResizeTimer);
       if (sigwinchTimer !== null) clearTimeout(sigwinchTimer);
-      // Evict from cache so the next mount always creates a fresh Terminal instance.
-      // This forces a full remount on every tab switch, eliminating ghosting caused
-      // by reparenting the stale canvas element. The scrollback is preserved in the
-      // PTY daemon buffer and replayed synchronously via connectPtyOutput on remount.
-      if (cachedPtyId > 0) evictCached(cachedPtyId);
+      // DON'T dispose term — just detach from container. Cache keeps it alive
+      // so the next mount can reparent the same element (preserving scrollback).
       const el = term.element;
       if (el && el.parentNode === container) {
         container.removeChild(el);
