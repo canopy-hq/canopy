@@ -22,6 +22,12 @@ fn get_db_path() -> Result<String, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
@@ -41,8 +47,17 @@ pub fn run() {
                 let _ = window.set_background_color(Some(Color(10, 10, 20, 255)));
             }
 
-            // Locate daemon socket and binary
-            let socket = app.path().app_data_dir()?.join("pty-daemon.sock");
+            // Locate daemon socket and binary.
+            // Always use the canonical app data dir so all dev worktrees (which may
+            // override the identifier for single-instance scoping) share one daemon.
+            let data_dir = match std::env::var("SUPERAGENT_DATA_DIR") {
+                Ok(dir) => std::path::PathBuf::from(dir),
+                Err(_) => app.path().app_data_dir()?,
+            };
+            if let Err(e) = std::fs::create_dir_all(&data_dir) {
+                eprintln!("Warning: could not create data dir {}: {e}", data_dir.display());
+            }
+            let socket = data_dir.join("pty-daemon.sock");
             let bin = std::env::current_exe()
                 .ok()
                 .and_then(|p| p.parent().map(|d| d.join("superagent-pty-daemon")))
