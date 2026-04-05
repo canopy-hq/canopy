@@ -157,16 +157,6 @@ export function SessionManager({ onClose }: SessionManagerProps) {
     await handleKillGroup(rows);
   }, [handleKillGroup, rows]);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-      }
-    },
-    [onClose],
-  );
-
   return (
     <ModalOverlay
       isOpen
@@ -184,7 +174,6 @@ export function SessionManager({ onClose }: SessionManagerProps) {
           WebkitBackdropFilter: 'blur(12px)',
           backdropFilter: 'blur(12px)',
         }}
-        onKeyDown={handleKeyDown}
       >
         <Dialog className="flex min-h-0 flex-col outline-none" aria-label="PTY Session Manager">
           {/* Header */}
