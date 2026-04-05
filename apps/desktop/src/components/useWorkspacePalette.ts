@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 
 import { fuzzyScore } from '@superagent/command-palette';
+import { useNavigate } from '@tanstack/react-router';
 
 import {
   listAllBranches,
@@ -11,7 +12,7 @@ import {
   type BranchDetail,
   type WorktreeInfo,
 } from '../lib/git';
-import { createWorktree, openWorktree } from '../lib/workspace-actions';
+import { startWorktreeCreation, openWorktree } from '../lib/workspace-actions';
 
 import type { PanelContext } from '@superagent/command-palette';
 import type { Workspace } from '@superagent/db';
@@ -46,7 +47,6 @@ export interface UseWorkspacePaletteReturn {
   setTab: (t: 'all' | 'worktrees') => void;
   // Create flow
   isCreateMode: boolean;
-  isCreating: boolean;
   sanitizedName: string;
   baseBranch: string;
   pickingBase: boolean;
@@ -60,7 +60,7 @@ export interface UseWorkspacePaletteReturn {
   branches: BranchDetail[];
   diskWorktrees: (WorktreeInfo & { isInSidebar: boolean })[];
   // Actions
-  handleCreateWorktree: (opts?: { existingBranch?: string; base?: string }) => Promise<void>;
+  handleCreateWorktree: (opts?: { existingBranch?: string; base?: string }) => void;
   handleOpenWorktree: (name: string, path: string, branch: string) => void;
 }
 
@@ -70,13 +70,13 @@ export function useWorkspacePalette(
   workspace: Workspace,
   ctx: PanelContext,
 ): UseWorkspacePaletteReturn {
+  const navigate = useNavigate();
   const [query, setQueryRaw] = useState('');
   const [tab, setTab] = useState<'all' | 'worktrees'>('all');
   const [branches, setBranches] = useState<BranchDetail[]>([]);
   const [allWorktrees, setAllWorktrees] = useState<WorktreeInfo[]>([]);
   const [baseBranch, setBaseBranch] = useState('');
   const [pickingBase, setPickingBase] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
   const [_selectedId, _setSelectedId] = useState<string | null>(null);
 
   // Load data when workspace changes
@@ -237,24 +237,23 @@ export function useWorkspacePalette(
 
   // Actions
   const handleCreateWorktree = useCallback(
-    async (opts?: { existingBranch?: string; base?: string }) => {
+    (opts?: { existingBranch?: string; base?: string }) => {
       const { existingBranch, base = baseBranch } = opts ?? {};
       const wtName = existingBranch ? sanitizeWorktreeName(existingBranch) : sanitizedName;
       if (!wtName) return;
       const wtPath = buildWorktreePath(workspace.name, wtName);
       const newBranch = existingBranch ? undefined : wtName;
-      setIsCreating(true);
-      try {
-        await Promise.all([
-          createWorktree(workspace.id, wtName, wtPath, existingBranch ?? base, newBranch),
-          new Promise<void>((resolve) => setTimeout(resolve, 10_000)),
-        ]);
-        ctx.close();
-      } finally {
-        setIsCreating(false);
-      }
+      ctx.close();
+      startWorktreeCreation(
+        workspace.id,
+        wtName,
+        wtPath,
+        existingBranch ?? base,
+        newBranch,
+        navigate,
+      );
     },
-    [sanitizedName, workspace, baseBranch, ctx],
+    [sanitizedName, workspace, baseBranch, ctx, navigate],
   );
 
   const handleOpenWorktree = useCallback(
@@ -271,7 +270,6 @@ export function useWorkspacePalette(
     tab,
     setTab,
     isCreateMode,
-    isCreating,
     sanitizedName,
     baseBranch,
     pickingBase,

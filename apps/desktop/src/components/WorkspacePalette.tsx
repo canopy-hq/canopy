@@ -51,7 +51,6 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
     tab,
     setTab,
     isCreateMode,
-    isCreating,
     sanitizedName,
     baseBranch,
     pickingBase,
@@ -89,11 +88,11 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
         if (!item.branch) return;
         if (pickingBase) {
           // Selecting a base branch → create worktree from the typed name
-          void handleCreateWorktree({ base: item.branch.name });
+          handleCreateWorktree({ base: item.branch.name });
           return;
         }
         if (item.branch.is_head || item.branch.is_in_worktree) return;
-        void handleCreateWorktree({ existingBranch: item.branch.name });
+        handleCreateWorktree({ existingBranch: item.branch.name });
         return;
       }
       if (item.kind === 'worktree' && item.worktree && !item.worktree.isInSidebar) {
@@ -128,7 +127,7 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
           e.preventDefault();
           // ⌘↩ bypasses the base picker and creates immediately with current base
           if (e.metaKey && isCreateMode && !pickingBase) {
-            void handleCreateWorktree();
+            handleCreateWorktree();
             break;
           }
           const item = flatItems.find((i) => i.id === selectedId);
@@ -317,28 +316,6 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
-
-  if (isCreating) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-3 px-6 py-12">
-        <svg
-          className="animate-spin text-accent"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-        </svg>
-        <span className="text-[13px] font-medium text-text-primary">Creating worktree…</span>
-        <span className="text-[11px] text-text-muted">Setting up your workspace</span>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col">

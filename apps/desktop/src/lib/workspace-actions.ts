@@ -13,8 +13,10 @@ import { closePty, closePtysForPanes, disposeCached } from '@superagent/terminal
 
 import * as gitApi from './git';
 import { collectAllLeafPaneIds, collectLeafPtyIds } from './pane-tree-ops';
-import { closeTab } from './tab-actions';
+import { addTab, closeTab } from './tab-actions';
 import { showErrorToast, showInfoToast } from './toast';
+
+type NavigateFn = (opts: { to: string; params?: Record<string, string> }) => void;
 
 import type { Workspace } from '@superagent/db';
 
@@ -244,6 +246,65 @@ export async function createWorktree(
   } catch (err) {
     showErrorToast('Create worktree failed', String(err));
   }
+}
+
+/**
+ * Start async worktree creation: optimistically adds to sidebar, navigates to a new tab
+ * that shows a "creating" state, then boots the terminal once the git op completes.
+ */
+export function startWorktreeCreation(
+  workspaceId: string,
+  name: string,
+  path: string,
+  baseBranch: string | undefined,
+  newBranch: string | undefined,
+  navigate: NavigateFn,
+): void {
+  const ws = getWorkspaceCollection().toArray.find((w) => w.id === workspaceId);
+  if (!ws) return;
+
+  const wtItemId = `${workspaceId}-wt-${name}`;
+  const estimatedBranch = newBranch ?? baseBranch ?? name;
+
+  // Optimistically add to sidebar so navigation resolves correctly
+  getWorkspaceCollection().update(workspaceId, (draft) => {
+    if (!draft.worktrees.some((w) => w.name === name)) {
+      draft.worktrees.push({ name, path, branch: estimatedBranch });
+    }
+  });
+
+  // Mark as creating in ephemeral UI state
+  uiCollection.update('ui', (draft) => {
+    draft.creatingWorktreeId = wtItemId;
+  });
+
+  // Navigate to worktree and open a tab for it
+  selectWorkspaceItem(wtItemId, navigate);
+  addTab(wtItemId);
+
+  // Run git op in background
+  void (async () => {
+    try {
+      const wt = await gitApi.createWorktree(ws.path, name, path, baseBranch, newBranch);
+      getWorkspaceCollection().update(workspaceId, (draft) => {
+        const entry = draft.worktrees.find((w) => w.name === name);
+        if (entry) {
+          entry.path = wt.path;
+          entry.branch = wt.branch;
+        }
+      });
+      await refreshRepo(workspaceId);
+    } catch (err) {
+      showErrorToast('Create worktree failed', String(err));
+      getWorkspaceCollection().update(workspaceId, (draft) => {
+        draft.worktrees = draft.worktrees.filter((w) => w.name !== name);
+      });
+    } finally {
+      uiCollection.update('ui', (draft) => {
+        draft.creatingWorktreeId = null;
+      });
+    }
+  })();
 }
 
 export async function removeWorktree(workspaceId: string, name: string): Promise<void> {

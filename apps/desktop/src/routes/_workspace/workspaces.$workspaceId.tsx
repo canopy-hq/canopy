@@ -9,6 +9,28 @@ import { useUiState, useTabs } from '../../hooks/useCollections';
 import { setActiveContext, addTab } from '../../lib/tab-actions';
 import { toggleSidebar } from '../../lib/workspace-actions';
 
+function CreatingWorktree() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 select-none">
+      <svg
+        className="animate-spin text-accent"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+      </svg>
+      <span className="text-[14px] font-medium text-text-primary">Creating worktree…</span>
+      <span className="text-[12px] text-text-muted">Setting up your workspace</span>
+    </div>
+  );
+}
+
 function WorkspaceRoute() {
   const { workspaceId } = Route.useParams();
   const ui = useUiState();
@@ -23,11 +45,15 @@ function WorkspaceRoute() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId]);
 
+  const isCreating = ui.creatingWorktreeId === workspaceId;
+
   return (
     <>
       <TabBar />
       <div className="relative min-h-0 flex-1">
-        {activeTab ? (
+        {isCreating ? (
+          <CreatingWorktree />
+        ) : activeTab ? (
           <div key={activeTab.id} className="absolute inset-0">
             <PaneContainer root={activeTab.paneRoot} />
           </div>
