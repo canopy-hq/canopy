@@ -5,6 +5,7 @@ import {
   ArrowDown,
   ArrowUp,
   ChevronRight,
+  Command,
   CornerDownLeft,
   Cpu,
   Delete,
@@ -172,13 +173,7 @@ export function CommandMenu({
         }
         case 'Escape': {
           e.preventDefault();
-          if (drillStack.length > 0) {
-            dispatch({ type: 'DRILL_BACK' });
-          } else if (section !== 'root') {
-            dispatch({ type: 'SET_SECTION', section: 'root' });
-          } else {
-            onClose();
-          }
+          onClose();
           break;
         }
         case 'Tab': {
@@ -326,7 +321,9 @@ export function CommandMenu({
 
               {/* Search input */}
               <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
-                <Kbd>⌘K</Kbd>
+                <Kbd>
+                  <Command size={9} />K
+                </Kbd>
                 <input
                   ref={inputRef}
                   type="text"
@@ -459,16 +456,20 @@ export function CommandMenu({
                 <span className="flex items-center gap-1">
                   <Kbd>Tab</Kbd> filter
                 </span>
+                {(drillStack.length > 0 || section !== 'root') && (
+                  <>
+                    <span>·</span>
+                    <span className="flex items-center gap-1">
+                      <Kbd>
+                        <Delete size={9} />
+                      </Kbd>{' '}
+                      back
+                    </span>
+                  </>
+                )}
                 <span>·</span>
                 <span className="flex items-center gap-1">
-                  <Kbd>
-                    <Delete size={9} />
-                  </Kbd>{' '}
-                  {drillStack.length > 0 || section !== 'root' ? 'back' : '—'}
-                </span>
-                <span>·</span>
-                <span className="flex items-center gap-1">
-                  <Kbd>Esc</Kbd> {drillStack.length > 0 ? 'back' : 'close'}
+                  <Kbd>Esc</Kbd> close
                 </span>
               </div>
             </>

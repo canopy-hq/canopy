@@ -56,11 +56,11 @@ describe('WorkspacePalettePanel', () => {
     expect(screen.getByText(/Worktrees/)).toBeDefined();
   });
 
-  it('calls ctx.back on Escape at top level', () => {
+  it('calls ctx.close on Escape (always closes, never back)', () => {
     render(<WorkspacePalettePanel {...props} />);
     fireEvent.keyDown(screen.getByPlaceholderText(/Search or create/), { key: 'Escape' });
-    expect(props.ctx.back).toHaveBeenCalledTimes(1);
-    expect(props.ctx.close).not.toHaveBeenCalled();
+    expect(props.ctx.close).toHaveBeenCalledTimes(1);
+    expect(props.ctx.back).not.toHaveBeenCalled();
   });
 
   it('arrow keys navigate between loaded items', async () => {

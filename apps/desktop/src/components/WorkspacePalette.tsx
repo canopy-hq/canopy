@@ -5,11 +5,13 @@ import {
   ArrowDown,
   ArrowUp,
   ChevronLeft,
+  Command,
   CornerDownLeft,
   Delete,
   GitBranch,
   GitFork,
   Plus,
+  X,
 } from 'lucide-react';
 
 import { Badge } from './ui';
@@ -133,11 +135,7 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
         case 'Escape': {
           e.preventDefault();
           e.stopPropagation(); // prevent outer CommandMenu from also handling it
-          if (pickingBase) {
-            setPickingBase(false);
-          } else {
-            ctx.back();
-          }
+          ctx.close();
           break;
         }
         case 'Tab': {
@@ -193,6 +191,19 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
       </span>
     );
     const sep = <span>·</span>;
+    const back = (
+      <span className="flex items-center gap-1">
+        <Kbd>
+          <Delete size={9} />
+        </Kbd>{' '}
+        back
+      </span>
+    );
+    const close = (
+      <span className="flex items-center gap-1">
+        <Kbd>Esc</Kbd> close
+      </span>
+    );
 
     if (isCreateMode && !pickingBase) {
       return (
@@ -207,12 +218,18 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
           </span>
           {sep}
           <span className="flex items-center gap-1">
-            <Kbd>⌘</Kbd>
+            <Kbd>
+              <Command size={9} />
+            </Kbd>
             <Kbd>
               <CornerDownLeft size={9} />
             </Kbd>{' '}
             create
           </span>
+          {sep}
+          {back}
+          {sep}
+          {close}
           <span className="ml-auto font-mono opacity-80">
             git worktree add -b <span className="text-accent">{sanitizedName}</span>
             {' … '}
@@ -233,12 +250,9 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
             create
           </span>
           {sep}
-          <span className="flex items-center gap-1">
-            <Kbd>
-              <Delete size={9} />
-            </Kbd>{' '}
-            back
-          </span>
+          {back}
+          {sep}
+          {close}
         </>
       );
     }
@@ -250,6 +264,10 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
             {nav}
             {sep}
             <span>{b.is_head ? 'checked out' : 'already in worktree'}</span>
+            {sep}
+            {back}
+            {sep}
+            {close}
           </>
         );
       }
@@ -263,6 +281,10 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
             </Kbd>{' '}
             create worktree
           </span>
+          {sep}
+          {back}
+          {sep}
+          {close}
         </>
       );
     }
@@ -277,6 +299,10 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
             </Kbd>{' '}
             {selectedItem.worktree?.isInSidebar ? 'already open' : 'open'}
           </span>
+          {sep}
+          {back}
+          {sep}
+          {close}
         </>
       );
     }
@@ -295,7 +321,9 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
           <Kbd>Tab</Kbd> filter
         </span>
         {sep}
-        <span>type to create</span>
+        {back}
+        {sep}
+        {close}
       </>
     );
   }
@@ -333,7 +361,7 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
             aria-label="Clear"
             className="cursor-pointer rounded px-1 text-text-muted transition-colors hover:text-text-primary"
           >
-            ×
+            <X size={11} />
           </button>
         )}
       </div>
