@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Menu, MenuItem, Popover, SubmenuTrigger } from 'react-aria-components';
+import { Menu, MenuItem, Popover, Separator, SubmenuTrigger } from 'react-aria-components';
 
 import { ChevronRight } from 'lucide-react';
 
@@ -71,7 +71,7 @@ export function ContextMenu({
         >
           {items.map((item, i) => {
             if (item.type === 'separator') {
-              return <div key={`sep-${i}`} className="my-1 h-px bg-border/40" />;
+              return <Separator key={`sep-${i}`} className="my-1 h-px bg-border/40" />;
             }
             if (item.type === 'submenu') {
               return (
@@ -100,7 +100,7 @@ export function ContextMenu({
                     >
                       {item.items.map((sub, i) => {
                         if (sub.type === 'separator') {
-                          return <div key={`sep-${i}`} className="my-1 h-px bg-border/40" />;
+                          return <Separator key={`sep-${i}`} className="my-1 h-px bg-border/40" />;
                         }
                         if (sub.type === 'submenu') return null;
                         return (
