@@ -222,6 +222,7 @@ const RepoHeader = memo(
     isSelected,
     onPlusClick,
     onRowClick,
+    dragHandleRef,
     dragHandleListeners,
     dragHandleAttributes,
   }: {
@@ -230,6 +231,7 @@ const RepoHeader = memo(
     isSelected: boolean;
     onPlusClick: () => void;
     onRowClick: () => void;
+    dragHandleRef?: (node: HTMLElement | null) => void;
     dragHandleListeners?: DraggableSyntheticListeners;
     dragHandleAttributes?: DraggableAttributes;
   }) {
@@ -240,7 +242,9 @@ const RepoHeader = memo(
         {/* Hidden chevron for React ARIA Tree expand/collapse */}
         <AriaButton slot="chevron" className="hidden" />
         <button
+          ref={dragHandleRef}
           className="mr-0.5 flex shrink-0 cursor-grab items-center justify-center rounded p-0.5 opacity-0 transition-opacity group-hover/repo:opacity-40 hover:!opacity-80 active:cursor-grabbing"
+          style={{ touchAction: 'none' }}
           onClick={(e) => e.stopPropagation()}
           {...dragHandleListeners}
           {...dragHandleAttributes}
@@ -319,6 +323,7 @@ const RepoHeader = memo(
     prev.onRowClick === next.onRowClick &&
     prev.agentSummary?.length === next.agentSummary?.length &&
     (prev.agentSummary ?? []).every((s, i) => s === next.agentSummary?.[i]) &&
+    prev.dragHandleRef === next.dragHandleRef &&
     prev.dragHandleListeners === next.dragHandleListeners &&
     prev.dragHandleAttributes === next.dragHandleAttributes,
 );
@@ -652,7 +657,9 @@ function RepoTreeItem({
   activeContextId: string | null;
   hasSeparator: boolean;
 }) {
-  const { setNodeRef, attributes, listeners, isDragging } = useSortable({ id: ws.id });
+  const { setNodeRef, setActivatorNodeRef, attributes, listeners, isDragging } = useSortable({
+    id: ws.id,
+  });
   const agentSummary = useMemo(() => getRepoAgentSummary(ws, agentMap), [ws, agentMap]);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuPos = useRef({ x: 0, y: 0 });
@@ -698,6 +705,7 @@ function RepoTreeItem({
               }
               onPlusClick={handlePlusClick}
               onRowClick={handleRowClick}
+              dragHandleRef={setActivatorNodeRef}
               dragHandleListeners={listeners}
               dragHandleAttributes={attributes}
             />

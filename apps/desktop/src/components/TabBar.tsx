@@ -145,6 +145,7 @@ const TabItemComponent = memo(
     const dndStyle: React.CSSProperties = {
       transform: CSS.Transform.toString(transform),
       transition,
+      touchAction: 'none',
     };
 
     return (
