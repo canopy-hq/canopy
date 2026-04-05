@@ -256,6 +256,22 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                             }
                         }
 
+                        // Send cd to the shell BEFORE returning the response.
+                        // The echo lands in scrollback before the frontend attaches,
+                        // so connectPtyOutputFresh discards it.
+                        if let Some(dir) = &cwd {
+                            let cd_cmd = format!(" cd {}\n", shell_escape(dir));
+                            let mut st = state.lock().unwrap();
+                            if let Some(sess) = st.sessions.get_mut(&pane_id) {
+                                let _ = sess.writer.write_all(cd_cmd.as_bytes());
+                                let _ = sess.writer.flush();
+                            }
+                            // Give the PTY line discipline time to echo the cd
+                            // into the scrollback before we return.
+                            drop(st);
+                            std::thread::sleep(std::time::Duration::from_millis(10));
+                        }
+
                         // Replenish pool in background
                         let state_clone = state.clone();
                         tokio::spawn(async move {

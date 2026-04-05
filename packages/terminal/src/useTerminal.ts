@@ -370,19 +370,14 @@ export function useTerminal(
             resizeGraceUntil = Date.now() + 500;
 
             if (fromPool) {
-              // Warm terminal: shell already booted. DON'T wire the output handler
-              // yet — ChannelEntry buffers data when no handler is set. Send cd now;
-              // its echo goes to the buffer. After cd finishes, discard the buffer
-              // (echo gone) and wire the handler. First live byte after that is the
-              // Starship prompt → reveal.
-              const escaped = savedCwd ? `'${savedCwd.replace(/'/g, "'\\''")}'` : '~';
-              void writeToPty(newId, ` cd ${escaped}\n`);
-              setTimeout(() => {
-                connectPtyOutputFresh(newId, (data: Uint8Array) => {
-                  debouncedRemoveOverlay();
-                  term.write(data);
-                });
-              }, 100);
+              // Warm terminal: shell already booted, cd sent by daemon BEFORE
+              // attach started. The cd echo is in the scrollback buffer by the
+              // time we get here. Discard it and wire for live data only —
+              // first byte is the Starship prompt for the new cwd.
+              connectPtyOutputFresh(newId, (data: Uint8Array) => {
+                debouncedRemoveOverlay();
+                term.write(data);
+              });
             } else if (isNew) {
               connectPtyOutput(newId, (data: Uint8Array) => {
                 debouncedRemoveOverlay();
