@@ -18,6 +18,14 @@ import {
   X,
 } from 'lucide-react';
 
+import {
+  focusLater,
+  FooterBar,
+  FooterHint,
+  FooterSep,
+  SectionHeader,
+  useScrollSelectedIntoView,
+} from './ui';
 import { useCommandMenu, type MenuSection } from './useCommandMenu';
 
 import type { CommandContext, CommandItem, CommandMenuProps, PanelContext } from './types';
@@ -106,7 +114,7 @@ export function CommandMenu({
       } else {
         dispatch({ type: 'RESET' });
       }
-      requestAnimationFrame(() => inputRef.current?.focus());
+      focusLater(inputRef);
     }
   }, [isOpen, dispatch]);
 
@@ -116,16 +124,11 @@ export function CommandMenu({
     const prev = prevPanelItemRef.current;
     prevPanelItemRef.current = panelItem;
     if (isOpen && prev !== null && panelItem === null) {
-      requestAnimationFrame(() => inputRef.current?.focus());
+      focusLater(inputRef);
     }
   }, [isOpen, panelItem]);
 
-  useEffect(() => {
-    if (!selectedId) return;
-    listRef.current
-      ?.querySelector<HTMLLIElement>(`[data-id="${selectedId}"]`)
-      ?.scrollIntoView({ block: 'nearest' });
-  }, [selectedId]);
+  useScrollSelectedIntoView(listRef, selectedId);
 
   const handleAction = useCallback(
     (item: CommandItem) => {
@@ -135,7 +138,7 @@ export function CommandMenu({
       }
       if (item.children) {
         dispatch({ type: 'DRILL_INTO', item });
-        requestAnimationFrame(() => inputRef.current?.focus());
+        focusLater(inputRef);
         return;
       }
       const ctx: CommandContext = { close: onClose };
@@ -393,11 +396,7 @@ export function CommandMenu({
                   <ul ref={listRef} role="listbox" aria-label="Commands" className="py-1">
                     {sections.map((sec) => (
                       <li key={sec.id} role="presentation">
-                        {sec.label && (
-                          <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted opacity-60">
-                            {sec.label}
-                          </div>
-                        )}
+                        {sec.label && <SectionHeader label={sec.label} />}
                         <ul role="group">
                           {sec.items.map((item) => {
                             const isSelected = item.id === selectedId;
@@ -435,43 +434,40 @@ export function CommandMenu({
               </div>
 
               {/* Footer hints */}
-              <div className="flex shrink-0 items-center gap-2.5 border-t border-border bg-bg-primary/40 px-3 py-2 text-[11px] text-text-muted/60">
-                <span className="flex items-center gap-1">
+              <FooterBar>
+                <FooterHint label="navigate">
                   <Kbd>
                     <ArrowUp size={9} />
                   </Kbd>
                   <Kbd>
                     <ArrowDown size={9} />
                   </Kbd>
-                  navigate
-                </span>
-                <span>·</span>
-                <span className="flex items-center gap-1">
+                </FooterHint>
+                <FooterSep />
+                <FooterHint label="open">
                   <Kbd>
                     <CornerDownLeft size={9} />
-                  </Kbd>{' '}
-                  open
-                </span>
-                <span>·</span>
-                <span className="flex items-center gap-1">
-                  <Kbd>Tab</Kbd> filter
-                </span>
+                  </Kbd>
+                </FooterHint>
+                <FooterSep />
+                <FooterHint label="filter">
+                  <Kbd>Tab</Kbd>
+                </FooterHint>
                 {(drillStack.length > 0 || section !== 'root') && (
                   <>
-                    <span>·</span>
-                    <span className="flex items-center gap-1">
+                    <FooterSep />
+                    <FooterHint label="back">
                       <Kbd>
                         <Delete size={9} />
-                      </Kbd>{' '}
-                      back
-                    </span>
+                      </Kbd>
+                    </FooterHint>
                   </>
                 )}
-                <span>·</span>
-                <span className="flex items-center gap-1">
-                  <Kbd>Esc</Kbd> close
-                </span>
-              </div>
+                <FooterSep />
+                <FooterHint label="close">
+                  <Kbd>Esc</Kbd>
+                </FooterHint>
+              </FooterBar>
             </>
           )}
         </Dialog>

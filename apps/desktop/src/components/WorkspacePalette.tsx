@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { Kbd } from '@superagent/command-palette';
+import {
+  focusLater,
+  FooterBar,
+  FooterHint,
+  FooterSep,
+  Kbd,
+  SectionHeader,
+  useScrollSelectedIntoView,
+} from '@superagent/command-palette';
 import {
   ArrowDown,
   ArrowUp,
@@ -62,16 +70,10 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
 
   // Focus input on mount
   useEffect(() => {
-    requestAnimationFrame(() => inputRef.current?.focus());
+    focusLater(inputRef);
   }, []);
 
-  // Scroll selected item into view — same as CommandMenu
-  useEffect(() => {
-    if (!selectedId) return;
-    listRef.current
-      ?.querySelector<HTMLElement>(`[data-id="${selectedId}"]`)
-      ?.scrollIntoView({ block: 'nearest' });
-  }, [selectedId]);
+  useScrollSelectedIntoView(listRef, selectedId);
 
   // Activate an item — dispatched by keyboard Enter and mouse click
   const handleActivate = useCallback(
@@ -180,60 +182,60 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
 
   function getFooterHint() {
     const nav = (
-      <span className="flex items-center gap-1">
+      <FooterHint label="navigate">
         <Kbd>
           <ArrowUp size={9} />
         </Kbd>
         <Kbd>
           <ArrowDown size={9} />
         </Kbd>
-        navigate
-      </span>
+      </FooterHint>
     );
-    const sep = <span>·</span>;
     const back = (
-      <span className="flex items-center gap-1">
+      <FooterHint label="back">
         <Kbd>
           <Delete size={9} />
-        </Kbd>{' '}
-        back
-      </span>
+        </Kbd>
+      </FooterHint>
     );
     const close = (
-      <span className="flex items-center gap-1">
-        <Kbd>Esc</Kbd> close
-      </span>
+      <FooterHint label="close">
+        <Kbd>Esc</Kbd>
+      </FooterHint>
+    );
+    const tail = (
+      <>
+        <FooterSep />
+        {back}
+        <FooterSep />
+        {close}
+      </>
     );
 
     if (isCreateMode && !pickingBase) {
       return (
         <>
           {nav}
-          {sep}
-          <span className="flex items-center gap-1">
+          <FooterSep />
+          <FooterHint label="pick base">
             <Kbd>
               <CornerDownLeft size={9} />
-            </Kbd>{' '}
-            pick base
-          </span>
-          {sep}
-          <span className="flex items-center gap-1">
+            </Kbd>
+          </FooterHint>
+          <FooterSep />
+          <FooterHint label="create">
             <Kbd>
               <Command size={9} />
             </Kbd>
             <Kbd>
               <CornerDownLeft size={9} />
-            </Kbd>{' '}
-            create
-          </span>
-          {sep}
-          <span className="flex items-center gap-1">
-            <Kbd>Tab</Kbd> filter
-          </span>
-          {sep}
-          {back}
-          {sep}
-          {close}
+            </Kbd>
+          </FooterHint>
+          <FooterSep />
+          <FooterHint label="filter">
+            <Kbd>Tab</Kbd>
+          </FooterHint>
+          {tail}
           <span className="ml-auto font-mono opacity-80">
             git worktree add -b <span className="text-accent">{sanitizedName}</span>
             {' … '}
@@ -246,17 +248,13 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
       return (
         <>
           {nav}
-          {sep}
-          <span className="flex items-center gap-1">
+          <FooterSep />
+          <FooterHint label="create">
             <Kbd>
               <CornerDownLeft size={9} />
-            </Kbd>{' '}
-            create
-          </span>
-          {sep}
-          {back}
-          {sep}
-          {close}
+            </Kbd>
+          </FooterHint>
+          {tail}
         </>
       );
     }
@@ -266,29 +264,22 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
         return (
           <>
             {nav}
-            {sep}
+            <FooterSep />
             <span>{b.is_head ? 'checked out' : 'already in worktree'}</span>
-            {sep}
-            {back}
-            {sep}
-            {close}
+            {tail}
           </>
         );
       }
       return (
         <>
           {nav}
-          {sep}
-          <span className="flex items-center gap-1">
+          <FooterSep />
+          <FooterHint label="create worktree">
             <Kbd>
               <CornerDownLeft size={9} />
-            </Kbd>{' '}
-            create worktree
-          </span>
-          {sep}
-          {back}
-          {sep}
-          {close}
+            </Kbd>
+          </FooterHint>
+          {tail}
         </>
       );
     }
@@ -296,38 +287,30 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
       return (
         <>
           {nav}
-          {sep}
-          <span className="flex items-center gap-1">
+          <FooterSep />
+          <FooterHint label={selectedItem.worktree?.isInSidebar ? 'already open' : 'open'}>
             <Kbd>
               <CornerDownLeft size={9} />
-            </Kbd>{' '}
-            {selectedItem.worktree?.isInSidebar ? 'already open' : 'open'}
-          </span>
-          {sep}
-          {back}
-          {sep}
-          {close}
+            </Kbd>
+          </FooterHint>
+          {tail}
         </>
       );
     }
     return (
       <>
         {nav}
-        {sep}
-        <span className="flex items-center gap-1">
+        <FooterSep />
+        <FooterHint label="open">
           <Kbd>
             <CornerDownLeft size={9} />
-          </Kbd>{' '}
-          open
-        </span>
-        {sep}
-        <span className="flex items-center gap-1">
-          <Kbd>Tab</Kbd> filter
-        </span>
-        {sep}
-        {back}
-        {sep}
-        {close}
+          </Kbd>
+        </FooterHint>
+        <FooterSep />
+        <FooterHint label="filter">
+          <Kbd>Tab</Kbd>
+        </FooterHint>
+        {tail}
       </>
     );
   }
@@ -419,11 +402,7 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
         ) : (
           sections.map((sec) => (
             <div key={sec.id} role="presentation">
-              {sec.label && (
-                <div className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wider text-text-muted uppercase opacity-60">
-                  {sec.label}
-                </div>
-              )}
+              {sec.label && <SectionHeader label={sec.label} />}
               {sec.items.map((item) => (
                 <PaletteRow
                   key={item.id}
@@ -441,10 +420,7 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
         )}
       </div>
 
-      {/* Footer hints */}
-      <div className="flex shrink-0 items-center gap-2.5 border-t border-border bg-bg-primary/40 px-3 py-2 text-[11px] text-text-muted/60">
-        {getFooterHint()}
-      </div>
+      <FooterBar>{getFooterHint()}</FooterBar>
     </div>
   );
 }
