@@ -145,12 +145,13 @@ const TabItemComponent = memo(
       transform: CSS.Transform.toString(transform ? { ...transform, scaleX: 1, scaleY: 1 } : null),
       transition,
       touchAction: 'none',
+      ...(isDragging && { background: 'var(--bg-primary)' }),
     };
 
     return (
       <button
         ref={mergedRef}
-        className={`${tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}${isDragging ? ' pointer-events-none relative z-50 bg-bg-primary' : ''}`}
+        className={`${tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}${isDragging ? ' pointer-events-none relative z-50' : ''}`}
         style={
           frozenWidth !== null
             ? { ...dndStyle, width: frozenWidth, minWidth: frozenWidth, maxWidth: frozenWidth }
