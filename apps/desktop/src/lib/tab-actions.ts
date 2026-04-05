@@ -367,3 +367,12 @@ export function setPtyId(paneId: PaneId, ptyId: number): void {
   if (!tab) return;
   setPtyIdInTab(tab.id, paneId, ptyId);
 }
+
+export function reorderTabs(orderedIds: string[]): void {
+  const col = getTabCollection();
+  for (let i = 0; i < orderedIds.length; i++) {
+    col.update(orderedIds[i], (draft) => {
+      draft.position = i;
+    });
+  }
+}

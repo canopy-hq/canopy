@@ -1,11 +1,21 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  horizontalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Plus, X } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
+import { useDragStyle } from '../hooks/useDragStyle';
+import { restrictToHorizontalAxis, sortableTransition, useDragSensors } from '../lib/dnd';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
-import { addTab, closeTab, switchTab, renameTab } from '../lib/tab-actions';
+import { addTab, closeTab, switchTab, renameTab, reorderTabs } from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
 import { Button, Kbd, Tooltip } from './ui';
 
@@ -25,15 +35,16 @@ const newTabLabel = (
 );
 
 const tabItem = tv({
-  base: 'group relative flex h-full max-w-[240px] min-w-[120px] shrink items-center gap-1.5 px-3 transition-colors',
+  base: 'group relative flex h-full max-w-[240px] min-w-[120px] shrink items-center gap-1.5 px-3 transition-colors touch-none',
   variants: {
     active: {
       true: 'bg-bg-secondary text-text-primary shadow-[inset_0_-3px_0_var(--accent)]',
       false: 'bg-transparent text-text-muted hover:bg-bg-secondary hover:text-text-secondary',
     },
     agentWaiting: { true: 'bg-(--agent-waiting-glow)' },
+    dragging: { true: 'pointer-events-none z-50 bg-bg-secondary' },
   },
-  defaultVariants: { active: false, agentWaiting: false },
+  defaultVariants: { active: false, agentWaiting: false, dragging: false },
 });
 
 const closeButton = tv({
@@ -60,18 +71,32 @@ function useTabAgentStatus(tab: Tab): DotStatus {
 
 const TabItemComponent = memo(
   function TabItemComponent({ tab, isActive }: { tab: Tab; isActive: boolean }) {
+    const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
+      id: tab.id,
+      transition: sortableTransition,
+    });
     const agentStatus = useTabAgentStatus(tab);
     const [editing, setEditing] = useState(false);
     const [frozenWidth, setFrozenWidth] = useState<number | null>(null);
     const [draft, setDraft] = useState('');
-    const buttonRef = useRef<HTMLButtonElement>(null);
+    const buttonRef = useRef<HTMLButtonElement | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const originalLabelRef = useRef('');
     const committedRef = useRef(false);
 
+    const mergedRef = useCallback(
+      (node: HTMLButtonElement | null) => {
+        setNodeRef(node);
+        buttonRef.current = node;
+      },
+      [setNodeRef],
+    );
+
     useEffect(() => {
-      if (isActive) buttonRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    }, [isActive]);
+      if (isActive && !isDragging) {
+        buttonRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+    }, [isActive, isDragging]);
 
     const startEditing = useCallback(() => {
       committedRef.current = false;
@@ -112,14 +137,23 @@ const TabItemComponent = memo(
       closeTab(tab.id);
     }, [tab]);
 
+    const dndStyle: React.CSSProperties = {
+      transform: CSS.Transform.toString(transform ? { ...transform, scaleX: 1, scaleY: 1 } : null),
+      transition,
+    };
+
     return (
       <button
-        ref={buttonRef}
-        className={tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}
+        ref={mergedRef}
+        className={tabItem({
+          active: isActive,
+          agentWaiting: agentStatus === 'waiting',
+          dragging: isDragging,
+        })}
         style={
           frozenWidth !== null
-            ? { width: frozenWidth, minWidth: frozenWidth, maxWidth: frozenWidth }
-            : undefined
+            ? { ...dndStyle, width: frozenWidth, minWidth: frozenWidth, maxWidth: frozenWidth }
+            : dndStyle
         }
         onClick={editing ? undefined : () => switchTab(tab.id)}
         onMouseDown={(e) => {
@@ -129,6 +163,8 @@ const TabItemComponent = memo(
           }
         }}
         title={tab.label}
+        {...listeners}
+        {...attributes}
       >
         {agentStatus !== 'idle' && !editing && <StatusDot status={agentStatus} size={8} />}
         {editing ? (
@@ -177,7 +213,7 @@ const TabItemComponent = memo(
               iconOnly
               variant="ghost"
               tabIndex={-1}
-              className={closeButton({ active: isActive })}
+              className={closeButton({ active: isActive || isDragging })}
               onPress={() => void handleClose()}
             >
               <X size={10} strokeWidth={2} />
@@ -202,6 +238,23 @@ export function TabBar() {
     [allTabs, activeContextId],
   );
   const activeTabId = ui.activeTabId;
+  const [dragging, setDragging] = useState(false);
+  const sensors = useDragSensors();
+  useDragStyle(dragging);
+
+  const handleDragEnd = useCallback(
+    ({ active, over }: DragEndEvent) => {
+      setDragging(false);
+      if (!over || active.id === over.id) return;
+      const oldIndex = tabs.findIndex((t) => t.id === active.id);
+      const newIndex = tabs.findIndex((t) => t.id === over.id);
+      const reordered = arrayMove(tabs, oldIndex, newIndex);
+      reorderTabs(reordered.map((t) => t.id));
+    },
+    [tabs],
+  );
+
+  const tabIds = useMemo(() => tabs.map((t) => t.id), [tabs]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollState, setScrollState] = useState<{ left: boolean; right: boolean }>({
@@ -260,15 +313,26 @@ export function TabBar() {
 
   return (
     <div className="flex h-9 shrink-0 items-center border-b border-border bg-bg-primary">
-      <div
-        ref={scrollRef}
-        className="scrollbar-none flex h-full min-w-0 flex-1 items-stretch overflow-x-auto"
-        style={{ maskImage, WebkitMaskImage: maskImage }}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        modifiers={[restrictToHorizontalAxis]}
+        onDragStart={() => setDragging(true)}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setDragging(false)}
       >
-        {tabs.map((tab) => (
-          <TabItemComponent key={tab.id} tab={tab} isActive={tab.id === activeTabId} />
-        ))}
-      </div>
+        <SortableContext items={tabIds} strategy={horizontalListSortingStrategy}>
+          <div
+            ref={scrollRef}
+            className="scrollbar-none flex h-full min-w-0 flex-1 items-stretch overflow-x-auto"
+            style={{ maskImage, WebkitMaskImage: maskImage }}
+          >
+            {tabs.map((tab) => (
+              <TabItemComponent key={tab.id} tab={tab} isActive={tab.id === activeTabId} />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
       <Tooltip label={newTabLabel} placement="bottom">
         <Button
           iconOnly
