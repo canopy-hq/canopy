@@ -383,7 +383,7 @@ const restrictToVerticalAxis: Modifier = ({ transform }) => ({ ...transform, x: 
 function WorkspaceDragGhost({ ws }: { ws: Workspace }) {
   const childCount = ws.branches.length + ws.worktrees.length;
   return (
-    <div className="flex items-center gap-1.5 border-l-[3px] border-accent bg-accent/[0.04] py-1.5 pr-1.5 pl-3 opacity-90 shadow-lg">
+    <div className="flex items-center gap-1.5 border-l-[3px] border-accent bg-accent/[0.04] py-1.5 pr-1.5 pl-3 opacity-90 shadow-lg ring-1 ring-accent/20">
       <svg
         width="14"
         height="14"
@@ -408,7 +408,12 @@ function WorkspaceDragGhost({ ws }: { ws: Workspace }) {
 }
 
 export function WorkspaceTree() {
-  const workspaces = useWorkspaces();
+  const rawWorkspaces = useWorkspaces();
+  // Collection returns items in insertion order; sort by position so updates take effect.
+  const workspaces = useMemo(
+    () => [...rawWorkspaces].sort((a, b) => a.position - b.position),
+    [rawWorkspaces],
+  );
   const { selectedItemId, activeContextId, sidebarVisible } = useUiState();
   const [closeTarget, setCloseTarget] = useState<Workspace | null>(null);
   const [removeWtTarget, setRemoveWtTarget] = useState<{
@@ -421,6 +426,13 @@ export function WorkspaceTree() {
   const diffStatsMap = useWorkspacePolling(workspaces, sidebarVisible && pageVisible);
   const navigate = useNavigate();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  useEffect(() => {
+    document.body.style.cursor = activeId ? 'grabbing' : '';
+    return () => {
+      document.body.style.cursor = '';
+    };
+  }, [activeId]);
 
   const activeWs = useMemo(
     () => (activeId ? workspaces.find((w) => w.id === activeId) : null),
@@ -698,7 +710,7 @@ function RepoTreeItem({
           {hasSeparator && <div className="h-px bg-border" />}
           <div
             ref={setNodeRef}
-            className={`group/repo transition-opacity${isDragging ? ' opacity-30' : ''}`}
+            className={`group/repo transition-opacity${isDragging ? ' opacity-50' : ''}`}
             onContextMenu={handleContextMenu}
           >
             <RepoHeader

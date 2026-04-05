@@ -152,7 +152,7 @@ const TabItemComponent = memo(
     return (
       <button
         ref={mergedRef}
-        className={`${tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}${isDragging ? ' opacity-30' : ''}`}
+        className={`${tabItem({ active: isActive, agentWaiting: agentStatus === 'waiting' })}${isDragging ? ' opacity-50' : ''}`}
         style={
           frozenWidth !== null
             ? { ...dndStyle, width: frozenWidth, minWidth: frozenWidth, maxWidth: frozenWidth }
@@ -231,10 +231,10 @@ const TabItemComponent = memo(
 
 const restrictToHorizontalAxis: Modifier = ({ transform }) => ({ ...transform, y: 0 });
 
-function TabDragGhost({ tab }: { tab: Tab }) {
+function TabDragGhost({ tab, isActive }: { tab: Tab; isActive: boolean }) {
   return (
     <div
-      className={`${tabItem({ active: true })} pointer-events-none cursor-grabbing opacity-90 shadow-md`}
+      className={`${tabItem({ active: isActive })} pointer-events-none cursor-grabbing opacity-90 shadow-md ring-1 ring-accent/30`}
     >
       <span className="flex-1 truncate text-left text-md">{tab.label}</span>
       <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm opacity-60">
@@ -263,6 +263,13 @@ export function TabBar() {
   );
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  useEffect(() => {
+    document.body.style.cursor = activeId ? 'grabbing' : '';
+    return () => {
+      document.body.style.cursor = '';
+    };
+  }, [activeId]);
 
   const handleDragStart = useCallback(({ active }: DragStartEvent) => {
     setActiveId(String(active.id));
@@ -363,7 +370,9 @@ export function TabBar() {
           </div>
         </SortableContext>
         <DragOverlay dropAnimation={null}>
-          {activeTab ? <TabDragGhost tab={activeTab} /> : null}
+          {activeTab ? (
+            <TabDragGhost tab={activeTab} isActive={activeTab.id === activeTabId} />
+          ) : null}
         </DragOverlay>
       </DndContext>
       <Tooltip label={newTabLabel} placement="bottom">
