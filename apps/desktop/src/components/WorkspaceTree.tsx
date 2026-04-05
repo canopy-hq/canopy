@@ -8,6 +8,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragOverEvent,
   type DraggableSyntheticListeners,
   type Modifier,
 } from '@dnd-kit/core';
@@ -372,7 +373,8 @@ export function WorkspaceTree() {
     workspaceId: string;
     name: string;
   } | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
   const agentMap = useWorkspaceAgentMap();
   const pageVisible = usePageVisible();
   const diffStatsMap = useWorkspacePolling(workspaces, sidebarVisible && pageVisible);
@@ -380,16 +382,25 @@ export function WorkspaceTree() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   useEffect(() => {
-    if (!dragging) return;
+    if (!activeId) return;
     const style = document.createElement('style');
     style.textContent = '* { cursor: grabbing !important; }';
     document.head.appendChild(style);
     return () => style.remove();
-  }, [dragging]);
+  }, [activeId]);
+
+  // Visual order during drag — reflects where items appear, not their DOM position
+  const visualOrder = useMemo(() => {
+    if (!activeId || !overId || activeId === overId) return workspaces;
+    const oldIndex = workspaces.findIndex((w) => w.id === activeId);
+    const newIndex = workspaces.findIndex((w) => w.id === overId);
+    return arrayMove(workspaces, oldIndex, newIndex);
+  }, [workspaces, activeId, overId]);
 
   const handleDragEnd = useCallback(
     ({ active, over }: DragEndEvent) => {
-      setDragging(false);
+      setActiveId(null);
+      setOverId(null);
       if (!over || active.id === over.id) return;
       const oldIndex = workspaces.findIndex((w) => w.id === active.id);
       const newIndex = workspaces.findIndex((w) => w.id === over.id);
@@ -419,12 +430,16 @@ export function WorkspaceTree() {
         sensors={sensors}
         collisionDetection={closestCenter}
         modifiers={[restrictToVerticalAxis]}
-        onDragStart={() => setDragging(true)}
+        onDragStart={({ active }) => setActiveId(String(active.id))}
+        onDragOver={({ over }: DragOverEvent) => setOverId(over ? String(over.id) : null)}
         onDragEnd={handleDragEnd}
-        onDragCancel={() => setDragging(false)}
+        onDragCancel={() => {
+          setActiveId(null);
+          setOverId(null);
+        }}
       >
         <SortableContext items={workspaceIds} strategy={verticalListSortingStrategy}>
-          {workspaces.map((ws, i) => (
+          {workspaces.map((ws) => (
             <RepoTreeItem
               key={ws.id}
               ws={ws}
@@ -435,7 +450,7 @@ export function WorkspaceTree() {
               onRequestRemoveWt={(name) => setRemoveWtTarget({ workspaceId: ws.id, name })}
               selectedItemId={selectedItemId}
               activeContextId={activeContextId}
-              hasSeparator={i > 0}
+              hasSeparator={visualOrder.findIndex((w) => w.id === ws.id) > 0}
               onSelectItem={handleSelectItem}
             />
           ))}
