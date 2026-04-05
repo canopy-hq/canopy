@@ -22,6 +22,8 @@ import { tv } from 'tailwind-variants';
 import { makeWorkspacePaletteItem } from '../commands/workspace-commands';
 import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useCollections';
 import { useDragStyle } from '../hooks/useDragStyle';
+import { useDropping } from '../hooks/useDropping';
+import { useFlipAnimation } from '../hooks/useFlipAnimation';
 import { usePageVisible } from '../hooks/usePageVisible';
 import { useWorkspacePolling } from '../hooks/useWorkspacePolling';
 import { restrictToVerticalAxis, sortableTransition, useDragSensors } from '../lib/dnd';
@@ -378,8 +380,10 @@ export function WorkspaceTree() {
   const pageVisible = usePageVisible();
   const diffStatsMap = useWorkspacePolling(workspaces, sidebarVisible && pageVisible);
   const navigate = useNavigate();
+  const listRef = useRef<HTMLDivElement>(null);
   const sensors = useDragSensors();
   useDragStyle(activeId !== null);
+  const { snapshot: flipSnapshot } = useFlipAnimation(listRef);
 
   // IDs that need a top separator — all except the first in the current visual order.
   // Recomputed on drag-over so separators update live as items shift.
@@ -397,6 +401,8 @@ export function WorkspaceTree() {
 
   const handleDragEnd = useCallback(
     ({ active, over }: DragEndEvent) => {
+      // Snapshot before any state update — DOM still has dnd-kit transforms here.
+      flipSnapshot();
       setActiveId(null);
       setOverId(null);
       if (!over || active.id === over.id) return;
@@ -405,7 +411,7 @@ export function WorkspaceTree() {
       const reordered = arrayMove(workspaces, oldIndex, newIndex);
       reorderWorkspaces(reordered.map((w) => w.id));
     },
-    [workspaces],
+    [workspaces, flipSnapshot],
   );
 
   const workspaceIds = useMemo(() => workspaces.map((w) => w.id), [workspaces]);
@@ -437,21 +443,23 @@ export function WorkspaceTree() {
         }}
       >
         <SortableContext items={workspaceIds} strategy={verticalListSortingStrategy}>
-          {workspaces.map((ws) => (
-            <RepoTreeItem
-              key={ws.id}
-              ws={ws}
-              agentMap={agentMap}
-              diffStats={diffStatsMap[ws.id]}
-              onRequestOpenPalette={handleRequestOpenPalette}
-              onRequestClose={setCloseTarget}
-              onRequestRemoveWt={(name) => setRemoveWtTarget({ workspaceId: ws.id, name })}
-              selectedItemId={selectedItemId}
-              activeContextId={activeContextId}
-              hasSeparator={separatorIds.has(ws.id)}
-              onSelectItem={handleSelectItem}
-            />
-          ))}
+          <div ref={listRef}>
+            {workspaces.map((ws) => (
+              <RepoTreeItem
+                key={ws.id}
+                ws={ws}
+                agentMap={agentMap}
+                diffStats={diffStatsMap[ws.id]}
+                onRequestOpenPalette={handleRequestOpenPalette}
+                onRequestClose={setCloseTarget}
+                onRequestRemoveWt={(name) => setRemoveWtTarget({ workspaceId: ws.id, name })}
+                selectedItemId={selectedItemId}
+                activeContextId={activeContextId}
+                hasSeparator={separatorIds.has(ws.id)}
+                onSelectItem={handleSelectItem}
+              />
+            ))}
+          </div>
         </SortableContext>
       </DndContext>
       {closeTarget && (
@@ -595,6 +603,7 @@ function RepoTreeItem({
     id: ws.id,
     transition: sortableTransition,
   });
+  const isDropping = useDropping(isDragging, 220);
   const agentSummary = useMemo(() => getRepoAgentSummary(ws, agentMap), [ws, agentMap]);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuPos = useRef({ x: 0, y: 0 });
@@ -623,7 +632,10 @@ function RepoTreeItem({
     <>
       <div
         ref={setNodeRef}
-        className={isDragging ? 'pointer-events-none relative z-50 bg-bg-primary' : undefined}
+        data-flip-id={ws.id}
+        className={
+          isDragging || isDropping ? 'pointer-events-none relative z-50 bg-bg-primary' : undefined
+        }
         style={{
           transform: CSS.Transform.toString(
             transform ? { ...transform, scaleX: 1, scaleY: 1 } : null,
