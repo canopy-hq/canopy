@@ -272,11 +272,18 @@ pub async fn github_get_pr_statuses(
     }
 
     if owner_repo_map.is_empty() {
+        eprintln!("[github:pr] no GitHub remotes found, skipping");
         return Ok(PrStatusResult {
             prs: HashMap::new(),
             inaccessible_paths: Vec::new(),
         });
     }
+
+    eprintln!(
+        "[github:pr] polling {} repo(s): {}",
+        owner_repo_map.len(),
+        owner_repo_map.keys().cloned().collect::<Vec<_>>().join(", ")
+    );
 
     // Phase 2: Build search queries per owner/repo (never mix repos in one batch)
     // This ensures one inaccessible org doesn't poison queries for other repos.
@@ -293,6 +300,11 @@ pub async fn github_get_pr_statuses(
         all_branches.dedup();
 
         let queries = build_search_queries(owner_repo, &all_branches);
+        eprintln!(
+            "[github:pr] {owner_repo}: {} branch(es), {} search query/queries",
+            all_branches.len(),
+            queries.len()
+        );
         let mut aliases: Vec<(String, String)> = Vec::new();
         for (i, query) in queries.into_iter().enumerate() {
             aliases.push((format!("s{i}"), query));
@@ -379,6 +391,13 @@ pub async fn github_get_pr_statuses(
             }
         }
     }
+
+    let total_prs: usize = result.values().map(|v| v.len()).sum();
+    eprintln!(
+        "[github:pr] done: {} PR(s) found, {} inaccessible path(s)",
+        total_prs,
+        inaccessible_paths.len()
+    );
 
     Ok(PrStatusResult {
         prs: result,

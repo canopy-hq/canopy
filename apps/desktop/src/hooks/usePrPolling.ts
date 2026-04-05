@@ -80,15 +80,22 @@ export function usePrPolling(
       const accessiblePaths = paths.filter((p) => !inaccessiblePathsRef.current.has(p));
 
       if (accessiblePaths.length === 0) {
+        console.debug('[pr-poll] no accessible paths, skipping');
         timer = setTimeout(poll, getPrInterval(noChangeCountRef.current));
         return;
       }
 
+      console.debug(`[pr-poll] fetching PRs for ${accessiblePaths.length} repo(s)`);
       getPrStatuses(accessiblePaths)
         .then((result) => {
           if (cancelled) return;
 
           // Track newly discovered inaccessible paths
+          if (result.inaccessiblePaths.length > 0) {
+            console.debug(
+              `[pr-poll] ${result.inaccessiblePaths.length} repo(s) inaccessible, skipping on future polls`,
+            );
+          }
           for (const path of result.inaccessiblePaths) {
             inaccessiblePathsRef.current.add(path);
           }
@@ -113,16 +120,25 @@ export function usePrPolling(
             merged[wsId] = nextPrMap[wsId];
           }
 
+          const totalPrs = Object.values(merged).reduce((n, m) => n + Object.keys(m).length, 0);
           if (!prMapEqual(prev, merged)) {
             noChangeCountRef.current = 0;
+            console.debug(
+              `[pr-poll] updated: ${totalPrs} PR(s) across ${Object.keys(merged).length} workspace(s)`,
+            );
             setPrMap(merged);
           } else {
             noChangeCountRef.current += 1;
           }
 
-          timer = setTimeout(poll, getPrInterval(noChangeCountRef.current));
+          const nextInterval = getPrInterval(noChangeCountRef.current);
+          console.debug(
+            `[pr-poll] next poll in ${nextInterval / 1000}s (${noChangeCountRef.current} unchanged)`,
+          );
+          timer = setTimeout(poll, nextInterval);
         })
-        .catch(() => {
+        .catch((err) => {
+          console.debug('[pr-poll] error:', err);
           if (!cancelled) timer = setTimeout(poll, getPrInterval(noChangeCountRef.current));
         });
     }
