@@ -1,25 +1,39 @@
 import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
-import { Button as AriaButton, Tree, TreeItem, TreeItemContent } from 'react-aria-components';
-import type { Selection, Key } from 'react-aria-components';
 import { createPortal } from 'react-dom';
 
+import {
+  DndContext,
+  closestCenter,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DraggableSyntheticListeners,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useNavigate } from '@tanstack/react-router';
 import { ChevronDown, ChevronRight, Laptop, FolderGit2, Plus } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { makeWorkspacePaletteItem } from '../commands/workspace-commands';
 import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useCollections';
+import { useDragStyle } from '../hooks/useDragStyle';
 import { usePageVisible } from '../hooks/usePageVisible';
 import { useWorkspacePolling } from '../hooks/useWorkspacePolling';
+import { restrictToVerticalAxis, sortableTransition, useDragSensors } from '../lib/dnd';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import {
   toggleExpanded,
   selectWorkspaceItem,
-  isSelectableWorkspaceItem,
   closeProject,
   hideWorktree,
   removeWorktree,
   renameWorktree,
+  reorderWorkspaces,
 } from '../lib/workspace-actions';
 import { openWorkspacePalette } from '../lib/workspace-palette-bridge';
 import { CloseProjectModal } from './CloseProjectModal';
@@ -57,11 +71,10 @@ const IconWithBadge = memo(function IconWithBadge({
   agentStatus?: DotStatus;
 }) {
   return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
-      {/* Force SVG to display:block to eliminate inline baseline offset */}
-      <div style={{ display: 'block', lineHeight: 0, fontSize: 0 }}>{children}</div>
+    <div className="relative shrink-0">
+      <div className="block text-[0px] leading-[0]">{children}</div>
       {agentStatus && agentStatus !== 'idle' && (
-        <div style={{ position: 'absolute', top: -2, right: -2, lineHeight: 0 }}>
+        <div className="absolute -top-0.5 -right-0.5 leading-[0]">
           <StatusDot status={agentStatus} size={6} />
         </div>
       )}
@@ -136,7 +149,6 @@ const WorktreeRow = memo(
 
     function commitEdit() {
       const trimmed = editValue.trim();
-      // If cleared or same as branch, remove custom label
       const newLabel =
         trimmed && trimmed !== worktree.branch && trimmed !== worktree.name ? trimmed : '';
       renameWorktree(workspaceId, worktree.name, newLabel);
@@ -189,7 +201,7 @@ const WorktreeRow = memo(
 );
 
 const repoHeader = tv({
-  base: 'flex items-center gap-1.5 border-l-[3px] py-1.5 pr-1.5 pl-3',
+  base: 'flex items-center gap-1.5 border-l-[3px] py-1.5 pr-1.5 pl-3 cursor-grab active:cursor-grabbing touch-none',
   variants: {
     selected: {
       true: 'border-accent bg-accent/[0.04]',
@@ -206,19 +218,26 @@ const RepoHeader = memo(
     isSelected,
     onPlusClick,
     onRowClick,
+    onContextMenu,
+    dragListeners,
   }: {
     workspace: Workspace;
     agentSummary?: Array<'running' | 'waiting'>;
     isSelected: boolean;
     onPlusClick: () => void;
     onRowClick: () => void;
+    onContextMenu: (e: React.MouseEvent) => void;
+    dragListeners?: DraggableSyntheticListeners;
   }) {
     const childCount = workspace.branches.length + workspace.worktrees.length;
 
     return (
-      <div className={repoHeader({ selected: isSelected })} onClick={onRowClick}>
-        {/* Hidden chevron for React ARIA Tree expand/collapse */}
-        <AriaButton slot="chevron" className="hidden" />
+      <div
+        className={repoHeader({ selected: isSelected })}
+        onClick={onRowClick}
+        onContextMenu={onContextMenu}
+        {...dragListeners}
+      >
         <svg
           width="14"
           height="14"
@@ -235,7 +254,6 @@ const RepoHeader = memo(
         >
           {workspace.name}
         </span>
-        {/* Show agent summary dots when collapsed (individual dots are hidden) */}
         {!workspace.expanded && agentSummary && agentSummary.length > 0 && (
           <span className="ml-1 flex items-center gap-0.75">
             {agentSummary.slice(0, 3).map((status, i) => (
@@ -243,7 +261,6 @@ const RepoHeader = memo(
             ))}
           </span>
         )}
-        {/* Always show branch/worktree count */}
         {childCount > 0 && (
           <span className="flex h-6 w-6 shrink-0 items-center justify-center">
             <span className="rounded bg-bg-tertiary px-1.25 py-px font-mono text-xs text-text-muted tabular-nums">
@@ -257,6 +274,7 @@ const RepoHeader = memo(
           variant="ghost"
           onPress={onRowClick}
           onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
         >
           {workspace.expanded ? (
             <ChevronDown size={12} strokeWidth={1.5} />
@@ -264,7 +282,6 @@ const RepoHeader = memo(
             <ChevronRight size={12} strokeWidth={1.5} />
           )}
         </Button>
-        {/* + button */}
         <Tooltip label="New branch / worktree" placement="right">
           <Button
             iconOnly
@@ -273,6 +290,7 @@ const RepoHeader = memo(
             aria-label="New branch or worktree"
             onPress={onPlusClick}
             onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
           >
             <Plus size={12} strokeWidth={1.5} />
           </Button>
@@ -289,14 +307,12 @@ const RepoHeader = memo(
     prev.isSelected === next.isSelected &&
     prev.onPlusClick === next.onPlusClick &&
     prev.onRowClick === next.onRowClick &&
+    prev.onContextMenu === next.onContextMenu &&
     prev.agentSummary?.length === next.agentSummary?.length &&
-    (prev.agentSummary ?? []).every((s, i) => s === next.agentSummary?.[i]),
+    (prev.agentSummary ?? []).every((s, i) => s === next.agentSummary?.[i]) &&
+    prev.dragListeners === next.dragListeners,
 );
 
-/**
- * Compute a map of workspaceItemId -> best agent status by cross-referencing
- * tabs (which have workspaceItemId and pane trees with ptyIds) with the agent store.
- */
 function useWorkspaceAgentMap(): Record<string, DotStatus> {
   const agents = useAgents();
   const tabs = useTabs();
@@ -326,11 +342,6 @@ function useWorkspaceAgentMap(): Record<string, DotStatus> {
   }, [agents, tabs]);
 }
 
-/**
- * Build summary dots for a collapsed repo: collect all non-idle agent statuses
- * from workspace items that belong to this workspace, sorted waiting-first.
- * Derives from the already-computed agentMap to avoid re-scanning all tabs/agents.
- */
 function getRepoAgentSummary(
   ws: Workspace,
   agentMap: Record<string, DotStatus>,
@@ -350,84 +361,99 @@ function getRepoAgentSummary(
 }
 
 export function WorkspaceTree() {
-  const workspaces = useWorkspaces();
+  const rawWorkspaces = useWorkspaces();
+  const workspaces = useMemo(
+    () => [...rawWorkspaces].sort((a, b) => a.position - b.position),
+    [rawWorkspaces],
+  );
   const { selectedItemId, activeContextId, sidebarVisible } = useUiState();
   const [closeTarget, setCloseTarget] = useState<Workspace | null>(null);
   const [removeWtTarget, setRemoveWtTarget] = useState<{
     workspaceId: string;
     name: string;
   } | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
   const agentMap = useWorkspaceAgentMap();
   const pageVisible = usePageVisible();
   const diffStatsMap = useWorkspacePolling(workspaces, sidebarVisible && pageVisible);
   const navigate = useNavigate();
+  const sensors = useDragSensors();
+  useDragStyle(activeId !== null);
 
-  const expandedKeys = useMemo(
-    () => new Set<Key>(workspaces.filter((ws) => ws.expanded).map((ws) => ws.id)),
-    [workspaces],
-  );
+  // IDs that need a top separator — all except the first in the current visual order.
+  // Recomputed on drag-over so separators update live as items shift.
+  const separatorIds = useMemo(() => {
+    const order =
+      activeId && overId && activeId !== overId
+        ? arrayMove(
+            workspaces,
+            workspaces.findIndex((w) => w.id === activeId),
+            workspaces.findIndex((w) => w.id === overId),
+          )
+        : workspaces;
+    return new Set(order.slice(1).map((w) => w.id));
+  }, [workspaces, activeId, overId]);
 
-  const selectedKeys = useMemo<Selection>(() => {
-    if (!selectedItemId || !isSelectableWorkspaceItem(selectedItemId)) return new Set<Key>();
-    return new Set([selectedItemId]);
-  }, [selectedItemId]);
-
-  const handleSelectionChange = useCallback(
-    (keys: Selection) => {
-      if (keys === 'all') return;
-      const selected = [...keys][0];
-      if (!selected) return;
-      const key = String(selected);
-      if (!isSelectableWorkspaceItem(key)) return;
-      selectWorkspaceItem(key, navigate);
-    },
-    [navigate],
-  );
-
-  const handleExpandedChange = useCallback(
-    (keys: Set<Key>) => {
-      for (const ws of workspaces) {
-        const shouldBeExpanded = keys.has(ws.id);
-        if (ws.expanded !== shouldBeExpanded) {
-          toggleExpanded(ws.id);
-        }
-      }
+  const handleDragEnd = useCallback(
+    ({ active, over }: DragEndEvent) => {
+      setActiveId(null);
+      setOverId(null);
+      if (!over || active.id === over.id) return;
+      const oldIndex = workspaces.findIndex((w) => w.id === active.id);
+      const newIndex = workspaces.findIndex((w) => w.id === over.id);
+      const reordered = arrayMove(workspaces, oldIndex, newIndex);
+      reorderWorkspaces(reordered.map((w) => w.id));
     },
     [workspaces],
   );
+
+  const workspaceIds = useMemo(() => workspaces.map((w) => w.id), [workspaces]);
 
   const handleRequestOpenPalette = useCallback((ws: Workspace) => {
     openWorkspacePalette(makeWorkspacePaletteItem(ws));
   }, []);
+
+  const handleSelectItem = useCallback(
+    (itemId: string) => selectWorkspaceItem(itemId, navigate),
+    [navigate],
+  );
 
   return (
     <>
       <div className="px-3 pt-2 pb-1 font-mono text-xs font-semibold tracking-wider text-text-muted uppercase opacity-60">
         Projects
       </div>
-      <Tree
-        aria-label="Workspaces"
-        selectionMode="single"
-        selectedKeys={selectedKeys}
-        onSelectionChange={handleSelectionChange}
-        expandedKeys={expandedKeys}
-        onExpandedChange={handleExpandedChange}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        modifiers={[restrictToVerticalAxis]}
+        onDragStart={({ active }) => setActiveId(String(active.id))}
+        onDragOver={({ over }: DragOverEvent) => setOverId(over ? String(over.id) : null)}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => {
+          setActiveId(null);
+          setOverId(null);
+        }}
       >
-        {workspaces.map((ws, i) => (
-          <RepoTreeItem
-            key={ws.id}
-            ws={ws}
-            agentMap={agentMap}
-            diffStats={diffStatsMap[ws.id]}
-            onRequestOpenPalette={handleRequestOpenPalette}
-            onRequestClose={setCloseTarget}
-            onRequestRemoveWt={(name) => setRemoveWtTarget({ workspaceId: ws.id, name })}
-            selectedItemId={selectedItemId}
-            activeContextId={activeContextId}
-            hasSeparator={i > 0}
-          />
-        ))}
-      </Tree>
+        <SortableContext items={workspaceIds} strategy={verticalListSortingStrategy}>
+          {workspaces.map((ws) => (
+            <RepoTreeItem
+              key={ws.id}
+              ws={ws}
+              agentMap={agentMap}
+              diffStats={diffStatsMap[ws.id]}
+              onRequestOpenPalette={handleRequestOpenPalette}
+              onRequestClose={setCloseTarget}
+              onRequestRemoveWt={(name) => setRemoveWtTarget({ workspaceId: ws.id, name })}
+              selectedItemId={selectedItemId}
+              activeContextId={activeContextId}
+              hasSeparator={separatorIds.has(ws.id)}
+              onSelectItem={handleSelectItem}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
       {closeTarget && (
         <CloseProjectModal
           isOpen
@@ -552,6 +578,7 @@ function RepoTreeItem({
   selectedItemId,
   activeContextId,
   hasSeparator,
+  onSelectItem,
 }: {
   ws: Workspace;
   agentMap: Record<string, DotStatus>;
@@ -562,7 +589,12 @@ function RepoTreeItem({
   selectedItemId: string | null;
   activeContextId: string | null;
   hasSeparator: boolean;
+  onSelectItem: (itemId: string) => void;
 }) {
+  const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
+    id: ws.id,
+    transition: sortableTransition,
+  });
   const agentSummary = useMemo(() => getRepoAgentSummary(ws, agentMap), [ws, agentMap]);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuPos = useRef({ x: 0, y: 0 });
@@ -584,72 +616,75 @@ function RepoTreeItem({
     setMenuOpen(true);
   }
 
+  const isRepoSelected =
+    !!selectedItemId?.startsWith(ws.id) || !!activeContextId?.startsWith(ws.id);
+
   return (
     <>
-      <TreeItem
-        key={ws.id}
-        id={ws.id}
-        textValue={ws.name}
-        hasChildItems={ws.branches.length > 0 || ws.worktrees.length > 0}
-        className="outline-none"
+      <div
+        ref={setNodeRef}
+        className={isDragging ? 'pointer-events-none relative z-50 bg-bg-primary' : undefined}
+        style={{
+          transform: CSS.Transform.toString(
+            transform ? { ...transform, scaleX: 1, scaleY: 1 } : null,
+          ),
+          transition,
+        }}
       >
-        <TreeItemContent>
-          {hasSeparator && <div className="h-px bg-border" />}
-          <div onContextMenu={handleContextMenu}>
-            <RepoHeader
-              workspace={ws}
-              agentSummary={agentSummary}
-              isSelected={
-                !!selectedItemId?.startsWith(ws.id) || !!activeContextId?.startsWith(ws.id)
-              }
-              onPlusClick={handlePlusClick}
-              onRowClick={handleRowClick}
-            />
-          </div>
-        </TreeItemContent>
-        {ws.branches.map((b) => (
-          <TreeItem
-            key={`${ws.id}-branch-${b.name}`}
-            id={`${ws.id}-branch-${b.name}`}
-            textValue={b.name}
-            className="outline-none hover:bg-bg-tertiary data-[selected]:bg-[rgba(59,130,246,0.08)]"
-          >
-            <TreeItemContent>
-              <BranchRow
-                branch={b}
-                agentStatus={agentMap[`${ws.id}-branch-${b.name}`]}
-                diffStat={diffStats?.[b.name]}
-              />
-            </TreeItemContent>
-          </TreeItem>
-        ))}
-        {ws.worktrees.map((wt) => (
-          <TreeItem
-            key={`${ws.id}-wt-${wt.name}`}
-            id={`${ws.id}-wt-${wt.name}`}
-            textValue={wt.name}
-            className="outline-none hover:bg-bg-tertiary data-[selected]:bg-[rgba(59,130,246,0.08)]"
-          >
-            <TreeItemContent>
-              <div
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  wtMenuPos.current = { x: e.clientX, y: e.clientY };
-                  setWtMenuTarget(wt.name);
-                }}
-              >
-                <WorktreeRow
-                  worktree={wt}
-                  workspaceId={ws.id}
-                  agentStatus={agentMap[`${ws.id}-wt-${wt.name}`]}
-                  diffStat={diffStats?.[wt.branch]}
-                />
-              </div>
-            </TreeItemContent>
-          </TreeItem>
-        ))}
-      </TreeItem>
+        {hasSeparator && <div className={`h-px bg-border${isDragging ? ' invisible' : ''}`} />}
+        <RepoHeader
+          workspace={ws}
+          agentSummary={agentSummary}
+          isSelected={isRepoSelected}
+          onPlusClick={handlePlusClick}
+          onRowClick={handleRowClick}
+          onContextMenu={handleContextMenu}
+          dragListeners={listeners}
+        />
+        {ws.expanded && (
+          <>
+            {ws.branches.map((b) => {
+              const itemId = `${ws.id}-branch-${b.name}`;
+              return (
+                <div
+                  key={itemId}
+                  className={`outline-none hover:bg-bg-tertiary ${selectedItemId === itemId ? 'bg-[rgba(59,130,246,0.08)]' : ''}`}
+                  onClick={() => onSelectItem(itemId)}
+                >
+                  <BranchRow
+                    branch={b}
+                    agentStatus={agentMap[itemId]}
+                    diffStat={diffStats?.[b.name]}
+                  />
+                </div>
+              );
+            })}
+            {ws.worktrees.map((wt) => {
+              const itemId = `${ws.id}-wt-${wt.name}`;
+              return (
+                <div
+                  key={itemId}
+                  className={`outline-none hover:bg-bg-tertiary ${selectedItemId === itemId ? 'bg-[rgba(59,130,246,0.08)]' : ''}`}
+                  onClick={() => onSelectItem(itemId)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    wtMenuPos.current = { x: e.clientX, y: e.clientY };
+                    setWtMenuTarget(wt.name);
+                  }}
+                >
+                  <WorktreeRow
+                    worktree={wt}
+                    workspaceId={ws.id}
+                    agentStatus={agentMap[itemId]}
+                    diffStat={diffStats?.[wt.branch]}
+                  />
+                </div>
+              );
+            })}
+          </>
+        )}
+      </div>
       {menuOpen && (
         <ContextMenu
           x={menuPos.current.x}
