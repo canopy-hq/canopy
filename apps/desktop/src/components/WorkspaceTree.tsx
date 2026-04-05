@@ -89,7 +89,7 @@ const BranchRow = memo(
             />
           </IconWithBadge>
           <span
-            className={`min-w-0 flex-1 truncate text-base ${branch.is_head ? 'text-text-primary' : 'text-text-secondary'}`}
+            className={`min-w-0 flex-1 truncate font-mono text-base ${branch.is_head ? 'text-text-primary' : 'text-text-secondary'}`}
           >
             {branch.name}
           </span>
@@ -159,11 +159,11 @@ const WorktreeRow = memo(
                 if (e.key === 'Enter') commitEdit();
                 if (e.key === 'Escape') setEditing(false);
               }}
-              className="m-0 min-w-0 flex-1 border-none bg-transparent p-0 text-lg text-[var(--text-secondary)] outline-none"
+              className="m-0 min-w-0 flex-1 border-none bg-transparent p-0 font-mono text-lg text-[var(--text-secondary)] outline-none"
             />
           ) : (
             <span
-              className="min-w-0 flex-1 truncate text-lg text-text-secondary"
+              className="min-w-0 flex-1 truncate font-mono text-lg text-text-secondary"
               onDoubleClick={startEditing}
             >
               {displayName}
@@ -171,7 +171,7 @@ const WorktreeRow = memo(
           )}
           {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
         </div>
-        <span className="mt-0.5 block truncate pl-5 text-sm text-text-muted">
+        <span className="mt-0.5 block truncate pl-5 font-mono text-sm text-text-muted">
           {worktree.branch || worktree.name}
         </span>
       </div>
