@@ -69,8 +69,8 @@ impl DaemonClient {
                     reader.read_line(&mut line).await.map_err(|e| e.to_string())?;
                     return serde_json::from_str(line.trim()).map_err(|e| e.to_string());
                 }
-                Err(_) => {
-                    // Write failed — stream is dead, safe to reconnect and retry.
+                Err(e) => {
+                    eprintln!("rpc_stream write failed, reconnecting: {e}");
                     *guard = None;
                 }
             }
