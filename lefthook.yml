@@ -1,3 +1,8 @@
+post-checkout:
+  commands:
+    copy-env:
+      run: sh .githooks/copy-env-to-worktree.sh {1} {2} {3}
+
 pre-commit:
   commands:
     lint:
