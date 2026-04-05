@@ -17,6 +17,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { getSetting } from '@superagent/db';
 import { useNavigate } from '@tanstack/react-router';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { ChevronDown, ChevronRight, GitPullRequest, Laptop, FolderGit2, Plus } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
@@ -66,7 +67,7 @@ const DiffPill = memo(function DiffPill({
 }) {
   if (additions === 0 && deletions === 0) return null;
   return (
-    <span className="inline-flex flex-shrink-0 gap-1 rounded bg-white/5 px-1.5 py-px text-sm font-medium whitespace-nowrap">
+    <span className="inline-flex flex-shrink-0 gap-1.5 rounded bg-white/5 px-2 py-0.5 text-sm font-medium whitespace-nowrap">
       {additions > 0 && <span className="text-(--git-ahead) tabular-nums">+{additions}</span>}
       {deletions > 0 && (
         <span className="text-(--git-behind) tabular-nums">&minus;{deletions}</span>
@@ -90,9 +91,18 @@ const PR_BADGE_LABEL: Record<PrInfo['state'], string> = {
 
 const PrBadge = memo(function PrBadge({ pr }: { pr: PrInfo }) {
   return (
-    <Badge size="sm" color={PR_BADGE_COLOR[pr.state]} className="gap-1">
-      <GitPullRequest size={10} strokeWidth={2} />#{pr.number} {PR_BADGE_LABEL[pr.state]}
-    </Badge>
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        void openUrl(pr.url);
+      }}
+      className="cursor-pointer"
+    >
+      <Badge size="md" color={PR_BADGE_COLOR[pr.state]} className="gap-1.5 hover:brightness-125">
+        <GitPullRequest size={14} strokeWidth={2} />#{pr.number} {PR_BADGE_LABEL[pr.state]}
+      </Badge>
+    </button>
   );
 });
 

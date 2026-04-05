@@ -11,7 +11,12 @@ const badge = tv({
       success: 'bg-emerald-500/10 text-emerald-500',
       merged: 'bg-purple-500/10 text-purple-500',
     },
-    size: { sm: 'rounded-[3px] px-1.25 py-px text-2xs', md: 'rounded px-1.5 py-0.5 text-xs' },
+    size: {
+      xs: 'rounded-[3px] px-1 py-px text-2xs',
+      sm: 'rounded px-1.5 py-0.5 text-xs',
+      md: 'rounded px-2 py-0.5 text-sm',
+      lg: 'rounded-md px-2.5 py-1 text-sm',
+    },
     pill: { true: 'rounded-full' },
   },
   defaultVariants: { color: 'neutral', size: 'sm' },
