@@ -26,7 +26,7 @@ function statsEqual(
   for (const wsId of bKeys) {
     const aWs = a[wsId];
     const bWs = b[wsId];
-    if (!aWs) return false;
+    if (!aWs || !bWs) return false;
     const aK = Object.keys(aWs);
     const bK = Object.keys(bWs);
     if (aK.length !== bK.length) return false;
@@ -43,8 +43,8 @@ function workspaceStateEqual(a: WorkspacePollState, b: WorkspacePollState): bool
   if (a.head_oid !== b.head_oid) return false;
   if (a.branches.length !== b.branches.length) return false;
   for (let i = 0; i < b.branches.length; i++) {
-    if (a.branches[i].name !== b.branches[i].name) return false;
-    if (a.branches[i].is_head !== b.branches[i].is_head) return false;
+    if (a.branches[i]!.name !== b.branches[i]!.name) return false;
+    if (a.branches[i]!.is_head !== b.branches[i]!.is_head) return false;
   }
   const aWtKeys = Object.keys(a.worktree_branches);
   const bWtKeys = Object.keys(b.worktree_branches);
@@ -63,7 +63,7 @@ function findChangedWorkspaces(
   return Object.keys(next).filter((wsId) => {
     const a = prev[wsId];
     const b = next[wsId];
-    if (!a) return true;
+    if (!a || !b) return true;
     return !workspaceStateEqual(a, b);
   });
 }
@@ -135,10 +135,10 @@ export function useWorkspacePolling(
           const prevStats = prevStatsRef.current;
           const mergedStats: Record<string, Record<string, DiffStat>> = {};
           for (const wsId in prevStats) {
-            if (!expandedIds.has(wsId)) mergedStats[wsId] = prevStats[wsId];
+            if (!expandedIds.has(wsId)) mergedStats[wsId] = prevStats[wsId]!;
           }
           for (const wsId in nextStats) {
-            mergedStats[wsId] = nextStats[wsId];
+            mergedStats[wsId] = nextStats[wsId]!;
           }
 
           const diffStatsChanged = !statsEqual(prevStats, mergedStats);
@@ -153,10 +153,10 @@ export function useWorkspacePolling(
           const prevBranch = prevBranchStateRef.current;
           const mergedBranch: Record<string, WorkspacePollState> = {};
           for (const wsId in prevBranch) {
-            if (!expandedIds.has(wsId)) mergedBranch[wsId] = prevBranch[wsId];
+            if (!expandedIds.has(wsId)) mergedBranch[wsId] = prevBranch[wsId]!;
           }
           for (const wsId in nextBranchState) {
-            mergedBranch[wsId] = nextBranchState[wsId];
+            mergedBranch[wsId] = nextBranchState[wsId]!;
           }
 
           const changedWsIds = findChangedWorkspaces(prevBranch, mergedBranch);

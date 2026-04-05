@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import {
@@ -213,10 +213,9 @@ const TabItemComponent = memo(
         {!editing && (
           <Tooltip label={closeTabLabel} placement="bottom">
             <Button
-              elementType="span"
               iconOnly
               variant="ghost"
-              tabIndex={-1}
+              excludeFromTabOrder
               className={closeButton({ active: isActive || isDragging || isDropping })}
               onPress={() => void handleClose()}
             >

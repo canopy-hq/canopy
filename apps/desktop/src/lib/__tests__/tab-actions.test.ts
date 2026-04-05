@@ -93,7 +93,7 @@ function makeTab(overrides: Partial<Tab> & { id: string; workspaceItemId: string
 
 function findCwdSettingCall() {
   return mockSetSetting.mock.calls.find(
-    ([key]: [string]) => typeof key === 'string' && key.startsWith('cwd:'),
+    ([key]) => typeof key === 'string' && key.startsWith('cwd:'),
   );
 }
 

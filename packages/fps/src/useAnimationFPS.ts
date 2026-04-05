@@ -34,7 +34,7 @@ export function useAnimationFPS(): AnimationFPS {
       if (ts.length > SAMPLE_WINDOW) ts.shift();
 
       if (ts.length >= 2 && now - lastUpdate.current >= UPDATE_INTERVAL_MS) {
-        const elapsed = ts[ts.length - 1] - ts[0];
+        const elapsed = ts[ts.length - 1]! - ts[0]!;
         const computed = Math.round(((ts.length - 1) / elapsed) * 1000);
 
         const hist = history.current;

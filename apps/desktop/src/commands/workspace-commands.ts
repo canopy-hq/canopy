@@ -6,7 +6,7 @@ import { WorkspacePalettePanel } from '../components/WorkspacePalette';
 import { addTab } from '../lib/tab-actions';
 import { selectWorkspaceItem } from '../lib/workspace-actions';
 
-import type { Nav, CommandItem } from '@superagent/command-palette';
+import type { Nav, CommandItem, PanelContext } from '@superagent/command-palette';
 import type { Setting, Workspace } from '@superagent/db';
 
 export function makeWorkspacePaletteItem(ws: Workspace): CommandItem {
