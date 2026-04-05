@@ -607,12 +607,14 @@ function RepoTreeItem({
       <div
         ref={setNodeRef}
         style={{
-          transform: CSS.Transform.toString(transform),
+          transform: CSS.Transform.toString(
+            transform ? { ...transform, scaleX: 1, scaleY: 1 } : null,
+          ),
           transition,
           zIndex: isDragging ? 10 : undefined,
         }}
       >
-        {hasSeparator && <div className="h-px bg-border" />}
+        {hasSeparator && !isDragging && <div className="h-px bg-border" />}
         <div className="group/repo" onContextMenu={handleContextMenu}>
           <RepoHeader
             workspace={ws}

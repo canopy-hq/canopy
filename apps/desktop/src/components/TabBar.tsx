@@ -2,12 +2,10 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from '
 
 import {
   DndContext,
-  DragOverlay,
   PointerSensor,
   closestCenter,
   useSensor,
   useSensors,
-  type DragStartEvent,
   type DragEndEvent,
   type Modifier,
 } from '@dnd-kit/core';
@@ -144,7 +142,7 @@ const TabItemComponent = memo(
     }, [tab]);
 
     const dndStyle: React.CSSProperties = {
-      transform: CSS.Transform.toString(transform),
+      transform: CSS.Transform.toString(transform ? { ...transform, scaleX: 1, scaleY: 1 } : null),
       transition,
       touchAction: 'none',
     };
@@ -231,19 +229,6 @@ const TabItemComponent = memo(
 
 const restrictToHorizontalAxis: Modifier = ({ transform }) => ({ ...transform, y: 0 });
 
-function TabDragGhost({ tab, isActive }: { tab: Tab; isActive: boolean }) {
-  return (
-    <div
-      className={`${tabItem({ active: isActive })} pointer-events-none cursor-grabbing opacity-90 shadow-md ring-1 ring-accent/30`}
-    >
-      <span className="flex-1 truncate text-left text-md">{tab.label}</span>
-      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm opacity-60">
-        <X size={10} strokeWidth={2} />
-      </span>
-    </div>
-  );
-}
-
 export function TabBar() {
   const allTabs = useTabs();
   const ui = useUiState();
@@ -256,28 +241,20 @@ export function TabBar() {
     [allTabs, activeContextId],
   );
   const activeTabId = ui.activeTabId;
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const activeTab = useMemo(
-    () => (activeId ? tabs.find((t) => t.id === activeId) : null),
-    [activeId, tabs],
-  );
+  const [dragging, setDragging] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   useEffect(() => {
-    document.body.style.cursor = activeId ? 'grabbing' : '';
+    document.body.style.cursor = dragging ? 'grabbing' : '';
     return () => {
       document.body.style.cursor = '';
     };
-  }, [activeId]);
-
-  const handleDragStart = useCallback(({ active }: DragStartEvent) => {
-    setActiveId(String(active.id));
-  }, []);
+  }, [dragging]);
 
   const handleDragEnd = useCallback(
     ({ active, over }: DragEndEvent) => {
-      setActiveId(null);
+      setDragging(false);
       if (!over || active.id === over.id) return;
       const oldIndex = tabs.findIndex((t) => t.id === active.id);
       const newIndex = tabs.findIndex((t) => t.id === over.id);
@@ -286,10 +263,6 @@ export function TabBar() {
     },
     [tabs],
   );
-
-  const handleDragCancel = useCallback(() => {
-    setActiveId(null);
-  }, []);
 
   const tabIds = useMemo(() => tabs.map((t) => t.id), [tabs]);
 
@@ -354,9 +327,9 @@ export function TabBar() {
         sensors={sensors}
         collisionDetection={closestCenter}
         modifiers={[restrictToHorizontalAxis]}
-        onDragStart={handleDragStart}
+        onDragStart={() => setDragging(true)}
         onDragEnd={handleDragEnd}
-        onDragCancel={handleDragCancel}
+        onDragCancel={() => setDragging(false)}
       >
         <SortableContext items={tabIds} strategy={horizontalListSortingStrategy}>
           <div
@@ -369,11 +342,6 @@ export function TabBar() {
             ))}
           </div>
         </SortableContext>
-        <DragOverlay dropAnimation={null}>
-          {activeTab ? (
-            <TabDragGhost tab={activeTab} isActive={activeTab.id === activeTabId} />
-          ) : null}
-        </DragOverlay>
       </DndContext>
       <Tooltip label={newTabLabel} placement="bottom">
         <Button
