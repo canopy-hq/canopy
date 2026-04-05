@@ -84,7 +84,7 @@ const TabItemComponent = memo(
     const [editing, setEditing] = useState(false);
     const [frozenWidth, setFrozenWidth] = useState<number | null>(null);
     const [draft, setDraft] = useState('');
-    const buttonRef = useRef<HTMLButtonElement>(null);
+    const buttonRef = useRef<HTMLButtonElement | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const originalLabelRef = useRef('');
     const committedRef = useRef(false);
@@ -92,7 +92,7 @@ const TabItemComponent = memo(
     const mergedRef = useCallback(
       (node: HTMLButtonElement | null) => {
         setNodeRef(node);
-        (buttonRef as React.MutableRefObject<HTMLButtonElement | null>).current = node;
+        buttonRef.current = node;
       },
       [setNodeRef],
     );
