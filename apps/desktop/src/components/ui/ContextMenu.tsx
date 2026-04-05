@@ -19,7 +19,9 @@ export type ContextMenuSubmenuItem = {
   items: ContextMenuItemDef[];
 };
 
-export type ContextMenuItemDef = ContextMenuAction | ContextMenuSubmenuItem;
+export type ContextMenuSeparator = { type: 'separator' };
+
+export type ContextMenuItemDef = ContextMenuAction | ContextMenuSubmenuItem | ContextMenuSeparator;
 
 const itemCls =
   'flex cursor-default items-center gap-2 px-3 py-1.5 text-base text-text-secondary outline-none data-[focused]:bg-bg-tertiary data-[disabled]:opacity-40';
@@ -61,12 +63,16 @@ export function ContextMenu({
           className="outline-none"
           onAction={(key) => {
             const item = items.find(
-              (it): it is ContextMenuAction => it.type !== 'submenu' && it.label === String(key),
+              (it): it is ContextMenuAction =>
+                it.type !== 'submenu' && it.type !== 'separator' && it.label === String(key),
             );
             if (item) item.onSelect();
           }}
         >
-          {items.map((item) => {
+          {items.map((item, i) => {
+            if (item.type === 'separator') {
+              return <div key={`sep-${i}`} className="my-1 h-px bg-border/40" />;
+            }
             if (item.type === 'submenu') {
               return (
                 <SubmenuTrigger key={item.label}>
@@ -82,7 +88,9 @@ export function ContextMenu({
                       onAction={(key) => {
                         const sub = item.items.find(
                           (it): it is ContextMenuAction =>
-                            it.type !== 'submenu' && it.label === String(key),
+                            it.type !== 'submenu' &&
+                            it.type !== 'separator' &&
+                            it.label === String(key),
                         );
                         if (sub) {
                           sub.onSelect();
@@ -90,7 +98,10 @@ export function ContextMenu({
                         }
                       }}
                     >
-                      {item.items.map((sub) => {
+                      {item.items.map((sub, i) => {
+                        if (sub.type === 'separator') {
+                          return <div key={`sep-${i}`} className="my-1 h-px bg-border/40" />;
+                        }
                         if (sub.type === 'submenu') return null;
                         return (
                           <MenuItem

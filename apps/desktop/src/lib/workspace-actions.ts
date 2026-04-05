@@ -367,6 +367,14 @@ export function renameWorktree(workspaceId: string, wtName: string, label: strin
   });
 }
 
+export function renameWorkspace(id: string, name: string): void {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  getWorkspaceCollection().update(id, (draft) => {
+    draft.name = trimmed;
+  });
+}
+
 export function reorderWorkspaces(orderedIds: string[]): void {
   const col = getWorkspaceCollection();
   for (let i = 0; i < orderedIds.length; i++) {

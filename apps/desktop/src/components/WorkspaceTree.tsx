@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo, memo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 
 import {
   DndContext,
@@ -27,6 +27,7 @@ import {
   GitPullRequest,
   Laptop,
   Loader2,
+  Pencil,
   Plus,
 } from 'lucide-react';
 import { tv } from 'tailwind-variants';
@@ -56,6 +57,7 @@ import {
   hideWorktree,
   removeWorktree,
   renameWorktree,
+  renameWorkspace,
   reorderWorkspaces,
   setWorkspaceColor,
 } from '../lib/workspace-actions';
@@ -345,20 +347,35 @@ const RepoHeader = memo(
     workspace,
     agentSummary,
     isSelected,
+    isRenaming,
     onPlusClick,
     onRowClick,
     onContextMenu,
+    onRenameCommit,
+    onRenameCancel,
     dragListeners,
   }: {
     workspace: Workspace;
     agentSummary?: Array<'running' | 'waiting'>;
     isSelected: boolean;
+    isRenaming: boolean;
     onPlusClick: () => void;
     onRowClick: () => void;
     onContextMenu: (e: React.MouseEvent) => void;
+    onRenameCommit: (name: string) => void;
+    onRenameCancel: () => void;
     dragListeners?: DraggableSyntheticListeners;
   }) {
     const childCount = workspace.branches.length + workspace.worktrees.length;
+    const [editValue, setEditValue] = useState('');
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+      if (isRenaming) {
+        setEditValue(workspace.name);
+        requestAnimationFrame(() => inputRef.current?.select());
+      }
+    }, [isRenaming, workspace.name]);
 
     const iconStyle = useMemo((): React.CSSProperties => {
       if (workspace.color) {
@@ -386,12 +403,16 @@ const RepoHeader = memo(
           };
     }, [workspace.color, isSelected]);
 
+    function commitRename() {
+      onRenameCommit(editValue);
+    }
+
     return (
       <div
         className={repoHeader({ selected: isSelected })}
-        onClick={onRowClick}
-        onContextMenu={onContextMenu}
-        {...dragListeners}
+        onClick={isRenaming ? undefined : onRowClick}
+        onContextMenu={isRenaming ? undefined : onContextMenu}
+        {...(isRenaming ? {} : dragListeners)}
       >
         <div
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded border text-sm leading-none font-medium transition-colors duration-150"
@@ -399,44 +420,64 @@ const RepoHeader = memo(
         >
           {workspace.name.charAt(0).toUpperCase()}
         </div>
-        <span className="flex-1 truncate font-mono text-lg font-medium text-text-primary">
-          {workspace.name}
-        </span>
-        {!workspace.expanded && agentSummary && agentSummary.length > 0 && (
+        {isRenaming ? (
+          <input
+            ref={inputRef}
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === 'Enter') commitRename();
+              if (e.key === 'Escape') onRenameCancel();
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="min-w-0 flex-1 border-none bg-transparent font-mono text-lg font-medium text-text-primary outline-none"
+          />
+        ) : (
+          <span className="flex-1 truncate font-mono text-lg font-medium text-text-primary">
+            {workspace.name}
+          </span>
+        )}
+        {!isRenaming && !workspace.expanded && agentSummary && agentSummary.length > 0 && (
           <span className="ml-1 flex items-center gap-0.75">
             {agentSummary.slice(0, 3).map((status, i) => (
               <StatusDot key={i} status={status} size={5} />
             ))}
           </span>
         )}
-        {!workspace.expanded && childCount > 0 && (
+        {!isRenaming && !workspace.expanded && childCount > 0 && (
           <span className="rounded-sm bg-bg-tertiary/60 px-1.25 py-px font-mono text-xs text-text-faint tabular-nums">
             {childCount}
           </span>
         )}
-        <Button
-          iconOnly
-          size="sm"
-          variant="ghost"
-          onPress={onRowClick}
-          onClick={(e: React.MouseEvent) => e.stopPropagation()}
-          onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
-        >
-          {workspace.expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-        </Button>
-        <Tooltip label="New branch / worktree" placement="right">
-          <Button
-            iconOnly
-            size="sm"
-            variant="ghost"
-            aria-label="New branch or worktree"
-            onPress={onPlusClick}
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
-            onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
-          >
-            <Plus size={12} />
-          </Button>
-        </Tooltip>
+        {!isRenaming && (
+          <>
+            <Button
+              iconOnly
+              size="sm"
+              variant="ghost"
+              onPress={onRowClick}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
+            >
+              {workspace.expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            </Button>
+            <Tooltip label="New branch / worktree" placement="right">
+              <Button
+                iconOnly
+                size="sm"
+                variant="ghost"
+                aria-label="New branch or worktree"
+                onPress={onPlusClick}
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
+              >
+                <Plus size={12} />
+              </Button>
+            </Tooltip>
+          </>
+        )}
       </div>
     );
   },
@@ -448,9 +489,12 @@ const RepoHeader = memo(
     prev.workspace.branches.length === next.workspace.branches.length &&
     prev.workspace.worktrees.length === next.workspace.worktrees.length &&
     prev.isSelected === next.isSelected &&
+    prev.isRenaming === next.isRenaming &&
     prev.onPlusClick === next.onPlusClick &&
     prev.onRowClick === next.onRowClick &&
     prev.onContextMenu === next.onContextMenu &&
+    prev.onRenameCommit === next.onRenameCommit &&
+    prev.onRenameCancel === next.onRenameCancel &&
     prev.agentSummary?.length === next.agentSummary?.length &&
     (prev.agentSummary ?? []).every((s, i) => s === next.agentSummary?.[i]) &&
     prev.dragListeners === next.dragListeners,
@@ -722,6 +766,7 @@ function RepoTreeItem({
   const agentSummary = useMemo(() => getRepoAgentSummary(ws, agentMap), [ws, agentMap]);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuPos = useRef({ x: 0, y: 0 });
+  const [renamingWs, setRenamingWs] = useState(false);
   const [wtMenuTarget, setWtMenuTarget] = useState<string | null>(null);
   const wtMenuPos = useRef({ x: 0, y: 0 });
   const [branchMenuTarget, setBranchMenuTarget] = useState<string | null>(null);
@@ -771,9 +816,15 @@ function RepoTreeItem({
           workspace={ws}
           agentSummary={agentSummary}
           isSelected={isRepoSelected}
+          isRenaming={renamingWs}
           onPlusClick={handlePlusClick}
           onRowClick={handleRowClick}
           onContextMenu={handleContextMenu}
+          onRenameCommit={(name) => {
+            renameWorkspace(ws.id, name);
+            setRenamingWs(false);
+          }}
+          onRenameCancel={() => setRenamingWs(false)}
           dragListeners={listeners}
         />
         {ws.expanded && (
@@ -870,6 +921,14 @@ function RepoTreeItem({
           items={
             [
               {
+                label: 'Rename',
+                icon: <Pencil size={13} />,
+                onSelect: () => {
+                  setMenuOpen(false);
+                  setRenamingWs(true);
+                },
+              },
+              {
                 type: 'submenu',
                 label: 'Set color',
                 icon: (
@@ -891,6 +950,7 @@ function RepoTreeItem({
                     checked: !ws.color,
                     onSelect: () => setWorkspaceColor(ws.id, null),
                   },
+                  { type: 'separator' },
                   ...WORKSPACE_COLORS.map(({ value, label }) => ({
                     label,
                     icon: (
