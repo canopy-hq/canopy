@@ -33,6 +33,7 @@ export function Sidebar() {
   const workspaces = useWorkspaces();
 
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const dragAbortRef = useRef<AbortController | null>(null);
 
   const handleImport = useCallback(async () => {
     try {
@@ -53,32 +54,38 @@ export function Sidebar() {
   useEffect(() => {
     return () => {
       document.body.style.cursor = '';
+      dragAbortRef.current?.abort();
     };
   }, []);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      const startX = e.clientX;
-      const startWidth = width;
-      dragRef.current = { startX, startWidth };
+      dragRef.current = { startX: e.clientX, startWidth: width };
       document.body.style.cursor = 'col-resize';
 
-      const handleMouseMove = (ev: MouseEvent) => {
-        if (!dragRef.current) return;
-        const newWidth = dragRef.current.startWidth + (ev.clientX - dragRef.current.startX);
-        setSidebarWidth(newWidth);
-      };
+      dragAbortRef.current?.abort();
+      const ac = new AbortController();
+      dragAbortRef.current = ac;
 
-      const handleMouseUp = () => {
-        dragRef.current = null;
-        document.body.style.cursor = '';
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
+      document.addEventListener(
+        'mousemove',
+        (ev: MouseEvent) => {
+          if (!dragRef.current) return;
+          setSidebarWidth(dragRef.current.startWidth + (ev.clientX - dragRef.current.startX));
+        },
+        { signal: ac.signal },
+      );
 
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener(
+        'mouseup',
+        () => {
+          dragRef.current = null;
+          document.body.style.cursor = '';
+          ac.abort();
+        },
+        { signal: ac.signal },
+      );
     },
     [width],
   );
@@ -100,7 +107,7 @@ export function Sidebar() {
       </div>
       <div className="relative w-px shrink-0 bg-border">
         <div
-          className="absolute inset-0 -right-px -left-px z-10 cursor-col-resize! transition-colors hover:bg-accent"
+          className="absolute inset-0 -right-px -left-px z-10 cursor-col-resize transition-colors hover:bg-accent"
           onMouseDown={handleMouseDown}
         />
       </div>
