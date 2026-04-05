@@ -42,35 +42,35 @@
   --color-destructive: var(--destructive);
 }
 
-/* UI text size scale — defined outside @theme to avoid polluting Tailwind's --text-*
-   namespace, which can cause WebKit to misresolve var(--text-primary) references
-   used by color tokens in @layer theme. */
+/* UI text size scale. The ui-* prefix (no text- prefix) is intentional: tailwind-merge
+   classifies unknown text-* classes as text-color utilities, which causes it to strip
+   the actual color class when both a size and a color appear together in tv() variants. */
 :root {
-  --text-ui-2xs: 9px;
-  --text-ui-xs: 10px;
-  --text-ui-sm: 11px;
-  --text-ui-md: 12px;
-  --text-ui-base: 13px;
-  --text-ui-lg: 14px;
+  --ui-2xs: 9px;
+  --ui-xs: 10px;
+  --ui-sm: 11px;
+  --ui-md: 12px;
+  --ui-base: 13px;
+  --ui-lg: 14px;
 }
 
-@utility text-ui-2xs {
-  font-size: var(--text-ui-2xs);
+@utility ui-2xs {
+  font-size: var(--ui-2xs);
 }
-@utility text-ui-xs {
-  font-size: var(--text-ui-xs);
+@utility ui-xs {
+  font-size: var(--ui-xs);
 }
-@utility text-ui-sm {
-  font-size: var(--text-ui-sm);
+@utility ui-sm {
+  font-size: var(--ui-sm);
 }
-@utility text-ui-md {
-  font-size: var(--text-ui-md);
+@utility ui-md {
+  font-size: var(--ui-md);
 }
-@utility text-ui-base {
-  font-size: var(--text-ui-base);
+@utility ui-base {
+  font-size: var(--ui-base);
 }
-@utility text-ui-lg {
-  font-size: var(--text-ui-lg);
+@utility ui-lg {
+  font-size: var(--ui-lg);
 }
 
 /* Default theme: Obsidian (matches previous hardcoded values) */

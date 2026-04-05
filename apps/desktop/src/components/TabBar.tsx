@@ -1,11 +1,11 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Plus, X } from 'lucide-react';
+import { tv } from 'tailwind-variants';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import { addTab, closeTab, switchTab, renameTab } from '../lib/tab-actions';
-import { tv } from '../lib/tv';
 import { StatusDot } from './StatusDot';
 import { Button, Kbd, Tooltip } from './ui';
 
@@ -166,7 +166,7 @@ const TabItemComponent = memo(
           </span>
         )}
         {agentStatus === 'waiting' && !editing && (
-          <span className="rounded-full bg-[rgba(251,191,36,0.25)] px-2 py-1 text-ui-xs leading-none font-normal text-(--agent-waiting)">
+          <span className="rounded-full bg-[rgba(251,191,36,0.25)] px-2 py-1 ui-xs leading-none font-normal text-(--agent-waiting)">
             input
           </span>
         )}

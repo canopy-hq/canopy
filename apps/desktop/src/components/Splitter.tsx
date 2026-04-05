@@ -1,7 +1,8 @@
 import { useState } from 'react';
 
+import { tv } from 'tailwind-variants';
+
 import { useSplitterDrag } from '../hooks/useSplitterDrag';
-import { tv } from '../lib/tv';
 
 import type { SplitDirection } from '../lib/pane-tree-ops';
 

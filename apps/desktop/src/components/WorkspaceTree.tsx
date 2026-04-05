@@ -5,12 +5,12 @@ import { createPortal } from 'react-dom';
 
 import { useNavigate } from '@tanstack/react-router';
 import { ChevronDown, ChevronRight, Laptop, FolderGit2, Plus } from 'lucide-react';
+import { tv } from 'tailwind-variants';
 
 import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useCollections';
 import { usePageVisible } from '../hooks/usePageVisible';
 import { useWorkspacePolling } from '../hooks/useWorkspacePolling';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
-import { tv } from '../lib/tv';
 import {
   toggleExpanded,
   selectWorkspaceItem,
@@ -39,7 +39,7 @@ const DiffPill = memo(function DiffPill({
 }) {
   if (additions === 0 && deletions === 0) return null;
   return (
-    <span className="inline-flex flex-shrink-0 gap-1 rounded bg-white/5 px-1.5 py-px text-ui-sm font-medium whitespace-nowrap">
+    <span className="inline-flex flex-shrink-0 gap-1 rounded bg-white/5 px-1.5 py-px ui-sm font-medium whitespace-nowrap">
       {additions > 0 && <span className="text-(--git-ahead) tabular-nums">+{additions}</span>}
       {deletions > 0 && (
         <span className="text-(--git-behind) tabular-nums">&minus;{deletions}</span>
@@ -89,14 +89,14 @@ const BranchRow = memo(
             />
           </IconWithBadge>
           <span
-            className={`min-w-0 flex-1 truncate text-ui-base ${branch.is_head ? 'text-text-primary' : 'text-text-secondary'}`}
+            className={`min-w-0 flex-1 truncate ui-base ${branch.is_head ? 'text-text-primary' : 'text-text-secondary'}`}
           >
             {branch.name}
           </span>
           {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
         </div>
         {branch.is_head && (
-          <span className="mt-0.5 block truncate pl-5 text-ui-sm text-text-muted">local</span>
+          <span className="mt-0.5 block truncate pl-5 ui-sm text-text-muted">local</span>
         )}
       </div>
     );
@@ -171,7 +171,7 @@ const WorktreeRow = memo(
           )}
           {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
         </div>
-        <span className="mt-0.5 block truncate pl-5 text-ui-sm text-text-muted">
+        <span className="mt-0.5 block truncate pl-5 ui-sm text-text-muted">
           {worktree.branch || worktree.name}
         </span>
       </div>
@@ -245,7 +245,7 @@ const RepoHeader = memo(
         {/* Always show branch/worktree count */}
         {childCount > 0 && (
           <span className="flex h-6 w-6 shrink-0 items-center justify-center">
-            <span className="rounded bg-bg-tertiary px-1.25 py-px font-mono text-ui-xs text-text-muted tabular-nums">
+            <span className="rounded bg-bg-tertiary px-1.25 py-px font-mono ui-xs text-text-muted tabular-nums">
               {childCount}
             </span>
           </span>
@@ -398,7 +398,7 @@ export function WorkspaceTree() {
 
   return (
     <>
-      <div className="px-3 pt-2 pb-1 font-mono text-ui-xs font-semibold tracking-wider text-text-muted uppercase opacity-60">
+      <div className="px-3 pt-2 pb-1 font-mono ui-xs font-semibold tracking-wider text-text-muted uppercase opacity-60">
         Projects
       </div>
       <Tree
@@ -523,7 +523,7 @@ function ContextMenu({
             ref={i === 0 ? buttonRef : undefined}
             role="menuitem"
             tabIndex={i === 0 ? 0 : -1}
-            className={`w-full px-3 py-1.5 text-left text-ui-base outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)] ${item.destructive ? 'text-destructive' : 'text-text-secondary'}`}
+            className={`w-full px-3 py-1.5 text-left ui-base outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)] ${item.destructive ? 'text-destructive' : 'text-text-secondary'}`}
             onClick={(e) => {
               e.stopPropagation();
               item.onSelect();

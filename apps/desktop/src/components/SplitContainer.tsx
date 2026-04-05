@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { Children } from 'react';
 
-import { tv } from '../lib/tv';
+import { tv } from 'tailwind-variants';
+
 import { Splitter } from './Splitter';
 
 import type { SplitDirection } from '../lib/pane-tree-ops';

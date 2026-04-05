@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-import { tv, type VariantProps } from '../../lib/tv';
+import { tv, type VariantProps } from 'tailwind-variants';
 
 const statusDot = tv({
   base: 'inline-block shrink-0 rounded-full size-(--dot-size)',

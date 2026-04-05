@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
 
 import { useNavigate } from '@tanstack/react-router';
+import { tv } from 'tailwind-variants';
 
 import { useAgents, useWorkspaces, useTabs } from '../hooks/useCollections';
 import { containsPtyId } from '../lib/pane-tree-ops';
 import { jumpToPane } from '../lib/tab-actions';
-import { tv } from '../lib/tv';
 import { StatusDot } from './StatusDot';
 
 import type { AgentInfo } from '@superagent/db';
@@ -184,7 +184,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
               Agent Overview
             </Heading>
             {(runningCount > 0 || waitingCount > 0) && (
-              <span className="flex items-center gap-1.5 text-ui-sm">
+              <span className="flex items-center gap-1.5 ui-sm">
                 {runningCount > 0 && (
                   <span className="text-(--agent-running)">{runningCount} running</span>
                 )}
@@ -204,7 +204,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
               /* Empty state */
               <div className="flex flex-col items-center justify-center gap-2 px-4 py-8">
                 <span className="text-sm font-semibold text-text-muted">No agents running</span>
-                <span className="text-ui-base text-text-muted opacity-60">
+                <span className="ui-base text-text-muted opacity-60">
                   Start an AI agent in any terminal to see it here
                 </span>
               </div>
@@ -213,9 +213,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
               Object.entries(groupedRows).map(([wsName, rows]) => (
                 <div key={wsName}>
                   {/* Group header */}
-                  <div className="px-4 pt-2 pb-1 text-ui-sm font-semibold text-text-muted">
-                    {wsName}
-                  </div>
+                  <div className="px-4 pt-2 pb-1 ui-sm font-semibold text-text-muted">{wsName}</div>
                   {/* Agent rows */}
                   {rows.map((row) => {
                     const flatIndex = flatRows.indexOf(row);
@@ -236,13 +234,13 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                         data-selected={isSelected}
                       >
                         <StatusDot status={row.agent.status} size={8} />
-                        <span className="shrink-0 text-ui-base text-text-primary">
+                        <span className="shrink-0 ui-base text-text-primary">
                           {row.agent.agentName}
                         </span>
-                        <span className="flex-1 truncate text-ui-base text-text-muted">
+                        <span className="flex-1 truncate ui-base text-text-muted">
                           {row.workspaceName}
                         </span>
-                        <span className="shrink-0 text-ui-sm text-text-muted tabular-nums">
+                        <span className="shrink-0 ui-sm text-text-muted tabular-nums">
                           {formatDuration(row.agent.startedAt)}
                         </span>
                       </div>

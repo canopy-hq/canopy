@@ -3,10 +3,10 @@ import { useEffect, useCallback } from 'react';
 import { getUiState } from '@superagent/db';
 import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router';
 import { ChevronLeft, Palette, GitBranch } from 'lucide-react';
+import { tv } from 'tailwind-variants';
 
 import { AppearanceSection } from '../components/settings/AppearanceSection';
 import { ConnectionSection } from '../components/settings/ConnectionSection';
-import { tv } from '../lib/tv';
 
 type SectionId = 'appearance' | 'git';
 
@@ -32,7 +32,7 @@ const SECTIONS: Record<SectionId, () => React.JSX.Element> = {
 };
 
 const navItem = tv({
-  base: 'flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-ui-md transition-colors',
+  base: 'flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 ui-md transition-colors',
   variants: {
     active: {
       true: 'bg-bg-tertiary text-text-primary',
@@ -71,7 +71,7 @@ function SettingsRoute() {
         <div data-tauri-drag-region className="h-[38px] flex-shrink-0" />
 
         <button
-          className="flex items-center gap-1.5 px-5 py-2 text-ui-base text-text-muted transition-colors hover:text-text-primary"
+          className="flex items-center gap-1.5 px-5 py-2 ui-base text-text-muted transition-colors hover:text-text-primary"
           onClick={navigateBack}
           aria-label="Back to app"
         >
@@ -84,7 +84,7 @@ function SettingsRoute() {
         <nav className="flex-1 space-y-4 px-3">
           {NAV.map((group) => (
             <div key={group.label}>
-              <div className="mb-1 px-2 text-ui-sm font-semibold tracking-wider text-text-muted/60 uppercase">
+              <div className="mb-1 px-2 ui-sm font-semibold tracking-wider text-text-muted/60 uppercase">
                 {group.label}
               </div>
               <div className="space-y-0.5">
