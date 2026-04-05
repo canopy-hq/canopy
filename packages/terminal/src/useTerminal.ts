@@ -371,26 +371,24 @@ export function useTerminal(
 
             if (fromPool) {
               // Warm terminal: shell already booted. Discard warm session scrollback
-              // and silently eat all output while cd+clear runs — the terminal never
-              // sees the cd echo. After the discard window, switch to live passthrough
-              // and remove the overlay. The Starship prompt for the new cwd arrives
-              // as normal live output.
+              // and silently eat all output while cd runs — the terminal never sees
+              // the cd echo. After the discard window, switch to live passthrough
+              // and remove the overlay on first live byte (the Starship prompt).
               let poolLive = false;
               connectPtyOutputFresh(newId, (data: Uint8Array) => {
-                if (poolLive) term.write(data);
+                if (!poolLive) return;
+                debouncedRemoveOverlay();
+                term.write(data);
               });
-              // Shell escape: wrap in single quotes, escape embedded quotes
               const escaped = savedCwd ? `'${savedCwd.replace(/'/g, "'\\''")}'` : '~';
-              // cd + clear via printf (builtin, instant — no external command lookup).
               // Space prefix keeps it out of shell history.
-              void writeToPty(newId, ` cd ${escaped} && printf '\\033[2J\\033[3J\\033[H'\n`);
-              // 250ms: enough for cd + printf + Starship to finish in most repos.
-              // If Starship is slower, the terminal appears blank briefly then the
-              // prompt fills in — still much faster than cold spawn.
+              void writeToPty(newId, ` cd ${escaped}\n`);
+              // 150ms: enough for cd echo + prompt start to finish.
+              // After this, the next output is the Starship prompt which
+              // triggers debouncedRemoveOverlay on first byte.
               setTimeout(() => {
                 poolLive = true;
-                removeOverlay();
-              }, 250);
+              }, 150);
             } else if (isNew) {
               connectPtyOutput(newId, (data: Uint8Array) => {
                 debouncedRemoveOverlay();
