@@ -1,30 +1,29 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { FolderPlus, PanelLeft } from 'lucide-react';
 
-import { Kbd } from '../../components/ui';
+import { ActionRow } from '../../components/ui';
+import { useWorkspaces } from '../../hooks/useCollections';
 import { openImportDialog, toggleSidebar } from '../../lib/workspace-actions';
 
 function IndexRoute() {
+  const workspaces = useWorkspaces();
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 select-none">
-      <button
-        type="button"
-        onClick={() => void openImportDialog()}
-        className="flex w-72 items-center gap-3 rounded-md px-4 py-3 text-text-faint transition-colors hover:bg-white/[0.04] hover:text-text-muted"
-      >
-        <FolderPlus size={15} className="shrink-0" />
-        <span className="flex-1 text-left font-mono text-base">Add Project</span>
-        <Kbd>⌘N</Kbd>
-      </button>
-      <button
-        type="button"
-        onClick={() => toggleSidebar()}
-        className="flex w-72 items-center gap-3 rounded-md px-4 py-3 text-text-faint transition-colors hover:bg-white/[0.04] hover:text-text-muted"
-      >
-        <PanelLeft size={15} className="shrink-0" />
-        <span className="flex-1 text-left font-mono text-base">Toggle Sidebar</span>
-        <Kbd>⌘B</Kbd>
-      </button>
+      <ActionRow
+        icon={<FolderPlus size={15} />}
+        label="Add Project"
+        shortcut="⌘N"
+        onPress={() => void openImportDialog()}
+      />
+      {workspaces.length > 0 && (
+        <ActionRow
+          icon={<PanelLeft size={15} />}
+          label="Toggle Sidebar"
+          shortcut="⌘B"
+          onPress={() => toggleSidebar()}
+        />
+      )}
     </div>
   );
 }

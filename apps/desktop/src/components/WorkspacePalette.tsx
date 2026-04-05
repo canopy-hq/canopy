@@ -22,7 +22,7 @@ import {
   X,
 } from 'lucide-react';
 
-import { Badge } from './ui';
+import { Badge, Button } from './ui';
 import { useWorkspacePalette, type PaletteItem } from './useWorkspacePalette';
 
 import type { PanelContext } from '@superagent/command-palette';
@@ -307,19 +307,19 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
           }
         />
         {query && (
-          <button
-            type="button"
-            tabIndex={-1}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
+          <Button
+            variant="ghost"
+            iconOnly
+            size="sm"
+            onMouseDown={(e: React.MouseEvent) => e.preventDefault()}
+            onPress={() => {
               setQuery('');
               inputRef.current?.focus();
             }}
             aria-label="Clear"
-            className="cursor-pointer rounded px-1 text-text-muted transition-colors hover:text-text-primary"
           >
             <X size={11} />
-          </button>
+          </Button>
         )}
       </div>
 
@@ -346,16 +346,15 @@ export function WorkspacePalettePanel({ workspace, ctx }: WorkspacePalettePanelP
       {/* Base picker header */}
       {pickingBase && (
         <div className="flex items-center gap-1.5 border-b border-border px-3 py-1.5">
-          <button
-            type="button"
-            tabIndex={-1}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setPickingBase(false)}
-            className="flex cursor-pointer items-center gap-1 text-[11px] text-text-muted transition-colors hover:text-text-primary"
+          <Button
+            variant="link"
+            onMouseDown={(e: React.MouseEvent) => e.preventDefault()}
+            onPress={() => setPickingBase(false)}
+            className="flex cursor-pointer items-center gap-1 text-[11px]"
           >
             <ChevronLeft size={11} />
             back
-          </button>
+          </Button>
           <span className="text-[11px] text-text-muted opacity-40">/</span>
           <span className="text-[11px] text-text-primary">
             base for <span className="text-accent">{sanitizedName}</span>

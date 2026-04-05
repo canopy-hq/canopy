@@ -252,7 +252,7 @@ export function CommandMenu({
                     <button
                       type="button"
                       tabIndex={-1}
-                      onClick={() => dispatch({ type: 'DRILL_INTO', item: drillStack[i]! })}
+                      onClick={() => dispatch({ type: 'DRILL_BACK_TO', index: i })}
                       className="cursor-pointer transition-colors hover:text-text-primary"
                     >
                       {crumb.label}

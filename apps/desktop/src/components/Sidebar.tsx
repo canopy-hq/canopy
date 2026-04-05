@@ -1,27 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Plus } from 'lucide-react';
-
 import { useUiState, useWorkspaces } from '../hooks/useCollections';
 import { openImportDialog, setSidebarWidth } from '../lib/workspace-actions';
-import { Button } from './ui';
 import { WorkspaceTree } from './WorkspaceTree';
-
-function EmptyState({ onImport }: { onImport: () => void }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 px-4">
-      <span className="font-mono text-sm text-text-faint">No repositories</span>
-      <Button
-        variant="ghost"
-        onPress={onImport}
-        className="w-full rounded-md border border-dashed border-border/40 py-1.5 text-sm"
-      >
-        <Plus size={12} />
-        Import Repository
-      </Button>
-    </div>
-  );
-}
 
 export function Sidebar() {
   const ui = useUiState();
@@ -73,7 +54,7 @@ export function Sidebar() {
     [width],
   );
 
-  if (!visible) return null;
+  if (!visible || workspaces.length === 0) return null;
 
   return (
     <>
@@ -82,11 +63,7 @@ export function Sidebar() {
       <div className="flex shrink-0 flex-row bg-bg-secondary" style={{ width: `${width}px` }}>
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex-1 overflow-y-auto pb-3">
-            {workspaces.length === 0 ? (
-              <EmptyState onImport={handleImport} />
-            ) : (
-              <WorkspaceTree onAddProject={handleImport} />
-            )}
+            <WorkspaceTree onAddProject={handleImport} />
           </div>
         </div>
         <div className="group relative w-px shrink-0">

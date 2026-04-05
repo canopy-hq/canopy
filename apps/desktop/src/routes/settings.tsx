@@ -87,14 +87,14 @@ function SettingsRoute() {
               </div>
               <div className="space-y-0.5">
                 {group.items.map((item) => (
-                  <button
+                  <Button
                     key={item.id}
-                    className={navItem({ active: activeSection === item.id })}
-                    onClick={() => void navigate({ to: '/settings', search: { section: item.id } })}
+                    className={`${navItem({ active: activeSection === item.id })} justify-start`}
+                    onPress={() => void navigate({ to: '/settings', search: { section: item.id } })}
                   >
                     <item.icon size={13} />
                     {item.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>

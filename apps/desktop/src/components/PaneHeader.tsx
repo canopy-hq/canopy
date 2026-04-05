@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { tv } from 'tailwind-variants';
 
@@ -12,13 +12,8 @@ const wrapper = tv({
   variants: { focused: { true: 'text-text-primary', false: 'text-text-muted' } },
 });
 
-function formatCwd(cwd: string): { display: string; truncated: boolean } {
-  const segments = cwd.split('/').filter(Boolean);
-  if (segments.length === 0) return { display: '~', truncated: false };
-  if (segments.length <= 4) return { display: segments.join('/'), truncated: false };
-  const head = segments.slice(0, 2).join('/');
-  const tail = segments.slice(-2).join('/');
-  return { display: `${head}/…/${tail}`, truncated: true };
+function isCwdTruncated(cwd: string): boolean {
+  return cwd.split('/').filter(Boolean).length > 4;
 }
 
 export function PaneHeader({
@@ -32,19 +27,16 @@ export function PaneHeader({
   agentStatus?: DotStatus;
   agentName?: string;
 }) {
-  const [copied, setCopied] = useState(false);
-
-  const { display, truncated } = formatCwd(cwd);
+  const truncated = isCwdTruncated(cwd);
 
   const handleCopy = useCallback(() => {
     if (!cwd) return;
-    void navigator.clipboard.writeText(cwd).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 600);
-    });
+    void navigator.clipboard.writeText(cwd);
   }, [cwd]);
 
   const showAgent = agentStatus && agentStatus !== 'idle';
+
+  if (!showAgent) return null;
 
   const content = (
     <div
@@ -52,16 +44,8 @@ export function PaneHeader({
       style={{ background: 'color-mix(in srgb, var(--bg-tertiary) 85%, transparent)' }}
       onClick={handleCopy}
     >
-      {showAgent && <StatusDot status={agentStatus} size={8} />}
-      {showAgent && agentName && (
-        <>
-          <span className="text-sm text-text-primary">{agentName}</span>
-          <span className="text-sm text-text-muted opacity-40">&middot;</span>
-        </>
-      )}
-      <span className={`transition-opacity duration-75 ${copied ? 'opacity-30' : ''}`}>
-        {display}
-      </span>
+      <StatusDot status={agentStatus} size={8} />
+      {agentName && <span className="text-sm text-text-primary">{agentName}</span>}
     </div>
   );
 

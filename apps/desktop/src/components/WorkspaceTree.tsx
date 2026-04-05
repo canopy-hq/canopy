@@ -26,7 +26,6 @@ import {
   GitBranchMinus,
   GitPullRequest,
   Laptop,
-  Loader2,
   Pencil,
   Plus,
 } from 'lucide-react';
@@ -65,7 +64,7 @@ import { openWorkspacePalette } from '../lib/workspace-palette-bridge';
 import { CloseProjectModal } from './CloseProjectModal';
 import { RemoveWorktreeModal } from './RemoveWorktreeModal';
 import { StatusDot } from './StatusDot';
-import { Button, Kbd, Tooltip, ContextMenu } from './ui';
+import { Button, DiffPill, IconWithBadge, Kbd, Spinner, Tooltip, ContextMenu } from './ui';
 
 import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
 import type { PrInfo } from '../lib/github';
@@ -85,24 +84,6 @@ const WORKSPACE_COLORS: Array<{ value: string; label: string }> = [
   { value: '#ef4444', label: 'Red' },
   { value: '#14b8a6', label: 'Teal' },
 ];
-
-const DiffPill = memo(function DiffPill({
-  additions,
-  deletions,
-}: {
-  additions: number;
-  deletions: number;
-}) {
-  if (additions === 0 && deletions === 0) return null;
-  return (
-    <span className="inline-flex flex-shrink-0 gap-1 rounded-sm bg-white/[0.04] px-1.5 py-px text-sm font-normal whitespace-nowrap">
-      {additions > 0 && <span className="text-(--git-ahead) tabular-nums">+{additions}</span>}
-      {deletions > 0 && (
-        <span className="text-(--git-behind) tabular-nums">&minus;{deletions}</span>
-      )}
-    </span>
-  );
-});
 
 const PR_TEXT_COLOR: Record<PrInfo['state'], string> = {
   OPEN: 'text-emerald-500',
@@ -132,25 +113,6 @@ const PrBadge = memo(function PrBadge({ pr }: { pr: PrInfo }) {
   );
 });
 
-const IconWithBadge = memo(function IconWithBadge({
-  children,
-  agentStatus,
-}: {
-  children: React.ReactNode;
-  agentStatus?: DotStatus;
-}) {
-  return (
-    <div className="relative flex w-6 shrink-0 items-center justify-center">
-      {children}
-      {agentStatus && agentStatus !== 'idle' && (
-        <div className="absolute -top-0.5 -right-0.5 leading-[0]">
-          <StatusDot status={agentStatus} size={6} />
-        </div>
-      )}
-    </div>
-  );
-});
-
 const BranchRow = memo(
   function BranchRow({
     branch,
@@ -174,12 +136,12 @@ const BranchRow = memo(
             <Laptop size={14} stroke={isProjectActive ? 'var(--accent)' : 'var(--text-muted)'} />
           </IconWithBadge>
           <span
-            className={`min-w-0 flex-1 truncate font-mono text-sm ${branch.is_head ? 'text-text-secondary' : 'text-text-muted'}`}
+            className={`min-w-0 flex-1 truncate font-mono text-sm leading-none ${branch.is_head ? 'text-text-secondary' : 'text-text-muted'}`}
           >
             {branch.name}
           </span>
           {tabCount != null && tabCount > 0 && (
-            <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.25 py-px font-mono text-xs text-text-faint tabular-nums">
+            <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.25 py-px font-mono text-xs leading-none text-text-faint tabular-nums">
               {tabCount}
             </span>
           )}
@@ -255,7 +217,7 @@ const WorktreeRow = memo(
         <div className="flex items-center gap-2">
           {isDeleting ? (
             <div className="relative flex w-6 shrink-0 items-center justify-center">
-              <Loader2 size={14} className="animate-spin text-destructive/60" />
+              <Spinner size={14} className="text-destructive/60" />
             </div>
           ) : (
             <IconWithBadge agentStatus={agentStatus}>
@@ -280,7 +242,7 @@ const WorktreeRow = memo(
             />
           ) : (
             <span
-              className="min-w-0 flex-1 truncate font-mono text-sm text-text-muted"
+              className="min-w-0 flex-1 truncate font-mono text-sm leading-none text-text-muted"
               onDoubleClick={startEditing}
             >
               {displayName}
@@ -292,7 +254,7 @@ const WorktreeRow = memo(
             !editing &&
             tabCount != null &&
             tabCount > 0 && (
-              <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.25 py-px font-mono text-xs text-text-faint tabular-nums">
+              <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.25 py-px font-mono text-xs leading-none text-text-faint tabular-nums">
                 {tabCount}
               </span>
             )
@@ -447,7 +409,7 @@ const RepoHeader = memo(
           </span>
         )}
         {!isRenaming && !workspace.expanded && childCount > 0 && (
-          <span className="rounded-sm bg-bg-tertiary/60 px-1.25 py-px font-mono text-xs text-text-faint tabular-nums">
+          <span className="rounded-sm bg-bg-tertiary/60 px-1.25 py-px font-mono text-xs leading-none text-text-faint tabular-nums">
             {childCount}
           </span>
         )}
@@ -572,7 +534,11 @@ export function WorkspaceTree({ onAddProject }: { onAddProject?: () => void }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const agentMap = useWorkspaceAgentMap();
   const pageVisible = usePageVisible();
-  const diffStatsMap = useWorkspacePolling(workspaces, sidebarVisible && pageVisible);
+  const diffStatsMap = useWorkspacePolling(
+    workspaces,
+    sidebarVisible && pageVisible,
+    activeContextId ?? undefined,
+  );
   const settings = useSettings();
   const githubConnected = getSetting(settings, GITHUB_CONNECTION_KEY, null) !== null;
   const prMap = usePrPolling(workspaces, sidebarVisible && pageVisible, githubConnected);
@@ -899,7 +865,7 @@ function RepoTreeItem({
                     <div className="py-1.5 pr-3 pl-3">
                       <div className="flex items-center gap-2">
                         <div className="relative flex w-6 shrink-0 items-center justify-center">
-                          <Loader2 size={14} className="animate-spin text-accent/60" />
+                          <Spinner size={14} className="text-accent/60" />
                         </div>
                         <span className="min-w-0 flex-1 truncate font-mono text-sm text-text-faint">
                           {name}

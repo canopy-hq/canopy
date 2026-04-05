@@ -10,7 +10,7 @@ import {
 import { useLiveQuery } from '@tanstack/react-db';
 import { tv } from 'tailwind-variants';
 
-const sectionLabel = 'mb-3 font-mono text-xs font-medium tracking-widest text-text-faint uppercase';
+import { SectionLabel } from '../ui';
 
 const themeCard = tv({
   base: 'flex cursor-pointer flex-col gap-2 rounded-md border p-2 transition-colors',
@@ -84,7 +84,7 @@ export function AppearanceSection() {
   return (
     <section className="space-y-8">
       <div>
-        <div className={sectionLabel}>Theme</div>
+        <SectionLabel className="mb-3">Theme</SectionLabel>
         <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label="Theme selection">
           {themeNames.map((name) => (
             <div
@@ -110,7 +110,7 @@ export function AppearanceSection() {
       </div>
 
       <div>
-        <div className={sectionLabel}>Terminal Font Size</div>
+        <SectionLabel className="mb-3">Terminal Font Size</SectionLabel>
         <div className="flex items-center gap-3">
           <input
             type="range"

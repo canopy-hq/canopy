@@ -27,7 +27,7 @@ import {
   closeAllTabsExcept,
 } from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
-import { Button, Kbd, Tooltip } from './ui';
+import { Badge, Button, Kbd, Tooltip } from './ui';
 import { ContextMenu } from './ui/ContextMenu';
 
 import type { DotStatus } from './StatusDot';
@@ -179,7 +179,7 @@ const TabItemComponent = memo(
           onMouseDown={(e) => {
             if (e.button === 1) {
               e.preventDefault();
-              void handleClose();
+              handleClose();
             }
           }}
           {...listeners}
@@ -221,9 +221,9 @@ const TabItemComponent = memo(
             </span>
           )}
           {agentStatus === 'waiting' && !editing && (
-            <span className="rounded-full bg-[rgba(251,191,36,0.25)] px-2 py-1 text-xs leading-none font-normal text-(--agent-waiting)">
+            <Badge pill color="warning" size="xs">
               input
-            </span>
+            </Badge>
           )}
           {!editing && (
             <Tooltip label={closeTabLabel} placement="bottom">
@@ -234,7 +234,7 @@ const TabItemComponent = memo(
                 onPointerDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  void handleClose();
+                  handleClose();
                 }}
               >
                 <X size={10} />

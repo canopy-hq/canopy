@@ -61,7 +61,7 @@ export async function importRepo(path: string): Promise<void> {
         id: crypto.randomUUID(),
         path: info.path,
         name: info.name,
-        branches: info.branches,
+        branches: info.branches.filter((b) => b.is_head),
         worktrees: info.worktrees,
         expanded: true,
         position: collection.toArray.length,
@@ -124,7 +124,15 @@ export async function refreshRepo(id: string): Promise<void> {
   try {
     const info = await gitApi.importRepo(ws.path);
     getWorkspaceCollection().update(id, (draft) => {
-      draft.branches = info.branches;
+      const headBranch = info.branches.find((b) => b.is_head);
+      if (headBranch) {
+        const existing = draft.branches.find((b) => b.name === headBranch.name);
+        if (existing) {
+          existing.is_head = true;
+        } else {
+          draft.branches = [headBranch];
+        }
+      }
       // Don't overwrite worktrees — import_repo returns [] now,
       // but we want to keep user-opened worktrees in the sidebar.
     });

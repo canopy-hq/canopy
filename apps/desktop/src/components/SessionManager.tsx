@@ -8,7 +8,7 @@ import { useTabs, useWorkspaces } from '../hooks/useCollections';
 import { containsPtyId } from '../lib/pane-tree-ops';
 import { killPaneInTab, jumpToPane } from '../lib/tab-actions';
 import { getWorkspaceItemIds } from '../lib/workspace-actions';
-import { Button } from './ui';
+import { Button, SectionLabel } from './ui';
 
 import type { Tab, Workspace } from '@superagent/db';
 import type { PtySessionInfo } from '@superagent/terminal';
@@ -204,9 +204,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
               Array.from(grouped.entries()).map(([wsName, groupRows]) => (
                 <div key={wsName}>
                   <div className="flex h-7 items-center px-3">
-                    <span className="flex-1 font-mono text-[10px] font-medium tracking-widest text-text-faint uppercase">
-                      {wsName}
-                    </span>
+                    <SectionLabel className="flex-1">{wsName}</SectionLabel>
                     <Button
                       variant="destructive-ghost"
                       size="sm"

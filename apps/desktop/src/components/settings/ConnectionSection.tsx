@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { getSetting, getSettingCollection, setSetting } from '@superagent/db';
 import { useLiveQuery } from '@tanstack/react-db';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { Check, GitBranch, Loader2 } from 'lucide-react';
+import { Check, GitBranch } from 'lucide-react';
 
 import { DEFAULT_WORKTREE_BASE, WORKTREE_BASE_DIR_KEY } from '../../lib/git';
 import {
@@ -17,9 +17,8 @@ import {
   type DeviceCodeInfo,
 } from '../../lib/github';
 import { showErrorToast } from '../../lib/toast';
-import { Button } from '../ui';
+import { Button, SectionLabel, Spinner } from '../ui';
 
-const sectionLabel = 'mb-3 font-mono text-xs font-medium tracking-widest text-text-faint uppercase';
 const sectionDesc = 'mb-4 text-base text-text-muted';
 const card = 'rounded-md border border-border/20 bg-bg-secondary';
 
@@ -110,7 +109,7 @@ export function ConnectionSection() {
   return (
     <div className="space-y-8">
       <section>
-        <div className={sectionLabel}>GitHub</div>
+        <SectionLabel className="mb-3">GitHub</SectionLabel>
         <p className={sectionDesc}>
           Connect your GitHub account for PR status, CI checks, and more.
         </p>
@@ -151,7 +150,7 @@ function WorktreeBaseDir() {
 
   return (
     <section>
-      <div className={sectionLabel}>Worktree Base Directory</div>
+      <SectionLabel className="mb-3">Worktree Base Directory</SectionLabel>
       <p className="mb-3 text-base text-text-muted">
         New worktrees will be created inside this directory.
       </p>
@@ -217,7 +216,7 @@ function ConnectingCard({
       </div>
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-sm text-text-muted">
-          <Loader2 size={12} className="animate-spin" />
+          <Spinner size={12} />
           Waiting for authorization…
         </span>
         <Button variant="destructive-ghost" size="sm" onPress={onCancel}>
@@ -266,7 +265,7 @@ function GitHubAuth({
           Disconnect
         </Button>
       ) : (
-        <Button variant="primary" size="sm" onPress={() => void onConnect()}>
+        <Button variant="primary" size="sm" onPress={onConnect}>
           Connect
         </Button>
       )}

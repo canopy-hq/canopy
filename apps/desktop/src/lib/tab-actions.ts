@@ -78,8 +78,9 @@ function makeTab(opts?: { workspaceItemId?: string; label?: string }): Tab {
 }
 
 export function renameTab(id: string, label: string, manual: boolean): void {
-  const trimmed = label.trim().slice(0, 20);
-  if (!trimmed) return;
+  const raw = label.trim();
+  if (!raw) return;
+  const trimmed = raw.length > 20 ? `${raw.slice(0, 20)}…` : raw;
   getTabCollection().update(id, (draft) => {
     draft.label = trimmed;
     draft.labelIsManual = manual;
@@ -190,12 +191,14 @@ export function setActiveContext(contextId: string): void {
       draft.contextActiveTabIds = updatedContextActiveTabIds;
       draft.activeContextId = contextId;
       draft.activeTabId = newActiveTabId;
+      draft.selectedItemId = contextId;
     });
   } else {
     uiCollection.update('ui', (draft) => {
       draft.contextActiveTabIds = updatedContextActiveTabIds;
       draft.activeContextId = contextId;
       draft.activeTabId = '';
+      draft.selectedItemId = contextId;
     });
   }
 }
