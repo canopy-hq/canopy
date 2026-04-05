@@ -6,7 +6,7 @@ import { Button } from './ui';
 export interface RemoveWorktreeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (alsoDeleteGit: boolean) => Promise<void>;
+  onConfirm: (alsoDeleteGit: boolean) => void;
   worktreeName: string;
 }
 
@@ -17,22 +17,12 @@ export function RemoveWorktreeModal({
   worktreeName,
 }: RemoveWorktreeModalProps) {
   const [deleteGit, setDeleteGit] = useState(false);
-  const [isPending, setIsPending] = useState(false);
-
-  const handleConfirm = useCallback(async () => {
-    setIsPending(true);
-    try {
-      await onConfirm(deleteGit);
-    } finally {
-      setIsPending(false);
-    }
-  }, [onConfirm, deleteGit]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape' && !isPending) onClose();
+      if (e.key === 'Escape') onClose();
     },
-    [onClose, isPending],
+    [onClose],
   );
 
   if (!isOpen) return null;
@@ -41,71 +31,52 @@ export function RemoveWorktreeModal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       onClick={(e) => {
-        if (e.target === e.currentTarget && !isPending) onClose();
+        if (e.target === e.currentTarget) onClose();
       }}
       onKeyDown={handleKeyDown}
       role="presentation"
     >
       <div className="w-[480px] rounded-lg border border-border bg-bg-secondary p-6">
         <Dialog className="outline-none" aria-label="Remove Worktree">
-          {isPending ? (
-            <div className="flex flex-col items-center gap-3 py-4">
-              <svg
-                className="animate-spin text-text-muted"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-              </svg>
-              <span className="text-base text-text-muted">Deleting worktree…</span>
-            </div>
-          ) : (
-            <>
-              <Heading slot="title" className="text-[16px] font-semibold text-text-primary">
-                Remove &ldquo;{worktreeName}&rdquo;
-              </Heading>
+          <Heading slot="title" className="text-[16px] font-semibold text-text-primary">
+            Remove &ldquo;{worktreeName}&rdquo;
+          </Heading>
 
-              <p className="mt-3 text-base leading-relaxed text-text-muted">
-                This will remove the worktree from the sidebar. You can re-open it later from the
-                workspace palette.
-              </p>
+          <p className="mt-3 text-base leading-relaxed text-text-muted">
+            This will remove the worktree from the sidebar. You can re-open it later from the
+            workspace palette.
+          </p>
 
-              <label className="mt-4 flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={deleteGit}
-                  onChange={(e) => setDeleteGit(e.target.checked)}
-                  className="accent-destructive"
-                />
-                <span className="text-base text-text-muted">
-                  Also delete the git worktree from disk
-                </span>
-              </label>
+          <label className="mt-4 flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={deleteGit}
+              onChange={(e) => setDeleteGit(e.target.checked)}
+              className="accent-destructive"
+            />
+            <span className="text-base text-text-muted">
+              Also delete the git worktree from disk
+            </span>
+          </label>
 
-              {deleteGit && (
-                <p className="mt-2 text-md leading-relaxed text-destructive">
-                  This will run{' '}
-                  <code className="rounded bg-bg-tertiary px-1">git worktree remove</code> and
-                  delete the working directory. Uncommitted changes will be lost.
-                </p>
-              )}
-
-              <div className="mt-6 flex justify-end gap-2">
-                <Button variant="secondary" onPress={onClose}>
-                  Cancel
-                </Button>
-                <Button variant={deleteGit ? 'destructive' : 'primary'} onPress={handleConfirm}>
-                  {deleteGit ? 'Delete Worktree' : 'Remove from Sidebar'}
-                </Button>
-              </div>
-            </>
+          {deleteGit && (
+            <p className="mt-2 text-md leading-relaxed text-destructive">
+              This will run <code className="rounded bg-bg-tertiary px-1">git worktree remove</code>{' '}
+              and delete the working directory. Uncommitted changes will be lost.
+            </p>
           )}
+
+          <div className="mt-6 flex justify-end gap-2">
+            <Button variant="secondary" onPress={onClose}>
+              Cancel
+            </Button>
+            <Button
+              variant={deleteGit ? 'destructive' : 'primary'}
+              onPress={() => onConfirm(deleteGit)}
+            >
+              {deleteGit ? 'Delete Worktree' : 'Remove from Sidebar'}
+            </Button>
+          </div>
         </Dialog>
       </div>
     </div>

@@ -131,11 +131,13 @@ const WorktreeRow = memo(
     workspaceId,
     agentStatus,
     diffStat,
+    isDeleting,
   }: {
     worktree: WorktreeInfo & { label?: string };
     workspaceId: string;
     agentStatus?: DotStatus;
     diffStat?: DiffStat;
+    isDeleting?: boolean;
   }) {
     const [editing, setEditing] = useState(false);
     const [editValue, setEditValue] = useState('');
@@ -158,11 +160,29 @@ const WorktreeRow = memo(
     }
 
     return (
-      <div className="group/wt my-px mr-1.5 rounded-[5px] border-l-[3px] border-transparent py-0.75 pr-1.5 pl-3">
+      <div
+        className={`group/wt my-px mr-1.5 rounded-[5px] border-l-[3px] border-transparent py-0.75 pr-1.5 pl-3 ${isDeleting ? 'opacity-50' : ''}`}
+      >
         <div className="flex items-center gap-1.5">
-          <IconWithBadge agentStatus={agentStatus}>
-            <FolderGit2 size={14} strokeWidth={1.5} stroke="var(--text-muted)" />
-          </IconWithBadge>
+          {isDeleting ? (
+            <svg
+              className="shrink-0 animate-spin text-text-muted"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+          ) : (
+            <IconWithBadge agentStatus={agentStatus}>
+              <FolderGit2 size={14} strokeWidth={1.5} stroke="var(--text-muted)" />
+            </IconWithBadge>
+          )}
           {editing ? (
             <input
               ref={inputRef}
@@ -184,10 +204,12 @@ const WorktreeRow = memo(
               {displayName}
             </span>
           )}
-          {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
+          {diffStat && !isDeleting && (
+            <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />
+          )}
         </div>
         <span className="mt-0.5 block truncate pl-5 font-mono text-sm text-text-muted">
-          {worktree.branch || worktree.name}
+          {isDeleting ? 'Deleting…' : worktree.branch || worktree.name}
         </span>
       </div>
     );
@@ -198,6 +220,7 @@ const WorktreeRow = memo(
     prev.worktree.label === next.worktree.label &&
     prev.workspaceId === next.workspaceId &&
     prev.agentStatus === next.agentStatus &&
+    prev.isDeleting === next.isDeleting &&
     prev.diffStat?.additions === next.diffStat?.additions &&
     prev.diffStat?.deletions === next.diffStat?.deletions,
 );
@@ -374,6 +397,7 @@ export function WorkspaceTree() {
     workspaceId: string;
     name: string;
   } | null>(null);
+  const [deletingWtId, setDeletingWtId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const agentMap = useWorkspaceAgentMap();
@@ -478,12 +502,22 @@ export function WorkspaceTree() {
           isOpen
           onClose={() => setRemoveWtTarget(null)}
           worktreeName={removeWtTarget.name}
-          onConfirm={async (alsoDeleteGit) => {
-            if (alsoDeleteGit) {
-              await removeWorktree(removeWtTarget.workspaceId, removeWtTarget.name);
-            }
-            hideWorktree(removeWtTarget.workspaceId, removeWtTarget.name);
+          onConfirm={(alsoDeleteGit) => {
+            const { workspaceId, name } = removeWtTarget;
             setRemoveWtTarget(null);
+            if (alsoDeleteGit) {
+              const itemId = `${workspaceId}-wt-${name}`;
+              setDeletingWtId(itemId);
+              void removeWorktree(workspaceId, name)
+                .then(() => {
+                  hideWorktree(workspaceId, name);
+                })
+                .finally(() => {
+                  setDeletingWtId(null);
+                });
+            } else {
+              hideWorktree(workspaceId, name);
+            }
           }}
         />
       )}
@@ -673,12 +707,14 @@ function RepoTreeItem({
             })}
             {ws.worktrees.map((wt) => {
               const itemId = `${ws.id}-wt-${wt.name}`;
+              const isDeleting = deletingWtId === itemId;
               return (
                 <div
                   key={itemId}
-                  className={`outline-none hover:bg-bg-tertiary ${selectedItemId === itemId ? 'bg-[rgba(59,130,246,0.08)]' : ''}`}
-                  onClick={() => onSelectItem(itemId)}
+                  className={`outline-none ${isDeleting ? 'pointer-events-none' : 'hover:bg-bg-tertiary'} ${selectedItemId === itemId ? 'bg-[rgba(59,130,246,0.08)]' : ''}`}
+                  onClick={() => !isDeleting && onSelectItem(itemId)}
                   onContextMenu={(e) => {
+                    if (isDeleting) return;
                     e.preventDefault();
                     e.stopPropagation();
                     wtMenuPos.current = { x: e.clientX, y: e.clientY };
@@ -690,6 +726,7 @@ function RepoTreeItem({
                     workspaceId={ws.id}
                     agentStatus={agentMap[itemId]}
                     diffStat={diffStats?.[wt.branch]}
+                    isDeleting={isDeleting}
                   />
                 </div>
               );
