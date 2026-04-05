@@ -24,7 +24,7 @@ import { useWorkspaces, useAgents, useTabs, useUiState } from '../hooks/useColle
 import { useDragStyle } from '../hooks/useDragStyle';
 import { usePageVisible } from '../hooks/usePageVisible';
 import { useWorkspacePolling } from '../hooks/useWorkspacePolling';
-import { restrictToVerticalAxis, useDragSensors } from '../lib/dnd';
+import { restrictToVerticalAxis, sortableTransition, useDragSensors } from '../lib/dnd';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import {
   toggleExpanded,
@@ -591,7 +591,10 @@ function RepoTreeItem({
   hasSeparator: boolean;
   onSelectItem: (itemId: string) => void;
 }) {
-  const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({ id: ws.id });
+  const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
+    id: ws.id,
+    transition: sortableTransition,
+  });
   const agentSummary = useMemo(() => getRepoAgentSummary(ws, agentMap), [ws, agentMap]);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuPos = useRef({ x: 0, y: 0 });

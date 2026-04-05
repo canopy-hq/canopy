@@ -13,7 +13,7 @@ import { tv } from 'tailwind-variants';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
 import { useDragStyle } from '../hooks/useDragStyle';
-import { restrictToHorizontalAxis, useDragSensors } from '../lib/dnd';
+import { restrictToHorizontalAxis, sortableTransition, useDragSensors } from '../lib/dnd';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import { addTab, closeTab, switchTab, renameTab, reorderTabs } from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
@@ -73,6 +73,7 @@ const TabItemComponent = memo(
   function TabItemComponent({ tab, isActive }: { tab: Tab; isActive: boolean }) {
     const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
       id: tab.id,
+      transition: sortableTransition,
     });
     const agentStatus = useTabAgentStatus(tab);
     const [editing, setEditing] = useState(false);

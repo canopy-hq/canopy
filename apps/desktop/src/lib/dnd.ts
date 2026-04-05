@@ -7,3 +7,6 @@ export function useDragSensors() {
 
 export const restrictToHorizontalAxis: Modifier = ({ transform }) => ({ ...transform, y: 0 });
 export const restrictToVerticalAxis: Modifier = ({ transform }) => ({ ...transform, x: 0 });
+
+/** Transition for displaced items during sort — ease-out feels more natural than linear ease. */
+export const sortableTransition = { duration: 200, easing: 'ease-out' } as const;
