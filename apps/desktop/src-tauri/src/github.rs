@@ -200,7 +200,7 @@ async fn execute_graphql_with_retry(
     match execute_graphql(client, token, query).await {
         Ok(v) => Ok(v),
         Err(e) => {
-            if e.contains("403") || e.contains("429") || e.contains("request failed") {
+            if e.contains("429") || e.contains("request failed") {
                 tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                 execute_graphql(client, token, query).await
             } else {
