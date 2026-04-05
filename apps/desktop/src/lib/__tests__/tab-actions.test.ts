@@ -108,6 +108,7 @@ function resetState() {
     activeTabId: '',
     activeContextId: '',
     contextActiveTabIds: {},
+    creatingWorktreeId: null,
   };
   mockSetSetting.mockClear();
 }

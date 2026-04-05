@@ -94,6 +94,7 @@ describe('importRepo', () => {
       activeTabId: '',
       activeContextId: '',
       contextActiveTabIds: {},
+      creatingWorktreeId: null,
     };
     vi.clearAllMocks();
   });
