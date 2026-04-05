@@ -183,32 +183,27 @@ export function useTerminal(
 
       term.open(wrapper);
       let overlayRemoved = false;
-      let overlayTimer: ReturnType<typeof setTimeout> | null = null;
+      let overlayTimer: number | null = null;
       removeOverlay = () => {
         if (!overlayRemoved) {
           overlayRemoved = true;
           if (overlayTimer !== null) {
-            clearTimeout(overlayTimer);
+            cancelAnimationFrame(overlayTimer);
             overlayTimer = null;
           }
           overlay.remove();
         }
       };
-      // One-shot overlay removal: schedule the timer on the FIRST byte only.
-      // This reveals the terminal at first_byte+80ms+2×rAF (~112ms) regardless
-      // of how long Starship keeps emitting — the canvas fills in while visible,
-      // which looks responsive. The double-rAF ensures the WASM renderer has
-      // painted at least one frame after the first write before uncovering.
+      // One-shot overlay removal: on the FIRST byte, wait a single rAF so the
+      // WASM renderer paints at least one frame, then uncover. Previous approach
+      // added 80ms+2×rAF (~112ms) which was perceptible; 1×rAF (~16ms) is enough
+      // for the canvas to have content before revealing.
       const debouncedRemoveOverlay = () => {
         if (overlayRemoved || overlayTimer !== null) return; // one-shot
-        overlayTimer = setTimeout(() => {
+        overlayTimer = requestAnimationFrame(() => {
           overlayTimer = null;
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              removeOverlay();
-            });
-          });
-        }, 80);
+          removeOverlay();
+        });
       };
 
       if (term.element) {

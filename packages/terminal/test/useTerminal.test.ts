@@ -115,7 +115,7 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
     unmount();
   });
 
-  it('overlay removed 80ms after FIRST byte (one-shot) — subsequent bytes do NOT reset the timer', async () => {
+  it('overlay removed after single rAF following FIRST byte (one-shot)', async () => {
     vi.useFakeTimers();
     // happy-dom's rAF uses setImmediate which fake timers don't control;
     // replace with setTimeout(cb, 0) so vi.advanceTimersByTime flushes them.
@@ -135,24 +135,15 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
 
     const freshHandler = vi.mocked(connectPtyOutput).mock.calls[0]![1];
 
-    // First byte: starts the one-shot 80ms timer, overlay still present
+    // First byte: schedules one-shot rAF, overlay still present
     act(() => {
       freshHandler(new Uint8Array([65]));
     });
     expect(overlay.parentNode).not.toBeNull();
 
-    // More output at 40ms: timer is NOT reset (one-shot), overlay still present
+    // rAF fires → removeOverlay()
     act(() => {
-      vi.advanceTimersByTime(40);
-      freshHandler(new Uint8Array([66]));
-    });
-    expect(overlay.parentNode).not.toBeNull();
-
-    // 80ms after FIRST byte: debounce fires, then double rAF removes overlay
-    act(() => {
-      vi.advanceTimersByTime(40); // reaches 80ms from first byte → fires timer → rAF #1
-      vi.advanceTimersByTime(1); // fires rAF #1 → schedules rAF #2
-      vi.advanceTimersByTime(1); // fires rAF #2 → removeOverlay()
+      vi.advanceTimersByTime(1);
     });
     expect(overlay.parentNode).toBeNull();
 
