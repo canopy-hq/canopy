@@ -26,6 +26,51 @@ describe('pty', () => {
     pty = await import('../src/pty');
   });
 
+  describe('spawnTerminal — concurrent dedup', () => {
+    it('concurrent calls for the same pane share one promise (one invoke)', async () => {
+      invokeFn.mockResolvedValue({ pty_id: 10, is_new: true });
+      const [r1, r2] = await Promise.all([
+        pty.spawnTerminal('pane-concurrent'),
+        pty.spawnTerminal('pane-concurrent'),
+      ]);
+      expect(invokeFn).toHaveBeenCalledTimes(1);
+      expect(r1).toEqual(r2);
+      expect(r1).toEqual({ ptyId: 10, isNew: true });
+    });
+
+    it('concurrent calls wire the same channel entry', async () => {
+      invokeFn.mockResolvedValue({ pty_id: 11, is_new: true });
+      await Promise.all([
+        pty.spawnTerminal('pane-entry-share'),
+        pty.spawnTerminal('pane-entry-share'),
+      ]);
+      // Both callers share one entry — connectPtyOutput should reach it
+      const handler = vi.fn();
+      pty.connectPtyOutput(11, handler);
+      expect(mockEntry.setHandler).toHaveBeenCalledTimes(1);
+    });
+
+    it('serial calls (second after first resolves) each invoke independently', async () => {
+      invokeFn.mockResolvedValue({ pty_id: 20, is_new: true });
+      await pty.spawnTerminal('pane-serial');
+
+      invokeFn.mockClear();
+      invokeFn.mockResolvedValue({ pty_id: 20, is_new: false });
+      await pty.spawnTerminal('pane-serial');
+
+      expect(invokeFn).toHaveBeenCalledWith(
+        'spawn_terminal',
+        expect.objectContaining({ paneId: 'pane-serial' }),
+      );
+    });
+
+    it('different panes always invoke independently', async () => {
+      invokeFn.mockResolvedValue({ pty_id: 30, is_new: true });
+      await Promise.all([pty.spawnTerminal('pane-A'), pty.spawnTerminal('pane-B')]);
+      expect(invokeFn).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe('spawnTerminal', () => {
     it('calls spawn_terminal and returns the ptyId from invoke', async () => {
       invokeFn.mockResolvedValueOnce({ pty_id: 42, is_new: true });
@@ -75,16 +120,6 @@ describe('pty', () => {
     it('is a silent no-op for an unknown ptyId (optional chaining)', () => {
       // No spawn — ptyId 404 was never registered
       expect(() => pty.connectPtyOutput(404, vi.fn())).not.toThrow();
-    });
-  });
-
-  describe('connectPtyOutputFresh', () => {
-    it('calls setHandlerFresh on the correct channel entry', async () => {
-      invokeFn.mockResolvedValueOnce({ pty_id: 6, is_new: true });
-      await pty.spawnTerminal('pane-1');
-      const handler = vi.fn();
-      pty.connectPtyOutputFresh(6, handler);
-      expect(mockEntry.setHandlerFresh).toHaveBeenCalledWith(handler);
     });
   });
 
