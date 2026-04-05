@@ -98,10 +98,12 @@ export function Sidebar() {
           </Button>
         </div>
       </div>
-      <div
-        className="relative w-px shrink-0 cursor-col-resize bg-border transition-colors after:absolute after:inset-y-0 after:-left-1 after:w-3 after:cursor-col-resize after:content-[''] hover:bg-accent"
-        onMouseDown={handleMouseDown}
-      />
+      <div className="relative w-px shrink-0 bg-border">
+        <div
+          className="absolute inset-0 -right-px -left-px z-10 cursor-col-resize! transition-colors hover:bg-accent"
+          onMouseDown={handleMouseDown}
+        />
+      </div>
     </div>
   );
 }
