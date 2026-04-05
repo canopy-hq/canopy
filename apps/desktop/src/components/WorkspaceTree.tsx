@@ -40,7 +40,7 @@ const DiffPill = memo(function DiffPill({
 }) {
   if (additions === 0 && deletions === 0) return null;
   return (
-    <span className="inline-flex flex-shrink-0 gap-1 rounded bg-white/5 px-1.5 py-px text-ui-sm font-medium whitespace-nowrap">
+    <span className="inline-flex flex-shrink-0 gap-1 rounded bg-white/5 px-1.5 py-px text-sm font-medium whitespace-nowrap">
       {additions > 0 && <span className="text-(--git-ahead) tabular-nums">+{additions}</span>}
       {deletions > 0 && (
         <span className="text-(--git-behind) tabular-nums">&minus;{deletions}</span>
@@ -90,14 +90,14 @@ const BranchRow = memo(
             />
           </IconWithBadge>
           <span
-            className={`min-w-0 flex-1 truncate text-ui-base ${branch.is_head ? 'text-text-primary' : 'text-text-secondary'}`}
+            className={`min-w-0 flex-1 truncate font-mono text-base ${branch.is_head ? 'text-text-primary' : 'text-text-secondary'}`}
           >
             {branch.name}
           </span>
           {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
         </div>
         {branch.is_head && (
-          <span className="mt-0.5 block truncate pl-5 text-ui-sm text-text-muted">local</span>
+          <span className="mt-0.5 block truncate pl-5 text-sm text-text-muted">local</span>
         )}
       </div>
     );
@@ -160,11 +160,11 @@ const WorktreeRow = memo(
                 if (e.key === 'Enter') commitEdit();
                 if (e.key === 'Escape') setEditing(false);
               }}
-              className="m-0 min-w-0 flex-1 border-none bg-transparent p-0 text-sm text-[var(--text-secondary)] outline-none"
+              className="m-0 min-w-0 flex-1 border-none bg-transparent p-0 font-mono text-lg text-[var(--text-secondary)] outline-none"
             />
           ) : (
             <span
-              className="min-w-0 flex-1 truncate text-sm text-text-secondary"
+              className="min-w-0 flex-1 truncate font-mono text-lg text-text-secondary"
               onDoubleClick={startEditing}
             >
               {displayName}
@@ -172,7 +172,7 @@ const WorktreeRow = memo(
           )}
           {diffStat && <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />}
         </div>
-        <span className="mt-0.5 block truncate pl-5 text-ui-sm text-text-muted">
+        <span className="mt-0.5 block truncate pl-5 font-mono text-sm text-text-muted">
           {worktree.branch || worktree.name}
         </span>
       </div>
@@ -231,7 +231,7 @@ const RepoHeader = memo(
           <path d="M3 6l5-4 5 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z" />
         </svg>
         <span
-          className={`flex-1 truncate text-sm font-medium ${isSelected ? 'text-text-primary' : 'text-text-muted'}`}
+          className={`flex-1 truncate text-lg font-medium ${isSelected ? 'text-text-primary' : 'text-text-muted'}`}
         >
           {workspace.name}
         </span>
@@ -246,7 +246,7 @@ const RepoHeader = memo(
         {/* Always show branch/worktree count */}
         {childCount > 0 && (
           <span className="flex h-6 w-6 shrink-0 items-center justify-center">
-            <span className="rounded bg-bg-tertiary px-1.25 py-px font-mono text-ui-xs text-text-muted tabular-nums">
+            <span className="rounded bg-bg-tertiary px-1.25 py-px font-mono text-xs text-text-muted tabular-nums">
               {childCount}
             </span>
           </span>
@@ -402,7 +402,7 @@ export function WorkspaceTree() {
 
   return (
     <>
-      <div className="px-3 pt-2 pb-1 font-mono text-ui-xs font-semibold tracking-wider text-text-muted uppercase opacity-60">
+      <div className="px-3 pt-2 pb-1 font-mono text-xs font-semibold tracking-wider text-text-muted uppercase opacity-60">
         Projects
       </div>
       <Tree
@@ -521,7 +521,7 @@ function ContextMenu({
             ref={i === 0 ? buttonRef : undefined}
             role="menuitem"
             tabIndex={i === 0 ? 0 : -1}
-            className={`w-full px-3 py-1.5 text-left text-ui-base outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)] ${item.destructive ? 'text-destructive' : 'text-text-secondary'}`}
+            className={`w-full px-3 py-1.5 text-left text-base outline-none hover:bg-[var(--bg-tertiary)] focus:bg-[var(--bg-tertiary)] ${item.destructive ? 'text-destructive' : 'text-text-secondary'}`}
             onClick={(e) => {
               e.stopPropagation();
               item.onSelect();

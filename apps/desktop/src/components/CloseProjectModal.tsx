@@ -40,7 +40,7 @@ export function CloseProjectModal({
             Close Project &ldquo;{projectName}&rdquo;
           </Heading>
 
-          <p className="mt-3 text-ui-base leading-relaxed text-text-muted">
+          <p className="mt-3 text-base leading-relaxed text-text-muted">
             This will close all workspaces inside this project and kill all active terminals. Your
             files and git history will remain on disk.
           </p>
