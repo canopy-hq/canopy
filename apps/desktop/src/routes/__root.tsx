@@ -12,7 +12,7 @@ import {
   getSessionCollection,
 } from '@superagent/db';
 import { FpsOverlay } from '@superagent/fps';
-import { ensureGhosttyInit } from '@superagent/terminal';
+import { ensureGhosttyInit, spawnTerminal } from '@superagent/terminal';
 import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 
 import { useAllCommands } from '../commands';
@@ -26,7 +26,7 @@ import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegist
 import { useTauriMenuEvent } from '../hooks/useTauriMenuEvent';
 import { initAgentListener } from '../lib/agent-actions';
 import { getConnection, GITHUB_CONNECTION_KEY } from '../lib/github';
-import { collectRestorablePaneIds, containsPtyId, resetLeafPtyIds } from '../lib/pane-tree-ops';
+import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
 import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
 import { toggleSidebar, refreshRepo, switchWorkspaceItemByIndex } from '../lib/workspace-actions';
@@ -45,9 +45,8 @@ function RootLayout() {
   const navigate = useNavigate();
   const booted = useRef(false);
 
-  // Boot: restore last active workspace, refresh branches, and reset stale PTY IDs.
-  // PTY process IDs don't survive restart — resetting them forces each terminal pane
-  // to spawn at correct container dimensions on mount (avoids 24×80 SIGWINCH).
+  // Boot: restore last active workspace from DB (routing is source of truth after this)
+  // Also refresh all workspaces so branches reflect current HEAD (cleans stale data).
   useEffect(() => {
     if (booted.current) return;
     booted.current = true;
@@ -58,12 +57,49 @@ function RootLayout() {
     for (const ws of getWorkspaceCollection().toArray) {
       void refreshRepo(ws.id);
     }
-    const tabCol = getTabCollection();
-    for (const tab of tabCol.toArray) {
-      tabCol.update(tab.id, (draft) => {
-        resetLeafPtyIds(draft.paneRoot);
-      });
-    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Startup session restore: eagerly reconnect all panes across all tabs so they
+  // appear in the Session Manager and the IPC output channels are ready before the
+  // user navigates to each tab. Uses tabs (always complete) as source of truth,
+  // not the sessions table (which only covers visited tabs).
+  useEffect(() => {
+    const tabs = getTabCollection().toArray;
+    if (tabs.length === 0) return;
+    const settings = getSettingCollection().toArray;
+    const paneEntries = tabs.flatMap((tab) =>
+      collectRestorablePaneIds(tab.paneRoot).map((paneId) => ({ tab, paneId })),
+    );
+    void Promise.all(
+      paneEntries.map(async ({ tab, paneId }) => {
+        const cwd = (getSetting(settings, `cwd:${paneId}`, '') as string) || undefined;
+        try {
+          const { ptyId } = await spawnTerminal(paneId, cwd, 24, 80);
+          setPtyIdInTab(tab.id, paneId, ptyId);
+          // Write session to DB — onPtySpawned never fires for the reconnect path
+          const col = getSessionCollection();
+          const existing = col.toArray.find((s) => s.paneId === paneId);
+          if (existing) {
+            col.update(existing.id, (draft) => {
+              draft.tabId = tab.id;
+              draft.workspaceId = tab.workspaceItemId;
+              draft.cwd = cwd ?? '';
+            });
+          } else {
+            col.insert({
+              id: paneId,
+              paneId,
+              tabId: tab.id,
+              workspaceId: tab.workspaceItemId,
+              cwd: cwd ?? '',
+              shell: '',
+            });
+          }
+        } catch {
+          // Daemon unavailable — pane stays at ptyId -1, fresh shell on visit
+        }
+      }),
+    );
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useTauriMenuEvent('menu:settings', () => void navigate({ to: '/settings' }));

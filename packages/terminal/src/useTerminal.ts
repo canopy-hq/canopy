@@ -56,34 +56,17 @@ export function useTerminal(
     }
   }, [wasmReady]);
 
-  // Freeze ptyId for the main effect: the spawn path manages the -1 → realId
-  // transition internally via ptrRef. Only fresh mounts (cached remount or
-  // reconnect) need the real ptyId, which is captured at mount time.
-  // This prevents the destructive effect re-run that removes and re-adds the
-  // terminal element to the DOM, causing flicker.
-  const effectPtyId = useRef(ptyId);
-  // Track the previous ptyId to detect spawn-completion transitions (-1 → pid).
-  const prevPtyId = useRef(ptyId);
-
   useEffect(() => {
     if (isFocused && termRef.current) {
       termRef.current.focus();
     }
   }, [isFocused]);
 
-  // Synchronous resize before paint: when ptyId becomes a real pid (pane remount),
-  // fire fitAddon.fit() + resizePty in the layout phase — before the browser renders
-  // the first frame with the new ptyId.
-  //
-  // Skip when ptyId transitions from ≤0 to >0 (spawn completion): the terminal was
-  // just created at exact container dimensions — sending resizePty here would deliver
-  // a redundant SIGWINCH that interrupts shell/Starship initialization, causing blank
-  // background artifacts in the prompt.
+  // Synchronous resize before paint: when ptyId becomes a real pid (restored session
+  // or pane remount), fire fitAddon.fit() + resizePty in the layout phase — before
+  // the browser renders the first frame with the new ptyId.
   useLayoutEffect(() => {
-    const wasSpawnTransition = prevPtyId.current <= 0 && ptyId > 0;
-    prevPtyId.current = ptyId;
     if (!wasmReady || ptyId <= 0) return;
-    if (wasSpawnTransition) return;
     const cached = getCached(ptyId);
     if (!cached) return;
     cached.fitAddon.fit();
@@ -109,11 +92,8 @@ export function useTerminal(
 
     if (!container) return;
 
-    // Read the frozen ptyId — for spawn this is -1 (captured at mount);
-    // for cached remount / reconnect it is the real ptyId.
-    const ptyId = effectPtyId.current;
-
     let spawnCancelled = false;
+    let sigwinchTimer: ReturnType<typeof setTimeout> | null = null;
     let ptyResizeTimer: ReturnType<typeof setTimeout> | null = null;
     // Hoisted so cleanup can always call it (no-op for the cached path).
     let removeOverlay = () => {};
@@ -366,12 +346,30 @@ export function useTerminal(
               }
               setCached(newId, term, fitAddon);
               onPtySpawned(newId);
-              // No deferred resize here — the terminal was spawned at exact
-              // container dimensions (after font load). Any layout shifts from
-              // React re-renders are handled by ResizeObserver + onResize after
-              // the grace period expires naturally. Sending an explicit resize
-              // here was the remaining source of SIGWINCH that caused Starship
-              // prompt flicker on the first two terminals.
+
+              // Poll dimensions for 1s after spawn (every 200ms, up to 5 ticks).
+              // Handles layout-settling races (sidebars, borders, split panes) and
+              // ensures TUI apps like Claude Code fill the pane on first launch.
+              let ticks = 0;
+              const poll = () => {
+                sigwinchTimer = null;
+                if (spawnCancelled) return;
+                const dims = fitAddon.proposeDimensions();
+                const r = dims?.rows ?? lastSentSize.rows;
+                const c = dims?.cols ?? lastSentSize.cols;
+                const changed = r !== lastSentSize.rows || c !== lastSentSize.cols;
+                if (changed) {
+                  term.resize(c, r);
+                  lastSentSize.rows = r;
+                  lastSentSize.cols = c;
+                  void resizePty(newId, r, c);
+                } else if (ticks === 0) {
+                  void resizePty(newId, r, c);
+                }
+                ticks++;
+                if (ticks < 5) sigwinchTimer = setTimeout(poll, 200);
+              };
+              sigwinchTimer = setTimeout(poll, 100);
             },
           );
         }
@@ -426,17 +424,15 @@ export function useTerminal(
       if (resizingClassTimer !== null) clearTimeout(resizingClassTimer);
       document.body.classList.remove('resizing');
       if (ptyResizeTimer !== null) clearTimeout(ptyResizeTimer);
+      if (sigwinchTimer !== null) clearTimeout(sigwinchTimer);
       // DON'T dispose term — just detach from container. Cache keeps it alive.
       const el = term.element;
       if (el && el.parentNode === container) {
         container.removeChild(el);
       }
     };
-    // effectPtyId is a ref (stable identity) — intentionally excluded.
-    // The spawn path manages the ptyId transition internally; only wasmReady
-    // (and unmount/remount via containerRef) should trigger this effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerRef, wasmReady]);
+  }, [containerRef, ptyId, wasmReady]);
 
   return termRef;
 }
