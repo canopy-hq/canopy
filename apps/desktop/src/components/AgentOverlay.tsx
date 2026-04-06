@@ -7,7 +7,7 @@ import { tv } from 'tailwind-variants';
 import { useAgents, useProjects, useTabs } from '../hooks/useCollections';
 import { containsPtyId } from '../lib/pane-tree-ops';
 import { jumpToPane } from '../lib/tab-actions';
-import { StatusDot } from './StatusDot';
+import { StatusDot } from './ui';
 
 import type { AgentInfo } from '@superagent/db';
 
@@ -160,11 +160,8 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
       role="presentation"
     >
       <div
-        className="fixed top-1/2 left-1/2 flex max-h-[60vh] w-[520px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-border font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-[12px]"
-        style={{
-          background: 'color-mix(in srgb, var(--bg-secondary) 85%, transparent)',
-          WebkitBackdropFilter: 'blur(12px)',
-        }}
+        className="fixed top-1/2 left-1/2 flex max-h-[60vh] w-[520px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-border bg-bg-secondary/85 font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-[12px]"
+        style={{ WebkitBackdropFilter: 'blur(12px)' }}
         onKeyDown={handleKeyDown}
       >
         <Dialog className="outline-none" aria-label="Agent Overview">

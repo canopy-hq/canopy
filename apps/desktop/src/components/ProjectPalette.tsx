@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 
 import {
   focusLater,
@@ -21,6 +21,7 @@ import {
   Plus,
   X,
 } from 'lucide-react';
+import { tv } from 'tailwind-variants';
 
 import { Badge, Button } from './ui';
 import { useProjectPalette, type PaletteItem } from './useProjectPalette';
@@ -429,77 +430,97 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
 
 // ── Row ───────────────────────────────────────────────────────────────────────
 
-function PaletteRow({
-  item,
-  isSelected,
-  baseBranch,
-  pickingBase,
-  onMouseEnter,
-  onClick,
-  onMouseDown,
-}: {
-  item: PaletteItem;
-  isSelected: boolean;
-  baseBranch: string;
-  pickingBase: boolean;
-  onMouseEnter: () => void;
-  onClick: () => void;
-  onMouseDown: (e: React.MouseEvent) => void;
-}) {
-  const isDisabled =
-    item.kind === 'branch' && !pickingBase && (item.branch?.is_head || item.branch?.is_in_worktree);
+const paletteRow = tv({
+  base: 'flex h-9 cursor-pointer items-center gap-2 px-3 text-[13px] text-text-primary',
+  variants: {
+    selected: { true: 'bg-bg-tertiary', false: 'hover:bg-bg-tertiary/50' },
+    disabled: { true: 'opacity-50' },
+  },
+});
 
-  const isBasePicked = pickingBase && item.branch?.name === baseBranch;
+const paletteLabel = tv({
+  base: 'flex-1 truncate',
+  variants: { create: { true: 'text-accent' }, basePicked: { true: 'font-medium' } },
+});
 
-  return (
-    <div
-      role="option"
-      aria-selected={isSelected}
-      data-id={item.id}
-      onMouseEnter={onMouseEnter}
-      onClick={onClick}
-      onMouseDown={onMouseDown}
-      className={`flex h-9 cursor-pointer items-center gap-2 px-3 text-[13px] text-text-primary ${
-        isSelected ? 'bg-bg-tertiary' : 'hover:bg-bg-tertiary/50'
-      } ${isDisabled ? 'opacity-50' : ''}`}
-    >
-      <PaletteIcon item={item} />
+const PaletteRow = memo(
+  function PaletteRow({
+    item,
+    isSelected,
+    baseBranch,
+    pickingBase,
+    onMouseEnter,
+    onClick,
+    onMouseDown,
+  }: {
+    item: PaletteItem;
+    isSelected: boolean;
+    baseBranch: string;
+    pickingBase: boolean;
+    onMouseEnter: () => void;
+    onClick: () => void;
+    onMouseDown: (e: React.MouseEvent) => void;
+  }) {
+    const isDisabled =
+      item.kind === 'branch' &&
+      !pickingBase &&
+      (item.branch?.is_head || item.branch?.is_in_worktree);
 
-      {/* Label */}
-      <span
-        className={`flex-1 truncate ${item.kind === 'create' ? 'text-accent' : ''} ${isBasePicked ? 'font-medium' : ''}`}
+    const isBasePicked = pickingBase && item.branch?.name === baseBranch;
+
+    return (
+      <div
+        role="option"
+        aria-selected={isSelected}
+        data-id={item.id}
+        onMouseEnter={onMouseEnter}
+        onClick={onClick}
+        onMouseDown={onMouseDown}
+        className={paletteRow({ selected: isSelected, disabled: isDisabled })}
       >
-        {item.kind === 'create'
-          ? `Create "${item.label ?? ''}"`
-          : item.kind === 'quick-base'
-            ? item.quickBaseAction === 'from-default'
-              ? `from ${item.label}`
-              : item.label
-            : (item.branch?.name ?? item.worktree?.name ?? '')}
-      </span>
+        <PaletteIcon item={item} />
 
-      {/* Right side: badges + status */}
-      {item.kind === 'create' && (
-        <span className="shrink-0 text-[11px] text-text-muted">from {baseBranch}</span>
-      )}
-
-      {item.kind === 'branch' && item.branch && (
-        <div className="flex shrink-0 items-center gap-1.5">
-          <BranchMeta branch={item.branch} pickingBase={pickingBase} />
-        </div>
-      )}
-
-      {item.kind === 'worktree' && item.worktree && (
-        <span className="shrink-0 text-[11px] text-text-muted">
-          {item.worktree.isInSidebar ? 'opened' : item.worktree.branch}
+        {/* Label */}
+        <span
+          className={paletteLabel({ create: item.kind === 'create', basePicked: isBasePicked })}
+        >
+          {item.kind === 'create'
+            ? `Create "${item.label ?? ''}"`
+            : item.kind === 'quick-base'
+              ? item.quickBaseAction === 'from-default'
+                ? `from ${item.label}`
+                : item.label
+              : (item.branch?.name ?? item.worktree?.name ?? '')}
         </span>
-      )}
 
-      {/* Base picker check */}
-      {isBasePicked && <Check size={12} className="shrink-0 text-accent" />}
-    </div>
-  );
-}
+        {/* Right side: badges + status */}
+        {item.kind === 'create' && (
+          <span className="shrink-0 text-[11px] text-text-muted">from {baseBranch}</span>
+        )}
+
+        {item.kind === 'branch' && item.branch && (
+          <div className="flex shrink-0 items-center gap-1.5">
+            <BranchMeta branch={item.branch} pickingBase={pickingBase} />
+          </div>
+        )}
+
+        {item.kind === 'worktree' && item.worktree && (
+          <span className="shrink-0 text-[11px] text-text-muted">
+            {item.worktree.isInSidebar ? 'opened' : item.worktree.branch}
+          </span>
+        )}
+
+        {/* Base picker check */}
+        {isBasePicked && <Check size={12} className="shrink-0 text-accent" />}
+      </div>
+    );
+  },
+  (prev, next) =>
+    prev.item === next.item &&
+    prev.isSelected === next.isSelected &&
+    prev.baseBranch === next.baseBranch &&
+    prev.pickingBase === next.pickingBase,
+);
 
 // ── Branch metadata (badges + right-side status) ──────────────────────────────
 
