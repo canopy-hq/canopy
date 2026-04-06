@@ -1,11 +1,24 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
 
+import { tv } from 'tailwind-variants';
+
 import { getClaudeDefaultMode } from '../lib/tab-actions';
 import { ClaudeCodeIcon } from './ClaudeCodeIcon';
 import { Button, Kbd } from './ui';
 
 type Mode = 'bypass' | 'plan';
+
+const modeCard = tv({
+  base: 'flex flex-1 cursor-pointer flex-col gap-1 rounded-md border px-3 py-2.5 text-left transition-colors',
+  variants: {
+    selected: {
+      true: 'border-accent/60 bg-accent/[0.06] text-text-primary',
+      false:
+        'border-border/40 bg-bg-primary/40 text-text-muted hover:border-border/60 hover:bg-bg-primary/70',
+    },
+  },
+});
 
 interface ModeCardProps {
   selected: boolean;
@@ -16,15 +29,7 @@ interface ModeCardProps {
 
 function ModeCard({ selected, onSelect, title, description }: ModeCardProps) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`flex flex-1 cursor-pointer flex-col gap-1 rounded-md border px-3 py-2.5 text-left transition-colors ${
-        selected
-          ? 'border-accent/60 bg-accent/[0.06] text-text-primary'
-          : 'border-border/40 bg-bg-primary/40 text-text-muted hover:border-border/60 hover:bg-bg-primary/70'
-      }`}
-    >
+    <button type="button" onClick={onSelect} className={modeCard({ selected })}>
       <span className="font-mono text-sm leading-none font-medium">{title}</span>
       <span className="font-mono text-xs leading-relaxed text-text-faint">{description}</span>
     </button>

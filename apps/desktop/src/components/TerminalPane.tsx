@@ -55,6 +55,13 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
     return v || undefined;
   }, [paneId]);
 
+  const savedHasPrompt = useMemo(
+    () =>
+      (getSetting(getSettingCollection().toArray, `init-has-prompt:${paneId}`, '') as string) ===
+      'true',
+    [paneId],
+  );
+
   // Poll CWD from Rust side every 2 seconds and persist changes.
   const refreshCwdRef = useRef<(() => void) | null>(null);
   useEffect(() => {
@@ -124,6 +131,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
       ptyId={realPtyId ?? ptyId}
       savedCwd={savedCwd}
       savedInitCmd={savedInitCmd}
+      savedHasPrompt={savedHasPrompt}
       isFocused={isFocused}
       cwd={cwd}
       containerRef={containerRef}
@@ -163,6 +171,7 @@ function TerminalPaneInner({
   ptyId,
   savedCwd,
   savedInitCmd,
+  savedHasPrompt,
   isFocused,
   cwd,
   containerRef,
@@ -173,6 +182,7 @@ function TerminalPaneInner({
   ptyId: number;
   savedCwd: string | undefined;
   savedInitCmd: string | undefined;
+  savedHasPrompt: boolean;
   isFocused: boolean;
   cwd: string;
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -213,23 +223,22 @@ function TerminalPaneInner({
   // sequences and flickering startup. Only applies to Claude auto-launch sessions
   // (those with an init-cmd containing "claude"). Removed once the agent watcher
   // detects the Claude process (agentStatus leaves 'idle'), or after 15s fallback.
-  const isClaudeLaunch = !!savedInitCmd?.includes('claude');
-  const [bootOverlay, setBootOverlay] = useState(isClaudeLaunch);
+  // Lazy init — read the setting once on mount, never re-evaluated.
+  const [bootOverlay, setBootOverlay] = useState(() => !!savedInitCmd?.includes('claude'));
 
   useEffect(() => {
     if (!bootOverlay) return;
     // With a pre-prompt (embedded as a CLI arg): wait until Claude is actively
     // thinking (running) so the TUI is already rendering the response.
     // Without a prompt: reveal as soon as the process is detected.
-    const hasPromptArg = !!savedInitCmd && /--permission-mode \w+ '/.test(savedInitCmd);
-    const ready = hasPromptArg ? agentStatus === 'running' : agentStatus !== 'idle';
+    const ready = savedHasPrompt ? agentStatus === 'running' : agentStatus !== 'idle';
     if (ready) {
       const t = setTimeout(() => setBootOverlay(false), 350);
       return () => clearTimeout(t);
     }
     const t = setTimeout(() => setBootOverlay(false), 15_000);
     return () => clearTimeout(t);
-  }, [agentStatus, bootOverlay, savedInitCmd]);
+  }, [agentStatus, bootOverlay, savedHasPrompt]);
 
   // Sync the claude-code icon with the agent watcher: set when claude is running, clear on exit.
   useEffect(() => {

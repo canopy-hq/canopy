@@ -42,9 +42,9 @@ export function Kbd({
   if (typeof children === 'string') {
     const keys = splitKeys(children);
     return (
-      <div className={`inline-flex items-center gap-1 ${className ?? ''}`}>
+      <div className="inline-flex items-center gap-1">
         {keys.map((key, i) => (
-          <kbd key={i} className={VARIANT_CLASS[variant]}>
+          <kbd key={i} className={cls}>
             {key}
           </kbd>
         ))}

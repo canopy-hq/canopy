@@ -133,6 +133,8 @@ export function addClaudeCodeTab(
   // via a deferred writeToPty. Single-quote the value and escape any inner quotes.
   const cmd = options?.prompt ? `${baseCmd} '${options.prompt.replace(/'/g, "'\\''")}'` : baseCmd;
   setSetting(`init-cmd:${tab.paneRoot.id}`, cmd);
+  // Store a flag so TerminalPane knows a prompt arg is embedded — avoids fragile regex on the cmd string.
+  if (options?.prompt) setSetting(`init-has-prompt:${tab.paneRoot.id}`, 'true');
   // Only switch to the new tab if the user is currently on this worktree.
   if (getUiState().activeContextId === itemId) {
     insertTabAndActivate(tab);
@@ -148,6 +150,7 @@ export function addClaudeCodeTab(
         setPtyIdInTab(tab.id, paneId, ptyId);
         await writeToPty(ptyId, cmd + '\r');
         setSetting(`init-cmd:${paneId}`, ''); // already sent — prevent TerminalPane re-sending
+        setSetting(`init-has-prompt:${paneId}`, '');
       } catch {
         // Background spawn failed — terminal will spawn normally when user navigates there
       }
