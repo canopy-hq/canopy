@@ -36,6 +36,7 @@ export async function runMigrations(): Promise<void> {
       project_item_id TEXT NOT NULL DEFAULT 'default',
       pane_root TEXT NOT NULL,
       focused_pane_id TEXT,
+      icon TEXT,
       position INTEGER NOT NULL DEFAULT 0
     )
   `);
