@@ -28,7 +28,7 @@ function CreatingWorktree() {
 
 function QuickActionsBar({ projectId }: { projectId: string }) {
   return (
-    <div className="flex h-8 shrink-0 items-center gap-0.5 border-b border-border/40 bg-bg-secondary px-2">
+    <div className="flex h-9 shrink-0 items-center gap-0.5 border-b border-border/40 bg-bg-secondary px-2">
       <Button
         size="sm"
         variant="ghost"
