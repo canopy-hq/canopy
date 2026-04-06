@@ -226,16 +226,28 @@ export function switchProjectItemByIndex(
   if (itemId) selectProjectItem(itemId, navigate);
 }
 
-/** Navigate to the Nth project (sorted by position, 0-based). Max 9 shortcuts. */
-export function switchProjectByIndex(
-  index: number,
+/** Navigate to the previous or next project (sorted by position, wraps). */
+export function switchProjectRelative(
+  direction: 'prev' | 'next',
   navigate: (opts: { to: string; params?: Record<string, string> }) => void,
 ): void {
   const projects = [...getProjectCollection().toArray].sort((a, b) => a.position - b.position);
-  const proj = projects[index];
-  if (!proj) return;
+  if (projects.length === 0) return;
 
-  // Navigate to the HEAD branch if available, otherwise the first branch, otherwise project root.
+  const ui = getUiState();
+  const currentIndex = projects.findIndex(
+    (p) =>
+      ui.activeContextId === p.id ||
+      ui.activeContextId.startsWith(`${p.id}-branch-`) ||
+      ui.activeContextId.startsWith(`${p.id}-wt-`),
+  );
+
+  const nextIndex =
+    direction === 'next'
+      ? (currentIndex + 1) % projects.length
+      : (currentIndex - 1 + projects.length) % projects.length;
+
+  const proj = projects[nextIndex]!;
   const head = proj.branches.find((b) => b.is_head);
   const first = proj.branches[0];
   const itemId = head
