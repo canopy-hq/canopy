@@ -9,7 +9,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Pencil, Plus, SquareTerminal, X, XCircle, XSquare } from 'lucide-react';
+import { Pencil, SquarePlus, SquareTerminal, X, XCircle, XSquare } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
@@ -389,29 +389,9 @@ export function TabBar() {
 
   return (
     <div className="flex h-10 shrink-0 items-center border-b border-border/20 bg-bg-secondary">
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        modifiers={[restrictToHorizontalAxis]}
-        onDragStart={() => setDragging(true)}
-        onDragEnd={handleDragEnd}
-        onDragCancel={() => setDragging(false)}
-      >
-        <SortableContext items={tabIds} strategy={horizontalListSortingStrategy}>
-          <div
-            ref={scrollRef}
-            className="scrollbar-none flex h-full min-w-0 flex-1 items-stretch overflow-x-auto"
-            style={{ maskImage, WebkitMaskImage: maskImage }}
-          >
-            {tabs.map((tab) => (
-              <TabItemComponent key={tab.id} tab={tab} isActive={tab.id === activeTabId} />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
       <MenuTrigger>
-        <Button aria-label="New tab" variant="ghost" iconOnly className="mx-1">
-          <Plus size={16} />
+        <Button aria-label="New tab" size="sm" variant="ghost" className="mx-1">
+          <SquarePlus size={12} />
         </Button>
         <Popover
           placement="bottom end"
@@ -442,6 +422,26 @@ export function TabBar() {
           </Menu>
         </Popover>
       </MenuTrigger>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        modifiers={[restrictToHorizontalAxis]}
+        onDragStart={() => setDragging(true)}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setDragging(false)}
+      >
+        <SortableContext items={tabIds} strategy={horizontalListSortingStrategy}>
+          <div
+            ref={scrollRef}
+            className="scrollbar-none flex h-full min-w-0 flex-1 items-stretch overflow-x-auto"
+            style={{ maskImage, WebkitMaskImage: maskImage }}
+          >
+            {tabs.map((tab) => (
+              <TabItemComponent key={tab.id} tab={tab} isActive={tab.id === activeTabId} />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
     </div>
   );
 }
