@@ -260,10 +260,8 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                             // Clear stale scrollback (old prompt at 80×24) so
                             // attach replays only post-resize output.
                             sess.scrollback = ScrollbackBuffer::new(SCROLLBACK_CAP);
-                            // Write clear-screen to PTY so the shell redraws cleanly
-                            let _ = sess.writer.write_all(b"\x1b[2J\x1b[H");
-                            let _ = sess.writer.flush();
-                            // Resize to actual container dimensions
+                            // Resize to actual container dimensions — SIGWINCH
+                            // triggers the shell to redraw its prompt cleanly.
                             let _ = sess.master.resize(PtySize {
                                 rows,
                                 cols,
