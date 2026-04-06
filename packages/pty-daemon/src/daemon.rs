@@ -366,15 +366,23 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
 
                 // cd+sentinel+clear: `clear` is AFTER `printf sentinel` so it lands
                 // after the sentinel boundary, wiping ZLE echo fragments that may
-                // leak into the post-sentinel window. History suppressed via
-                // `set +o history` / `set -o history` (leading-space trick is
-                // unreliable without HIST_IGNORE_SPACE).
+                // leak into the post-sentinel window.
+                //
+                // History suppression — cross-shell strategy:
+                //   bash : `set +o history` works natively
+                //   zsh  : `set +o history` fails ("no such option"); `fc -p /dev/null`
+                //           pushes a tmp history file, suppressing writes until `fc -P`
+                //   fish : leading space already suppresses history natively; both
+                //           `set` and `fc` fail silently with 2>/dev/null
+                //
+                // Pattern: try bash form first, fall through to zsh form on failure.
+                // All errors are redirected to /dev/null to keep the terminal clean.
                 let cd_cmd = match &cwd {
                     Some(dir) => format!(
-                        " set +o history; cd {} && printf '\\x1b]555;poolready\\x07' && clear; set -o history\n",
+                        " set +o history 2>/dev/null; fc -p /dev/null 2>/dev/null; cd {} && printf '\\x1b]555;poolready\\x07' && clear; fc -P 2>/dev/null; set -o history 2>/dev/null\n",
                         shell_escape(dir),
                     ),
-                    None => " set +o history; printf '\\x1b]555;poolready\\x07' && clear; set -o history\n".to_string(),
+                    None => " set +o history 2>/dev/null; fc -p /dev/null 2>/dev/null; printf '\\x1b]555;poolready\\x07' && clear; fc -P 2>/dev/null; set -o history 2>/dev/null\n".to_string(),
                 };
 
                 // Single lock: claim → remap → resize → write cd/sentinel/clear
