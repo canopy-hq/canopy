@@ -45,19 +45,13 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
   const [realPtyId, setRealPtyId] = useState<number | null>(ptyId > 0 ? ptyId : null);
 
   // Read once; only used for the initial spawn inside useTerminal.
-  const savedCwd = useMemo(() => {
+  const [savedCwd, savedInitCmd, savedHasPrompt] = useMemo(() => {
     const s = getSettingCollection().toArray;
-    return (getSetting(s, `cwd:${paneId}`, '') as string) || undefined;
-  }, [paneId]);
-
-  const savedInitCmd = useMemo(() => {
-    const s = getSettingCollection().toArray;
-    return (getSetting(s, `init-cmd:${paneId}`, '') as string) || undefined;
-  }, [paneId]);
-
-  const savedHasPrompt = useMemo(() => {
-    const s = getSettingCollection().toArray;
-    return (getSetting(s, `init-has-prompt:${paneId}`, '') as string) === 'true';
+    return [
+      (getSetting(s, `cwd:${paneId}`, '') as string) || undefined,
+      (getSetting(s, `init-cmd:${paneId}`, '') as string) || undefined,
+      (getSetting(s, `init-has-prompt:${paneId}`, '') as string) === 'true',
+    ];
   }, [paneId]);
 
   // Poll CWD from Rust side every 2 seconds and persist changes.
