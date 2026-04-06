@@ -9,6 +9,9 @@
   "scripts": {
     "test": "vitest run --reporter=verbose"
   },
+  "dependencies": {
+    "@superagent/ui": "workspace:*"
+  },
   "devDependencies": {
     "@superagent/tsconfig": "workspace:*",
     "@testing-library/react": "catalog:",

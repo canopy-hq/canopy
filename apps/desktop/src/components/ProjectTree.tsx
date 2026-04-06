@@ -114,21 +114,21 @@ const BranchRow = memo(
     agentStatus,
     diffStat,
     prInfo,
-    isProjectActive,
+    isSelected,
     tabCount,
   }: {
     branch: BranchInfo;
     agentStatus?: DotStatus;
     diffStat?: DiffStat;
     prInfo?: PrInfo;
-    isProjectActive?: boolean;
+    isSelected?: boolean;
     tabCount?: number;
   }) {
     return (
       <div className="py-1.5 pr-3 pl-3">
         <div className="flex items-center gap-2">
           <IconWithBadge agentStatus={agentStatus}>
-            <Laptop size={14} stroke={isProjectActive ? 'var(--accent)' : 'var(--text-muted)'} />
+            <Laptop size={14} stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'} />
           </IconWithBadge>
           <span
             className={`min-w-0 flex-1 truncate font-mono text-sm leading-none ${branch.is_head ? 'text-text-secondary' : 'text-text-muted'}`}
@@ -159,7 +159,7 @@ const BranchRow = memo(
     prev.branch.name === next.branch.name &&
     prev.branch.is_head === next.branch.is_head &&
     prev.agentStatus === next.agentStatus &&
-    prev.isProjectActive === next.isProjectActive &&
+    prev.isSelected === next.isSelected &&
     prev.tabCount === next.tabCount &&
     prev.diffStat?.additions === next.diffStat?.additions &&
     prev.diffStat?.deletions === next.diffStat?.deletions &&
@@ -175,9 +175,9 @@ const WorktreeRow = memo(
     diffStat,
     isDeleting,
     prInfo,
-    isProjectActive,
     tabCount,
     isRenaming,
+    isSelected,
     onRenameEnd,
   }: {
     worktree: WorktreeInfo & { label?: string };
@@ -186,7 +186,7 @@ const WorktreeRow = memo(
     diffStat?: DiffStat;
     isDeleting?: boolean;
     prInfo?: PrInfo;
-    isProjectActive?: boolean;
+    isSelected?: boolean;
     tabCount?: number;
     isRenaming?: boolean;
     onRenameEnd?: () => void;
@@ -197,19 +197,15 @@ const WorktreeRow = memo(
 
     const displayName = worktree.label || worktree.name;
 
-    useEffect(() => {
-      if (isRenaming && !editing) {
-        setEditValue(displayName);
-        setEditing(true);
-        requestAnimationFrame(() => inputRef.current?.select());
-      }
-    }, [isRenaming]); // eslint-disable-line react-hooks/exhaustive-deps
-
     function startEditing() {
       setEditValue(displayName);
       setEditing(true);
       requestAnimationFrame(() => inputRef.current?.select());
     }
+
+    useEffect(() => {
+      if (isRenaming && !editing) startEditing();
+    }, [isRenaming]); // eslint-disable-line react-hooks/exhaustive-deps
 
     function commitEdit() {
       const trimmed = editValue.trim();
@@ -228,10 +224,7 @@ const WorktreeRow = memo(
             </div>
           ) : (
             <IconWithBadge agentStatus={agentStatus}>
-              <FolderGit2
-                size={14}
-                stroke={isProjectActive ? 'var(--worktree-icon)' : 'var(--text-muted)'}
-              />
+              <FolderGit2 size={14} stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'} />
             </IconWithBadge>
           )}
           {editing ? (
@@ -252,7 +245,7 @@ const WorktreeRow = memo(
             />
           ) : (
             <span
-              className="min-w-0 flex-1 truncate font-mono text-sm leading-none text-text-muted"
+              className="min-w-0 flex-1 truncate font-mono text-sm leading-none text-text-secondary"
               onDoubleClick={startEditing}
             >
               {displayName}
@@ -278,7 +271,7 @@ const WorktreeRow = memo(
             </Badge>
           </div>
         )}
-        {!isDeleting && !editing && (diffStat || prInfo) && (
+        {!isDeleting && (diffStat || prInfo) && (
           <div className="mt-1 flex items-center gap-1 pl-[32px]">
             {diffStat ? (
               diffStat.additions > 0 || diffStat.deletions > 0 ? (
@@ -300,8 +293,8 @@ const WorktreeRow = memo(
     prev.projectId === next.projectId &&
     prev.agentStatus === next.agentStatus &&
     prev.isDeleting === next.isDeleting &&
-    prev.isProjectActive === next.isProjectActive &&
     prev.tabCount === next.tabCount &&
+    prev.isSelected === next.isSelected &&
     prev.isRenaming === next.isRenaming &&
     prev.diffStat?.additions === next.diffStat?.additions &&
     prev.diffStat?.deletions === next.diffStat?.deletions &&
@@ -588,7 +581,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
   return (
     <>
       <div className="flex h-10 items-center pr-2 pl-3">
-        <span className="flex-1 font-mono text-2xs font-medium tracking-widest text-text-faint uppercase">
+        <span className="flex-1 font-mono text-sm font-medium tracking-widest text-text-faint uppercase">
           Projects
         </span>
         {onAddProject && (
@@ -825,7 +818,7 @@ function RepoTreeItem({
                     agentStatus={agentMap[itemId]}
                     diffStat={diffStats?.[b.name]}
                     prInfo={prStatuses?.[b.name]}
-                    isProjectActive={isRepoSelected}
+                    isSelected={selectedItemId === itemId}
                     tabCount={tabCounts[itemId]}
                   />
                 </div>
@@ -856,7 +849,7 @@ function RepoTreeItem({
                       diffStat={diffStats?.[wt.branch]}
                       isDeleting={isDeleting}
                       prInfo={prStatuses?.[wt.branch]}
-                      isProjectActive={isRepoSelected}
+                      isSelected={selectedItemId === itemId}
                       tabCount={tabCounts[itemId]}
                       isRenaming={renamingWtName === wt.name}
                       onRenameEnd={() => setRenamingWtName(null)}

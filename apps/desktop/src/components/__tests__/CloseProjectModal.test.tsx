@@ -33,7 +33,7 @@ describe('CloseProjectModal', () => {
 
   it('calls onConfirm when Close Project button is clicked', () => {
     render(<CloseProjectModal {...props} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Close Project' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close project' }));
     expect(props.onConfirm).toHaveBeenCalledTimes(1);
   });
 

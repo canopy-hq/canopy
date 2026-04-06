@@ -183,17 +183,17 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
   function getFooterHint() {
     const nav = (
       <FooterHint label="navigate">
-        <Kbd>
+        <Kbd variant="menu">
           <ArrowUp size={9} />
         </Kbd>
-        <Kbd>
+        <Kbd variant="menu">
           <ArrowDown size={9} />
         </Kbd>
       </FooterHint>
     );
     const back = (
       <FooterHint label="back">
-        <Kbd>
+        <Kbd variant="menu">
           <Delete size={9} />
         </Kbd>
       </FooterHint>
@@ -211,7 +211,7 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
           {nav}
           <FooterSep />
           <FooterHint label="pick base">
-            <Kbd>
+            <Kbd variant="menu">
               <CornerDownLeft size={9} />
             </Kbd>
           </FooterHint>
@@ -249,7 +249,7 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
           {nav}
           <FooterSep />
           <FooterHint label="create worktree">
-            <Kbd>
+            <Kbd variant="menu">
               <CornerDownLeft size={9} />
             </Kbd>
           </FooterHint>
@@ -263,7 +263,7 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
           {nav}
           <FooterSep />
           <FooterHint label={selectedItem.worktree?.isInSidebar ? 'already open' : 'open'}>
-            <Kbd>
+            <Kbd variant="menu">
               <CornerDownLeft size={9} />
             </Kbd>
           </FooterHint>
@@ -276,7 +276,7 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
         {nav}
         <FooterSep />
         <FooterHint label="open">
-          <Kbd>
+          <Kbd variant="menu">
             <CornerDownLeft size={9} />
           </Kbd>
         </FooterHint>

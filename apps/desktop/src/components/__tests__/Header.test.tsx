@@ -4,6 +4,10 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { Header } from '../Header';
 
 vi.mock('../../lib/project-actions', () => ({ toggleSidebar: vi.fn() }));
+vi.mock('../../hooks/useCollections', () => ({
+  useProjects: vi.fn(() => [{ id: '1' }]),
+  useSettings: vi.fn(() => []),
+}));
 
 describe('Header', () => {
   afterEach(cleanup);
@@ -18,6 +22,13 @@ describe('Header', () => {
   it('renders sidebar toggle button with accessible label', () => {
     const { getByLabelText } = render(<Header />);
     expect(getByLabelText('Toggle sidebar')).toBeInTheDocument();
+  });
+
+  it('hides sidebar toggle button when there are no projects', async () => {
+    const { useProjects } = await import('../../hooks/useCollections');
+    vi.mocked(useProjects).mockReturnValueOnce([]);
+    const { queryByLabelText } = render(<Header />);
+    expect(queryByLabelText('Toggle sidebar')).toBeNull();
   });
 
   it('has 78px left padding for traffic lights', () => {

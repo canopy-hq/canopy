@@ -1,10 +1,11 @@
-export { CommandMenu, Kbd } from './CommandMenu';
+export { CommandMenu } from './CommandMenu';
 export { fuzzyFilter, fuzzyScore } from './fuzzy';
 export {
   focusLater,
   FooterBar,
   FooterHint,
   FooterSep,
+  Kbd,
   SectionHeader,
   useScrollSelectedIntoView,
 } from './ui';
