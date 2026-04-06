@@ -3,6 +3,7 @@ import { createCollection, localOnlyCollectionOptions } from '@tanstack/db';
 import { setSetting } from './settings';
 
 export const SIDEBAR_WIDTH_MIN = 180;
+export const SIDEBAR_WIDTH_DEFAULT = 250;
 export const SIDEBAR_WIDTH_MAX = 400;
 
 export interface UiState {
@@ -22,7 +23,7 @@ export interface UiState {
 const INITIAL_UI_STATE: UiState = {
   id: 'ui',
   sidebarVisible: true,
-  sidebarWidth: SIDEBAR_WIDTH_MAX,
+  sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
   selectedItemId: null,
   activeTabId: '',
   activeContextId: '',

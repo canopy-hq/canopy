@@ -23,6 +23,7 @@ import {
   FolderGit2,
   FolderPlus,
   FolderX,
+  GitBranch,
   GitBranchMinus,
   GitPullRequest,
   Laptop,
@@ -58,7 +59,7 @@ import { closeAllTabs } from '../lib/tab-actions';
 import { CloseProjectModal } from './CloseProjectModal';
 import { RemoveWorktreeModal } from './RemoveWorktreeModal';
 import { StatusDot } from './StatusDot';
-import { Button, DiffPill, IconWithBadge, Kbd, Spinner, Tooltip, ContextMenu } from './ui';
+import { Badge, Button, DiffPill, IconWithBadge, Kbd, Spinner, Tooltip, ContextMenu } from './ui';
 
 import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
 import type { PrInfo } from '../lib/github';
@@ -100,7 +101,7 @@ const PrBadge = memo(function PrBadge({ pr }: { pr: PrInfo }) {
         e.stopPropagation();
         void openUrl(pr.url);
       }}
-      className={`inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-px text-sm font-normal whitespace-nowrap hover:brightness-125 ${PR_TEXT_COLOR[pr.state]} ${PR_BG_COLOR[pr.state]}`}
+      className={`inline-flex shrink-0 items-center gap-1 rounded-sm px-1 py-px text-2xs font-normal whitespace-nowrap hover:brightness-125 ${PR_TEXT_COLOR[pr.state]} ${PR_BG_COLOR[pr.state]}`}
     >
       <GitPullRequest size={12} />#{pr.number}
     </button>
@@ -176,6 +177,8 @@ const WorktreeRow = memo(
     prInfo,
     isProjectActive,
     tabCount,
+    isRenaming,
+    onRenameEnd,
   }: {
     worktree: WorktreeInfo & { label?: string };
     projectId: string;
@@ -185,12 +188,22 @@ const WorktreeRow = memo(
     prInfo?: PrInfo;
     isProjectActive?: boolean;
     tabCount?: number;
+    isRenaming?: boolean;
+    onRenameEnd?: () => void;
   }) {
     const [editing, setEditing] = useState(false);
     const [editValue, setEditValue] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const displayName = worktree.label || worktree.branch || worktree.name;
+    const displayName = worktree.label || worktree.name;
+
+    useEffect(() => {
+      if (isRenaming && !editing) {
+        setEditValue(displayName);
+        setEditing(true);
+        requestAnimationFrame(() => inputRef.current?.select());
+      }
+    }, [isRenaming]); // eslint-disable-line react-hooks/exhaustive-deps
 
     function startEditing() {
       setEditValue(displayName);
@@ -200,10 +213,10 @@ const WorktreeRow = memo(
 
     function commitEdit() {
       const trimmed = editValue.trim();
-      const newLabel =
-        trimmed && trimmed !== worktree.branch && trimmed !== worktree.name ? trimmed : '';
+      const newLabel = trimmed && trimmed !== worktree.name ? trimmed : '';
       renameWorktree(projectId, worktree.name, newLabel);
       setEditing(false);
+      onRenameEnd?.();
     }
 
     return (
@@ -230,9 +243,12 @@ const WorktreeRow = memo(
               onKeyDown={(e) => {
                 e.stopPropagation();
                 if (e.key === 'Enter') commitEdit();
-                if (e.key === 'Escape') setEditing(false);
+                if (e.key === 'Escape') {
+                  setEditing(false);
+                  onRenameEnd?.();
+                }
               }}
-              className="m-0 min-w-0 flex-1 border-none bg-transparent p-0 font-mono text-sm text-[var(--text-secondary)] outline-none"
+              className="m-0 min-w-0 flex-1 border-none bg-transparent p-0 font-mono text-sm leading-none text-[var(--text-secondary)] outline-none"
             />
           ) : (
             <span
@@ -254,26 +270,26 @@ const WorktreeRow = memo(
             )
           )}
         </div>
-        {!isDeleting &&
-          (diffStat ||
-            prInfo ||
-            (!editing && displayName !== (worktree.branch || worktree.name))) && (
-            <div className="mt-1 flex items-center gap-2 pl-[32px]">
-              {diffStat ? (
-                diffStat.additions > 0 || diffStat.deletions > 0 ? (
-                  <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />
-                ) : (
-                  <span className="font-mono text-xs text-text-faint">—</span>
-                )
-              ) : null}
-              {!editing && displayName !== (worktree.branch || worktree.name) && (
-                <span className="min-w-0 truncate font-mono text-xs text-text-faint">
-                  {worktree.branch || worktree.name}
-                </span>
-              )}
-              {prInfo && <PrBadge pr={prInfo} />}
-            </div>
-          )}
+        {!isDeleting && (
+          <div className="mt-1 flex min-w-0 items-center gap-2 pl-[32px]">
+            <Badge size="xs" className="min-w-0 shrink gap-1 font-mono">
+              <GitBranch size={9} className="shrink-0 opacity-60" />
+              <span className="min-w-0 truncate">{worktree.branch || worktree.name}</span>
+            </Badge>
+          </div>
+        )}
+        {!isDeleting && !editing && (diffStat || prInfo) && (
+          <div className="mt-1 flex items-center gap-1 pl-[32px]">
+            {diffStat ? (
+              diffStat.additions > 0 || diffStat.deletions > 0 ? (
+                <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />
+              ) : (
+                <span className="font-mono text-xs text-text-faint">—</span>
+              )
+            ) : null}
+            {prInfo && <PrBadge pr={prInfo} />}
+          </div>
+        )}
       </div>
     );
   },
@@ -286,6 +302,7 @@ const WorktreeRow = memo(
     prev.isDeleting === next.isDeleting &&
     prev.isProjectActive === next.isProjectActive &&
     prev.tabCount === next.tabCount &&
+    prev.isRenaming === next.isRenaming &&
     prev.diffStat?.additions === next.diffStat?.additions &&
     prev.diffStat?.deletions === next.diffStat?.deletions &&
     prev.prInfo?.number === next.prInfo?.number &&
@@ -419,7 +436,7 @@ const RepoHeader = memo(
             >
               {project.expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             </Button>
-            <Tooltip label="New branch / worktree" placement="right">
+            <Tooltip label="New worktree" placement="right">
               <Button
                 iconOnly
                 size="sm"
@@ -728,6 +745,7 @@ function RepoTreeItem({
   const [renamingWs, setRenamingWs] = useState(false);
   const [wtMenuTarget, setWtMenuTarget] = useState<string | null>(null);
   const wtMenuPos = useRef({ x: 0, y: 0 });
+  const [renamingWtName, setRenamingWtName] = useState<string | null>(null);
   const [branchMenuTarget, setBranchMenuTarget] = useState<string | null>(null);
   const branchMenuPos = useRef({ x: 0, y: 0 });
 
@@ -840,6 +858,8 @@ function RepoTreeItem({
                       prInfo={prStatuses?.[wt.branch]}
                       isProjectActive={isRepoSelected}
                       tabCount={tabCounts[itemId]}
+                      isRenaming={renamingWtName === wt.name}
+                      onRenameEnd={() => setRenamingWtName(null)}
                     />
                   </div>
                 );
@@ -863,7 +883,7 @@ function RepoTreeItem({
                         <span className="min-w-0 flex-1 truncate font-mono text-sm text-text-faint">
                           {name}
                         </span>
-                        <span className="shrink-0 font-mono text-xs text-accent/50">adding…</span>
+                        <span className="shrink-0 font-mono text-xs text-accent/50">creating…</span>
                       </div>
                     </div>
                   </div>
@@ -890,13 +910,12 @@ function RepoTreeItem({
               {
                 type: 'submenu',
                 label: 'Set color',
-                icon: (
-                  <div
-                    className="h-3.5 w-3.5 rounded-sm border border-border/60"
-                    style={
-                      ws.color ? { backgroundColor: ws.color, borderColor: 'transparent' } : {}
-                    }
-                  />
+                icon: ws.color ? (
+                  <div className="h-3.5 w-3.5 rounded-sm" style={{ backgroundColor: ws.color }} />
+                ) : (
+                  <div className="flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-border/60 text-[9px] leading-none text-text-faint">
+                    ✕
+                  </div>
                 ),
                 items: [
                   {
@@ -921,7 +940,7 @@ function RepoTreeItem({
                 ] satisfies ContextMenuItemDef[],
               },
               {
-                label: 'Close Project',
+                label: 'Close project',
                 icon: <FolderX size={13} />,
                 destructive: true,
                 onSelect: () => {
@@ -940,12 +959,26 @@ function RepoTreeItem({
           onClose={() => setBranchMenuTarget(null)}
           items={[
             {
-              label: 'Copy Path',
+              type: 'submenu',
+              label: 'Copy',
               icon: <Copy size={13} />,
-              onSelect: () => {
-                setBranchMenuTarget(null);
-                void navigator.clipboard.writeText(ws.path);
-              },
+              items: [
+                {
+                  label: 'Path',
+                  onSelect: () => {
+                    setBranchMenuTarget(null);
+                    void navigator.clipboard.writeText(ws.path);
+                  },
+                },
+                {
+                  label: 'Branch',
+                  onSelect: () => {
+                    const name = branchMenuTarget;
+                    setBranchMenuTarget(null);
+                    if (name) void navigator.clipboard.writeText(name);
+                  },
+                },
+              ],
             },
           ]}
         />
@@ -957,16 +990,39 @@ function RepoTreeItem({
           onClose={() => setWtMenuTarget(null)}
           items={[
             {
-              label: 'Copy Path',
-              icon: <Copy size={13} />,
+              label: 'Rename',
+              icon: <Pencil size={13} />,
               onSelect: () => {
-                const wt = ws.worktrees.find((w) => w.name === wtMenuTarget);
+                const name = wtMenuTarget;
                 setWtMenuTarget(null);
-                if (wt) void navigator.clipboard.writeText(wt.path);
+                setRenamingWtName(name);
               },
             },
             {
-              label: 'Close Worktree',
+              type: 'submenu',
+              label: 'Copy',
+              icon: <Copy size={13} />,
+              items: [
+                {
+                  label: 'Path',
+                  onSelect: () => {
+                    const wt = ws.worktrees.find((w) => w.name === wtMenuTarget);
+                    setWtMenuTarget(null);
+                    if (wt) void navigator.clipboard.writeText(wt.path);
+                  },
+                },
+                {
+                  label: 'Branch',
+                  onSelect: () => {
+                    const wt = ws.worktrees.find((w) => w.name === wtMenuTarget);
+                    setWtMenuTarget(null);
+                    if (wt) void navigator.clipboard.writeText(wt.branch);
+                  },
+                },
+              ],
+            },
+            {
+              label: 'Close worktree',
               icon: <GitBranchMinus size={13} />,
               destructive: true,
               onSelect: () => {

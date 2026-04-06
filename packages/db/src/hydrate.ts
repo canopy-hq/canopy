@@ -4,7 +4,12 @@ import { hydrateSettingCollection, getSetting } from './collections/settings';
 import { getSettingCollection } from './collections/settings';
 import { hydrateTabCollection } from './collections/tabs';
 import { getTabCollection } from './collections/tabs';
-import { uiCollection, SIDEBAR_WIDTH_MIN, SIDEBAR_WIDTH_MAX } from './collections/ui';
+import {
+  uiCollection,
+  SIDEBAR_WIDTH_MIN,
+  SIDEBAR_WIDTH_DEFAULT,
+  SIDEBAR_WIDTH_MAX,
+} from './collections/ui';
 
 /**
  * Load all persisted data from SQLite into their in-memory collections.
@@ -27,7 +32,7 @@ function restoreUiState(): void {
   const savedTabId = getSetting(settings, 'activeTabId', '');
   const savedSelectedItemId = getSetting<string | null>(settings, 'selectedItemId', null);
   const sidebarVisible = getSetting(settings, 'sidebarVisible', true);
-  const sidebarWidth = getSetting(settings, 'sidebarWidth', SIDEBAR_WIDTH_MAX);
+  const sidebarWidth = getSetting(settings, 'sidebarWidth', SIDEBAR_WIDTH_DEFAULT);
 
   const tabs = getTabCollection().toArray;
 

@@ -18,7 +18,7 @@ export function CloseProjectModal({
     <ConfirmModal
       title={`Close "${projectName}"`}
       description="Closes all workspaces inside this project and kills all active terminals. Files and git history remain on disk."
-      confirmLabel="Close Project"
+      confirmLabel="Close project"
       confirmVariant="destructive"
       onConfirm={onConfirm}
       onClose={onClose}
