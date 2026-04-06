@@ -16,6 +16,7 @@ import {
   type GitHubConnection,
   type DeviceCodeInfo,
 } from '../../lib/github';
+import { CLAUDE_DEFAULT_MODE_KEY, getClaudeDefaultMode } from '../../lib/tab-actions';
 import { showErrorToast } from '../../lib/toast';
 import { Button, SectionLabel, Spinner } from '../ui';
 
@@ -121,7 +122,48 @@ export function ConnectionSection() {
         />
       </section>
       <WorktreeBaseDir />
+      <ClaudeDefaultMode />
     </div>
+  );
+}
+
+function ClaudeDefaultMode() {
+  const { data: settings = [] } = useLiveQuery(() => getSettingCollection());
+  const mode = getSetting<'bypass' | 'plan'>(
+    settings,
+    CLAUDE_DEFAULT_MODE_KEY,
+    getClaudeDefaultMode(),
+  );
+
+  return (
+    <section>
+      <SectionLabel className="mb-3">Claude Code Default Mode</SectionLabel>
+      <p className="mb-3 text-base text-text-muted">
+        Default permission mode when launching a Claude Code session.
+      </p>
+      <fieldset className={`flex gap-px overflow-hidden rounded-md border border-border/20 p-0`}>
+        <legend className="sr-only">Claude Code default mode</legend>
+        {(['bypass', 'plan'] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setSetting(CLAUDE_DEFAULT_MODE_KEY, m)}
+            className={`flex-1 cursor-pointer px-4 py-2.5 text-left text-base transition-colors ${
+              mode === m
+                ? 'bg-accent/10 text-accent'
+                : 'bg-bg-secondary text-text-muted hover:bg-bg-tertiary hover:text-text-primary'
+            }`}
+          >
+            <span className="font-medium">
+              {m === 'bypass' ? 'Bypass permissions' : 'Plan mode'}
+            </span>
+            <span className="mt-0.5 block text-xs text-text-faint">
+              {m === 'bypass' ? 'Skip permission prompts' : 'Review before executing'}
+            </span>
+          </button>
+        ))}
+      </fieldset>
+    </section>
   );
 }
 

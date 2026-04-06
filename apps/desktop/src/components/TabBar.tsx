@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Button as AriaButton } from 'react-aria-components';
 
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import {
@@ -186,6 +187,10 @@ const TabItemComponent = memo(
               className="w-full min-w-0 bg-transparent font-mono text-md text-text-primary outline-none"
               value={draft}
               maxLength={20}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -226,8 +231,7 @@ const TabItemComponent = memo(
           )}
           {!editing && (
             <Tooltip label={closeTabLabel} placement="bottom">
-              <button
-                type="button"
+              <AriaButton
                 aria-label="Close tab"
                 className={closeButton({ active: isActive || isDragging || isDropping })}
                 onPointerDown={(e) => {
@@ -237,7 +241,7 @@ const TabItemComponent = memo(
                 }}
               >
                 <X size={10} />
-              </button>
+              </AriaButton>
             </Tooltip>
           )}
         </div>
@@ -380,7 +384,7 @@ export function TabBar() {
   }
 
   return (
-    <div className="flex h-10 shrink-0 items-center bg-bg-secondary">
+    <div className="flex h-10 shrink-0 items-center border-b border-border/20 bg-bg-secondary">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}

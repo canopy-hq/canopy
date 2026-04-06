@@ -8,7 +8,7 @@ Dev-only FPS meter overlay. **Rendered only when `import.meta.env.DEV` is true**
 import { FpsOverlay } from '@superagent/fps';
 
 // Drop anywhere in the React tree — renders a fixed overlay at top-right
-<FpsOverlay />
+<FpsOverlay />;
 ```
 
 The overlay shows current FPS as a color-coded number + a 60-second sparkline graph.
@@ -18,7 +18,7 @@ The overlay shows current FPS as a color-coded number + a 60-second sparkline gr
 ```ts
 import { fpsColor } from '@superagent/fps';
 
-fpsColor(fps)  // 'green' ≥55 | 'yellow' ≥30 | 'red' <30
+fpsColor(fps); // 'green' ≥55 | 'yellow' ≥30 | 'red' <30
 ```
 
 Dashed reference lines at 30 FPS (warn) and 55 FPS (good) are drawn on the sparkline.

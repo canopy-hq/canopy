@@ -10,17 +10,18 @@ interface CommandItem {
   label: string;
   category: 'project' | 'tab' | 'pty' | 'agent' | 'action' | 'global';
   icon?: CommandIcon;
-  shortcut?: string;          // displayed as <Kbd variant="menu">
-  keywords?: string[];        // extra fuzzy-match tokens
-  group?: string;             // section header in results
+  shortcut?: string; // displayed as <Kbd variant="menu">
+  keywords?: string[]; // extra fuzzy-match tokens
+  group?: string; // section header in results
   agentStatus?: DotStatus;
   action?: (ctx: CommandContext) => void | Promise<void>;
-  children?: () => CommandItem[];          // lazy drill-down
-  renderPanel?: (ctx: PanelContext) => ReactNode;  // custom inline panel
+  children?: () => CommandItem[]; // lazy drill-down
+  renderPanel?: (ctx: PanelContext) => ReactNode; // custom inline panel
 }
 ```
 
 **Two navigation modes:**
+
 - `children()` — drill into a sub-list (breadcrumb nav, Backspace to go back)
 - `renderPanel()` — render a custom React panel inline (e.g. branch picker, color picker)
 
@@ -30,8 +31,8 @@ interface CommandItem {
 <CommandMenu
   isOpen={open}
   onClose={() => setOpen(false)}
-  context={commandContext}    // { navigate, openTab, … }
-  defaultPanelItem={item}     // open directly into a panel
+  context={commandContext} // { navigate, openTab, … }
+  defaultPanelItem={item} // open directly into a panel
 />
 ```
 
@@ -43,13 +44,13 @@ interface CommandItem {
 const { state, dispatch, sections } = useCommandMenu(context, isOpen);
 
 // Dispatch types
-dispatch({ type: 'SET_QUERY', query })
-dispatch({ type: 'SET_SECTION', section })   // 'root' | 'projects' | 'tabs' | 'pty' | 'agents'
-dispatch({ type: 'DRILL_INTO', item })
-dispatch({ type: 'BACK' })
-dispatch({ type: 'SET_SELECTED', id })
-dispatch({ type: 'OPEN_PANEL', item })
-dispatch({ type: 'CLOSE_PANEL' })
+dispatch({ type: 'SET_QUERY', query });
+dispatch({ type: 'SET_SECTION', section }); // 'root' | 'projects' | 'tabs' | 'pty' | 'agents'
+dispatch({ type: 'DRILL_INTO', item });
+dispatch({ type: 'BACK' });
+dispatch({ type: 'SET_SELECTED', id });
+dispatch({ type: 'OPEN_PANEL', item });
+dispatch({ type: 'CLOSE_PANEL' });
 ```
 
 Sections cycle on Tab. Backspace navigates up the drillStack. Fuzzy filtering runs synchronously on every keystroke — no debounce.
@@ -57,8 +58,8 @@ Sections cycle on Tab. Backspace navigates up the drillStack. Fuzzy filtering ru
 ## Fuzzy search
 
 ```ts
-fuzzyScore(query, target)   // number — higher = better match
-fuzzyFilter(items, query)   // CommandItem[] sorted by score
+fuzzyScore(query, target); // number — higher = better match
+fuzzyFilter(items, query); // CommandItem[] sorted by score
 ```
 
 Bonuses for consecutive characters and word boundary matches (`' - / _ . :`).
@@ -77,8 +78,8 @@ import { Kbd } from './ui'; // re-exports @superagent/ui Kbd with variant="menu"
 ## UI utilities (`ui.tsx`)
 
 ```ts
-focusLater(ref)                          // schedule focus in next rAF — avoids race on mount
-useScrollSelectedIntoView(listRef, id)   // scroll selected item into view on change
-FooterBar / FooterHint / FooterSep       // footer layout for keyboard hints
-SectionHeader                            // section title pill
+focusLater(ref); // schedule focus in next rAF — avoids race on mount
+useScrollSelectedIntoView(listRef, id); // scroll selected item into view on change
+FooterBar / FooterHint / FooterSep; // footer layout for keyboard hints
+SectionHeader; // section title pill
 ```

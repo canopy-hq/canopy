@@ -12,6 +12,7 @@ import { CircleX } from 'lucide-react';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
 import { setFocus, setPtyId, renameTab } from '../lib/tab-actions';
+import { ClaudeCodeIcon } from './ClaudeCodeIcon';
 import { PaneHeader } from './PaneHeader';
 
 import type { PaneNode } from '../lib/pane-tree-ops';
@@ -208,6 +209,45 @@ function TerminalPaneInner({
   const agentStatus = agent?.status ?? 'idle';
   const isWaiting = agentStatus === 'waiting';
 
+  // Hide the raw terminal output while Claude boots — avoids showing TUI escape
+  // sequences and flickering startup. Only applies to Claude auto-launch sessions
+  // (those with an init-cmd containing "claude"). Removed once the agent watcher
+  // detects the Claude process (agentStatus leaves 'idle'), or after 15s fallback.
+  const isClaudeLaunch = !!savedInitCmd?.includes('claude');
+  const [bootOverlay, setBootOverlay] = useState(isClaudeLaunch);
+
+  useEffect(() => {
+    if (!bootOverlay) return;
+    // With a pre-prompt (embedded as a CLI arg): wait until Claude is actively
+    // thinking (running) so the TUI is already rendering the response.
+    // Without a prompt: reveal as soon as the process is detected.
+    const hasPromptArg = !!savedInitCmd && /--permission-mode \w+ '/.test(savedInitCmd);
+    const ready = hasPromptArg ? agentStatus === 'running' : agentStatus !== 'idle';
+    if (ready) {
+      const t = setTimeout(() => setBootOverlay(false), 350);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setBootOverlay(false), 15_000);
+    return () => clearTimeout(t);
+  }, [agentStatus, bootOverlay, savedInitCmd]);
+
+  // Sync the claude-code icon with the agent watcher: set when claude is running, clear on exit.
+  useEffect(() => {
+    if (ptyId <= 0) return;
+    const tab = getTabCollection().toArray.find((t) => containsPane(t.paneRoot, paneId));
+    if (!tab) return;
+    const claudeActive = agent?.agentName === 'claude' && agentStatus !== 'idle';
+    if (claudeActive && tab.icon !== 'claude-code') {
+      getTabCollection().update(tab.id, (draft) => {
+        draft.icon = 'claude-code';
+      });
+    } else if (!claudeActive && tab.icon === 'claude-code') {
+      getTabCollection().update(tab.id, (draft) => {
+        draft.icon = undefined;
+      });
+    }
+  }, [agent?.agentName, agentStatus, ptyId, paneId]);
+
   return (
     <div
       className="relative h-full w-full"
@@ -230,9 +270,13 @@ function TerminalPaneInner({
         agentStatus={agentStatus}
         agentName={agent?.agentName}
       />
-      <div className="h-full w-full overflow-hidden pb-2 pl-2">
-        <div ref={containerRef} className="h-full w-full overflow-hidden" />
-      </div>
+      <div ref={containerRef} className="h-full w-full overflow-hidden" />
+      {bootOverlay && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-bg-primary select-none">
+          <ClaudeCodeIcon size={20} className="animate-pulse text-[#da7756]/60" />
+          <span className="font-mono text-sm text-text-faint">Starting Claude Code…</span>
+        </div>
+      )}
     </div>
   );
 }

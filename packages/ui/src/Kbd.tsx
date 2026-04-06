@@ -21,8 +21,9 @@ function splitKeys(str: string): string[] {
 }
 
 const VARIANT_CLASS = {
-  default: 'rounded bg-bg-secondary px-1 py-0.5 text-xs leading-none text-text-muted',
-  menu: 'rounded border border-border/60 bg-bg-primary px-1 py-0.5 text-[10px] leading-none text-text-muted',
+  default:
+    'inline-flex items-center rounded bg-bg-secondary px-1 py-0.5 text-[11px] leading-none text-text-muted',
+  menu: 'inline-flex items-center rounded border border-border/60 bg-bg-primary px-1 py-0.5 text-[10px] leading-none text-text-muted',
 } as const;
 
 export type KbdVariant = keyof typeof VARIANT_CLASS;
@@ -30,18 +31,20 @@ export type KbdVariant = keyof typeof VARIANT_CLASS;
 export function Kbd({
   children,
   variant = 'default',
+  className,
 }: {
   children: ReactNode;
   variant?: KbdVariant;
+  className?: string;
 }) {
-  const cls = VARIANT_CLASS[variant];
+  const cls = className ? `${VARIANT_CLASS[variant]} ${className}` : VARIANT_CLASS[variant];
 
   if (typeof children === 'string') {
     const keys = splitKeys(children);
     return (
-      <div className="inline-flex items-center gap-1">
+      <div className={`inline-flex items-center gap-1 ${className ?? ''}`}>
         {keys.map((key, i) => (
-          <kbd key={i} className={cls}>
+          <kbd key={i} className={VARIANT_CLASS[variant]}>
             {key}
           </kbd>
         ))}

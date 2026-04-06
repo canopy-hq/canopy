@@ -166,7 +166,7 @@ export function useTerminal(
       // wrapper, which can cause browsers to apply implicit padding/outline.
       const wrapper = document.createElement('div');
       wrapper.style.cssText =
-        'position:absolute;inset:0;outline:none;padding:0;margin:0;border:none';
+        'position:absolute;inset:0;outline:none;padding:8px 0 8px 8px;margin:0;border:none';
       wrapper.style.background = themeBg;
       container.appendChild(wrapper);
 
@@ -234,6 +234,24 @@ export function useTerminal(
               e.stopImmediatePropagation();
               return;
             }
+            // Shift+Tab: ghostty-web sends \t (same as plain Tab) — send the correct backtab sequence.
+            if (e.key === 'Tab' && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
+              e.stopImmediatePropagation();
+              e.preventDefault();
+              if (ptrRef.ptyId > 0) void writeToPty(ptrRef.ptyId, '\x1b[Z');
+              return;
+            }
+            // Option+letter on macOS: the browser gives e.key = composed char (e.g. "†" for Option+T)
+            // instead of e.key = "t" with altKey=true. The WASM encoder can't derive the base letter
+            // from the non-ASCII key, so Alt sequences like \x1bt never reach the PTY.
+            // Fix: use e.code ("KeyT") to recover the letter and send \x1b+letter directly.
+            if (e.altKey && !e.metaKey && !e.ctrlKey && e.code.startsWith('Key')) {
+              const letter = e.code.slice(3).toLowerCase();
+              e.stopImmediatePropagation();
+              e.preventDefault();
+              if (ptrRef.ptyId > 0) void writeToPty(ptrRef.ptyId, '\x1b' + letter);
+              return;
+            }
             if (e.repeat && e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
               e.stopImmediatePropagation();
               e.preventDefault();
@@ -278,7 +296,6 @@ export function useTerminal(
         if (e.altKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
           return true;
         }
-        // Tab shortcuts
         if (e.key === 't' && !e.shiftKey) return true;
         if (e.key >= '1' && e.key <= '9') return true;
         if ((e.key === '[' || e.key === ']') && e.shiftKey) return true;

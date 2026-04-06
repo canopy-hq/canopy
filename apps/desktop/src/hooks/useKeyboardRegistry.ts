@@ -6,6 +6,8 @@ export interface Keybinding {
   shift?: boolean;
   alt?: boolean;
   action: () => void;
+  /** If defined and returns false, the binding is skipped and the event propagates unchanged. */
+  condition?: () => boolean;
 }
 
 export function useKeyboardRegistry(bindings: Keybinding[]): void {
@@ -21,6 +23,7 @@ export function useKeyboardRegistry(bindings: Keybinding[]): void {
           e.shiftKey === (binding.shift ?? false) &&
           e.altKey === (binding.alt ?? false)
         ) {
+          if (binding.condition && !binding.condition()) continue;
           e.preventDefault();
           e.stopPropagation();
           binding.action();

@@ -100,6 +100,16 @@ export function insertTabAndActivate(tab: Tab): void {
   );
 }
 
+/** Insert a tab into the DB without switching to it. Used when the user is on a different context. */
+export function insertTabSilently(tab: Tab): void {
+  commitTabAndUi(
+    () => getDb().insert(table).values(serialize(tab)),
+    () => {
+      getTabCollection().insert(tab);
+    },
+  );
+}
+
 export function deleteTabAndUpdateActive(tabId: string, newActiveTabId: string | null): void {
   commitTabAndUi(
     () => getDb().delete(table).where(eq(table.id, tabId)),

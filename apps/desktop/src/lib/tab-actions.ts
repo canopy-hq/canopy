@@ -3,11 +3,20 @@ import {
   getProjectCollection,
   uiCollection,
   getUiState,
+  getSetting,
   setSetting,
+  getSettingCollection,
   insertTabAndActivate,
+  insertTabSilently,
   deleteTabAndUpdateActive,
 } from '@superagent/db';
-import { closePty, closePtysForPanes, disposeCached } from '@superagent/terminal';
+import {
+  closePty,
+  closePtysForPanes,
+  disposeCached,
+  spawnTerminal,
+  writeToPty,
+} from '@superagent/terminal';
 
 import {
   collectAllLeafPaneIds,
@@ -96,14 +105,54 @@ export function addTab(projectItemId?: string): void {
   insertTabAndActivate(tab);
 }
 
-export function addClaudeCodeTab(projectItemId?: string): void {
+export const CLAUDE_DEFAULT_MODE_KEY = 'claudeDefaultMode';
+
+export function getClaudeDefaultMode(): 'bypass' | 'plan' {
+  return getSetting<'bypass' | 'plan'>(
+    getSettingCollection().toArray,
+    CLAUDE_DEFAULT_MODE_KEY,
+    'bypass',
+  );
+}
+
+export function addClaudeCodeTab(
+  projectItemId?: string,
+  options?: { mode?: 'bypass' | 'plan'; prompt?: string },
+): void {
   const itemId = projectItemId ?? getUiState().activeContextId;
   if (!itemId) return;
   const base = makeTab({ projectItemId: itemId, label: 'Claude Code' });
   const tab = { ...base, labelIsManual: true, icon: 'claude-code' };
   storePaneCwd(tab.paneRoot.id, itemId);
-  setSetting(`init-cmd:${tab.paneRoot.id}`, 'claude --dangerously-skip-permissions');
-  insertTabAndActivate(tab);
+  const mode = options?.mode ?? getClaudeDefaultMode();
+  const baseCmd =
+    mode === 'plan'
+      ? 'CLAUDE_CODE_NO_FLICKER=1 claude --permission-mode plan'
+      : 'CLAUDE_CODE_NO_FLICKER=1 claude --permission-mode bypassPermissions';
+  // Pass the prompt as a CLI argument so Claude receives it at startup rather than
+  // via a deferred writeToPty. Single-quote the value and escape any inner quotes.
+  const cmd = options?.prompt ? `${baseCmd} '${options.prompt.replace(/'/g, "'\\''")}'` : baseCmd;
+  setSetting(`init-cmd:${tab.paneRoot.id}`, cmd);
+  // Only switch to the new tab if the user is currently on this worktree.
+  if (getUiState().activeContextId === itemId) {
+    insertTabAndActivate(tab);
+  } else {
+    insertTabSilently(tab);
+    // Spawn PTY in the background so Claude starts immediately without the user
+    // having to navigate to the worktree first.
+    const paneId = tab.paneRoot.id;
+    const cwd = resolveProjectItemCwd(itemId);
+    void (async () => {
+      try {
+        const { ptyId } = await spawnTerminal(paneId, cwd, 50, 220);
+        setPtyIdInTab(tab.id, paneId, ptyId);
+        await writeToPty(ptyId, cmd + '\r');
+        setSetting(`init-cmd:${paneId}`, ''); // already sent — prevent TerminalPane re-sending
+      } catch {
+        // Background spawn failed — terminal will spawn normally when user navigates there
+      }
+    })();
+  }
 }
 
 export function closeTab(tabId: string): void {

@@ -49,6 +49,7 @@ import {
   closeProject,
   hideWorktree,
   removeWorktree,
+  deleteBranch,
   renameWorktree,
   renameProject,
   reorderProjects,
@@ -56,6 +57,7 @@ import {
 } from '../lib/project-actions';
 import { openProjectPalette } from '../lib/project-palette-bridge';
 import { closeAllTabs } from '../lib/tab-actions';
+import { ClaudeCodeIcon } from './ClaudeCodeIcon';
 import { CloseProjectModal } from './CloseProjectModal';
 import { RemoveWorktreeModal } from './RemoveWorktreeModal';
 import { StatusDot } from './StatusDot';
@@ -231,6 +233,10 @@ const WorktreeRow = memo(
             <input
               ref={inputRef}
               value={editValue}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
               onChange={(e) => setEditValue(e.target.value)}
               onBlur={commitEdit}
               onKeyDown={(e) => {
@@ -302,8 +308,18 @@ const WorktreeRow = memo(
     prev.prInfo?.state === next.prInfo?.state,
 );
 
+const sidebarItem = tv({
+  base: 'transition-colors outline-none hover:bg-white/[0.06]',
+  variants: {
+    selected: {
+      true: 'sticky top-9 z-[5] [background:color-mix(in_srgb,var(--accent)_8%,var(--bg-primary))] hover:[background:color-mix(in_srgb,var(--accent)_12%,var(--bg-primary))]',
+    },
+    deleting: { true: 'pointer-events-none' },
+  },
+});
+
 const repoHeader = tv({
-  base: 'flex items-center gap-2 py-1.5 pr-2 pl-3 cursor-grab active:cursor-grabbing touch-none bg-bg-primary brightness-[1.6] transition-[filter]',
+  base: 'sticky top-0 z-10 flex items-center gap-2 py-1.5 pr-2 pl-3 cursor-grab active:cursor-grabbing touch-none bg-bg-primary brightness-[1.6] transition-[filter]',
   variants: { selected: { true: 'brightness-[1.0]', false: 'hover:brightness-[1.3]' } },
   defaultVariants: { selected: false },
 });
@@ -390,6 +406,10 @@ const RepoHeader = memo(
           <input
             ref={inputRef}
             value={editValue}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
             onChange={(e) => setEditValue(e.target.value)}
             onBlur={commitRename}
             onKeyDown={(e) => {
@@ -519,7 +539,13 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
     () => [...rawProjects].sort((a, b) => a.position - b.position),
     [rawProjects],
   );
-  const { selectedItemId, activeContextId, sidebarVisible, creatingWorktreeIds } = useUiState();
+  const {
+    selectedItemId,
+    activeContextId,
+    sidebarVisible,
+    creatingWorktreeIds,
+    pendingClaudeSession,
+  } = useUiState();
   const creatingWorktreeIdSet = useMemo(() => new Set(creatingWorktreeIds), [creatingWorktreeIds]);
   const tabs = useTabs();
   const tabCountMap = useMemo(() => {
@@ -530,9 +556,11 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
     return map;
   }, [tabs]);
   const [closeTarget, setCloseTarget] = useState<Project | null>(null);
-  const [removeWtTarget, setRemoveWtTarget] = useState<{ projectId: string; name: string } | null>(
-    null,
-  );
+  const [removeWtTarget, setRemoveWtTarget] = useState<{
+    projectId: string;
+    name: string;
+    branch: string;
+  } | null>(null);
   const [deletingWtIds, setDeletingWtIds] = useState<Set<string>>(() => new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
   const agentMap = useProjectAgentMap();
@@ -625,13 +653,16 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                 tabCounts={tabCountMap}
                 onRequestOpenPalette={handleRequestOpenPalette}
                 onRequestClose={setCloseTarget}
-                onRequestRemoveWt={(name) => setRemoveWtTarget({ projectId: ws.id, name })}
+                onRequestRemoveWt={(name, branch) =>
+                  setRemoveWtTarget({ projectId: ws.id, name, branch })
+                }
                 selectedItemId={selectedItemId}
                 activeContextId={activeContextId}
                 hasSeparator={separatorIds.has(ws.id)}
                 onSelectItem={handleSelectItem}
                 deletingWtIds={deletingWtIds}
                 creatingWorktreeIds={creatingWorktreeIdSet}
+                pendingClaudeWorktreeId={pendingClaudeSession?.worktreeId ?? null}
               />
             ))}
           </div>
@@ -653,8 +684,9 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
           isOpen
           onClose={() => setRemoveWtTarget(null)}
           worktreeName={removeWtTarget.name}
+          branch={removeWtTarget.branch}
           onConfirm={(alsoDeleteGit) => {
-            const { projectId, name } = removeWtTarget;
+            const { projectId, name, branch } = removeWtTarget;
             const itemId = `${projectId}-wt-${name}`;
             setRemoveWtTarget(null);
             closeAllTabs(itemId);
@@ -678,6 +710,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
               void removeWorktree(projectId, name)
                 .then(() => {
                   hideWorktree(projectId, name);
+                  if (branch) void deleteBranch(projectId, branch);
                 })
                 .finally(() => {
                   setDeletingWtIds((prev) => {
@@ -711,6 +744,7 @@ function RepoTreeItem({
   onSelectItem,
   deletingWtIds,
   creatingWorktreeIds,
+  pendingClaudeWorktreeId,
 }: {
   ws: Project;
   agentMap: Record<string, DotStatus>;
@@ -719,13 +753,14 @@ function RepoTreeItem({
   tabCounts: Record<string, number>;
   onRequestOpenPalette: (ws: Project) => void;
   onRequestClose: (ws: Project) => void;
-  onRequestRemoveWt: (name: string) => void;
+  onRequestRemoveWt: (name: string, branch: string) => void;
   selectedItemId: string | null;
   activeContextId: string | null;
   hasSeparator: boolean;
   onSelectItem: (itemId: string) => void;
   deletingWtIds: Set<string>;
   creatingWorktreeIds: Set<string>;
+  pendingClaudeWorktreeId: string | null;
 }) {
   const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
     id: ws.id,
@@ -804,7 +839,7 @@ function RepoTreeItem({
               return (
                 <div
                   key={itemId}
-                  className={`transition-colors outline-none hover:bg-white/[0.06] ${selectedItemId === itemId ? 'bg-accent/[0.08]' : ''}`}
+                  className={sidebarItem({ selected: selectedItemId === itemId })}
                   onClick={() => onSelectItem(itemId)}
                   onContextMenu={(e) => {
                     e.preventDefault();
@@ -832,7 +867,10 @@ function RepoTreeItem({
                 return (
                   <div
                     key={itemId}
-                    className={`transition-colors outline-none ${isDeleting ? 'pointer-events-none' : 'hover:bg-white/[0.06]'} ${selectedItemId === itemId ? 'bg-accent/[0.08]' : ''}`}
+                    className={sidebarItem({
+                      selected: selectedItemId === itemId,
+                      deleting: isDeleting,
+                    })}
                     onClick={() => !isDeleting && onSelectItem(itemId)}
                     onContextMenu={(e) => {
                       if (isDeleting) return;
@@ -862,10 +900,11 @@ function RepoTreeItem({
               .map((id) => {
                 const name = id.slice(`${ws.id}-wt-`.length);
                 const isSelected = selectedItemId === id;
+                const hasPendingClaude = pendingClaudeWorktreeId === id;
                 return (
                   <div
                     key={id}
-                    className={`transition-colors outline-none hover:bg-white/[0.06] ${isSelected ? 'bg-accent/[0.08]' : ''}`}
+                    className={sidebarItem({ selected: isSelected })}
                     onClick={() => onSelectItem(id)}
                   >
                     <div className="py-1.5 pr-3 pl-3">
@@ -876,6 +915,9 @@ function RepoTreeItem({
                         <span className="min-w-0 flex-1 truncate font-mono text-sm text-text-faint">
                           {name}
                         </span>
+                        {hasPendingClaude && (
+                          <ClaudeCodeIcon size={11} className="shrink-0 text-[#da7756]/60" />
+                        )}
                         <span className="shrink-0 font-mono text-xs text-accent/50">creating…</span>
                       </div>
                     </div>
@@ -1020,8 +1062,9 @@ function RepoTreeItem({
               destructive: true,
               onSelect: () => {
                 const name = wtMenuTarget;
+                const wt = ws.worktrees.find((w) => w.name === name);
                 setWtMenuTarget(null);
-                onRequestRemoveWt(name);
+                onRequestRemoveWt(name, wt?.branch ?? '');
               },
             },
           ]}

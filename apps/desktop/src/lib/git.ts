@@ -106,18 +106,38 @@ export function pollAllProjectStates(
 
 /** Normalize a branch/worktree name to a safe identifier (spaces, underscores, slashes → dashes). */
 export function sanitizeWorktreeName(name: string): string {
-  return name.trim().replace(/[\s_/]+/g, '-');
+  return name
+    .trim()
+    .replace(/[\s_]+/g, '-') // spaces/underscores → dash
+    .replace(/\/+/g, '/') // collapse multiple slashes
+    .replace(/^\/|\/$/g, ''); // strip leading/trailing slashes
 }
 
 export const WORKTREE_BASE_DIR_KEY = 'worktreeBaseDir';
 export const DEFAULT_WORKTREE_BASE = '~/.superagent/worktrees';
 
-/** Build the worktree disk path, using the user-configured base dir or the default. */
-export function buildWorktreePath(projectName: string, wtName: string): string {
+/**
+ * Build the worktree disk path from the project's filesystem path and the wt name.
+ *
+ * The directory basename of the project is used as a prefix so worktrees are
+ * clearly associated with their repo regardless of the display name:
+ *   projectPath = /repos/mon-projet, wtName = my-feature
+ *   → {baseDir}/mon-projet.my-feature
+ *
+ * Slashes in wtName become subdirectories, with the basename prefix applied to
+ * the leaf segment only:
+ *   wtName = feat/my-feature → {baseDir}/feat/mon-projet.my-feature
+ */
+export function buildWorktreePath(projectPath: string, wtName: string): string {
   const baseDir = getSetting<string>(
     getSettingCollection().toArray,
     WORKTREE_BASE_DIR_KEY,
     DEFAULT_WORKTREE_BASE,
   );
-  return `${baseDir}/${projectName}-${wtName}`;
+  const dirBasename = projectPath.replace(/\/+$/, '').split('/').pop() ?? 'project';
+  const parts = wtName.split('/');
+  const leaf = parts.pop()!;
+  const subdirs = parts;
+  const segments = [...subdirs, `${dirBasename}.${leaf}`];
+  return `${baseDir}/${segments.join('/')}`;
 }

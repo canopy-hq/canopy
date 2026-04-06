@@ -19,7 +19,7 @@ import type { Project } from '@superagent/db';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-export type PaletteItemKind = 'create' | 'branch' | 'worktree';
+export type PaletteItemKind = 'create' | 'branch' | 'worktree' | 'quick-base';
 
 export interface PaletteItem {
   id: string;
@@ -30,6 +30,8 @@ export interface PaletteItem {
   branch?: BranchDetail;
   /** Present for 'worktree' items. */
   worktree?: WorktreeInfo & { isInSidebar: boolean };
+  /** Present for 'quick-base' items. */
+  quickBaseAction?: 'from-default' | 'from-other';
 }
 
 export interface PaletteSection {
@@ -49,6 +51,8 @@ export interface UseProjectPaletteReturn {
   isCreateMode: boolean;
   sanitizedName: string;
   baseBranch: string;
+  quickBase: boolean;
+  setQuickBase: (v: boolean) => void;
   pickingBase: boolean;
   setPickingBase: (v: boolean) => void;
   // Navigation (same contract as useCommandMenu)
@@ -73,6 +77,7 @@ export function useProjectPalette(project: Project, ctx: PanelContext): UseProje
   const [branches, setBranches] = useState<BranchDetail[]>([]);
   const [allWorktrees, setAllWorktrees] = useState<WorktreeInfo[]>([]);
   const [baseBranch, setBaseBranch] = useState('');
+  const [quickBase, setQuickBase] = useState(false);
   const [pickingBase, setPickingBase] = useState(false);
   const [_selectedId, _setSelectedId] = useState<string | null>(null);
 
@@ -83,6 +88,7 @@ export function useProjectPalette(project: Project, ctx: PanelContext): UseProje
     setAllWorktrees([]);
     setQueryRaw('');
     setTab('all');
+    setQuickBase(false);
     setPickingBase(false);
     _setSelectedId(null);
 
@@ -153,7 +159,31 @@ export function useProjectPalette(project: Project, ctx: PanelContext): UseProje
 
   // Sections
   const sections = useMemo((): PaletteSection[] => {
-    // Base picker replaces the main list
+    // Quick base picker: two options before the full branch list
+    if (quickBase) {
+      return [
+        {
+          id: 'quick-base',
+          label: '',
+          items: [
+            {
+              id: 'quick-base:default',
+              kind: 'quick-base',
+              label: baseBranch,
+              quickBaseAction: 'from-default',
+            },
+            {
+              id: 'quick-base:other',
+              kind: 'quick-base',
+              label: 'from another branch…',
+              quickBaseAction: 'from-other',
+            },
+          ],
+        },
+      ];
+    }
+
+    // Full base picker replaces the main list
     if (pickingBase) {
       return [
         {
@@ -207,6 +237,7 @@ export function useProjectPalette(project: Project, ctx: PanelContext): UseProje
       result.push({ id: 'worktrees', label: 'Worktrees', items: worktreeItems });
     return result;
   }, [
+    quickBase,
     pickingBase,
     tab,
     filteredBranches,
@@ -229,6 +260,7 @@ export function useProjectPalette(project: Project, ctx: PanelContext): UseProje
   // Reset selection when items change (same as SET_QUERY clearing selectedId in useCommandMenu)
   const setQuery = useCallback((q: string) => {
     setQueryRaw(q);
+    setQuickBase(false);
     _setSelectedId(null);
   }, []);
 
@@ -238,7 +270,7 @@ export function useProjectPalette(project: Project, ctx: PanelContext): UseProje
       const { existingBranch, base = baseBranch } = opts ?? {};
       const wtName = existingBranch ? sanitizeWorktreeName(existingBranch) : sanitizedName;
       if (!wtName) return;
-      const wtPath = buildWorktreePath(project.name, wtName);
+      const wtPath = buildWorktreePath(project.path, wtName);
       const newBranch = existingBranch ? undefined : wtName;
       ctx.close();
       startWorktreeCreation(
@@ -269,6 +301,8 @@ export function useProjectPalette(project: Project, ctx: PanelContext): UseProje
     isCreateMode,
     sanitizedName,
     baseBranch,
+    quickBase,
+    setQuickBase,
     pickingBase,
     setPickingBase,
     sections,

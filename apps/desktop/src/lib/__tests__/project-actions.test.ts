@@ -14,6 +14,8 @@ let _uiState: UiState = {
   activeContextId: '',
   contextActiveTabIds: {},
   creatingWorktreeIds: [],
+  justStartedWorktreeId: null,
+  pendingClaudeSession: null,
 };
 
 const mockSetSetting = vi.fn();
@@ -95,6 +97,8 @@ describe('importRepo', () => {
       activeContextId: '',
       contextActiveTabIds: {},
       creatingWorktreeIds: [],
+      justStartedWorktreeId: null,
+      pendingClaudeSession: null,
     };
     vi.clearAllMocks();
   });

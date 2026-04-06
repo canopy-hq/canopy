@@ -15,6 +15,8 @@ let _uiState: UiState = {
   activeContextId: '',
   contextActiveTabIds: {},
   creatingWorktreeIds: [],
+  justStartedWorktreeId: null,
+  pendingClaudeSession: null,
 };
 
 const _projects: Project[] = [
@@ -109,6 +111,8 @@ function resetState() {
     activeContextId: '',
     contextActiveTabIds: {},
     creatingWorktreeIds: [],
+    justStartedWorktreeId: null,
+    pendingClaudeSession: null,
   };
   mockSetSetting.mockClear();
 }
