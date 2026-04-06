@@ -101,6 +101,22 @@ export function useTerminal(
     let term: Terminal;
     let fitAddon: FitAddon;
 
+    // Establish a positioning context so absolute overlays/wrappers (inset:0)
+    // resolve against container — not the outer relative ancestor.
+    container.style.position = 'relative';
+
+    // Reveal helper: double-rAF ensures ghostty-web's WASM renderer has painted
+    // at least one frame before uncovering. Includes a re-fit so the terminal
+    // has its final dimensions when revealed.
+    function revealAfterPaint() {
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          fitAddon.fit();
+          removeOverlay();
+        }),
+      );
+    }
+
     if (cached) {
       // === CACHED PATH: remount after pane restructure — re-parent existing terminal ===
       term = cached.term;
@@ -111,9 +127,6 @@ export function useTerminal(
       // a child of el (term.element/wrapper): mutating el's children can trigger
       // ghostty-web's internal DOM observers and cause it to re-attach keyboard
       // listeners, producing visual duplication and double-typed characters.
-      // container.style.position = 'relative' establishes a positioning context so
-      // that position:absolute;inset:0 on the overlay resolves against container.
-      container.style.position = 'relative';
       const transitionOverlay = document.createElement('div');
       transitionOverlay.style.cssText = `position:absolute;inset:0;background:${themeBg};z-index:1;pointer-events:none`;
       container.appendChild(transitionOverlay);
@@ -130,9 +143,7 @@ export function useTerminal(
       // Unconditional resize IPC on cached remount — ptyId is the real pid,
       // proxy.sessions is already populated, so this call succeeds immediately.
       void resizePty(ptyId, term.rows, term.cols);
-      // Double rAF: first rAF queues after current frame's layout, second fires
-      // after ghostty-web's WASM renderer has completed at least one paint cycle.
-      requestAnimationFrame(() => requestAnimationFrame(() => removeOverlay()));
+      revealAfterPaint();
     } else {
       // === NEW TERMINAL: spawn (ptyId === -1) or reconnect (ptyId > 0) ===
       const termFontSize = getSetting<number>(
@@ -191,24 +202,37 @@ export function useTerminal(
             clearTimeout(overlayTimer);
             overlayTimer = null;
           }
-          overlay.remove();
+          // Fade out over 80ms — masks sub-frame artifacts (clear→prompt gap,
+          // async prompt stages, font swap from fallback to Geist Mono).
+          overlay.style.transition = 'opacity 80ms ease-out';
+          overlay.style.opacity = '0';
+          setTimeout(() => overlay.remove(), 80);
         }
       };
-      // One-shot overlay removal: schedule the timer on the FIRST byte only.
-      // This reveals the terminal at first_byte+80ms+2×rAF (~112ms) regardless
-      // of how long Starship keeps emitting — the canvas fills in while visible,
-      // which looks responsive. The double-rAF ensures the WASM renderer has
-      // painted at least one frame after the first write before uncovering.
+      // Debounce overlay removal: reset the timer on every incoming data chunk.
+      // The overlay is lifted only once output has been silent for `delay` ms,
+      // which gives starship/p10k time to finish drawing the colored prompt.
+      // Without this, the overlay is removed mid-render and the user sees:
+      //   • the zsh partial-line indicator `%` (PROMPT_CR output, not yet erased)
+      //   • terminal sized to the wrong dimensions (fit not yet settled)
+      //   • text rendered in the fallback font (Geist Mono not yet applied)
+      // 300 ms minimum from first byte covers typical starship render time.
+      // Resets on each chunk; capped at 500 ms total so it always resolves.
+      let overlayFirstByte = 0;
       const debouncedRemoveOverlay = () => {
-        if (overlayRemoved || overlayTimer !== null) return; // one-shot
+        if (overlayRemoved) return;
+        if (overlayFirstByte === 0) overlayFirstByte = Date.now();
+        if (overlayTimer !== null) clearTimeout(overlayTimer);
+        const elapsed = Date.now() - overlayFirstByte;
+        // Wait at least 300ms from first byte (prompt render time), debounce 80ms
+        // per chunk, but never exceed 500ms total from first byte.
+        const untilMinimum = Math.max(80, 300 - elapsed);
+        const untilCap = Math.max(0, 500 - elapsed);
+        const delay = Math.min(untilMinimum, untilCap);
         overlayTimer = setTimeout(() => {
           overlayTimer = null;
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              removeOverlay();
-            });
-          });
-        }, 80);
+          revealAfterPaint();
+        }, delay);
       };
 
       if (term.element) {
@@ -319,11 +343,13 @@ export function useTerminal(
       function startPtyConnection() {
         if (ptyId > 0) {
           // Reconnect: PTY already running in daemon (cold app restart).
-          // setHandler flushes buffered scrollback synchronously → overlay safe to
-          // remove immediately after connectPtyOutput returns.
+          // setHandler flushes buffered scrollback synchronously.
+          // Defer reveal by one double-rAF so the container has its final
+          // dimensions before we fit — otherwise the terminal shows with the
+          // wrong column count until the next tab-switch triggers a re-fit.
           connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
-          removeOverlay();
           setCached(ptyId, term, fitAddon);
+          revealAfterPaint();
         } else {
           // Spawn: PTY started at exact fitted dimensions → lastSentSize = spawn dims
           // → dedup guard suppresses any subsequent fit at the same size → 0 SIGWINCH.
