@@ -125,7 +125,7 @@ const BranchRow = memo(
     tabCount?: number;
   }) {
     return (
-      <div className="py-1.5 pr-3 pl-3">
+      <div className="py-1.5 pr-3 pl-11">
         <div className="flex items-center gap-2">
           <IconWithBadge agentStatus={agentStatus}>
             <Laptop size={14} stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'} />
@@ -216,7 +216,7 @@ const WorktreeRow = memo(
     }
 
     return (
-      <div className={`group/wt py-1.5 pr-3 pl-3 ${isDeleting ? 'opacity-50' : ''}`}>
+      <div className={`group/wt py-1.5 pr-3 pl-11 ${isDeleting ? 'opacity-50' : ''}`}>
         <div className="flex items-center gap-2">
           {isDeleting ? (
             <div className="relative flex w-6 shrink-0 items-center justify-center">
@@ -303,7 +303,7 @@ const WorktreeRow = memo(
 );
 
 const repoHeader = tv({
-  base: 'flex items-center gap-2 py-1.5 pr-2 pl-3 cursor-grab active:cursor-grabbing touch-none bg-bg-primary brightness-[1.6] transition-[filter]',
+  base: 'flex items-center gap-2 py-1.5 pr-2 pl-3 cursor-grab active:cursor-grabbing touch-none bg-bg-primary brightness-[1.6] transition-[filter] border-b border-border/20',
   variants: { selected: { true: 'brightness-[1.0]', false: 'hover:brightness-[1.3]' } },
   defaultVariants: { selected: false },
 });
@@ -868,7 +868,7 @@ function RepoTreeItem({
                     className={`transition-colors outline-none hover:bg-white/[0.06] ${isSelected ? 'bg-accent/[0.08]' : ''}`}
                     onClick={() => onSelectItem(id)}
                   >
-                    <div className="py-1.5 pr-3 pl-3">
+                    <div className="py-1.5 pr-3 pl-11">
                       <div className="flex items-center gap-2">
                         <div className="relative flex w-6 shrink-0 items-center justify-center">
                           <Spinner size={14} className="text-accent/60" />
