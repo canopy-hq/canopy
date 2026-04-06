@@ -10,6 +10,11 @@ use tokio::sync::Mutex;
 
 use crate::agent_watcher::now_millis;
 
+pub struct ClaimResult {
+    pub pid: u32,
+    pub empty: bool,
+}
+
 pub struct DaemonClient {
     pub socket: PathBuf,
     // Persistent stream for fire-and-forget ops (write, resize)
@@ -154,6 +159,52 @@ impl DaemonClient {
             Ok(())
         } else {
             Err("close failed".to_string())
+        }
+    }
+
+    /// Claim a pre-warmed PTY from the daemon pool.
+    /// Returns `ClaimResult { pid, empty }`. When `empty` is true, the pool is
+    /// exhausted and the caller should fall back to a regular `spawn`.
+    pub async fn claim(&self, pane_id: &str, rows: u16, cols: u16) -> Result<ClaimResult, String> {
+        let msg = format!(
+            "{{\"op\":\"claim\",\"paneId\":{},\"rows\":{},\"cols\":{}}}\n",
+            serde_json::json!(pane_id),
+            rows,
+            cols,
+        );
+        let resp = self.send_cmd(&msg).await?;
+        if resp["ok"].as_bool() == Some(true) {
+            let pid = resp["pid"].as_u64().unwrap_or(0) as u32;
+            let empty = resp["empty"].as_bool().unwrap_or(false);
+            Ok(ClaimResult { pid, empty })
+        } else {
+            Err(resp["error"].as_str().unwrap_or("claim failed").to_string())
+        }
+    }
+
+    /// Initialize the daemon's PTY pool for the given CWD.
+    pub async fn init_pool(&self, cwd: &str, size: usize) -> Result<(), String> {
+        let msg = format!(
+            "{{\"op\":\"init_pool\",\"cwd\":{},\"size\":{}}}\n",
+            serde_json::json!(cwd),
+            size,
+        );
+        let resp = self.send_cmd(&msg).await?;
+        if resp["ok"].as_bool() == Some(true) {
+            Ok(())
+        } else {
+            Err(resp["error"].as_str().unwrap_or("init_pool failed").to_string())
+        }
+    }
+
+    /// Drain and kill all pool entries.
+    pub async fn drain_pool(&self) -> Result<(), String> {
+        let msg = "{\"op\":\"drain_pool\",\"paneId\":\"\"}\n";
+        let resp = self.send_cmd(msg).await?;
+        if resp["ok"].as_bool() == Some(true) {
+            Ok(())
+        } else {
+            Err(resp["error"].as_str().unwrap_or("drain_pool failed").to_string())
         }
     }
 
