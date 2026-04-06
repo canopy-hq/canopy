@@ -96,6 +96,17 @@ export function addTab(projectItemId?: string): void {
   insertTabAndActivate(tab);
 }
 
+export function addClaudeCodeTab(projectItemId?: string): void {
+  const ui = getUiState();
+  const itemId = projectItemId ?? ui.activeContextId;
+  if (!itemId) return;
+  const base = makeTab({ projectItemId: itemId, label: 'Claude Code' });
+  const tab = { ...base, labelIsManual: true, icon: 'claude-code' };
+  storePaneCwd(tab.paneRoot.id, itemId);
+  setSetting(`init-cmd:${tab.paneRoot.id}`, 'claude --dangerously-skip-permissions');
+  insertTabAndActivate(tab);
+}
+
 export function closeTab(tabId: string): void {
   const col = getTabCollection();
   const tab = col.toArray.find((t) => t.id === tabId);

@@ -22,6 +22,7 @@ export const tabs = sqliteTable('tabs', {
   paneRoot: text('pane_root').notNull(),
   focusedPaneId: text('focused_pane_id'),
   position: integer('position').notNull().default(0),
+  icon: text('icon'),
 });
 
 export const sessions = sqliteTable('sessions', {

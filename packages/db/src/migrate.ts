@@ -101,6 +101,14 @@ export async function runMigrations(): Promise<void> {
     await db.run(sql`ALTER TABLE sessions RENAME COLUMN workspace_id TO project_id`);
   }
 
+  // Add icon column to tabs if missing.
+  const tabIconCol = await db.get<{ cnt: number }>(
+    sql`SELECT COUNT(*) as cnt FROM pragma_table_info('tabs') WHERE name = 'icon'`,
+  );
+  if (!tabIconCol || tabIconCol.cnt === 0) {
+    await db.run(sql`ALTER TABLE tabs ADD COLUMN icon TEXT`);
+  }
+
   // Silence unused import warnings — these are used by collections
   void projects;
   void tabs;

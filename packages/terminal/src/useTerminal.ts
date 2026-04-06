@@ -42,6 +42,7 @@ export function useTerminal(
   isFocused: boolean,
   onPtySpawned: (id: number) => void,
   onCommand?: (cmd: string) => void,
+  initialCommand?: string,
 ): React.MutableRefObject<Terminal | null> {
   const termRef = useRef<Terminal | null>(null);
   // Sync check: if WASM was pre-initialized (ensureGhosttyInit called at app startup),
@@ -362,6 +363,10 @@ export function useTerminal(
               }
               setCached(newId, term, fitAddon);
               onPtySpawned(newId);
+
+              if (isNew && initialCommand) {
+                void writeToPty(newId, initialCommand + '\r');
+              }
 
               // Poll dimensions for 1s after spawn (every 200ms, up to 5 ticks).
               // Handles layout-settling races (sidebars, borders, split panes) and
