@@ -226,6 +226,58 @@ export function switchProjectItemByIndex(
   if (itemId) selectProjectItem(itemId, navigate);
 }
 
+/** Navigate to the Nth project (sorted by position, 0-based). Max 9 shortcuts. */
+export function switchProjectByIndex(
+  index: number,
+  navigate: (opts: { to: string; params?: Record<string, string> }) => void,
+): void {
+  const projects = [...getProjectCollection().toArray].sort((a, b) => a.position - b.position);
+  const proj = projects[index];
+  if (!proj) return;
+
+  // Navigate to the HEAD branch if available, otherwise the first branch, otherwise project root.
+  const head = proj.branches.find((b) => b.is_head);
+  const first = proj.branches[0];
+  const itemId = head
+    ? `${proj.id}-branch-${head.name}`
+    : first
+      ? `${proj.id}-branch-${first.name}`
+      : proj.id;
+  selectProjectItem(itemId, navigate);
+}
+
+/** Navigate to the previous or next branch/worktree within the active project. */
+export function switchProjectItemRelative(
+  direction: 'prev' | 'next',
+  navigate: (opts: { to: string; params?: Record<string, string> }) => void,
+): void {
+  const ui = getUiState();
+  if (!ui.activeContextId) return;
+
+  const proj = getProjectCollection().toArray.find(
+    (p) =>
+      ui.activeContextId === p.id ||
+      ui.activeContextId.startsWith(`${p.id}-branch-`) ||
+      ui.activeContextId.startsWith(`${p.id}-wt-`),
+  );
+  if (!proj) return;
+
+  const items = [
+    ...proj.branches.map((b) => `${proj.id}-branch-${b.name}`),
+    ...proj.worktrees.map((wt) => `${proj.id}-wt-${wt.name}`),
+  ];
+  if (items.length === 0) return;
+
+  const currentIndex = items.indexOf(ui.activeContextId);
+  const nextIndex =
+    direction === 'next'
+      ? (currentIndex + 1) % items.length
+      : (currentIndex - 1 + items.length) % items.length;
+
+  const itemId = items[nextIndex];
+  if (itemId) selectProjectItem(itemId, navigate);
+}
+
 export function toggleSidebar(): void {
   uiCollection.update('ui', (draft) => {
     draft.sidebarVisible = !draft.sidebarVisible;

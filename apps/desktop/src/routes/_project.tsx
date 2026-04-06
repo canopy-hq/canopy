@@ -12,7 +12,6 @@ import {
   closePane,
   splitPane,
   navigate as navigatePanes,
-  switchTabByIndex,
   switchTabRelative,
   getActiveTab,
 } from '../lib/tab-actions';
@@ -50,11 +49,6 @@ function ProjectLayout() {
       { key: 'ArrowUp', meta: true, alt: true, action: () => navigatePanes('up') },
       { key: 'ArrowDown', meta: true, alt: true, action: () => navigatePanes('down') },
       { key: 't', meta: true, action: () => addTab() },
-      ...Array.from({ length: 9 }, (_, i) => ({
-        key: String(i + 1),
-        meta: true,
-        action: () => switchTabByIndex(i),
-      })),
       { key: '[', meta: true, shift: true, action: () => switchTabRelative('prev') },
       { key: ']', meta: true, shift: true, action: () => switchTabRelative('next') },
       {
