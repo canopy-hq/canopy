@@ -350,6 +350,22 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 let _ = write_half.write_all(resp.as_bytes()).await;
             }
 
+            "drain_pool" => {
+                {
+                    let mut st = state.lock().unwrap();
+                    let pool_entries: Vec<String> = st.pool.drain(..).map(|e| e.pane_id).collect();
+                    for pane_id in pool_entries {
+                        if let Some(mut sess) = st.sessions.remove(&pane_id) {
+                            let _ = sess.child.kill();
+                            let _ = sess.child.wait();
+                        }
+                    }
+                    st.pool_target_size = 0;
+                    st.pool_cwd = None;
+                }
+                let _ = write_half.write_all(b"{\"ok\":true}\n").await;
+            }
+
             "init_pool" => {
                 let cwd = cmd["cwd"].as_str().unwrap_or("/tmp").to_string();
                 let size = cmd["size"].as_u64().unwrap_or(2) as usize;
@@ -1120,6 +1136,39 @@ mod tests {
         send_line(&mut conn3, r#"{"op":"attach","paneId":"real-pane-1"}"#).await;
         let scrollback = drain_scrollback(&mut conn3).await;
         assert!(!scrollback.is_empty(), "claimed PTY should have scrollback (shell prompt)");
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn drain_pool_kills_all_pool_entries() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // Initialize pool
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"init_pool","cwd":"/tmp","size":2}"#).await;
+        let _ = read_json_line(&mut conn).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
+        // Drain pool
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"drain_pool","paneId":""}"#).await;
+        let resp = read_json_line(&mut conn2).await;
+        assert_eq!(resp["ok"], true);
+
+        // Verify no pool entries remain
+        let mut conn3 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn3, r#"{"op":"list","paneId":""}"#).await;
+        let resp2 = read_json_line(&mut conn3).await;
+        let ids: Vec<&str> = resp2["paneIds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        let pool_count = ids.iter().filter(|id| id.starts_with("__pool_")).count();
+        assert_eq!(pool_count, 0, "pool should be empty after drain; ids: {ids:?}");
 
         let _ = std::fs::remove_file(&socket);
     }
