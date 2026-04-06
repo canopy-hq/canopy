@@ -1188,4 +1188,80 @@ mod tests {
 
         let _ = std::fs::remove_file(&socket);
     }
+
+    #[tokio::test]
+    async fn full_claim_flow_attach_has_scrollback() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // Init pool with 2 entries
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"init_pool","cwd":"/tmp","size":2}"#).await;
+        let resp = read_json_line(&mut conn).await;
+        assert_eq!(resp["ok"], true);
+
+        // Wait for pool entries to produce output (shell prompt)
+        tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
+
+        // Claim first entry
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"claim","paneId":"tab-1","rows":30,"cols":120}"#).await;
+        let resp2 = read_json_line(&mut conn2).await;
+        assert_eq!(resp2["ok"], true);
+        assert!(resp2["pid"].as_u64().unwrap() > 0);
+
+        // Attach to claimed entry and verify scrollback exists
+        let mut conn3 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn3, r#"{"op":"attach","paneId":"tab-1"}"#).await;
+        let scrollback = drain_scrollback(&mut conn3).await;
+        assert!(!scrollback.is_empty(), "claimed PTY must have scrollback from shell prompt");
+
+        // Claim second entry
+        let mut conn4 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn4, r#"{"op":"claim","paneId":"tab-2","rows":24,"cols":80}"#).await;
+        let resp3 = read_json_line(&mut conn4).await;
+        assert_eq!(resp3["ok"], true);
+        assert!(resp3["pid"].as_u64().unwrap() > 0);
+
+        // Third claim should return empty (pool exhausted, replenishment may not be ready yet)
+        let mut conn5 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn5, r#"{"op":"claim","paneId":"tab-3","rows":24,"cols":80}"#).await;
+        let resp4 = read_json_line(&mut conn5).await;
+        assert_eq!(resp4["ok"], true);
+        // May or may not be empty depending on replenishment timing — just verify it doesn't crash
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn claim_replenishes_pool() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // Init pool with 1 entry
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"init_pool","cwd":"/tmp","size":1}"#).await;
+        let _ = read_json_line(&mut conn).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+
+        // Claim the entry
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"claim","paneId":"rep-1","rows":24,"cols":80}"#).await;
+        let resp = read_json_line(&mut conn2).await;
+        assert_eq!(resp["ok"], true);
+        assert!(resp["pid"].as_u64().unwrap() > 0);
+
+        // Wait for replenishment
+        tokio::time::sleep(tokio::time::Duration::from_millis(2000)).await;
+
+        // Claim again — should get a replenished entry
+        let mut conn3 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn3, r#"{"op":"claim","paneId":"rep-2","rows":24,"cols":80}"#).await;
+        let resp2 = read_json_line(&mut conn3).await;
+        assert_eq!(resp2["ok"], true);
+        let pid2 = resp2["pid"].as_u64().unwrap();
+        assert!(pid2 > 0, "replenished pool entry should be claimable");
+
+        let _ = std::fs::remove_file(&socket);
+    }
 }
