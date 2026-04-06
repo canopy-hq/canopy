@@ -9,6 +9,9 @@ import {
   SIDEBAR_WIDTH_MIN,
   SIDEBAR_WIDTH_DEFAULT,
   SIDEBAR_WIDTH_MAX,
+  NAV_KEY_TAB,
+  NAV_KEY_CONTEXT,
+  NAV_KEY_TABS,
 } from './collections/ui';
 
 import type { Tab } from './types';
@@ -32,9 +35,8 @@ function restoreUiState(): void {
   const settings = getSettingCollection().toArray;
   // Prefer localStorage (written synchronously at each call site) over SQLite (async, may be stale)
   const savedContextId =
-    localStorage.getItem('ui:activeContextId') || getSetting(settings, 'activeContextId', '');
-  const savedTabId =
-    localStorage.getItem('ui:activeTabId') || getSetting(settings, 'activeTabId', '');
+    localStorage.getItem(NAV_KEY_CONTEXT) || getSetting(settings, 'activeContextId', '');
+  const savedTabId = localStorage.getItem(NAV_KEY_TAB) || getSetting(settings, 'activeTabId', '');
   const savedSelectedItemId = getSetting<string | null>(settings, 'selectedItemId', null);
   const sidebarVisible = getSetting(settings, 'sidebarVisible', true);
   const sidebarWidth = getSetting(settings, 'sidebarWidth', SIDEBAR_WIDTH_DEFAULT);
@@ -80,14 +82,16 @@ function restoreUiState(): void {
  * insert hadn't flushed, re-insert them from the localStorage snapshot.
  */
 function recoverUnflushedTabs(): void {
-  const raw = localStorage.getItem('ui:tabs');
+  const raw = localStorage.getItem(NAV_KEY_TABS);
   if (!raw) return;
+  // Clear after reading — prevents re-inserting deleted tabs on subsequent reloads
+  localStorage.removeItem(NAV_KEY_TABS);
   try {
     const snapshotTabs = JSON.parse(raw) as Tab[];
     const col = getTabCollection();
     const existingIds = new Set(col.toArray.map((t) => t.id));
     for (const tab of snapshotTabs) {
-      if (!existingIds.has(tab.id)) {
+      if (!existingIds.has(tab.id) && typeof tab.id === 'string') {
         col.insert(tab);
       }
     }

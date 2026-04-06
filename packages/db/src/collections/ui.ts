@@ -2,6 +2,13 @@ import { createCollection, localOnlyCollectionOptions } from '@tanstack/db';
 
 import { setSetting } from './settings';
 
+import type { Tab } from '../types';
+
+// localStorage keys for synchronous nav-state persistence
+export const NAV_KEY_TAB = 'ui:activeTabId';
+export const NAV_KEY_CONTEXT = 'ui:activeContextId';
+export const NAV_KEY_TABS = 'ui:tabs';
+
 export const SIDEBAR_WIDTH_MIN = 180;
 export const SIDEBAR_WIDTH_DEFAULT = 250;
 export const SIDEBAR_WIDTH_MAX = 400;
@@ -69,11 +76,11 @@ export function getUiState(): UiState {
 export function syncNavStateToLocalStorage(
   tabId: string,
   contextId: string,
-  tabSnapshot?: unknown[],
+  tabSnapshot?: Tab[],
 ): void {
-  localStorage.setItem('ui:activeTabId', tabId);
-  localStorage.setItem('ui:activeContextId', contextId);
+  localStorage.setItem(NAV_KEY_TAB, tabId);
+  localStorage.setItem(NAV_KEY_CONTEXT, contextId);
   if (tabSnapshot) {
-    localStorage.setItem('ui:tabs', JSON.stringify(tabSnapshot));
+    localStorage.setItem(NAV_KEY_TABS, JSON.stringify(tabSnapshot));
   }
 }

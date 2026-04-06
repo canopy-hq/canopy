@@ -118,11 +118,11 @@ function RootLayout() {
     );
 
     // Pre-warm the PTY pool: use a saved pane CWD, or fall back to the first
-    // project's root path (project.id is the repo root).
+    // project's filesystem path.
     const firstCwd =
       paneEntries
         .map(({ paneId }) => (getSetting(settings, `cwd:${paneId}`, '') as string) || '')
-        .find((cwd) => cwd.length > 0) || getProjectCollection().toArray[0]?.id;
+        .find((cwd) => cwd.length > 0) || getProjectCollection().toArray[0]?.path;
     if (firstCwd) {
       void initTerminalPool(firstCwd);
     }

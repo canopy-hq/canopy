@@ -148,11 +148,12 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
     });
     expect(overlay.parentNode).not.toBeNull();
 
-    // 150ms after LAST byte: debounce fires, then double rAF removes overlay
+    // 150ms after LAST byte: debounce fires, then double rAF, then 80ms fade completes → overlay removed
     act(() => {
       vi.advanceTimersByTime(150); // 150ms quiet → fires timer → rAF #1
       vi.advanceTimersByTime(1); // fires rAF #1 → schedules rAF #2
-      vi.advanceTimersByTime(1); // fires rAF #2 → removeOverlay()
+      vi.advanceTimersByTime(1); // fires rAF #2 → removeOverlay() starts 80ms fade
+      vi.advanceTimersByTime(80); // fade completes → DOM removal
     });
     expect(overlay.parentNode).toBeNull();
 
@@ -545,11 +546,12 @@ describe('useTerminal — restored session (isNew=false) [PHASE 2]', () => {
     act(() => {
       handler(new Uint8Array([65]));
     });
-    // 300ms debounce fires, then double rAF, then fade
+    // 150ms quiet → fires timer → rAF #1 → rAF #2 → removeOverlay (starts 80ms fade) → fade completes
     act(() => {
       vi.advanceTimersByTime(150);
       vi.advanceTimersByTime(1);
       vi.advanceTimersByTime(1);
+      vi.advanceTimersByTime(80);
     });
     expect(overlay.parentNode).toBeNull();
 

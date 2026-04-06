@@ -59,6 +59,15 @@ impl DaemonClient {
         Err("daemon did not start within timeout".to_string())
     }
 
+    /// Check that a daemon response has `ok: true`, otherwise extract the error.
+    fn check_ok(resp: serde_json::Value, fallback: &str) -> Result<serde_json::Value, String> {
+        if resp["ok"].as_bool() == Some(true) {
+            Ok(resp)
+        } else {
+            Err(resp["error"].as_str().unwrap_or(fallback).to_string())
+        }
+    }
+
     /// Send a command that expects a JSON response (per-call connection).
     async fn send_cmd(&self, msg: &str) -> Result<serde_json::Value, String> {
         let mut stream = UnixStream::connect(&self.socket)
@@ -106,18 +115,13 @@ impl DaemonClient {
         }
         let msg = format!("{obj}\n");
 
-        let resp = self.send_cmd(&msg).await?;
-        if resp["ok"].as_bool() == Some(true) {
-            let pid = resp["pid"]
-                .as_u64()
-                .map(|p| p as u32)
-                .ok_or_else(|| "daemon: spawn returned no pid".to_string())?;
-            // Default to true (fresh) if the daemon omits "new" (forward compat with older daemons).
-            let is_new = resp["new"].as_bool().unwrap_or(true);
-            Ok((pid, is_new))
-        } else {
-            Err(resp["error"].as_str().unwrap_or("spawn failed").to_string())
-        }
+        let resp = Self::check_ok(self.send_cmd(&msg).await?, "spawn failed")?;
+        let pid = resp["pid"]
+            .as_u64()
+            .map(|p| p as u32)
+            .ok_or_else(|| "daemon: spawn returned no pid".to_string())?;
+        let is_new = resp["new"].as_bool().unwrap_or(true);
+        Ok((pid, is_new))
     }
 
     /// Write data to a PTY session (fire-and-forget, persistent stream).
@@ -144,23 +148,15 @@ impl DaemonClient {
     /// Get the current working directory of a PTY session's shell process.
     pub async fn get_cwd(&self, pane_id: &str) -> Result<String, String> {
         let msg = format!("{{\"op\":\"cwd\",\"paneId\":{}}}\n", serde_json::json!(pane_id));
-        let resp = self.send_cmd(&msg).await?;
-        if resp["ok"].as_bool() == Some(true) {
-            resp["cwd"].as_str().map(String::from).ok_or_else(|| "no cwd in response".to_string())
-        } else {
-            Err(resp["error"].as_str().unwrap_or("cwd failed").to_string())
-        }
+        let resp = Self::check_ok(self.send_cmd(&msg).await?, "cwd failed")?;
+        resp["cwd"].as_str().map(String::from).ok_or_else(|| "no cwd in response".to_string())
     }
 
     /// Close a PTY session and kill its process.
     pub async fn close(&self, pane_id: &str) -> Result<(), String> {
         let msg = format!("{{\"op\":\"close\",\"paneId\":{}}}\n", serde_json::json!(pane_id));
-        let resp = self.send_cmd(&msg).await?;
-        if resp["ok"].as_bool() == Some(true) {
-            Ok(())
-        } else {
-            Err("close failed".to_string())
-        }
+        Self::check_ok(self.send_cmd(&msg).await?, "close failed")?;
+        Ok(())
     }
 
     /// Claim a pre-warmed PTY from the daemon pool.
@@ -173,14 +169,11 @@ impl DaemonClient {
             rows,
             cols,
         );
-        let resp = self.send_cmd(&msg).await?;
-        if resp["ok"].as_bool() == Some(true) {
-            let pid = resp["pid"].as_u64().unwrap_or(0) as u32;
-            let empty = resp["empty"].as_bool().unwrap_or(false);
-            Ok(ClaimResult { pid, empty })
-        } else {
-            Err(resp["error"].as_str().unwrap_or("claim failed").to_string())
-        }
+        let resp = Self::check_ok(self.send_cmd(&msg).await?, "claim failed")?;
+        Ok(ClaimResult {
+            pid: resp["pid"].as_u64().unwrap_or(0) as u32,
+            empty: resp["empty"].as_bool().unwrap_or(false),
+        })
     }
 
     /// Initialize the daemon's PTY pool for the given CWD.
@@ -190,24 +183,16 @@ impl DaemonClient {
             serde_json::json!(cwd),
             size,
         );
-        let resp = self.send_cmd(&msg).await?;
-        if resp["ok"].as_bool() == Some(true) {
-            Ok(())
-        } else {
-            Err(resp["error"].as_str().unwrap_or("init_pool failed").to_string())
-        }
+        Self::check_ok(self.send_cmd(&msg).await?, "init_pool failed")?;
+        Ok(())
     }
 
     /// Drain and kill all pool entries.
     #[allow(dead_code)]
     pub async fn drain_pool(&self) -> Result<(), String> {
         let msg = "{\"op\":\"drain_pool\",\"paneId\":\"\"}\n";
-        let resp = self.send_cmd(msg).await?;
-        if resp["ok"].as_bool() == Some(true) {
-            Ok(())
-        } else {
-            Err(resp["error"].as_str().unwrap_or("drain_pool failed").to_string())
-        }
+        Self::check_ok(self.send_cmd(msg).await?, "drain_pool failed")?;
+        Ok(())
     }
 
     /// Attach to a PTY session: spawns a background task that reads frames

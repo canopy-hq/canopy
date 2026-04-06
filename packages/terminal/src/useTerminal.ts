@@ -40,6 +40,41 @@ import { terminalThemes, type ThemeName } from './themes';
 // quick 2-rAF transition overlay.
 const pendingOverlayPtyIds = new Set<number>();
 
+const OVERLAY_QUIET_MS = 150;
+const OVERLAY_MAX_MS = 800;
+
+/** Create a debounced overlay remover: waits for output silence before revealing. */
+function createOverlayDebounce(doRemove: () => void) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let removed = false;
+  let firstByteTime: number | null = null;
+
+  return {
+    /** Call on each output chunk to reset the quiet timer. */
+    onOutput() {
+      if (removed) return;
+      const now = Date.now();
+      if (firstByteTime === null) firstByteTime = now;
+      if (now - firstByteTime >= OVERLAY_MAX_MS) {
+        this.flush();
+        return;
+      }
+      if (timer !== null) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        requestAnimationFrame(() => requestAnimationFrame(() => this.flush()));
+      }, OVERLAY_QUIET_MS);
+    },
+    /** Immediately remove the overlay. Idempotent. */
+    flush() {
+      if (removed) return;
+      removed = true;
+      if (timer !== null) clearTimeout(timer);
+      doRemove();
+    },
+  };
+}
+
 export function useTerminal(
   containerRef: React.RefObject<HTMLDivElement | null>,
   paneId: string,
@@ -149,31 +184,10 @@ export function useTerminal(
         // Post-spawn re-run: shell is still initializing (Starship not done).
         // Use debounced overlay removal — wait for output to stabilize.
         pendingOverlayPtyIds.delete(ptyId);
-        let overlayTimer: ReturnType<typeof setTimeout> | null = null;
-        let overlayRemoved = false;
-        let firstByteTime: number | null = null;
-        const QUIET_MS = 150;
-        const MAX_MS = 800;
-        const doRemove = () => {
-          if (overlayRemoved) return;
-          overlayRemoved = true;
-          if (overlayTimer !== null) clearTimeout(overlayTimer);
-          transitionOverlay.remove();
-        };
+        const debounce = createOverlayDebounce(() => transitionOverlay.remove());
         connectPtyOutput(ptyId, (data: Uint8Array) => {
           term.write(data);
-          if (overlayRemoved) return;
-          const now = Date.now();
-          if (firstByteTime === null) firstByteTime = now;
-          if (now - firstByteTime >= MAX_MS) {
-            doRemove();
-            return;
-          }
-          if (overlayTimer !== null) clearTimeout(overlayTimer);
-          overlayTimer = setTimeout(() => {
-            overlayTimer = null;
-            requestAnimationFrame(() => requestAnimationFrame(() => doRemove()));
-          }, QUIET_MS);
+          debounce.onOutput();
         });
       } else {
         // Genuine remount: terminal already has content, quick reveal.
@@ -223,7 +237,7 @@ export function useTerminal(
       // flashes for 1-2 frames before being covered.
       //
       // The overlay is removed on the first live byte from the shell (e.g. the
-      // zsh prompt) — see debouncedRemoveOverlay below.
+      // zsh prompt) — see overlayDebounce below.
       const overlay = document.createElement('div');
       overlay.style.cssText = `position:absolute;inset:0;background:${themeBg};z-index:1;pointer-events:none`;
       wrapper.appendChild(overlay);
@@ -249,29 +263,7 @@ export function useTerminal(
       // silence) before revealing the terminal. This lets Starship finish
       // rewriting the prompt after zsh's initial PS1 draw. Hard cap at 800ms
       // prevents indefinite overlay on continuous output.
-      let firstByteTime: number | null = null;
-      const QUIET_MS = 150;
-      const MAX_MS = 800;
-      const debouncedRemoveOverlay = () => {
-        if (overlayRemoved) return;
-        const now = Date.now();
-        if (firstByteTime === null) firstByteTime = now;
-        // Hard cap: reveal regardless after MAX_MS
-        if (now - firstByteTime >= MAX_MS) {
-          removeOverlay();
-          return;
-        }
-        // Reset quiet timer on every output chunk
-        if (overlayTimer !== null) clearTimeout(overlayTimer);
-        overlayTimer = setTimeout(() => {
-          overlayTimer = null;
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              removeOverlay();
-            });
-          });
-        }, QUIET_MS);
-      };
+      const overlayDebounce = createOverlayDebounce(() => removeOverlay());
 
       if (term.element) {
         // Prevent macOS press-and-hold accent popup on ghostty-web's hidden textarea.
@@ -431,8 +423,8 @@ export function useTerminal(
                 // removal instead of the quick 2-rAF transition.
                 pendingOverlayPtyIds.add(newId);
                 connectPtyOutput(newId, (data: Uint8Array) => {
-                  debouncedRemoveOverlay();
                   term.write(data);
+                  overlayDebounce.onOutput();
                 });
                 if (initialCommand) {
                   void writeToPty(newId, initialCommand + '\r');
@@ -519,6 +511,8 @@ export function useTerminal(
     return () => {
       spawnCancelled = true;
       removeOverlay();
+      // Clean up leaked entries if effect tears down before the cached-path re-run
+      if (ptyId > 0) pendingOverlayPtyIds.delete(ptyId);
       resizeObserver.disconnect();
       if (resizeRaf !== null) cancelAnimationFrame(resizeRaf);
       if (resizingClassTimer !== null) clearTimeout(resizingClassTimer);
