@@ -224,17 +224,23 @@ function TerminalPaneInner({
   // Lazy init — read the setting once on mount, never re-evaluated.
   const [bootOverlay, setBootOverlay] = useState(() => !!savedInitCmd?.includes('claude'));
 
+  // One-time 15s fallback — scheduled once on mount, never restarted.
+  // Separate from the agent-detection effect to avoid timer stacking on each
+  // agentStatus change while still idle.
   useEffect(() => {
     if (!bootOverlay) return;
-    // With a pre-prompt (embedded as a CLI arg): wait until Claude is actively
-    // thinking (running) so the TUI is already rendering the response.
-    // Without a prompt: reveal as soon as the process is detected.
-    const ready = savedHasPrompt ? agentStatus === 'running' : agentStatus !== 'idle';
-    if (ready) {
-      const t = setTimeout(() => setBootOverlay(false), 350);
-      return () => clearTimeout(t);
-    }
     const t = setTimeout(() => setBootOverlay(false), 15_000);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Dismiss sooner once the agent is detected (or immediately if already detected).
+  // With a pre-prompt: wait for 'running' so the TUI is rendering the response.
+  // Without a prompt: reveal as soon as the process is detected ('waiting' or 'running').
+  useEffect(() => {
+    if (!bootOverlay) return;
+    const ready = savedHasPrompt ? agentStatus === 'running' : agentStatus !== 'idle';
+    if (!ready) return;
+    const t = setTimeout(() => setBootOverlay(false), 350);
     return () => clearTimeout(t);
   }, [agentStatus, bootOverlay, savedHasPrompt]);
 

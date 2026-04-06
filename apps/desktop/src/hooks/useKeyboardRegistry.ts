@@ -20,9 +20,6 @@ export function useKeyboardRegistry(bindings: Keybinding[]): void {
       for (const binding of bindingsRef.current) {
         const keyMatch = binding.key ? e.key === binding.key : true;
         const codeMatch = binding.code ? e.code === binding.code : true;
-        // Require at least one of key/code to be set — a binding with neither would
-        // match every keydown event, which is almost certainly a mistake.
-        if (!binding.key && !binding.code) continue;
         if (
           keyMatch &&
           codeMatch &&
