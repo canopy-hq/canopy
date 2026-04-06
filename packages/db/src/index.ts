@@ -4,7 +4,7 @@ export { hydrateCollections } from './hydrate';
 export * from './schema';
 export * from './types';
 
-export { getWorkspaceCollection } from './collections/workspaces';
+export { getProjectCollection } from './collections/projects';
 export {
   getTabCollection,
   insertTabAndActivate,

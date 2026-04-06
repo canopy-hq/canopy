@@ -207,9 +207,8 @@ export function CommandMenu({
 
   const panelWsItem =
     panelItem && drillStack.length === 0 && panelItem.contextId
-      ? (items.find(
-          (i) => i.category === 'workspace' && i.id === `workspace:${panelItem.contextId}`,
-        ) ?? null)
+      ? (items.find((i) => i.category === 'project' && i.id === `project:${panelItem.contextId}`) ??
+        null)
       : null;
 
   return (
@@ -339,7 +338,7 @@ export function CommandMenu({
                       ? `Search in ${drillStack[drillStack.length - 1]!.label}…`
                       : section !== 'root'
                         ? `Search in ${section}…`
-                        : 'Search commands, workspaces, tabs…'
+                        : 'Search commands, projects, tabs…'
                   }
                 />
                 {query && (

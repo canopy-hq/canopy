@@ -272,7 +272,7 @@ const TabItemComponent = memo(
                 icon: <XSquare size={13} />,
                 onSelect: () => {
                   setContextMenu(null);
-                  closeAllTabs(tab.workspaceItemId);
+                  closeAllTabs(tab.projectItemId);
                 },
               },
               {
@@ -300,7 +300,7 @@ export function TabBar() {
   const tabs = useMemo(
     () =>
       allTabs
-        .filter((t) => t.workspaceItemId === activeContextId)
+        .filter((t) => t.projectItemId === activeContextId)
         .sort((a, b) => a.position - b.position),
     [allTabs, activeContextId],
   );

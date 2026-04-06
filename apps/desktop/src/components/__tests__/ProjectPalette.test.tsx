@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 
-import { WorkspacePalettePanel, type WorkspacePalettePanelProps } from '../WorkspacePalette';
+import { ProjectPalettePanel, type ProjectPalettePanelProps } from '../ProjectPalette';
 
 // scrollIntoView is not implemented in jsdom
 beforeAll(() => {
@@ -26,10 +26,10 @@ vi.mock('../../lib/git', async (importOriginal) => {
   };
 });
 
-vi.mock('../../lib/workspace-actions', () => ({ createWorktree: vi.fn(), openWorktree: vi.fn() }));
+vi.mock('../../lib/project-actions', () => ({ createWorktree: vi.fn(), openWorktree: vi.fn() }));
 
-const baseWorkspace = {
-  id: 'ws-1',
+const baseProject = {
+  id: 'proj-1',
   path: '/tmp/repo',
   name: 'my-repo',
   branches: [{ name: 'main', is_head: true, ahead: 0, behind: 0 }],
@@ -38,33 +38,33 @@ const baseWorkspace = {
   position: 0,
 };
 
-describe('WorkspacePalettePanel', () => {
-  let props: WorkspacePalettePanelProps;
+describe('ProjectPalettePanel', () => {
+  let props: ProjectPalettePanelProps;
 
   beforeEach(() => {
-    props = { workspace: baseWorkspace, ctx: { close: vi.fn(), back: vi.fn() } };
+    props = { project: baseProject, ctx: { close: vi.fn(), back: vi.fn() } };
   });
 
   it('renders search input', () => {
-    render(<WorkspacePalettePanel {...props} />);
+    render(<ProjectPalettePanel {...props} />);
     expect(screen.getByPlaceholderText(/Search or create/)).toBeDefined();
   });
 
   it('shows All and Worktrees tab chips', () => {
-    render(<WorkspacePalettePanel {...props} />);
+    render(<ProjectPalettePanel {...props} />);
     expect(screen.getByText(/All/)).toBeDefined();
     expect(screen.getByText(/Worktrees/)).toBeDefined();
   });
 
   it('calls ctx.close on Escape (always closes, never back)', () => {
-    render(<WorkspacePalettePanel {...props} />);
+    render(<ProjectPalettePanel {...props} />);
     fireEvent.keyDown(screen.getByPlaceholderText(/Search or create/), { key: 'Escape' });
     expect(props.ctx.close).toHaveBeenCalledTimes(1);
     expect(props.ctx.back).not.toHaveBeenCalled();
   });
 
   it('arrow keys navigate between loaded items', async () => {
-    const { container } = render(<WorkspacePalettePanel {...props} />);
+    const { container } = render(<ProjectPalettePanel {...props} />);
     const input = screen.getByPlaceholderText(/Search or create/);
 
     // Wait for branches to load from the async mock
@@ -87,7 +87,7 @@ describe('WorkspacePalettePanel', () => {
   });
 
   it('calls ctx.back on Backspace with empty query', () => {
-    render(<WorkspacePalettePanel {...props} />);
+    render(<ProjectPalettePanel {...props} />);
     const input = screen.getByPlaceholderText(/Search or create/);
     // input value is already empty — Backspace should navigate back
     fireEvent.keyDown(input, { key: 'Backspace' });
@@ -96,7 +96,7 @@ describe('WorkspacePalettePanel', () => {
   });
 
   it('does not blur input on list item mousedown', async () => {
-    const { container } = render(<WorkspacePalettePanel {...props} />);
+    const { container } = render(<ProjectPalettePanel {...props} />);
 
     await waitFor(() => {
       expect(container.querySelectorAll('[data-id]').length).toBeGreaterThan(0);

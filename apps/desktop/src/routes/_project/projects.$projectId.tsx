@@ -7,8 +7,8 @@ import { PaneContainer } from '../../components/PaneContainer';
 import { TabBar } from '../../components/TabBar';
 import { ActionRow, Spinner } from '../../components/ui';
 import { useUiState, useTabs } from '../../hooks/useCollections';
+import { toggleSidebar } from '../../lib/project-actions';
 import { setActiveContext, addTab } from '../../lib/tab-actions';
-import { toggleSidebar } from '../../lib/workspace-actions';
 
 function CreatingWorktree() {
   return (
@@ -19,21 +19,21 @@ function CreatingWorktree() {
   );
 }
 
-function WorkspaceRoute() {
-  const { workspaceId } = Route.useParams();
+function ProjectRoute() {
+  const { projectId } = Route.useParams();
   const ui = useUiState();
   const allTabs = useTabs();
   const activeTab = allTabs.find((t) => t.id === ui.activeTabId);
 
-  // Sync store state when navigating to a workspace URL directly (routing is source of truth)
+  // Sync store state when navigating to a project URL directly (routing is source of truth)
   useEffect(() => {
-    if (ui.activeContextId !== workspaceId) {
-      setActiveContext(workspaceId);
+    if (ui.activeContextId !== projectId) {
+      setActiveContext(projectId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaceId]);
+  }, [projectId]);
 
-  const isCreating = ui.creatingWorktreeIds.includes(workspaceId);
+  const isCreating = ui.creatingWorktreeIds.includes(projectId);
 
   return (
     <>
@@ -72,6 +72,4 @@ function EmptyState() {
   );
 }
 
-export const Route = createFileRoute('/_workspace/workspaces/$workspaceId')({
-  component: WorkspaceRoute,
-});
+export const Route = createFileRoute('/_project/projects/$projectId')({ component: ProjectRoute });

@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 
-import { getInterval, branchStateEqual } from '../useWorkspacePolling';
+import { getInterval, branchStateEqual } from '../useProjectPolling';
 
-import type { WorkspacePollState } from '../../lib/git';
+import type { ProjectPollState } from '../../lib/git';
 
-function makeState(overrides: Partial<WorkspacePollState> = {}): WorkspacePollState {
+function makeState(overrides: Partial<ProjectPollState> = {}): ProjectPollState {
   return {
     head_oid: 'abc123',
     branches: [
@@ -45,21 +45,21 @@ describe('getInterval', () => {
 
 describe('branchStateEqual', () => {
   it('returns true for identical states', () => {
-    const a = { ws1: makeState() };
-    const b = { ws1: makeState() };
+    const a = { proj1: makeState() };
+    const b = { proj1: makeState() };
     expect(branchStateEqual(a, b)).toBe(true);
   });
 
   it('returns false when head_oid differs', () => {
-    const a = { ws1: makeState({ head_oid: 'abc' }) };
-    const b = { ws1: makeState({ head_oid: 'def' }) };
+    const a = { proj1: makeState({ head_oid: 'abc' }) };
+    const b = { proj1: makeState({ head_oid: 'def' }) };
     expect(branchStateEqual(a, b)).toBe(false);
   });
 
   it('returns false when a branch is added', () => {
-    const a = { ws1: makeState() };
+    const a = { proj1: makeState() };
     const b = {
-      ws1: makeState({
+      proj1: makeState({
         branches: [
           { name: 'main', is_head: true, ahead: 0, behind: 0 },
           { name: 'feature', is_head: false, ahead: 0, behind: 0 },
@@ -71,17 +71,17 @@ describe('branchStateEqual', () => {
   });
 
   it('returns false when a branch is removed', () => {
-    const a = { ws1: makeState() };
+    const a = { proj1: makeState() };
     const b = {
-      ws1: makeState({ branches: [{ name: 'main', is_head: true, ahead: 0, behind: 0 }] }),
+      proj1: makeState({ branches: [{ name: 'main', is_head: true, ahead: 0, behind: 0 }] }),
     };
     expect(branchStateEqual(a, b)).toBe(false);
   });
 
   it('returns false when is_head changes', () => {
-    const a = { ws1: makeState() };
+    const a = { proj1: makeState() };
     const b = {
-      ws1: makeState({
+      proj1: makeState({
         branches: [
           { name: 'main', is_head: false, ahead: 0, behind: 0 },
           { name: 'feature', is_head: true, ahead: 0, behind: 0 },
@@ -92,33 +92,33 @@ describe('branchStateEqual', () => {
   });
 
   it('returns false when worktree branch changes', () => {
-    const a = { ws1: makeState({ worktree_branches: { wt1: 'main' } }) };
-    const b = { ws1: makeState({ worktree_branches: { wt1: 'feature' } }) };
+    const a = { proj1: makeState({ worktree_branches: { wt1: 'main' } }) };
+    const b = { proj1: makeState({ worktree_branches: { wt1: 'feature' } }) };
     expect(branchStateEqual(a, b)).toBe(false);
   });
 
   it('returns false when worktree is added', () => {
-    const a = { ws1: makeState({ worktree_branches: {} }) };
-    const b = { ws1: makeState({ worktree_branches: { wt1: 'main' } }) };
+    const a = { proj1: makeState({ worktree_branches: {} }) };
+    const b = { proj1: makeState({ worktree_branches: { wt1: 'main' } }) };
     expect(branchStateEqual(a, b)).toBe(false);
   });
 
-  it('returns false when workspace count differs', () => {
-    const a = { ws1: makeState() };
-    const b = { ws1: makeState(), ws2: makeState() };
+  it('returns false when project count differs', () => {
+    const a = { proj1: makeState() };
+    const b = { proj1: makeState(), proj2: makeState() };
     expect(branchStateEqual(a, b)).toBe(false);
   });
 
-  it('returns false when workspace is missing', () => {
-    const a = { ws1: makeState() };
-    const b = { ws2: makeState() };
+  it('returns false when project is missing', () => {
+    const a = { proj1: makeState() };
+    const b = { proj2: makeState() };
     expect(branchStateEqual(a, b)).toBe(false);
   });
 
   it('ignores ahead/behind differences (lightweight poll)', () => {
-    const a = { ws1: makeState() };
+    const a = { proj1: makeState() };
     const b = {
-      ws1: makeState({
+      proj1: makeState({
         branches: [
           { name: 'main', is_head: true, ahead: 5, behind: 3 },
           { name: 'feature', is_head: false, ahead: 1, behind: 0 },

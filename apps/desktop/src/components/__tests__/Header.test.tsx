@@ -3,7 +3,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 
 import { Header } from '../Header';
 
-vi.mock('../../lib/workspace-actions', () => ({ toggleSidebar: vi.fn() }));
+vi.mock('../../lib/project-actions', () => ({ toggleSidebar: vi.fn() }));
 
 describe('Header', () => {
   afterEach(cleanup);
@@ -27,7 +27,7 @@ describe('Header', () => {
   });
 
   it('calls toggleSidebar when button is clicked', async () => {
-    const { toggleSidebar } = await import('../../lib/workspace-actions');
+    const { toggleSidebar } = await import('../../lib/project-actions');
     const { getByLabelText } = render(<Header />);
     getByLabelText('Toggle sidebar').click();
     expect(toggleSidebar).toHaveBeenCalled();

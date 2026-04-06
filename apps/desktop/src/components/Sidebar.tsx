@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useUiState, useWorkspaces } from '../hooks/useCollections';
-import { openImportDialog, setSidebarWidth } from '../lib/workspace-actions';
-import { WorkspaceTree } from './WorkspaceTree';
+import { useUiState, useProjects } from '../hooks/useCollections';
+import { openImportDialog, setSidebarWidth } from '../lib/project-actions';
+import { ProjectTree } from './ProjectTree';
 
 export function Sidebar() {
   const ui = useUiState();
   const visible = ui.sidebarVisible;
   const width = ui.sidebarWidth;
-  const workspaces = useWorkspaces();
+  const projects = useProjects();
 
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const dragAbortRef = useRef<AbortController | null>(null);
@@ -54,7 +54,7 @@ export function Sidebar() {
     [width],
   );
 
-  if (!visible || workspaces.length === 0) return null;
+  if (!visible || projects.length === 0) return null;
 
   return (
     <>
@@ -63,7 +63,7 @@ export function Sidebar() {
       <div className="flex shrink-0 flex-row bg-bg-secondary" style={{ width: `${width}px` }}>
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex-1 overflow-y-auto pb-3">
-            <WorkspaceTree onAddProject={handleImport} />
+            <ProjectTree onAddProject={handleImport} />
           </div>
         </div>
         <div className="group relative w-px shrink-0">

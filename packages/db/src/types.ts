@@ -15,9 +15,9 @@ export interface WorktreeInfo {
   label?: string;
 }
 
-// ── Workspace ────────────────────────────────────────────────────────────────
+// ── Project ──────────────────────────────────────────────────────────────────
 
-export interface Workspace {
+export interface Project {
   id: string;
   path: string;
   name: string;
@@ -52,7 +52,7 @@ export interface Tab {
   id: string;
   label: string;
   labelIsManual: boolean;
-  workspaceItemId: string;
+  projectItemId: string;
   paneRoot: PaneNode;
   focusedPaneId: string | null;
   position: number;
@@ -64,7 +64,7 @@ export interface Session {
   id: string;
   paneId: string;
   tabId: string;
-  workspaceId: string | null;
+  projectId: string | null;
   cwd: string;
   shell: string;
 }

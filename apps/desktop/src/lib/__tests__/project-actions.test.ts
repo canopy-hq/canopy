@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { Workspace, UiState } from '@superagent/db';
+import type { Project, UiState } from '@superagent/db';
 
 // ── In-memory mock for @superagent/db ────────────────────────────────────────
 
-let _workspaces: Workspace[] = [];
+let _projects: Project[] = [];
 let _uiState: UiState = {
   id: 'ui',
   sidebarVisible: false,
@@ -19,19 +19,19 @@ let _uiState: UiState = {
 const mockSetSetting = vi.fn();
 
 vi.mock('@superagent/db', () => ({
-  getWorkspaceCollection: () => ({
+  getProjectCollection: () => ({
     get toArray() {
-      return [..._workspaces];
+      return [..._projects];
     },
-    insert: (ws: Workspace) => {
-      _workspaces.push(ws);
+    insert: (proj: Project) => {
+      _projects.push(proj);
     },
     delete: (id: string) => {
-      _workspaces = _workspaces.filter((w) => w.id !== id);
+      _projects = _projects.filter((p) => p.id !== id);
     },
-    update: (id: string, updater: (draft: Workspace) => void) => {
-      const ws = _workspaces.find((w) => w.id === id);
-      if (ws) updater(ws);
+    update: (id: string, updater: (draft: Project) => void) => {
+      const proj = _projects.find((p) => p.id === id);
+      if (proj) updater(proj);
     },
   }),
   getTabCollection: () => ({
@@ -64,13 +64,13 @@ vi.mock('../toast', () => ({ showErrorToast: vi.fn(), showInfoToast: vi.fn() }))
 vi.mock('@superagent/terminal', () => ({ closePty: vi.fn(), disposeCached: vi.fn() }));
 
 import * as gitApi from '../git';
-import { showInfoToast } from '../toast';
 // Import AFTER mocks are set up
-import { importRepo } from '../workspace-actions';
+import { importRepo } from '../project-actions';
+import { showInfoToast } from '../toast';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeWorkspace(overrides: Partial<Workspace> & { id: string; path: string }): Workspace {
+function makeProject(overrides: Partial<Project> & { id: string; path: string }): Project {
   return {
     name: 'my-repo',
     branches: [],
@@ -85,7 +85,7 @@ function makeWorkspace(overrides: Partial<Workspace> & { id: string; path: strin
 
 describe('importRepo', () => {
   beforeEach(() => {
-    _workspaces = [];
+    _projects = [];
     _uiState = {
       id: 'ui',
       sidebarVisible: false,
@@ -99,7 +99,7 @@ describe('importRepo', () => {
     vi.clearAllMocks();
   });
 
-  it('inserts a new workspace when path is not a duplicate', async () => {
+  it('inserts a new project when path is not a duplicate', async () => {
     vi.mocked(gitApi.importRepo).mockResolvedValue({
       path: '/Users/pierre/new-repo',
       name: 'new-repo',
@@ -109,14 +109,14 @@ describe('importRepo', () => {
 
     await importRepo('/Users/pierre/new-repo');
 
-    expect(_workspaces).toHaveLength(1);
-    expect(_workspaces[0]!.path).toBe('/Users/pierre/new-repo');
-    expect(_workspaces[0]!.name).toBe('new-repo');
+    expect(_projects).toHaveLength(1);
+    expect(_projects[0]!.path).toBe('/Users/pierre/new-repo');
+    expect(_projects[0]!.name).toBe('new-repo');
   });
 
   it('does not insert when path already exists — selects existing + shows info toast', async () => {
-    const existing = makeWorkspace({ id: 'ws-1', path: '/Users/pierre/my-repo', name: 'my-repo' });
-    _workspaces = [existing];
+    const existing = makeProject({ id: 'proj-1', path: '/Users/pierre/my-repo', name: 'my-repo' });
+    _projects = [existing];
 
     vi.mocked(gitApi.importRepo).mockResolvedValue({
       path: '/Users/pierre/my-repo',
@@ -127,10 +127,10 @@ describe('importRepo', () => {
 
     await importRepo('/Users/pierre/my-repo');
 
-    // No new workspace inserted
-    expect(_workspaces).toHaveLength(1);
+    // No new project inserted
+    expect(_projects).toHaveLength(1);
 
-    // Selection not changed (workspace-level selection was removed)
+    // Selection not changed (project-level selection was removed)
     expect(_uiState.selectedItemId).toBeNull();
 
     // Sidebar opened
@@ -141,8 +141,8 @@ describe('importRepo', () => {
   });
 
   it('compares against canonical path from gitApi (not raw input)', async () => {
-    const existing = makeWorkspace({ id: 'ws-1', path: '/Users/pierre/my-repo', name: 'my-repo' });
-    _workspaces = [existing];
+    const existing = makeProject({ id: 'proj-1', path: '/Users/pierre/my-repo', name: 'my-repo' });
+    _projects = [existing];
 
     // Simulate user selecting path with trailing slash — gitApi returns canonical
     vi.mocked(gitApi.importRepo).mockResolvedValue({
@@ -155,7 +155,7 @@ describe('importRepo', () => {
     await importRepo('/Users/pierre/my-repo/');
 
     // Should detect duplicate via canonical info.path
-    expect(_workspaces).toHaveLength(1);
+    expect(_projects).toHaveLength(1);
     expect(showInfoToast).toHaveBeenCalledWith('"my-repo" is already imported');
   });
 });

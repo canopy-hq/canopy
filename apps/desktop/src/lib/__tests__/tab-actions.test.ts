@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { Tab, Workspace } from '@superagent/db';
+import type { Tab, Project } from '@superagent/db';
 import type { UiState } from '@superagent/db';
 
 // ── In-memory mock for @superagent/db ────────────────────────────────────────
@@ -17,7 +17,7 @@ let _uiState: UiState = {
   creatingWorktreeIds: [],
 };
 
-const _workspaces: Workspace[] = [
+const _projects: Project[] = [
   {
     id: 'ws-1',
     path: '/repos/my-project',
@@ -32,9 +32,9 @@ const _workspaces: Workspace[] = [
 const mockSetSetting = vi.fn();
 
 vi.mock('@superagent/db', () => ({
-  getWorkspaceCollection: () => ({
+  getProjectCollection: () => ({
     get toArray() {
-      return [..._workspaces];
+      return [..._projects];
     },
   }),
   getTabCollection: () => ({
@@ -76,12 +76,12 @@ import {
   setPtyIdInTab,
   addTab,
   splitPane,
-  resolveWorkspaceItemCwd,
+  resolveProjectItemCwd,
 } from '../tab-actions';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeTab(overrides: Partial<Tab> & { id: string; workspaceItemId: string }): Tab {
+function makeTab(overrides: Partial<Tab> & { id: string; projectItemId: string }): Tab {
   return {
     label: 'Terminal',
     labelIsManual: false,
@@ -131,7 +131,7 @@ describe('setActiveContext', () => {
 
   it('restores last active tab when switching back to context with tabs', () => {
     // Set up: context-a has a tab
-    const tab = makeTab({ id: 'tab-a', workspaceItemId: 'ctx-a' });
+    const tab = makeTab({ id: 'tab-a', projectItemId: 'ctx-a' });
     _tabs.push(tab);
     _uiState.activeContextId = 'ctx-a';
     _uiState.activeTabId = 'tab-a';
@@ -148,8 +148,8 @@ describe('setActiveContext', () => {
   });
 
   it('restores the saved active tab (not just the first) when switching back', () => {
-    const tab1 = makeTab({ id: 'tab-1', workspaceItemId: 'ctx-a', position: 0 });
-    const tab2 = makeTab({ id: 'tab-2', workspaceItemId: 'ctx-a', position: 1 });
+    const tab1 = makeTab({ id: 'tab-1', projectItemId: 'ctx-a', position: 0 });
+    const tab2 = makeTab({ id: 'tab-2', projectItemId: 'ctx-a', position: 1 });
     _tabs.push(tab1, tab2);
     _uiState.activeContextId = 'ctx-a';
     _uiState.activeTabId = 'tab-2'; // tab-2 is active, not tab-1
@@ -168,7 +168,7 @@ describe('closeTab', () => {
   beforeEach(resetState);
 
   it('sets activeTabId to empty string when closing the last tab', () => {
-    const tab = makeTab({ id: 'tab-1', workspaceItemId: 'ctx-a' });
+    const tab = makeTab({ id: 'tab-1', projectItemId: 'ctx-a' });
     _tabs.push(tab);
     _uiState.activeContextId = 'ctx-a';
     _uiState.activeTabId = 'tab-1';
@@ -180,7 +180,7 @@ describe('closeTab', () => {
   });
 
   it('cleans up contextActiveTabIds when closing the last tab', () => {
-    const tab = makeTab({ id: 'tab-1', workspaceItemId: 'ctx-a' });
+    const tab = makeTab({ id: 'tab-1', projectItemId: 'ctx-a' });
     _tabs.push(tab);
     _uiState.activeContextId = 'ctx-a';
     _uiState.activeTabId = 'tab-1';
@@ -193,9 +193,9 @@ describe('closeTab', () => {
   });
 
   it('switches to the tab to the left when closing the rightmost active tab', () => {
-    const tab1 = makeTab({ id: 'tab-1', workspaceItemId: 'ctx-a', position: 0 });
-    const tab2 = makeTab({ id: 'tab-2', workspaceItemId: 'ctx-a', position: 1 });
-    const tab3 = makeTab({ id: 'tab-3', workspaceItemId: 'ctx-a', position: 2 });
+    const tab1 = makeTab({ id: 'tab-1', projectItemId: 'ctx-a', position: 0 });
+    const tab2 = makeTab({ id: 'tab-2', projectItemId: 'ctx-a', position: 1 });
+    const tab3 = makeTab({ id: 'tab-3', projectItemId: 'ctx-a', position: 2 });
     _tabs.push(tab1, tab2, tab3);
     _uiState.activeContextId = 'ctx-a';
     _uiState.activeTabId = 'tab-3';
@@ -207,8 +207,8 @@ describe('closeTab', () => {
   });
 
   it('switches to the tab to the right when closing the first active tab', () => {
-    const tab1 = makeTab({ id: 'tab-1', workspaceItemId: 'ctx-a', position: 0 });
-    const tab2 = makeTab({ id: 'tab-2', workspaceItemId: 'ctx-a', position: 1 });
+    const tab1 = makeTab({ id: 'tab-1', projectItemId: 'ctx-a', position: 0 });
+    const tab2 = makeTab({ id: 'tab-2', projectItemId: 'ctx-a', position: 1 });
     _tabs.push(tab1, tab2);
     _uiState.activeContextId = 'ctx-a';
     _uiState.activeTabId = 'tab-1';
@@ -221,7 +221,7 @@ describe('closeTab', () => {
 
   it('closes 5 tabs right-to-left: 5→4→3→2→1', () => {
     for (let i = 1; i <= 5; i++) {
-      _tabs.push(makeTab({ id: `tab-${i}`, workspaceItemId: 'ctx-a', position: i - 1 }));
+      _tabs.push(makeTab({ id: `tab-${i}`, projectItemId: 'ctx-a', position: i - 1 }));
     }
     _uiState.activeContextId = 'ctx-a';
     _uiState.activeTabId = 'tab-5';
@@ -248,7 +248,7 @@ describe('setPtyIdInTab', () => {
   beforeEach(resetState);
 
   it('sets ptyId on a single-leaf root tab', () => {
-    const tab = makeTab({ id: 'tab-1', workspaceItemId: 'ctx-a' });
+    const tab = makeTab({ id: 'tab-1', projectItemId: 'ctx-a' });
     _tabs.push(tab);
 
     setPtyIdInTab('tab-1', 'pane-1', 999);
@@ -261,7 +261,7 @@ describe('setPtyIdInTab', () => {
   it('sets ptyId on the correct leaf in a split (branch) tab', () => {
     const tab = makeTab({
       id: 'tab-1',
-      workspaceItemId: 'ctx-a',
+      projectItemId: 'ctx-a',
       paneRoot: {
         type: 'branch',
         id: 'branch-1',
@@ -284,7 +284,7 @@ describe('setPtyIdInTab', () => {
   });
 
   it('is a no-op for an unknown tabId', () => {
-    const tab = makeTab({ id: 'tab-1', workspaceItemId: 'ctx-a' });
+    const tab = makeTab({ id: 'tab-1', projectItemId: 'ctx-a' });
     _tabs.push(tab);
 
     setPtyIdInTab('does-not-exist', 'pane-1', 99);
@@ -294,7 +294,7 @@ describe('setPtyIdInTab', () => {
   });
 
   it('is a no-op for an unknown paneId within a valid tab', () => {
-    const tab = makeTab({ id: 'tab-1', workspaceItemId: 'ctx-a' });
+    const tab = makeTab({ id: 'tab-1', projectItemId: 'ctx-a' });
     _tabs.push(tab);
 
     setPtyIdInTab('tab-1', 'does-not-exist', 77);
@@ -304,10 +304,10 @@ describe('setPtyIdInTab', () => {
   });
 
   it('does not affect sibling tabs', () => {
-    const tab1 = makeTab({ id: 'tab-1', workspaceItemId: 'ctx-a' });
+    const tab1 = makeTab({ id: 'tab-1', projectItemId: 'ctx-a' });
     const tab2 = makeTab({
       id: 'tab-2',
-      workspaceItemId: 'ctx-a',
+      projectItemId: 'ctx-a',
       paneRoot: { type: 'leaf', id: 'pane-2', ptyId: -1 },
       focusedPaneId: 'pane-2',
     });
@@ -320,29 +320,29 @@ describe('setPtyIdInTab', () => {
   });
 });
 
-describe('resolveWorkspaceItemCwd', () => {
-  it('returns workspace path for bare workspace ID', () => {
-    expect(resolveWorkspaceItemCwd('ws-1')).toBe('/repos/my-project');
+describe('resolveProjectItemCwd', () => {
+  it('returns project path for bare project ID', () => {
+    expect(resolveProjectItemCwd('ws-1')).toBe('/repos/my-project');
   });
 
-  it('returns workspace path for branch context', () => {
-    expect(resolveWorkspaceItemCwd('ws-1-branch-main')).toBe('/repos/my-project');
+  it('returns project path for branch context', () => {
+    expect(resolveProjectItemCwd('ws-1-branch-main')).toBe('/repos/my-project');
   });
 
   it('returns worktree path for worktree context', () => {
-    expect(resolveWorkspaceItemCwd('ws-1-wt-feature-x')).toBe('/worktrees/feature-x');
+    expect(resolveProjectItemCwd('ws-1-wt-feature-x')).toBe('/worktrees/feature-x');
   });
 
-  it('returns undefined for unknown workspace item ID', () => {
-    expect(resolveWorkspaceItemCwd('unknown-id')).toBeUndefined();
+  it('returns undefined for unknown project item ID', () => {
+    expect(resolveProjectItemCwd('unknown-id')).toBeUndefined();
   });
 
   it('returns undefined for "default"', () => {
-    expect(resolveWorkspaceItemCwd('default')).toBeUndefined();
+    expect(resolveProjectItemCwd('default')).toBeUndefined();
   });
 
-  it('falls back to workspace path for unknown worktree name', () => {
-    expect(resolveWorkspaceItemCwd('ws-1-wt-nonexistent')).toBe('/repos/my-project');
+  it('falls back to project path for unknown worktree name', () => {
+    expect(resolveProjectItemCwd('ws-1-wt-nonexistent')).toBe('/repos/my-project');
   });
 });
 
@@ -383,7 +383,7 @@ describe('splitPane', () => {
   beforeEach(resetState);
 
   it('stores cwd setting for the new split pane', () => {
-    const tab = makeTab({ id: 'tab-1', workspaceItemId: 'ws-1-wt-feature-x' });
+    const tab = makeTab({ id: 'tab-1', projectItemId: 'ws-1-wt-feature-x' });
     _tabs.push(tab);
     _uiState.activeTabId = 'tab-1';
 

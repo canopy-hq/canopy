@@ -1,5 +1,5 @@
 import {
-  getWorkspaceCollection,
+  getProjectCollection,
   getTabCollection,
   getSettingCollection,
   agentCollection,
@@ -12,8 +12,8 @@ import {
  */
 import { useLiveQuery } from '@tanstack/react-db';
 
-export function useWorkspaces() {
-  const { data = [] } = useLiveQuery(() => getWorkspaceCollection());
+export function useProjects() {
+  const { data = [] } = useLiveQuery(() => getProjectCollection());
   return data;
 }
 

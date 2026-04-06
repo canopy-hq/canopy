@@ -1,31 +1,31 @@
 import { toggleManualOverride } from '../lib/agent-actions';
 import { containsPtyId } from '../lib/pane-tree-ops';
 import { jumpToPane } from '../lib/tab-actions';
-import { resolveWorkspaceForTab } from './utils';
+import { resolveProjectForTab } from './utils';
 
 import type { Nav, CommandItem } from '@superagent/command-palette';
-import type { AgentInfo, Tab, Workspace } from '@superagent/db';
+import type { AgentInfo, Tab, Project } from '@superagent/db';
 
 export function buildAgentCommands(
   agents: AgentInfo[],
   tabs: Tab[],
-  workspaces: Workspace[],
+  projects: Project[],
   navigate: Nav,
 ): CommandItem[] {
   return agents.map((agent): CommandItem => {
     const tab = tabs.find((t) => containsPtyId(t.paneRoot, agent.ptyId));
-    const ws = tab ? resolveWorkspaceForTab(tab, workspaces) : undefined;
-    const label = ws ? `${agent.agentName} — ${ws.name}` : agent.agentName;
+    const proj = tab ? resolveProjectForTab(tab, projects) : undefined;
+    const label = proj ? `${agent.agentName} — ${proj.name}` : agent.agentName;
 
     return {
       id: `agent:${agent.ptyId}`,
       label,
       category: 'agent',
-      keywords: [agent.agentName, ws?.name ?? '', 'ai', 'claude'],
+      keywords: [agent.agentName, proj?.name ?? '', 'ai', 'claude'],
       icon: 'agent',
       agentStatus: agent.status,
       action: ({ close }) => {
-        if (tab) jumpToPane(navigate, tab.workspaceItemId, tab.id);
+        if (tab) jumpToPane(navigate, tab.projectItemId, tab.id);
         close();
       },
       children: () => buildAgentChildren(agent, tab, navigate),
@@ -43,7 +43,7 @@ function buildAgentChildren(agent: AgentInfo, tab: Tab | undefined, navigate: Na
       category: 'agent',
       icon: 'tab',
       action: ({ close }) => {
-        jumpToPane(navigate, tab.workspaceItemId, tab.id);
+        jumpToPane(navigate, tab.projectItemId, tab.id);
         close();
       },
     });

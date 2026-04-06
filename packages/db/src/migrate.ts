@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 
 import { getDb } from './client';
-import { settings, workspaces, tabs, sessions } from './schema';
+import { settings, projects, tabs, sessions } from './schema';
 
 /**
  * Run all migrations against the already-initialized SQLite database.
@@ -12,7 +12,7 @@ export async function runMigrations(): Promise<void> {
 
   // Use raw SQL for table creation so we don't rely on drizzle-kit at runtime
   await db.run(sql`
-    CREATE TABLE IF NOT EXISTS workspaces (
+    CREATE TABLE IF NOT EXISTS projects (
       id TEXT PRIMARY KEY,
       path TEXT NOT NULL,
       name TEXT NOT NULL,
@@ -24,7 +24,7 @@ export async function runMigrations(): Promise<void> {
   `);
 
   await db.run(sql`
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_workspaces_path ON workspaces(path)
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_path ON projects(path)
   `);
 
   await db.run(sql`
@@ -32,7 +32,7 @@ export async function runMigrations(): Promise<void> {
       id TEXT PRIMARY KEY,
       label TEXT NOT NULL DEFAULT 'Terminal 1',
       label_is_manual INTEGER NOT NULL DEFAULT 0,
-      workspace_item_id TEXT NOT NULL DEFAULT 'default',
+      project_item_id TEXT NOT NULL DEFAULT 'default',
       pane_root TEXT NOT NULL,
       focused_pane_id TEXT,
       position INTEGER NOT NULL DEFAULT 0
@@ -47,19 +47,12 @@ export async function runMigrations(): Promise<void> {
     await db.run(sql`ALTER TABLE tabs ADD COLUMN label_is_manual INTEGER NOT NULL DEFAULT 0`);
   }
 
-  const wsCols = await db.get<{ cnt: number }>(
-    sql`SELECT COUNT(*) as cnt FROM pragma_table_info('workspaces') WHERE name = 'color'`,
-  );
-  if (!wsCols || wsCols.cnt === 0) {
-    await db.run(sql`ALTER TABLE workspaces ADD COLUMN color TEXT`);
-  }
-
   await db.run(sql`
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
       pane_id TEXT NOT NULL,
       tab_id TEXT NOT NULL,
-      workspace_id TEXT,
+      project_id TEXT,
       cwd TEXT NOT NULL,
       shell TEXT NOT NULL
     )
@@ -72,8 +65,43 @@ export async function runMigrations(): Promise<void> {
     )
   `);
 
+  // ── Rename workspaces → projects (idempotent) ─────────────────────────────
+  // Check if the old table still exists before migrating.
+  const wsTable = await db.get<{ cnt: number }>(
+    sql`SELECT COUNT(*) as cnt FROM sqlite_master WHERE type='table' AND name='workspaces'`,
+  );
+  if (wsTable && wsTable.cnt > 0) {
+    await db.run(sql`ALTER TABLE workspaces RENAME TO projects`);
+    await db.run(sql`DROP INDEX IF EXISTS idx_workspaces_path`);
+    await db.run(sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_path ON projects(path)`);
+  }
+
+  // Add color column to projects if missing (pre-rename installs had it on workspaces).
+  const projCols = await db.get<{ cnt: number }>(
+    sql`SELECT COUNT(*) as cnt FROM pragma_table_info('projects') WHERE name = 'color'`,
+  );
+  if (!projCols || projCols.cnt === 0) {
+    await db.run(sql`ALTER TABLE projects ADD COLUMN color TEXT`);
+  }
+
+  // Rename workspace_item_id → project_item_id on tabs (idempotent).
+  const tabItemCol = await db.get<{ cnt: number }>(
+    sql`SELECT COUNT(*) as cnt FROM pragma_table_info('tabs') WHERE name = 'workspace_item_id'`,
+  );
+  if (tabItemCol && tabItemCol.cnt > 0) {
+    await db.run(sql`ALTER TABLE tabs RENAME COLUMN workspace_item_id TO project_item_id`);
+  }
+
+  // Rename workspace_id → project_id on sessions (idempotent).
+  const sessWsCol = await db.get<{ cnt: number }>(
+    sql`SELECT COUNT(*) as cnt FROM pragma_table_info('sessions') WHERE name = 'workspace_id'`,
+  );
+  if (sessWsCol && sessWsCol.cnt > 0) {
+    await db.run(sql`ALTER TABLE sessions RENAME COLUMN workspace_id TO project_id`);
+  }
+
   // Silence unused import warnings — these are used by collections
-  void workspaces;
+  void projects;
   void tabs;
   void sessions;
   void settings;

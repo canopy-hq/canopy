@@ -1,4 +1,4 @@
-import { openImportDialog, toggleSidebar } from '../lib/workspace-actions';
+import { openImportDialog, toggleSidebar } from '../lib/project-actions';
 
 import type { Nav, CommandItem } from '@superagent/command-palette';
 

@@ -4,13 +4,13 @@ import { Dialog, Modal, ModalOverlay } from 'react-aria-components';
 import { closePty, listPtySessions } from '@superagent/terminal';
 import { useNavigate } from '@tanstack/react-router';
 
-import { useTabs, useWorkspaces } from '../hooks/useCollections';
+import { useTabs, useProjects } from '../hooks/useCollections';
 import { containsPtyId } from '../lib/pane-tree-ops';
+import { getProjectItemIds } from '../lib/project-actions';
 import { killPaneInTab, jumpToPane } from '../lib/tab-actions';
-import { getWorkspaceItemIds } from '../lib/workspace-actions';
 import { Button, SectionLabel } from './ui';
 
-import type { Tab, Workspace } from '@superagent/db';
+import type { Tab, Project } from '@superagent/db';
 import type { PtySessionInfo } from '@superagent/terminal';
 
 export interface SessionManagerProps {
@@ -24,15 +24,15 @@ function findTabForPtyId(tabs: Tab[], ptyId: number): Tab | null {
   return null;
 }
 
-function findWorkspaceForTab(tab: Tab, workspaces: Workspace[]): Workspace | null {
-  return workspaces.find((w) => getWorkspaceItemIds(w).has(tab.workspaceItemId)) ?? null;
+function findProjectForTab(tab: Tab, projects: Project[]): Project | null {
+  return projects.find((p) => getProjectItemIds(p).has(tab.projectItemId)) ?? null;
 }
 
 interface SessionRow {
   info: PtySessionInfo;
   tab: Tab | null;
-  workspaceName: string;
-  workspaceItemId: string;
+  projectName: string;
+  projectItemId: string;
 }
 
 /**
@@ -40,7 +40,7 @@ interface SessionRow {
  */
 export function SessionManager({ onClose }: SessionManagerProps) {
   const tabs = useTabs();
-  const workspaces = useWorkspaces();
+  const projects = useProjects();
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<PtySessionInfo[]>([]);
   const [killing, setKilling] = useState<Set<number>>(new Set());
@@ -79,23 +79,23 @@ export function SessionManager({ onClose }: SessionManagerProps) {
     () =>
       sessions.map((info) => {
         const tab = findTabForPtyId(tabs, info.ptyId);
-        const ws = tab ? findWorkspaceForTab(tab, workspaces) : null;
+        const proj = tab ? findProjectForTab(tab, projects) : null;
         return {
           info,
           tab,
-          workspaceName: ws?.name ?? 'Unknown',
-          workspaceItemId: tab?.workspaceItemId ?? '',
+          projectName: proj?.name ?? 'Unknown',
+          projectItemId: tab?.projectItemId ?? '',
         };
       }),
-    [sessions, tabs, workspaces],
+    [sessions, tabs, projects],
   );
 
   const grouped = useMemo(() => {
     const map = new Map<string, SessionRow[]>();
     for (const row of rows) {
-      const group = map.get(row.workspaceName) ?? [];
+      const group = map.get(row.projectName) ?? [];
       group.push(row);
-      map.set(row.workspaceName, group);
+      map.set(row.projectName, group);
     }
     return map;
   }, [rows]);
@@ -103,7 +103,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
   const handleJump = useCallback(
     (row: SessionRow) => {
       if (!row.tab) return;
-      jumpToPane(navigate, row.workspaceItemId, row.tab.id);
+      jumpToPane(navigate, row.projectItemId, row.tab.id);
       onClose();
     },
     [navigate, onClose],
@@ -201,14 +201,14 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                 No active sessions
               </div>
             ) : (
-              Array.from(grouped.entries()).map(([wsName, groupRows]) => (
-                <div key={wsName}>
+              Array.from(grouped.entries()).map(([projName, groupRows]) => (
+                <div key={projName}>
                   <div className="flex h-7 items-center px-3">
-                    <SectionLabel className="flex-1">{wsName}</SectionLabel>
+                    <SectionLabel className="flex-1">{projName}</SectionLabel>
                     <Button
                       variant="destructive-ghost"
                       size="sm"
-                      aria-label={`Kill all sessions in ${wsName}`}
+                      aria-label={`Kill all sessions in ${projName}`}
                       onPress={() => void handleKillGroup(groupRows)}
                       isDisabled={groupRows.every((r) => killing.has(r.info.ptyId))}
                     >
