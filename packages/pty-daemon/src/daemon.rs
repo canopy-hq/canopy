@@ -253,9 +253,14 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
 
                 let claimed = {
                     let mut st = state.lock().unwrap();
-                    // Find a ready pool entry
-                    let idx = st.pool.iter().position(|e| e.ready);
-                    if let Some(idx) = idx {
+                    // If a session already exists for this paneId, don't
+                    // claim from the pool — the caller should reconnect to
+                    // the existing session (preserving terminal history).
+                    // Without this guard, the pool entry replaces the
+                    // existing session and the user's scrollback is lost.
+                    if st.sessions.contains_key(&pane_id) {
+                        None
+                    } else if let Some(idx) = st.pool.iter().position(|e| e.ready) {
                         let entry = st.pool.remove(idx);
                         let old_pane_id = entry.pane_id;
                         // Reassign paneId: remove session under old key, reinsert under new key
