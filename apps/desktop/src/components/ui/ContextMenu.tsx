@@ -81,6 +81,7 @@ export function ContextMenu({
                     <span className="flex-1">{item.label}</span>
                     <ChevronRight size={12} className="text-text-faint" />
                   </MenuItem>
+                  {/* offset=-4 pulls submenu flush with parent panel edge; crossOffset=-4 aligns top with trigger row */}
                   <Popover className={panelCls} placement="end top" offset={-4} crossOffset={-4}>
                     <Menu
                       aria-label={item.label}

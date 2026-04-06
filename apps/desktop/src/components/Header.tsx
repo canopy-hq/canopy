@@ -46,7 +46,10 @@ export function Header({ onSessionsClick, onSearchClick }: HeaderProps = {}) {
       <div data-tauri-drag-region className="flex-1" />
 
       {/* Search — absolutely centered in the full header width */}
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+      <div
+        data-tauri-drag-region
+        className="pointer-events-none absolute inset-0 flex items-center justify-center"
+      >
         <button
           type="button"
           onClick={onSearchClick}
