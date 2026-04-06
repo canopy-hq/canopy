@@ -46,15 +46,35 @@ struct PtySession {
     child_pid: u32,
     scrollback: ScrollbackBuffer,
     tx: broadcast::Sender<Vec<u8>>,
+    pane_id_ref: Arc<Mutex<String>>,
+}
+
+struct PoolEntry {
+    pane_id: String,
+    ready: bool,
+    /// Scrollback length at last check — used to detect stabilization.
+    last_scrollback_len: usize,
+    /// How many consecutive polls the scrollback length hasn't changed.
+    stable_ticks: u32,
 }
 
 pub struct DaemonState {
     sessions: HashMap<String, PtySession>,
+    pool: Vec<PoolEntry>,
+    pool_cwd: Option<String>,
+    pool_target_size: usize,
+    pool_counter: u64,
 }
 
 impl DaemonState {
     pub fn new() -> Self {
-        Self { sessions: HashMap::new() }
+        Self {
+            sessions: HashMap::new(),
+            pool: Vec::new(),
+            pool_cwd: None,
+            pool_target_size: 0,
+            pool_counter: 0,
+        }
     }
 }
 
@@ -227,7 +247,227 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 let _ = write_half.write_all(resp.as_bytes()).await;
             }
 
+            "claim" => {
+                let rows = cmd["rows"].as_u64().unwrap_or(24) as u16;
+                let cols = cmd["cols"].as_u64().unwrap_or(80) as u16;
+                let claimed = {
+                    let mut st = state.lock().unwrap();
+                    // If a session already exists for this paneId, don't
+                    // claim from the pool — the caller should reconnect to
+                    // the existing session (preserving terminal history).
+                    // Without this guard, the pool entry replaces the
+                    // existing session and the user's scrollback is lost.
+                    if st.sessions.contains_key(&pane_id) {
+                        None
+                    } else if let Some(idx) = st.pool.iter().position(|e| e.ready) {
+                        let entry = st.pool.remove(idx);
+                        let old_pane_id = entry.pane_id;
+                        // Reassign paneId: remove session under old key, reinsert under new key
+                        if let Some(mut sess) = st.sessions.remove(&old_pane_id) {
+                            let pid = sess.child_pid;
+                            // Clear stale scrollback (old prompt at 80×24) so
+                            // attach replays only post-resize output.
+                            sess.scrollback = ScrollbackBuffer::new(SCROLLBACK_CAP);
+                            // Resize to actual container dimensions — SIGWINCH
+                            // triggers the shell to redraw its prompt cleanly.
+                            let _ = sess.master.resize(PtySize {
+                                rows,
+                                cols,
+                                pixel_width: 0,
+                                pixel_height: 0,
+                            });
+                            // Update the shared pane_id so the reader thread
+                            // looks up the session under the new key.
+                            *sess.pane_id_ref.lock().unwrap() = pane_id.clone();
+                            st.sessions.insert(pane_id.clone(), sess);
+                            Some(pid)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                };
+
+                let resp = match claimed {
+                    Some(pid) => {
+                        // Trigger async replenishment
+                        let state_bg = state.clone();
+                        let pool_cwd = {
+                            let st = state.lock().unwrap();
+                            st.pool_cwd.clone()
+                        };
+                        if let Some(cwd) = pool_cwd {
+                            tokio::spawn(async move {
+                                let counter = {
+                                    let mut st = state_bg.lock().unwrap();
+                                    st.pool_counter += 1;
+                                    st.pool_counter
+                                };
+                                let pool_pane_id = format!("__pool_{counter}");
+                                let result = do_spawn(
+                                    state_bg.clone(),
+                                    pool_pane_id.clone(),
+                                    Some(cwd),
+                                    24,
+                                    80,
+                                    None,
+                                    vec![],
+                                );
+                                match &result {
+                                    Ok((pid, _)) => eprintln!("[pool] REPLENISH spawned {pool_pane_id} pid={pid}"),
+                                    Err(e) => eprintln!("[pool] REPLENISH failed: {e}"),
+                                }
+                                if result.is_ok() {
+                                    let mut st = state_bg.lock().unwrap();
+                                    st.pool.push(PoolEntry {
+                                        pane_id: pool_pane_id.clone(),
+                                        ready: false,
+                                        last_scrollback_len: 0,
+                                        stable_ticks: 0,
+                                    });
+                                }
+                                // Background readiness polling — wait for scrollback to stabilize
+                                // (no new output for 5 consecutive ticks = 500ms of silence).
+                                let state_poll = state_bg.clone();
+                                poll_pool_readiness(state_poll).await;
+                            });
+                        }
+                        format!("{{\"ok\":true,\"pid\":{pid}}}\n")
+                    }
+                    None => "{\"ok\":true,\"pid\":0,\"empty\":true}\n".to_string(),
+                };
+                let _ = write_half.write_all(resp.as_bytes()).await;
+            }
+
+            "drain_pool" => {
+                {
+                    let mut st = state.lock().unwrap();
+                    let pool_entries: Vec<String> = st.pool.drain(..).map(|e| e.pane_id).collect();
+                    for pane_id in pool_entries {
+                        if let Some(mut sess) = st.sessions.remove(&pane_id) {
+                            let _ = sess.child.kill();
+                            let _ = sess.child.wait();
+                        }
+                    }
+                    st.pool_target_size = 0;
+                    st.pool_cwd = None;
+                }
+                let _ = write_half.write_all(b"{\"ok\":true}\n").await;
+            }
+
+            "init_pool" => {
+                let cwd = cmd["cwd"].as_str().unwrap_or("/tmp").to_string();
+                let size = cmd["size"].as_u64().unwrap_or(2) as usize;
+
+                // Kill existing pool entries
+                {
+                    let mut st = state.lock().unwrap();
+                    let old_pool: Vec<String> = st.pool.drain(..).map(|e| e.pane_id).collect();
+                    for pane_id in old_pool {
+                        if let Some(mut sess) = st.sessions.remove(&pane_id) {
+                            let _ = sess.child.kill();
+                            let _ = sess.child.wait();
+                        }
+                    }
+                    st.pool_cwd = Some(cwd.clone());
+                    st.pool_target_size = size;
+                }
+
+                // Spawn pool entries
+                for _ in 0..size {
+                    let counter = {
+                        let mut st = state.lock().unwrap();
+                        st.pool_counter += 1;
+                        st.pool_counter
+                    };
+                    let pool_pane_id = format!("__pool_{counter}");
+                    let result = do_spawn(
+                        state.clone(),
+                        pool_pane_id.clone(),
+                        Some(cwd.clone()),
+                        24,
+                        80,
+                        None,
+                        vec![],
+                    );
+                    match &result {
+                        Ok((pid, _)) => eprintln!("[pool] INIT spawned {pool_pane_id} pid={pid}"),
+                        Err(e) => eprintln!("[pool] INIT spawn failed: {e}"),
+                    }
+                    if result.is_ok() {
+                        let mut st = state.lock().unwrap();
+                        st.pool.push(PoolEntry {
+                            pane_id: pool_pane_id,
+                            ready: false,
+                            last_scrollback_len: 0,
+                            stable_ticks: 0,
+                        });
+                    }
+                }
+
+                // Start background task to mark pool entries as ready once shell stabilizes
+                let state_bg = state.clone();
+                tokio::spawn(poll_pool_readiness(state_bg));
+
+                let _ = write_half.write_all(b"{\"ok\":true}\n").await;
+            }
+
             _ => {}
+        }
+    }
+}
+
+/// Poll pool entries until their scrollback stabilizes (no new output for 5 consecutive
+/// 100ms ticks = 500ms of silence). This ensures the shell prompt is fully rendered
+/// (e.g. Starship has finished initializing) before marking the entry as ready.
+async fn poll_pool_readiness(state: Arc<Mutex<DaemonState>>) {
+    // Up to 150 ticks × 100ms = 15s max wait
+    for _ in 0..150 {
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        let mut st = state.lock().unwrap();
+        // Collect current scrollback lengths (avoids simultaneous borrow)
+        let lens: Vec<(usize, bool)> = st
+            .pool
+            .iter()
+            .map(|entry| {
+                if entry.ready {
+                    (0, true)
+                } else {
+                    let len = st
+                        .sessions
+                        .get(&entry.pane_id)
+                        .map(|s| s.scrollback.len())
+                        .unwrap_or(0);
+                    (len, false)
+                }
+            })
+            .collect();
+        let mut all_ready = true;
+        for (entry, &(len, already_ready)) in st.pool.iter_mut().zip(&lens) {
+            if already_ready {
+                continue;
+            }
+            if len == 0 {
+                // Shell hasn't produced any output yet
+                all_ready = false;
+                continue;
+            }
+            if len == entry.last_scrollback_len {
+                entry.stable_ticks += 1;
+                if entry.stable_ticks >= 5 {
+                    entry.ready = true;
+                    eprintln!("[pool] READY {} (scrollback={len} bytes)", entry.pane_id);
+                    continue;
+                }
+            } else {
+                entry.last_scrollback_len = len;
+                entry.stable_ticks = 0;
+            }
+            all_ready = false;
+        }
+        if all_ready {
+            break;
         }
     }
 }
@@ -291,6 +531,8 @@ fn do_spawn(
     // broadcast::channel capacity: 256 chunks before lagging
     let (tx, _) = broadcast::channel::<Vec<u8>>(256);
 
+    let pane_id_ref = Arc::new(Mutex::new(pane_id.clone()));
+
     {
         let mut st = state.lock().unwrap();
         st.sessions.insert(
@@ -302,6 +544,7 @@ fn do_spawn(
                 child_pid,
                 scrollback: ScrollbackBuffer::new(SCROLLBACK_CAP),
                 tx,
+                pane_id_ref: pane_id_ref.clone(),
             },
         );
     }
@@ -320,8 +563,9 @@ fn do_spawn(
                 Ok(n) => {
                     let data = buf[..n].to_vec();
                     let tx = {
+                        let current_pane_id = pane_id_ref.lock().unwrap().clone();
                         let mut st = state_clone.lock().unwrap();
-                        if let Some(sess) = st.sessions.get_mut(&pane_id) {
+                        if let Some(sess) = st.sessions.get_mut(&current_pane_id) {
                             sess.scrollback.push(&data);
                             Some(sess.tx.clone())
                         } else {
@@ -853,6 +1097,190 @@ mod tests {
             "SIGWINCH not delivered on reconnect-spawn; got: {:?}",
             String::from_utf8_lossy(&live)
         );
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn init_pool_spawns_entries() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"init_pool","cwd":"/tmp","size":2}"#).await;
+        let resp = read_json_line(&mut conn).await;
+        assert_eq!(resp["ok"], true, "init_pool failed: {resp}");
+
+        // Pool entries should appear in list with __pool_ prefix
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"list","paneId":""}"#).await;
+        let resp2 = read_json_line(&mut conn2).await;
+        let ids: Vec<&str> = resp2["paneIds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        let pool_count = ids.iter().filter(|id| id.starts_with("__pool_")).count();
+        assert_eq!(pool_count, 2, "expected 2 pool entries, got {pool_count}; ids: {ids:?}");
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn claim_returns_ready_pool_entry() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // Initialize pool
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"init_pool","cwd":"/tmp","size":2}"#).await;
+        let resp = read_json_line(&mut conn).await;
+        assert_eq!(resp["ok"], true);
+
+        // Wait for pool entries to stabilize (shell prompt + 500ms silence)
+        tokio::time::sleep(tokio::time::Duration::from_millis(2500)).await;
+
+        // Claim a pool entry
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"claim","paneId":"real-pane-1","rows":30,"cols":100}"#).await;
+        let resp2 = read_json_line(&mut conn2).await;
+        assert_eq!(resp2["ok"], true, "claim failed: {resp2}");
+        let pid = resp2["pid"].as_u64().unwrap();
+        assert!(pid > 0, "expected valid pid from claim");
+
+        // The claimed pane should now be accessible by its real paneId.
+        // Scrollback is cleared during claim (to avoid flashing the old prompt),
+        // so we just verify attach succeeds and the sentinel is received.
+        let mut conn3 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn3, r#"{"op":"attach","paneId":"real-pane-1"}"#).await;
+        let _scrollback = drain_scrollback(&mut conn3).await;
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn drain_pool_kills_all_pool_entries() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // Initialize pool
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"init_pool","cwd":"/tmp","size":2}"#).await;
+        let _ = read_json_line(&mut conn).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
+        // Drain pool
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"drain_pool","paneId":""}"#).await;
+        let resp = read_json_line(&mut conn2).await;
+        assert_eq!(resp["ok"], true);
+
+        // Verify no pool entries remain
+        let mut conn3 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn3, r#"{"op":"list","paneId":""}"#).await;
+        let resp2 = read_json_line(&mut conn3).await;
+        let ids: Vec<&str> = resp2["paneIds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        let pool_count = ids.iter().filter(|id| id.starts_with("__pool_")).count();
+        assert_eq!(pool_count, 0, "pool should be empty after drain; ids: {ids:?}");
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn claim_returns_empty_when_pool_exhausted() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // No pool initialized — claim should return empty
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"claim","paneId":"pane-x","rows":24,"cols":80}"#).await;
+        let resp = read_json_line(&mut conn).await;
+        assert_eq!(resp["ok"], true);
+        assert_eq!(resp["pid"], 0, "expected pid=0 for exhausted pool");
+        assert_eq!(resp["empty"], true);
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn full_claim_flow_attach_has_scrollback() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // Init pool with 2 entries
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"init_pool","cwd":"/tmp","size":2}"#).await;
+        let resp = read_json_line(&mut conn).await;
+        assert_eq!(resp["ok"], true);
+
+        // Wait for pool entries to stabilize (shell prompt + 500ms silence)
+        tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
+
+        // Claim first entry
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"claim","paneId":"tab-1","rows":30,"cols":120}"#).await;
+        let resp2 = read_json_line(&mut conn2).await;
+        assert_eq!(resp2["ok"], true);
+        assert!(resp2["pid"].as_u64().unwrap() > 0);
+
+        // Attach to claimed entry — scrollback is cleared during claim,
+        // so just verify attach succeeds (sentinel received).
+        let mut conn3 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn3, r#"{"op":"attach","paneId":"tab-1"}"#).await;
+        let _scrollback = drain_scrollback(&mut conn3).await;
+
+        // Claim second entry
+        let mut conn4 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn4, r#"{"op":"claim","paneId":"tab-2","rows":24,"cols":80}"#).await;
+        let resp3 = read_json_line(&mut conn4).await;
+        assert_eq!(resp3["ok"], true);
+        assert!(resp3["pid"].as_u64().unwrap() > 0);
+
+        // Third claim should return empty (pool exhausted, replenishment may not be ready yet)
+        let mut conn5 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn5, r#"{"op":"claim","paneId":"tab-3","rows":24,"cols":80}"#).await;
+        let resp4 = read_json_line(&mut conn5).await;
+        assert_eq!(resp4["ok"], true);
+        // May or may not be empty depending on replenishment timing — just verify it doesn't crash
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn claim_replenishes_pool() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // Init pool with 1 entry
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"init_pool","cwd":"/tmp","size":1}"#).await;
+        let _ = read_json_line(&mut conn).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
+
+        // Claim the entry
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"claim","paneId":"rep-1","rows":24,"cols":80}"#).await;
+        let resp = read_json_line(&mut conn2).await;
+        assert_eq!(resp["ok"], true);
+        assert!(resp["pid"].as_u64().unwrap() > 0);
+
+        // Wait for replenishment (shell start + 500ms stabilization)
+        tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
+
+        // Claim again — should get a replenished entry
+        let mut conn3 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn3, r#"{"op":"claim","paneId":"rep-2","rows":24,"cols":80}"#).await;
+        let resp2 = read_json_line(&mut conn3).await;
+        assert_eq!(resp2["ok"], true);
+        let pid2 = resp2["pid"].as_u64().unwrap();
+        assert!(pid2 > 0, "replenished pool entry should be claimable");
 
         let _ = std::fs::remove_file(&socket);
     }

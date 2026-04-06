@@ -163,4 +163,40 @@ describe('pty', () => {
       expect(cwd).toBe('/tmp/work');
     });
   });
+
+  describe('initTerminalPool', () => {
+    it('invokes init_terminal_pool with the given cwd', async () => {
+      invokeFn.mockResolvedValueOnce(undefined);
+      await pty.initTerminalPool('/Users/test/project');
+      expect(invokeFn).toHaveBeenCalledWith('init_terminal_pool', { cwd: '/Users/test/project' });
+    });
+  });
+
+  describe('closePtysForPanes', () => {
+    it('invokes close_ptys_for_panes with the given pane IDs', async () => {
+      invokeFn.mockResolvedValueOnce(undefined);
+      await pty.closePtysForPanes(['pane-a', 'pane-b']);
+      expect(invokeFn).toHaveBeenCalledWith('close_ptys_for_panes', {
+        paneIds: ['pane-a', 'pane-b'],
+      });
+    });
+
+    it('skips invoke for empty array', async () => {
+      await pty.closePtysForPanes([]);
+      expect(invokeFn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('spawnTerminal — error handling', () => {
+    it('rejects and clears pendingSpawns so retries work', async () => {
+      invokeFn.mockRejectedValueOnce(new Error('daemon down'));
+      await expect(pty.spawnTerminal('pane-err')).rejects.toThrow('daemon down');
+
+      // A subsequent call should attempt a fresh invoke, not return the failed promise
+      invokeFn.mockResolvedValueOnce({ pty_id: 50, is_new: true });
+      const result = await pty.spawnTerminal('pane-err');
+      expect(result).toEqual({ ptyId: 50, isNew: true });
+      expect(invokeFn).toHaveBeenCalledTimes(2);
+    });
+  });
 });

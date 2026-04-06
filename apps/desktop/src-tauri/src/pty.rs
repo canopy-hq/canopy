@@ -1,3 +1,22 @@
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║  ⚠️  CAUTION — PERFORMANCE-CRITICAL & RACE-CONDITION-SENSITIVE MODULE  ⚠️   ║
+// ║                                                                            ║
+// ║  This module orchestrates PTY lifecycle: pool claim-first spawn, attach    ║
+// ║  task dedup, scrollback sentinel signaling, and bulk cleanup. Subtle bugs  ║
+// ║  here cause doubled terminal output, blank screens, or zombie processes.   ║
+// ║                                                                            ║
+// ║  Before modifying:                                                         ║
+// ║    1. Read the integration tests in packages/terminal/test/integration/    ║
+// ║    2. Read the channel-manager tests in packages/terminal/test/            ║
+// ║    3. Understand the claim → attach → sentinel → ready flow end-to-end    ║
+// ║    4. Test with rapid tab open/close and project switching                 ║
+// ║                                                                            ║
+// ║  Key invariants:                                                           ║
+// ║    - Only ONE attach task per paneId (old ones are aborted)                ║
+// ║    - spawn_terminal must not return until sentinel is received (or timeout) ║
+// ║    - Pool claim has a 200ms timeout — stale daemons fall back to spawn     ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
+
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicU64;
@@ -44,7 +63,25 @@ pub async fn spawn_terminal(
     daemon: tauri::State<'_, DaemonClient>,
     watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
 ) -> Result<SpawnResult, String> {
-    let (pid, is_new) = daemon.spawn(&pane_id, cwd.as_deref(), rows.unwrap_or(24), cols.unwrap_or(80)).await?;
+    let (pid, is_new) = {
+        let r = rows.unwrap_or(24);
+        let c = cols.unwrap_or(80);
+        // Try to claim a pre-warmed PTY from the pool first.
+        // 200ms timeout guards against stale daemons that don't know "claim".
+        match tokio::time::timeout(
+            std::time::Duration::from_millis(200),
+            daemon.claim(&pane_id, r, c),
+        ).await {
+            Ok(Ok(result)) if !result.empty => {
+                eprintln!("[pool] CLAIMED pid={} for pane={pane_id}", result.pid);
+                (result.pid, false)
+            }
+            other => {
+                eprintln!("[pool] FALLBACK to spawn for pane={pane_id} (claim result: {other:?})");
+                daemon.spawn(&pane_id, cwd.as_deref(), r, c).await?
+            }
+        }
+    };
 
     {
         let mut s = state.lock().map_err(|e| e.to_string())?;
@@ -239,6 +276,19 @@ pub async fn get_pty_cwd(
     daemon: tauri::State<'_, crate::daemon_client::DaemonClient>,
 ) -> Result<String, String> {
     daemon.get_cwd(&pane_id).await
+}
+
+/// Pre-warm the daemon's PTY pool for the given CWD.
+/// Called once when a project is opened or switched.
+#[tauri::command]
+pub async fn init_terminal_pool(
+    cwd: String,
+    daemon: tauri::State<'_, DaemonClient>,
+) -> Result<(), String> {
+    eprintln!("[pool] init_terminal_pool called with cwd={cwd}");
+    let result = daemon.init_pool(&cwd, 2).await;
+    eprintln!("[pool] init_terminal_pool result: {result:?}");
+    result
 }
 
 #[cfg(test)]

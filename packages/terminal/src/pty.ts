@@ -96,3 +96,8 @@ export async function listPtySessions(): Promise<PtySessionInfo[]> {
     memoryMb: s.memory_mb,
   }));
 }
+
+/** Pre-warm the daemon's PTY pool for the given project CWD. */
+export async function initTerminalPool(cwd: string): Promise<void> {
+  return invoke('init_terminal_pool', { cwd });
+}

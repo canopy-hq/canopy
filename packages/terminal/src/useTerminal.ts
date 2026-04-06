@@ -34,6 +34,47 @@ import { terminalThemes, type ThemeName } from './themes';
  * before the invoke response, so the buffer is populated when setHandler runs.
  * Overlay is removed synchronously — terminal already has content.
  */
+// PTY IDs whose overlay hasn't been debounce-removed yet. When the effect
+// re-runs on ptyId change (spawn → onPtySpawned → re-render), the cached
+// path checks this set to decide whether to use the full debounce or the
+// quick 2-rAF transition overlay.
+const pendingOverlayPtyIds = new Set<number>();
+
+const OVERLAY_QUIET_MS = 150;
+const OVERLAY_MAX_MS = 800;
+
+/** Create a debounced overlay remover: waits for output silence before revealing. */
+function createOverlayDebounce(doRemove: () => void) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let removed = false;
+  let firstByteTime: number | null = null;
+
+  return {
+    /** Call on each output chunk to reset the quiet timer. */
+    onOutput() {
+      if (removed) return;
+      const now = Date.now();
+      if (firstByteTime === null) firstByteTime = now;
+      if (now - firstByteTime >= OVERLAY_MAX_MS) {
+        this.flush();
+        return;
+      }
+      if (timer !== null) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        requestAnimationFrame(() => requestAnimationFrame(() => this.flush()));
+      }, OVERLAY_QUIET_MS);
+    },
+    /** Immediately remove the overlay. Idempotent. */
+    flush() {
+      if (removed) return;
+      removed = true;
+      if (timer !== null) clearTimeout(timer);
+      doRemove();
+    },
+  };
+}
+
 export function useTerminal(
   containerRef: React.RefObject<HTMLDivElement | null>,
   paneId: string,
@@ -136,15 +177,23 @@ export function useTerminal(
       const el = term.element;
       if (el) container.appendChild(el);
 
-      // connectPtyOutput: buffer is empty (handler was never cleared, data flowed
-      // directly to term.write while tab was inactive), so flush is a no-op.
-      // setHandlerFresh would be equivalent here, but connectPtyOutput is simpler.
-      connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
       fitAddon.fit();
-      // Unconditional resize IPC on cached remount — ptyId is the real pid,
-      // proxy.sessions is already populated, so this call succeeds immediately.
       void resizePty(ptyId, term.rows, term.cols);
-      revealAfterPaint();
+
+      if (pendingOverlayPtyIds.has(ptyId)) {
+        // Post-spawn re-run: shell is still initializing (Starship not done).
+        // Use debounced overlay removal — wait for output to stabilize.
+        pendingOverlayPtyIds.delete(ptyId);
+        const debounce = createOverlayDebounce(() => transitionOverlay.remove());
+        connectPtyOutput(ptyId, (data: Uint8Array) => {
+          term.write(data);
+          debounce.onOutput();
+        });
+      } else {
+        // Genuine remount: terminal already has content, quick reveal.
+        connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
+        requestAnimationFrame(() => requestAnimationFrame(() => removeOverlay()));
+      }
     } else {
       // === NEW TERMINAL: spawn (ptyId === -1) or reconnect (ptyId > 0) ===
       const termFontSize = getSetting<number>(
@@ -188,7 +237,7 @@ export function useTerminal(
       // flashes for 1-2 frames before being covered.
       //
       // The overlay is removed on the first live byte from the shell (e.g. the
-      // zsh prompt) — see debouncedRemoveOverlay below.
+      // zsh prompt) — see overlayDebounce below.
       const overlay = document.createElement('div');
       overlay.style.cssText = `position:absolute;inset:0;background:${themeBg};z-index:1;pointer-events:none`;
       wrapper.appendChild(overlay);
@@ -210,31 +259,11 @@ export function useTerminal(
           setTimeout(() => overlay.remove(), 80);
         }
       };
-      // Debounce overlay removal: reset the timer on every incoming data chunk.
-      // The overlay is lifted only once output has been silent for `delay` ms,
-      // which gives starship/p10k time to finish drawing the colored prompt.
-      // Without this, the overlay is removed mid-render and the user sees:
-      //   • the zsh partial-line indicator `%` (PROMPT_CR output, not yet erased)
-      //   • terminal sized to the wrong dimensions (fit not yet settled)
-      //   • text rendered in the fallback font (Geist Mono not yet applied)
-      // 300 ms minimum from first byte covers typical starship render time.
-      // Resets on each chunk; capped at 500 ms total so it always resolves.
-      let overlayFirstByte = 0;
-      const debouncedRemoveOverlay = () => {
-        if (overlayRemoved) return;
-        if (overlayFirstByte === 0) overlayFirstByte = Date.now();
-        if (overlayTimer !== null) clearTimeout(overlayTimer);
-        const elapsed = Date.now() - overlayFirstByte;
-        // Wait at least 300ms from first byte (prompt render time), debounce 80ms
-        // per chunk, but never exceed 500ms total from first byte.
-        const untilMinimum = Math.max(80, 300 - elapsed);
-        const untilCap = Math.max(0, 500 - elapsed);
-        const delay = Math.min(untilMinimum, untilCap);
-        overlayTimer = setTimeout(() => {
-          overlayTimer = null;
-          revealAfterPaint();
-        }, delay);
-      };
+      // Debounced overlay removal: waits for output to stabilize (150ms of
+      // silence) before revealing the terminal. This lets Starship finish
+      // rewriting the prompt after zsh's initial PS1 draw. Hard cap at 800ms
+      // prevents indefinite overlay on continuous output.
+      const overlayDebounce = createOverlayDebounce(() => removeOverlay());
 
       if (term.element) {
         // Prevent macOS press-and-hold accent popup on ghostty-web's hidden textarea.
@@ -389,13 +418,13 @@ export function useTerminal(
               resizeGraceUntil = Date.now() + 500;
 
               if (isNew) {
-                // Fresh shell: buffer is empty. Reveal on first byte — one-shot
-                // timer (debouncedRemoveOverlay) only fires once, so the overlay
-                // is removed ~112ms after the first prompt byte regardless of how
-                // long Starship keeps emitting.
+                // Mark this ptyId so the cached-path re-run (triggered by
+                // onPtySpawned → ptyId state change) uses debounced overlay
+                // removal instead of the quick 2-rAF transition.
+                pendingOverlayPtyIds.add(newId);
                 connectPtyOutput(newId, (data: Uint8Array) => {
-                  debouncedRemoveOverlay();
                   term.write(data);
+                  overlayDebounce.onOutput();
                 });
                 if (initialCommand) {
                   void writeToPty(newId, initialCommand + '\r');
@@ -482,6 +511,8 @@ export function useTerminal(
     return () => {
       spawnCancelled = true;
       removeOverlay();
+      // Clean up leaked entries if effect tears down before the cached-path re-run
+      if (ptyId > 0) pendingOverlayPtyIds.delete(ptyId);
       resizeObserver.disconnect();
       if (resizeRaf !== null) cancelAnimationFrame(resizeRaf);
       if (resizingClassTimer !== null) clearTimeout(resizingClassTimer);
