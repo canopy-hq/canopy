@@ -163,4 +163,12 @@ describe('pty', () => {
       expect(cwd).toBe('/tmp/work');
     });
   });
+
+  describe('initTerminalPool', () => {
+    it('invokes init_terminal_pool with the given cwd', async () => {
+      invokeFn.mockResolvedValueOnce(undefined);
+      await pty.initTerminalPool('/Users/test/project');
+      expect(invokeFn).toHaveBeenCalledWith('init_terminal_pool', { cwd: '/Users/test/project' });
+    });
+  });
 });
