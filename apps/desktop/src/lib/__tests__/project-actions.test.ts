@@ -14,6 +14,7 @@ let _uiState: UiState = {
   activeContextId: '',
   contextActiveTabIds: {},
   creatingWorktreeIds: [],
+  cloningProjectIds: [],
   justStartedWorktreeId: null,
   pendingClaudeSession: null,
 };
@@ -103,6 +104,7 @@ describe('importRepo', () => {
       activeContextId: '',
       contextActiveTabIds: {},
       creatingWorktreeIds: [],
+      cloningProjectIds: [],
       justStartedWorktreeId: null,
       pendingClaudeSession: null,
     };
@@ -190,6 +192,7 @@ function resetNav() {
     activeContextId: '',
     contextActiveTabIds: {},
     creatingWorktreeIds: [],
+    cloningProjectIds: [],
     justStartedWorktreeId: null,
     pendingClaudeSession: null,
   };

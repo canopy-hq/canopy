@@ -18,6 +18,7 @@ export interface UiState {
   contextActiveTabIds: Record<string, string>;
   // Ephemeral creation state (not persisted)
   creatingWorktreeIds: string[];
+  cloningProjectIds: string[];
   justStartedWorktreeId: string | null;
   pendingClaudeSession: { worktreeId: string; mode: 'bypass' | 'plan'; prompt?: string } | null;
 }
@@ -31,6 +32,7 @@ const INITIAL_UI_STATE: UiState = {
   activeContextId: '',
   contextActiveTabIds: {},
   creatingWorktreeIds: [],
+  cloningProjectIds: [],
   justStartedWorktreeId: null,
   pendingClaudeSession: null,
 };

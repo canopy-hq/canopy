@@ -1,11 +1,11 @@
 import type { ComponentType } from 'react';
 
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { Bot, FolderPlus, GitBranch, PanelLeft, Terminal } from 'lucide-react';
 
 import { Button, Kbd } from '../../components/ui';
 import { useProjects } from '../../hooks/useCollections';
-import { openImportDialog, toggleSidebar } from '../../lib/project-actions';
+import { openAddProjectDialog, toggleSidebar } from '../../lib/project-actions';
 
 const FEATURES: { Icon: ComponentType<{ size: number }>; label: string }[] = [
   { Icon: Terminal, label: 'Native terminals' },
@@ -14,7 +14,6 @@ const FEATURES: { Icon: ComponentType<{ size: number }>; label: string }[] = [
 ];
 
 function Onboarding() {
-  const navigate = useNavigate();
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-10 select-none">
       <div className="flex flex-col items-center gap-4">
@@ -30,7 +29,7 @@ function Onboarding() {
       </div>
 
       <div className="flex flex-col items-center gap-3">
-        <Button variant="primary" size="md" onPress={() => void openImportDialog(navigate)}>
+        <Button variant="primary" size="md" onPress={() => openAddProjectDialog()}>
           <FolderPlus size={14} />
           Add a project
         </Button>

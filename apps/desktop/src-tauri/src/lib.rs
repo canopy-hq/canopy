@@ -86,6 +86,7 @@ pub fn run() {
             pty::get_pty_cwd,
             pty::list_pty_sessions,
             git::import_repo,
+            git::clone_repo,
             git::list_branches,
             git::list_all_branches,
             git::fetch_remote,

@@ -11,6 +11,7 @@ import {
 } from '@superagent/db';
 import { closePty, closePtysForPanes, disposeCached } from '@superagent/terminal';
 
+import { openAddProjectDialogViaBridge } from './add-project-bridge';
 import * as gitApi from './git';
 import { collectAllLeafPaneIds, collectLeafPtyIds } from './pane-tree-ops';
 import { addClaudeCodeTab, closeTab } from './tab-actions';
@@ -34,18 +35,103 @@ export function getProjectItemIds(proj: Project): Set<string> {
   return ids;
 }
 
-export async function openImportDialog(navigate?: NavigateFn): Promise<void> {
-  try {
-    const { open } = await import('@tauri-apps/plugin-dialog');
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title: 'Select Git Repository',
-    });
-    if (selected && typeof selected === 'string') await importRepo(selected, navigate);
-  } catch {
-    // Dialog not available in test/dev environments
+/** Opens the Add Project dialog (bridge → __root.tsx). */
+export function openAddProjectDialog(): void {
+  openAddProjectDialogViaBridge();
+}
+
+/** @deprecated Use openAddProjectDialog() */
+export function openImportDialog(_navigate?: NavigateFn): Promise<void> {
+  openAddProjectDialog();
+  return Promise.resolve();
+}
+
+/** Insert a locally validated project into the DB (called from AddProjectDialog). */
+export function importLocalProject(
+  path: string,
+  name: string,
+  branch: gitApi.BranchInfo,
+  navigate: NavigateFn,
+): void {
+  const collection = getProjectCollection();
+  const existing = collection.toArray.find((p) => p.path === path);
+  if (existing) {
+    showInfoToast(`"${existing.name}" is already imported`);
+    return;
   }
+  const projectId = crypto.randomUUID();
+  collection.insert({
+    id: projectId,
+    path,
+    name: name.trim() || (path.split('/').pop() ?? path),
+    branches: [branch],
+    worktrees: [],
+    expanded: true,
+    position: collection.toArray.length,
+  });
+  uiCollection.update('ui', (draft) => {
+    draft.sidebarVisible = true;
+  });
+  selectProjectItem(`${projectId}-branch-${branch.name}`, navigate);
+}
+
+/** Optimistically insert a cloning project and run git clone in the background. */
+export function startProjectClone(
+  url: string,
+  dest: string,
+  name: string,
+  navigate: NavigateFn,
+): void {
+  const collection = getProjectCollection();
+  const projectId = crypto.randomUUID();
+
+  collection.insert({
+    id: projectId,
+    path: dest,
+    name,
+    branches: [],
+    worktrees: [],
+    expanded: true,
+    position: collection.toArray.length,
+  });
+  uiCollection.update('ui', (draft) => {
+    draft.cloningProjectIds.push(projectId);
+    draft.sidebarVisible = true;
+  });
+  selectProjectItem(projectId, navigate);
+
+  void (async () => {
+    try {
+      const info = await gitApi.cloneRepo(url, dest);
+      const branches = await gitApi.listBranches(info.path);
+      const headBranch = branches.find((b) => b.is_head) ?? branches[0];
+
+      collection.update(projectId, (draft) => {
+        draft.path = info.path;
+        draft.name = info.name;
+        draft.branches = headBranch ? [headBranch] : [];
+      });
+      uiCollection.update('ui', (draft) => {
+        draft.cloningProjectIds = draft.cloningProjectIds.filter((id) => id !== projectId);
+      });
+
+      if (headBranch) {
+        selectProjectItem(`${projectId}-branch-${headBranch.name}`, navigate);
+      }
+    } catch (err) {
+      collection.delete(projectId);
+      uiCollection.update('ui', (draft) => {
+        draft.cloningProjectIds = draft.cloningProjectIds.filter((id) => id !== projectId);
+      });
+
+      const msg = String(err);
+      const detail =
+        msg.toLowerCase().includes('auth') || msg.toLowerCase().includes('ssh')
+          ? `${msg} — check your SSH key setup`
+          : msg;
+      showErrorToast('Clone failed', detail);
+    }
+  })();
 }
 
 export async function importRepo(path: string, navigate?: NavigateFn): Promise<void> {

@@ -1,4 +1,4 @@
-import { openImportDialog, toggleSidebar } from '../lib/project-actions';
+import { openAddProjectDialog, toggleSidebar } from '../lib/project-actions';
 
 import type { Nav, CommandItem } from '@superagent/command-palette';
 
@@ -11,9 +11,9 @@ export function buildStaticCommands(navigate: Nav): CommandItem[] {
       keywords: ['import', 'repository', 'repo', 'open', 'folder'],
       icon: 'folder',
       shortcut: '⌘N',
-      action: async ({ close }) => {
+      action: ({ close }) => {
         close();
-        await openImportDialog(navigate);
+        openAddProjectDialog();
       },
     },
     {

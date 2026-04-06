@@ -319,6 +319,87 @@ pub async fn fetch_remote(repo_path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn clone_repo(url: String, dest: String) -> Result<RepoInfo, String> {
+    tokio::task::spawn_blocking(move || {
+        let attempted = std::cell::Cell::new(false);
+
+        let mut callbacks = git2::RemoteCallbacks::new();
+        callbacks.credentials(|remote_url, username_from_url, allowed_types| {
+            if attempted.get() {
+                return Err(git2::Error::from_str("no credentials available"));
+            }
+            attempted.set(true);
+
+            let username = username_from_url.unwrap_or("git");
+
+            if allowed_types.contains(git2::CredentialType::SSH_KEY) {
+                if let Ok(cred) = git2::Cred::ssh_key_from_agent(username) {
+                    return Ok(cred);
+                }
+                let home = match std::env::var("HOME") {
+                    Ok(h) => h,
+                    Err(_) => return Err(git2::Error::from_str("HOME not set")),
+                };
+                for key_name in &["id_ed25519", "id_rsa"] {
+                    let key_path = std::path::Path::new(&home).join(".ssh").join(key_name);
+                    if key_path.exists() {
+                        let pub_path = key_path.with_extension("pub");
+                        let pub_key = if pub_path.exists() {
+                            Some(pub_path.as_path())
+                        } else {
+                            None
+                        };
+                        if let Ok(cred) = git2::Cred::ssh_key(username, pub_key, &key_path, None) {
+                            return Ok(cred);
+                        }
+                    }
+                }
+            }
+
+            if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
+                // Try git credential helper via a throwaway repo config
+                if let Ok(cfg) = git2::Config::open_default() {
+                    if let Ok(cred) =
+                        git2::Cred::credential_helper(&cfg, remote_url, username_from_url)
+                    {
+                        return Ok(cred);
+                    }
+                }
+            }
+
+            Err(git2::Error::from_str("no credentials available"))
+        });
+
+        let mut fetch_opts = git2::FetchOptions::new();
+        fetch_opts.remote_callbacks(callbacks);
+
+        let dest_path = Path::new(&dest);
+        git2::build::RepoBuilder::new()
+            .fetch_options(fetch_opts)
+            .clone(&url, dest_path)
+            .map_err(|e| e.to_string())?;
+
+        let name = dest_path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| dest.clone());
+
+        let repo = Repository::open(dest_path).map_err(|e| e.to_string())?;
+        let all_branches = enumerate_branches(&repo, true)?;
+        let head_only: Vec<BranchInfo> = all_branches.into_iter().filter(|b| b.is_head).collect();
+
+        Ok(RepoInfo {
+            path: dest,
+            name,
+            branches: head_only,
+            worktrees: Vec::new(),
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 pub async fn create_branch(
     repo_path: String,
     name: String,

@@ -15,6 +15,7 @@ let _uiState: UiState = {
   activeContextId: '',
   contextActiveTabIds: {},
   creatingWorktreeIds: [],
+  cloningProjectIds: [],
   justStartedWorktreeId: null,
   pendingClaudeSession: null,
 };
@@ -133,6 +134,7 @@ function resetState() {
     activeContextId: '',
     contextActiveTabIds: {},
     creatingWorktreeIds: [],
+    cloningProjectIds: [],
     justStartedWorktreeId: null,
     pendingClaudeSession: null,
   };

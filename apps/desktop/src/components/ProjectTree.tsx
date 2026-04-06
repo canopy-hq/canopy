@@ -343,6 +343,7 @@ const RepoHeader = memo(
     agentSummary,
     isSelected,
     isRenaming,
+    isCloning,
     onPlusClick,
     onRowClick,
     onContextMenu,
@@ -354,6 +355,7 @@ const RepoHeader = memo(
     agentSummary?: Array<'running' | 'waiting'>;
     isSelected: boolean;
     isRenaming: boolean;
+    isCloning: boolean;
     onPlusClick: () => void;
     onRowClick: () => void;
     onContextMenu: (e: React.MouseEvent) => void;
@@ -434,8 +436,16 @@ const RepoHeader = memo(
             className="min-w-0 flex-1 border-none bg-transparent font-mono text-lg font-medium text-text-primary outline-none"
           />
         ) : (
-          <span className="flex-1 truncate font-mono text-lg font-medium text-text-primary">
-            {project.name}
+          <span className="flex min-w-0 flex-1 items-center gap-2 truncate">
+            <span className="truncate font-mono text-lg font-medium text-text-primary">
+              {project.name}
+            </span>
+            {isCloning && (
+              <span className="flex shrink-0 items-center gap-1 font-mono text-xs text-text-faint">
+                <Spinner size={11} className="text-accent/60" />
+                cloning…
+              </span>
+            )}
           </span>
         )}
         {!isRenaming && !project.expanded && agentSummary && agentSummary.length > 0 && (
@@ -462,19 +472,21 @@ const RepoHeader = memo(
             >
               {project.expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             </Button>
-            <Tooltip label="New worktree" placement="right">
-              <Button
-                iconOnly
-                size="sm"
-                variant="ghost"
-                aria-label="New branch or worktree"
-                onPress={onPlusClick}
-                onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
-              >
-                <Plus size={12} />
-              </Button>
-            </Tooltip>
+            {!isCloning && (
+              <Tooltip label="New worktree" placement="right">
+                <Button
+                  iconOnly
+                  size="sm"
+                  variant="ghost"
+                  aria-label="New branch or worktree"
+                  onPress={onPlusClick}
+                  onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                  onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
+                >
+                  <Plus size={12} />
+                </Button>
+              </Tooltip>
+            )}
           </>
         )}
       </div>
@@ -489,6 +501,7 @@ const RepoHeader = memo(
     prev.project.worktrees.length === next.project.worktrees.length &&
     prev.isSelected === next.isSelected &&
     prev.isRenaming === next.isRenaming &&
+    prev.isCloning === next.isCloning &&
     prev.onPlusClick === next.onPlusClick &&
     prev.onRowClick === next.onRowClick &&
     prev.onContextMenu === next.onContextMenu &&
@@ -557,9 +570,11 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
     activeContextId,
     sidebarVisible,
     creatingWorktreeIds,
+    cloningProjectIds,
     pendingClaudeSession,
   } = useUiState();
   const creatingWorktreeIdSet = useMemo(() => new Set(creatingWorktreeIds), [creatingWorktreeIds]);
+  const cloningProjectIdSet = useMemo(() => new Set(cloningProjectIds), [cloningProjectIds]);
   const tabs = useTabs();
   const tabCountMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -675,6 +690,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                 onSelectItem={handleSelectItem}
                 deletingWtIds={deletingWtIds}
                 creatingWorktreeIds={creatingWorktreeIdSet}
+                isCloning={cloningProjectIdSet.has(ws.id)}
                 pendingClaudeWorktreeId={pendingClaudeSession?.worktreeId ?? null}
               />
             ))}
@@ -757,6 +773,7 @@ function RepoTreeItem({
   onSelectItem,
   deletingWtIds,
   creatingWorktreeIds,
+  isCloning,
   pendingClaudeWorktreeId,
 }: {
   ws: Project;
@@ -773,6 +790,7 @@ function RepoTreeItem({
   onSelectItem: (itemId: string) => void;
   deletingWtIds: Set<string>;
   creatingWorktreeIds: Set<string>;
+  isCloning: boolean;
   pendingClaudeWorktreeId: string | null;
 }) {
   const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
@@ -835,6 +853,7 @@ function RepoTreeItem({
           agentSummary={agentSummary}
           isSelected={isRepoSelected}
           isRenaming={renamingWs}
+          isCloning={isCloning}
           onPlusClick={handlePlusClick}
           onRowClick={handleRowClick}
           onContextMenu={handleContextMenu}
@@ -991,6 +1010,7 @@ function RepoTreeItem({
                 label: 'Close project',
                 icon: <FolderX size={13} />,
                 destructive: true,
+                disabled: isCloning,
                 onSelect: () => {
                   setMenuOpen(false);
                   onRequestClose(ws);

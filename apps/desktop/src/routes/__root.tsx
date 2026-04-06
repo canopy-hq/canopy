@@ -17,6 +17,7 @@ import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 import { LucideProvider } from 'lucide-react';
 
 import { useAllCommands } from '../commands';
+import { AddProjectDialog } from '../components/AddProjectDialog';
 import { AgentOverlay } from '../components/AgentOverlay';
 import { AgentToastRegion } from '../components/AgentToastRegion';
 import { Header } from '../components/Header';
@@ -25,6 +26,7 @@ import { ErrorToastRegion } from '../components/ToastProvider';
 import { useUiState } from '../hooks/useCollections';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { useTauriMenuEvent } from '../hooks/useTauriMenuEvent';
+import { onOpenAddProjectDialog } from '../lib/add-project-bridge';
 import { initAgentListener } from '../lib/agent-actions';
 import { getConnection, GITHUB_CONNECTION_KEY } from '../lib/github';
 import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
@@ -33,7 +35,7 @@ import {
   refreshRepo,
   switchProjectRelative,
   switchProjectItemRelative,
-  openImportDialog,
+  openAddProjectDialog,
 } from '../lib/project-actions';
 import { onOpenProjectPalette } from '../lib/project-palette-bridge';
 import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
@@ -55,6 +57,7 @@ function RootLayout() {
   const [defaultPanelItem, setDefaultPanelItem] = useState<CommandItem | null>(null);
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [sessionManagerOpen, setSessionManagerOpen] = useState(false);
+  const [addProjectOpen, setAddProjectOpen] = useState(false);
   const [fpsVisible, setFpsVisible] = useState(false);
   const cmdItems = useAllCommands();
   const { activeContextId } = useUiState();
@@ -172,6 +175,10 @@ function RootLayout() {
     });
   }, []);
 
+  useEffect(() => {
+    return onOpenAddProjectDialog(() => setAddProjectOpen(true));
+  }, []);
+
   // Hydrate GitHub connection status into settings for the header icon
   useEffect(() => {
     void getConnection().then((conn) => setSetting(GITHUB_CONNECTION_KEY, conn));
@@ -194,7 +201,7 @@ function RootLayout() {
           }),
       },
       { key: 'b', meta: true, action: () => toggleSidebar() },
-      { key: 'n', meta: true, action: () => void openImportDialog(navigate) },
+      { key: 'n', meta: true, action: () => openAddProjectDialog() },
       { key: 'o', meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
       // ⌘⇧↑ / ⌘⇧↓: navigate to the prev/next project (sorted by position, wraps).
       {
@@ -236,6 +243,7 @@ function RootLayout() {
         />
         <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
         {sessionManagerOpen && <SessionManager onClose={() => setSessionManagerOpen(false)} />}
+        {addProjectOpen && <AddProjectDialog onClose={() => setAddProjectOpen(false)} />}
         <AgentToastRegion />
         {import.meta.env.DEV && <FpsOverlay visible={fpsVisible} />}
       </div>
