@@ -48,13 +48,28 @@ struct PtySession {
     tx: broadcast::Sender<Vec<u8>>,
 }
 
+struct PoolEntry {
+    pane_id: String,
+    has_output: bool,
+}
+
 pub struct DaemonState {
     sessions: HashMap<String, PtySession>,
+    pool: Vec<PoolEntry>,
+    pool_cwd: Option<String>,
+    pool_target_size: usize,
+    pool_counter: u64,
 }
 
 impl DaemonState {
     pub fn new() -> Self {
-        Self { sessions: HashMap::new() }
+        Self {
+            sessions: HashMap::new(),
+            pool: Vec::new(),
+            pool_cwd: None,
+            pool_target_size: 0,
+            pool_counter: 0,
+        }
     }
 }
 
@@ -225,6 +240,88 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 };
                 let resp = format!("{{\"paneIds\":{}}}\n", serde_json::json!(ids));
                 let _ = write_half.write_all(resp.as_bytes()).await;
+            }
+
+            "init_pool" => {
+                let cwd = cmd["cwd"].as_str().unwrap_or("/tmp").to_string();
+                let size = cmd["size"].as_u64().unwrap_or(2) as usize;
+
+                // Kill existing pool entries
+                {
+                    let mut st = state.lock().unwrap();
+                    let old_pool: Vec<String> = st.pool.drain(..).map(|e| e.pane_id).collect();
+                    for pane_id in old_pool {
+                        if let Some(mut sess) = st.sessions.remove(&pane_id) {
+                            let _ = sess.child.kill();
+                            let _ = sess.child.wait();
+                        }
+                    }
+                    st.pool_cwd = Some(cwd.clone());
+                    st.pool_target_size = size;
+                }
+
+                // Spawn pool entries
+                for _ in 0..size {
+                    let counter = {
+                        let mut st = state.lock().unwrap();
+                        st.pool_counter += 1;
+                        st.pool_counter
+                    };
+                    let pool_pane_id = format!("__pool_{counter}");
+                    let result = do_spawn(
+                        state.clone(),
+                        pool_pane_id.clone(),
+                        Some(cwd.clone()),
+                        24,
+                        80,
+                        None,
+                        vec![],
+                    );
+                    if result.is_ok() {
+                        let mut st = state.lock().unwrap();
+                        st.pool.push(PoolEntry {
+                            pane_id: pool_pane_id,
+                            has_output: false,
+                        });
+                    }
+                }
+
+                // Start background task to mark pool entries as ready when they produce output
+                let state_bg = state.clone();
+                tokio::spawn(async move {
+                    for _ in 0..100 {
+                        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                        let mut st = state_bg.lock().unwrap();
+                        // Collect which pool entries have output (avoids simultaneous borrow)
+                        let has_output_flags: Vec<bool> = st
+                            .pool
+                            .iter()
+                            .map(|entry| {
+                                if entry.has_output {
+                                    true
+                                } else {
+                                    st.sessions
+                                        .get(&entry.pane_id)
+                                        .map(|s| !s.scrollback.is_empty())
+                                        .unwrap_or(false)
+                                }
+                            })
+                            .collect();
+                        let mut all_ready = true;
+                        for (entry, &has_out) in st.pool.iter_mut().zip(&has_output_flags) {
+                            if has_out {
+                                entry.has_output = true;
+                            } else {
+                                all_ready = false;
+                            }
+                        }
+                        if all_ready {
+                            break;
+                        }
+                    }
+                });
+
+                let _ = write_half.write_all(b"{\"ok\":true}\n").await;
             }
 
             _ => {}
@@ -853,6 +950,33 @@ mod tests {
             "SIGWINCH not delivered on reconnect-spawn; got: {:?}",
             String::from_utf8_lossy(&live)
         );
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn init_pool_spawns_entries() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"init_pool","cwd":"/tmp","size":2}"#).await;
+        let resp = read_json_line(&mut conn).await;
+        assert_eq!(resp["ok"], true, "init_pool failed: {resp}");
+
+        // Pool entries should appear in list with __pool_ prefix
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"list","paneId":""}"#).await;
+        let resp2 = read_json_line(&mut conn2).await;
+        let ids: Vec<&str> = resp2["paneIds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        let pool_count = ids.iter().filter(|id| id.starts_with("__pool_")).count();
+        assert_eq!(pool_count, 2, "expected 2 pool entries, got {pool_count}; ids: {ids:?}");
 
         let _ = std::fs::remove_file(&socket);
     }
