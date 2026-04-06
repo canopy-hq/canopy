@@ -242,6 +242,110 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 let _ = write_half.write_all(resp.as_bytes()).await;
             }
 
+            "claim" => {
+                let rows = cmd["rows"].as_u64().unwrap_or(24) as u16;
+                let cols = cmd["cols"].as_u64().unwrap_or(80) as u16;
+
+                let claimed = {
+                    let mut st = state.lock().unwrap();
+                    // Find a ready pool entry
+                    let idx = st.pool.iter().position(|e| e.has_output);
+                    if let Some(idx) = idx {
+                        let entry = st.pool.remove(idx);
+                        let old_pane_id = entry.pane_id;
+                        // Reassign paneId: remove session under old key, reinsert under new key
+                        if let Some(sess) = st.sessions.remove(&old_pane_id) {
+                            let pid = sess.child_pid;
+                            // Resize to actual container dimensions
+                            let _ = sess.master.resize(PtySize {
+                                rows,
+                                cols,
+                                pixel_width: 0,
+                                pixel_height: 0,
+                            });
+                            st.sessions.insert(pane_id.clone(), sess);
+                            Some(pid)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                };
+
+                let resp = match claimed {
+                    Some(pid) => {
+                        // Trigger async replenishment
+                        let state_bg = state.clone();
+                        let pool_cwd = {
+                            let st = state.lock().unwrap();
+                            st.pool_cwd.clone()
+                        };
+                        if let Some(cwd) = pool_cwd {
+                            tokio::spawn(async move {
+                                let counter = {
+                                    let mut st = state_bg.lock().unwrap();
+                                    st.pool_counter += 1;
+                                    st.pool_counter
+                                };
+                                let pool_pane_id = format!("__pool_{counter}");
+                                let result = do_spawn(
+                                    state_bg.clone(),
+                                    pool_pane_id.clone(),
+                                    Some(cwd),
+                                    24,
+                                    80,
+                                    None,
+                                    vec![],
+                                );
+                                if result.is_ok() {
+                                    let mut st = state_bg.lock().unwrap();
+                                    st.pool.push(PoolEntry {
+                                        pane_id: pool_pane_id.clone(),
+                                        has_output: false,
+                                    });
+                                }
+                                // Background readiness polling for the new entry
+                                let state_poll = state_bg.clone();
+                                for _ in 0..100 {
+                                    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                                    let mut st = state_poll.lock().unwrap();
+                                    // Collect which pool entries have output (avoids simultaneous borrow)
+                                    let has_output_flags: Vec<bool> = st
+                                        .pool
+                                        .iter()
+                                        .map(|entry| {
+                                            if entry.has_output {
+                                                true
+                                            } else {
+                                                st.sessions
+                                                    .get(&entry.pane_id)
+                                                    .map(|s| !s.scrollback.is_empty())
+                                                    .unwrap_or(false)
+                                            }
+                                        })
+                                        .collect();
+                                    let mut all_ready = true;
+                                    for (entry, &has_out) in st.pool.iter_mut().zip(&has_output_flags) {
+                                        if has_out {
+                                            entry.has_output = true;
+                                        } else {
+                                            all_ready = false;
+                                        }
+                                    }
+                                    if all_ready {
+                                        break;
+                                    }
+                                }
+                            });
+                        }
+                        format!("{{\"ok\":true,\"pid\":{pid}}}\n")
+                    }
+                    None => "{\"ok\":true,\"pid\":0,\"empty\":true}\n".to_string(),
+                };
+                let _ = write_half.write_all(resp.as_bytes()).await;
+            }
+
             "init_pool" => {
                 let cwd = cmd["cwd"].as_str().unwrap_or("/tmp").to_string();
                 let size = cmd["size"].as_u64().unwrap_or(2) as usize;
@@ -977,6 +1081,53 @@ mod tests {
             .collect();
         let pool_count = ids.iter().filter(|id| id.starts_with("__pool_")).count();
         assert_eq!(pool_count, 2, "expected 2 pool entries, got {pool_count}; ids: {ids:?}");
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn claim_returns_ready_pool_entry() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // Initialize pool
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"init_pool","cwd":"/tmp","size":2}"#).await;
+        let resp = read_json_line(&mut conn).await;
+        assert_eq!(resp["ok"], true);
+
+        // Wait for pool entries to be ready (shell prompt output)
+        tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+
+        // Claim a pool entry
+        let mut conn2 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn2, r#"{"op":"claim","paneId":"real-pane-1","rows":30,"cols":100}"#).await;
+        let resp2 = read_json_line(&mut conn2).await;
+        assert_eq!(resp2["ok"], true, "claim failed: {resp2}");
+        let pid = resp2["pid"].as_u64().unwrap();
+        assert!(pid > 0, "expected valid pid from claim");
+
+        // The claimed pane should now be accessible by its real paneId
+        let mut conn3 = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn3, r#"{"op":"attach","paneId":"real-pane-1"}"#).await;
+        let scrollback = drain_scrollback(&mut conn3).await;
+        assert!(!scrollback.is_empty(), "claimed PTY should have scrollback (shell prompt)");
+
+        let _ = std::fs::remove_file(&socket);
+    }
+
+    #[tokio::test]
+    async fn claim_returns_empty_when_pool_exhausted() {
+        let socket = temp_socket();
+        start_daemon(&socket).await;
+
+        // No pool initialized — claim should return empty
+        let mut conn = UnixStream::connect(&socket).await.unwrap();
+        send_line(&mut conn, r#"{"op":"claim","paneId":"pane-x","rows":24,"cols":80}"#).await;
+        let resp = read_json_line(&mut conn).await;
+        assert_eq!(resp["ok"], true);
+        assert_eq!(resp["pid"], 0, "expected pid=0 for exhausted pool");
+        assert_eq!(resp["empty"], true);
 
         let _ = std::fs::remove_file(&socket);
     }
