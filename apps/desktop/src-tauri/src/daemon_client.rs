@@ -199,6 +199,7 @@ impl DaemonClient {
     }
 
     /// Drain and kill all pool entries.
+    #[allow(dead_code)]
     pub async fn drain_pool(&self) -> Result<(), String> {
         let msg = "{\"op\":\"drain_pool\",\"paneId\":\"\"}\n";
         let resp = self.send_cmd(msg).await?;

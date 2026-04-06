@@ -51,7 +51,11 @@ struct PtySession {
 
 struct PoolEntry {
     pane_id: String,
-    has_output: bool,
+    ready: bool,
+    /// Scrollback length at last check — used to detect stabilization.
+    last_scrollback_len: usize,
+    /// How many consecutive polls the scrollback length hasn't changed.
+    stable_ticks: u32,
 }
 
 pub struct DaemonState {
@@ -250,7 +254,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 let claimed = {
                     let mut st = state.lock().unwrap();
                     // Find a ready pool entry
-                    let idx = st.pool.iter().position(|e| e.has_output);
+                    let idx = st.pool.iter().position(|e| e.ready);
                     if let Some(idx) = idx {
                         let entry = st.pool.remove(idx);
                         let old_pane_id = entry.pane_id;
@@ -306,45 +310,23 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                                     None,
                                     vec![],
                                 );
+                                match &result {
+                                    Ok((pid, _)) => eprintln!("[pool] REPLENISH spawned {pool_pane_id} pid={pid}"),
+                                    Err(e) => eprintln!("[pool] REPLENISH failed: {e}"),
+                                }
                                 if result.is_ok() {
                                     let mut st = state_bg.lock().unwrap();
                                     st.pool.push(PoolEntry {
                                         pane_id: pool_pane_id.clone(),
-                                        has_output: false,
+                                        ready: false,
+                                        last_scrollback_len: 0,
+                                        stable_ticks: 0,
                                     });
                                 }
-                                // Background readiness polling for the new entry
+                                // Background readiness polling — wait for scrollback to stabilize
+                                // (no new output for 5 consecutive ticks = 500ms of silence).
                                 let state_poll = state_bg.clone();
-                                for _ in 0..100 {
-                                    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-                                    let mut st = state_poll.lock().unwrap();
-                                    // Collect which pool entries have output (avoids simultaneous borrow)
-                                    let has_output_flags: Vec<bool> = st
-                                        .pool
-                                        .iter()
-                                        .map(|entry| {
-                                            if entry.has_output {
-                                                true
-                                            } else {
-                                                st.sessions
-                                                    .get(&entry.pane_id)
-                                                    .map(|s| !s.scrollback.is_empty())
-                                                    .unwrap_or(false)
-                                            }
-                                        })
-                                        .collect();
-                                    let mut all_ready = true;
-                                    for (entry, &has_out) in st.pool.iter_mut().zip(&has_output_flags) {
-                                        if has_out {
-                                            entry.has_output = true;
-                                        } else {
-                                            all_ready = false;
-                                        }
-                                    }
-                                    if all_ready {
-                                        break;
-                                    }
-                                }
+                                poll_pool_readiness(state_poll).await;
                             });
                         }
                         format!("{{\"ok\":true,\"pid\":{pid}}}\n")
@@ -405,54 +387,83 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                         None,
                         vec![],
                     );
+                    match &result {
+                        Ok((pid, _)) => eprintln!("[pool] INIT spawned {pool_pane_id} pid={pid}"),
+                        Err(e) => eprintln!("[pool] INIT spawn failed: {e}"),
+                    }
                     if result.is_ok() {
                         let mut st = state.lock().unwrap();
                         st.pool.push(PoolEntry {
                             pane_id: pool_pane_id,
-                            has_output: false,
+                            ready: false,
+                            last_scrollback_len: 0,
+                            stable_ticks: 0,
                         });
                     }
                 }
 
-                // Start background task to mark pool entries as ready when they produce output
+                // Start background task to mark pool entries as ready once shell stabilizes
                 let state_bg = state.clone();
-                tokio::spawn(async move {
-                    for _ in 0..100 {
-                        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-                        let mut st = state_bg.lock().unwrap();
-                        // Collect which pool entries have output (avoids simultaneous borrow)
-                        let has_output_flags: Vec<bool> = st
-                            .pool
-                            .iter()
-                            .map(|entry| {
-                                if entry.has_output {
-                                    true
-                                } else {
-                                    st.sessions
-                                        .get(&entry.pane_id)
-                                        .map(|s| !s.scrollback.is_empty())
-                                        .unwrap_or(false)
-                                }
-                            })
-                            .collect();
-                        let mut all_ready = true;
-                        for (entry, &has_out) in st.pool.iter_mut().zip(&has_output_flags) {
-                            if has_out {
-                                entry.has_output = true;
-                            } else {
-                                all_ready = false;
-                            }
-                        }
-                        if all_ready {
-                            break;
-                        }
-                    }
-                });
+                tokio::spawn(poll_pool_readiness(state_bg));
 
                 let _ = write_half.write_all(b"{\"ok\":true}\n").await;
             }
 
             _ => {}
+        }
+    }
+}
+
+/// Poll pool entries until their scrollback stabilizes (no new output for 5 consecutive
+/// 100ms ticks = 500ms of silence). This ensures the shell prompt is fully rendered
+/// (e.g. Starship has finished initializing) before marking the entry as ready.
+async fn poll_pool_readiness(state: Arc<Mutex<DaemonState>>) {
+    // Up to 150 ticks × 100ms = 15s max wait
+    for _ in 0..150 {
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        let mut st = state.lock().unwrap();
+        // Collect current scrollback lengths (avoids simultaneous borrow)
+        let lens: Vec<(usize, bool)> = st
+            .pool
+            .iter()
+            .map(|entry| {
+                if entry.ready {
+                    (0, true)
+                } else {
+                    let len = st
+                        .sessions
+                        .get(&entry.pane_id)
+                        .map(|s| s.scrollback.len())
+                        .unwrap_or(0);
+                    (len, false)
+                }
+            })
+            .collect();
+        let mut all_ready = true;
+        for (entry, &(len, already_ready)) in st.pool.iter_mut().zip(&lens) {
+            if already_ready {
+                continue;
+            }
+            if len == 0 {
+                // Shell hasn't produced any output yet
+                all_ready = false;
+                continue;
+            }
+            if len == entry.last_scrollback_len {
+                entry.stable_ticks += 1;
+                if entry.stable_ticks >= 5 {
+                    entry.ready = true;
+                    eprintln!("[pool] READY {} (scrollback={len} bytes)", entry.pane_id);
+                    continue;
+                }
+            } else {
+                entry.last_scrollback_len = len;
+                entry.stable_ticks = 0;
+            }
+            all_ready = false;
+        }
+        if all_ready {
+            break;
         }
     }
 }
@@ -1124,8 +1135,8 @@ mod tests {
         let resp = read_json_line(&mut conn).await;
         assert_eq!(resp["ok"], true);
 
-        // Wait for pool entries to be ready (shell prompt output)
-        tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+        // Wait for pool entries to stabilize (shell prompt + 500ms silence)
+        tokio::time::sleep(tokio::time::Duration::from_millis(2500)).await;
 
         // Claim a pool entry
         let mut conn2 = UnixStream::connect(&socket).await.unwrap();
@@ -1205,8 +1216,8 @@ mod tests {
         let resp = read_json_line(&mut conn).await;
         assert_eq!(resp["ok"], true);
 
-        // Wait for pool entries to produce output (shell prompt)
-        tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
+        // Wait for pool entries to stabilize (shell prompt + 500ms silence)
+        tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
 
         // Claim first entry
         let mut conn2 = UnixStream::connect(&socket).await.unwrap();
@@ -1247,7 +1258,7 @@ mod tests {
         let mut conn = UnixStream::connect(&socket).await.unwrap();
         send_line(&mut conn, r#"{"op":"init_pool","cwd":"/tmp","size":1}"#).await;
         let _ = read_json_line(&mut conn).await;
-        tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
 
         // Claim the entry
         let mut conn2 = UnixStream::connect(&socket).await.unwrap();
@@ -1256,8 +1267,8 @@ mod tests {
         assert_eq!(resp["ok"], true);
         assert!(resp["pid"].as_u64().unwrap() > 0);
 
-        // Wait for replenishment
-        tokio::time::sleep(tokio::time::Duration::from_millis(2000)).await;
+        // Wait for replenishment (shell start + 500ms stabilization)
+        tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
 
         // Claim again — should get a replenished entry
         let mut conn3 = UnixStream::connect(&socket).await.unwrap();

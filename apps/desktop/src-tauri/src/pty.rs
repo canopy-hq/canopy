@@ -18,11 +18,13 @@ pub struct PtyState {
     /// preventing multiple concurrent tasks from broadcasting the same PTY output
     /// to separate Tauri channels (which would cause doubled terminal output).
     attach_handles: HashMap<String, tokio::task::JoinHandle<()>>,
+    /// Whether the pool has been auto-initialized after the first spawn.
+    pool_initialized: bool,
 }
 
 impl PtyState {
     pub fn new() -> Self {
-        Self { sessions: HashMap::new(), sys: System::new(), attach_handles: HashMap::new() }
+        Self { sessions: HashMap::new(), sys: System::new(), attach_handles: HashMap::new(), pool_initialized: false }
     }
 }
 
@@ -103,6 +105,30 @@ pub async fn spawn_terminal(
         ws.cancel_senders.insert(pid, cancel_tx);
     }
     agent_watcher::start_watching(pid, pid, app, last_output, cancel_rx);
+
+    // Auto-init pool on first spawn that has a CWD.
+    if let Some(ref cwd) = cwd {
+        let should_init = {
+            let mut s = state.lock().map_err(|e| e.to_string())?;
+            if !s.pool_initialized {
+                s.pool_initialized = true;
+                true
+            } else {
+                false
+            }
+        };
+        if should_init {
+            let cwd = cwd.clone();
+            let socket = daemon.socket.clone();
+            tokio::spawn(async move {
+                eprintln!("[pool] AUTO-INIT pool with cwd={cwd}");
+                let client = DaemonClient::new(socket);
+                if let Err(e) = client.init_pool(&cwd, 2).await {
+                    eprintln!("[pool] AUTO-INIT failed: {e}");
+                }
+            });
+        }
+    }
 
     Ok(SpawnResult { pty_id: pid, is_new })
 }
@@ -266,7 +292,10 @@ pub async fn init_terminal_pool(
     cwd: String,
     daemon: tauri::State<'_, DaemonClient>,
 ) -> Result<(), String> {
-    daemon.init_pool(&cwd, 2).await
+    eprintln!("[pool] init_terminal_pool called with cwd={cwd}");
+    let result = daemon.init_pool(&cwd, 2).await;
+    eprintln!("[pool] init_terminal_pool result: {result:?}");
+    result
 }
 
 #[cfg(test)]
