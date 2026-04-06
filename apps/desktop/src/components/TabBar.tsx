@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button as AriaButton } from 'react-aria-components';
+import { Button as AriaButton, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
 
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import {
@@ -9,7 +9,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Pencil, X, XCircle, XSquare } from 'lucide-react';
+import { Pencil, SquarePlus, SquareTerminal, X, XCircle, XSquare } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
@@ -25,9 +25,11 @@ import {
   reorderTabs,
   closeAllTabs,
   closeAllTabsExcept,
+  addTab,
+  addClaudeCodeTab,
 } from '../lib/tab-actions';
 import { ClaudeCodeIcon } from './ClaudeCodeIcon';
-import { Badge, Kbd, StatusDot, Tooltip } from './ui';
+import { Badge, Button, Kbd, StatusDot, Tooltip } from './ui';
 import { ContextMenu } from './ui/ContextMenu';
 
 import type { DotStatus } from './ui';
@@ -382,8 +384,44 @@ export function TabBar() {
     maskImage = 'linear-gradient(to right, black calc(100% - 24px), transparent)';
   }
 
+  const projectId = activeContextId ?? '';
+
   return (
     <div className="flex h-10 shrink-0 items-center border-b border-border/20 bg-bg-secondary">
+      <MenuTrigger>
+        <Button aria-label="New tab" size="sm" variant="ghost" iconOnly className="mx-2">
+          <SquarePlus size={12} />
+        </Button>
+        <Popover
+          placement="bottom start"
+          offset={4}
+          className="entering:animate-in entering:fade-in entering:zoom-in-95 exiting:animate-out exiting:fade-out exiting:zoom-out-95 w-max rounded-lg border border-border/60 bg-bg-secondary py-1 shadow-lg outline-none"
+        >
+          <Menu
+            className="outline-none"
+            onAction={(key) => {
+              if (key === 'terminal') addTab(projectId);
+              if (key === 'claude-code') addClaudeCodeTab(projectId);
+            }}
+          >
+            <MenuItem
+              id="terminal"
+              className="flex cursor-default items-center gap-2 px-3 py-1.5 font-mono text-base text-text-secondary outline-none data-[focused]:bg-bg-tertiary"
+            >
+              <SquareTerminal size={12} className="shrink-0" />
+              <span className="flex-1">New terminal</span>
+              <Kbd>⌘T</Kbd>
+            </MenuItem>
+            <MenuItem
+              id="claude-code"
+              className="flex cursor-default items-center gap-2 px-3 py-1.5 font-mono text-base text-text-secondary outline-none data-[focused]:bg-bg-tertiary"
+            >
+              <ClaudeCodeIcon size={12} className="shrink-0 text-[#da7756]" />
+              <span className="flex-1">Claude Code</span>
+            </MenuItem>
+          </Menu>
+        </Popover>
+      </MenuTrigger>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
