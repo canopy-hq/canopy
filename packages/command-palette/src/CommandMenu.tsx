@@ -22,6 +22,7 @@ import {
   FooterBar,
   FooterHint,
   FooterSep,
+  Kbd,
   SectionHeader,
   useScrollSelectedIntoView,
 } from './ui';
@@ -30,16 +31,6 @@ import { useCommandMenu, type MenuSection } from './useCommandMenu';
 import type { CommandContext, CommandItem, CommandMenuProps, PanelContext } from './types';
 
 const SECTION_CYCLE: MenuSection[] = ['root', 'projects', 'tabs', 'pty', 'agents'];
-
-// ── Kbd ────────────────────────────────────────────────────────────────────────
-
-export function Kbd({ children }: { children: React.ReactNode }) {
-  return (
-    <kbd className="inline-flex items-center gap-0.5 rounded border border-border/60 bg-bg-primary px-1 py-0.5 text-[10px] leading-none text-text-muted">
-      {children}
-    </kbd>
-  );
-}
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
 
@@ -410,7 +401,7 @@ export function CommandMenu({
                                 <ItemIcon icon={item.icon} />
                                 <span className="flex-1 truncate">{item.label}</span>
                                 {item.agentStatus && <AgentDot status={item.agentStatus} />}
-                                {item.shortcut && <Kbd>{item.shortcut}</Kbd>}
+                                {item.shortcut && <Kbd variant="menu">{item.shortcut}</Kbd>}
                                 {(item.children || item.renderPanel) && (
                                   <ChevronRight
                                     size={13}
@@ -431,28 +422,28 @@ export function CommandMenu({
               {/* Footer hints */}
               <FooterBar>
                 <FooterHint label="navigate">
-                  <Kbd>
+                  <Kbd variant="menu">
                     <ArrowUp size={9} />
                   </Kbd>
-                  <Kbd>
+                  <Kbd variant="menu">
                     <ArrowDown size={9} />
                   </Kbd>
                 </FooterHint>
                 <FooterSep />
                 <FooterHint label="open">
-                  <Kbd>
+                  <Kbd variant="menu">
                     <CornerDownLeft size={9} />
                   </Kbd>
                 </FooterHint>
                 <FooterSep />
                 <FooterHint label="filter">
-                  <Kbd>Tab</Kbd>
+                  <Kbd variant="menu">Tab</Kbd>
                 </FooterHint>
                 {(drillStack.length > 0 || section !== 'root') && (
                   <>
                     <FooterSep />
                     <FooterHint label="back">
-                      <Kbd>
+                      <Kbd variant="menu">
                         <Delete size={9} />
                       </Kbd>
                     </FooterHint>

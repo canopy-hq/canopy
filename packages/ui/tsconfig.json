@@ -1,0 +1,1 @@
+{ "extends": "@superagent/tsconfig/app", "include": ["src"] }
