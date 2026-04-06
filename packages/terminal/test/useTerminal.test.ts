@@ -115,7 +115,7 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
     unmount();
   });
 
-  it('overlay removed after debounce settles (300ms minimum from first byte, resets on each chunk)', async () => {
+  it('overlay removed after 150ms of output silence (debounced) — subsequent bytes reset the timer', async () => {
     vi.useFakeTimers();
     // happy-dom's rAF uses setImmediate which fake timers don't control;
     // replace with setTimeout(cb, 0) so vi.advanceTimersByTime flushes them.
@@ -135,7 +135,7 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
 
     const freshHandler = vi.mocked(connectPtyOutput).mock.calls[0]![1];
 
-    // First byte: starts debounce timer (300ms from first byte), overlay still present
+    // First byte: starts 150ms quiet timer, overlay still present
     act(() => {
       freshHandler(new Uint8Array([65]));
     });
@@ -148,21 +148,12 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
     });
     expect(overlay.parentNode).not.toBeNull();
 
-    // At 200ms from first byte: still not enough (300ms minimum)
+    // 150ms after LAST byte: debounce fires, then double rAF, then 80ms fade completes → overlay removed
     act(() => {
-      vi.advanceTimersByTime(100);
-    });
-    expect(overlay.parentNode).not.toBeNull();
-
-    // At 300ms from first byte: debounce fires, then double rAF removes overlay
-    act(() => {
-      vi.advanceTimersByTime(100); // reaches 300ms from first byte → fires timer
-      vi.advanceTimersByTime(1); // rAF #1
-      vi.advanceTimersByTime(1); // rAF #2 → removeOverlay() starts fade
-    });
-    // Overlay has opacity:0 with 80ms transition; DOM removal after 80ms
-    act(() => {
-      vi.advanceTimersByTime(80);
+      vi.advanceTimersByTime(150); // 150ms quiet → fires timer → rAF #1
+      vi.advanceTimersByTime(1); // fires rAF #1 → schedules rAF #2
+      vi.advanceTimersByTime(1); // fires rAF #2 → removeOverlay() starts 80ms fade
+      vi.advanceTimersByTime(80); // fade completes → DOM removal
     });
     expect(overlay.parentNode).toBeNull();
 
@@ -550,17 +541,17 @@ describe('useTerminal — restored session (isNew=false) [PHASE 2]', () => {
     const overlay = wrapper.firstElementChild as HTMLElement;
     expect(overlay.style.position).toBe('absolute');
 
-    // Simulate first byte → starts 300ms debounce timer
+    // Simulate first byte → 150ms quiet debounce fires → overlay removed
     const handler = vi.mocked(connectPtyOutput).mock.calls[0]![1];
     act(() => {
       handler(new Uint8Array([65]));
     });
-    // 300ms debounce fires, then double rAF, then fade
+    // 150ms quiet → fires timer → rAF #1 → rAF #2 → removeOverlay (starts 80ms fade) → fade completes
     act(() => {
-      vi.advanceTimersByTime(300); // debounce fires
-      vi.advanceTimersByTime(1); // rAF #1
-      vi.advanceTimersByTime(1); // rAF #2 → starts fade
-      vi.advanceTimersByTime(80); // fade completes → DOM removal
+      vi.advanceTimersByTime(150);
+      vi.advanceTimersByTime(1);
+      vi.advanceTimersByTime(1);
+      vi.advanceTimersByTime(80);
     });
     expect(overlay.parentNode).toBeNull();
 

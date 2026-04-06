@@ -3,7 +3,7 @@ import { asc, eq } from 'drizzle-orm';
 
 import { getDb } from '../client';
 import { tabs as table } from '../schema';
-import { uiCollection } from './ui';
+import { uiCollection, syncNavStateToLocalStorage } from './ui';
 
 import type { Tab, PaneNode } from '../types';
 
@@ -89,6 +89,8 @@ function commitTabAndUi(dbFn: () => Promise<unknown>, mutateFn: () => void): voi
 }
 
 export function insertTabAndActivate(tab: Tab): void {
+  // Snapshot includes existing tabs + the new one (collection insert is async)
+  syncNavStateToLocalStorage(tab.id, tab.projectItemId, [...getTabCollection().toArray, tab]);
   commitTabAndUi(
     () => getDb().insert(table).values(serialize(tab)),
     () => {
@@ -111,6 +113,14 @@ export function insertTabSilently(tab: Tab): void {
 }
 
 export function deleteTabAndUpdateActive(tabId: string, newActiveTabId: string | null): void {
+  if (newActiveTabId !== null) {
+    const ctx = uiCollection.toArray[0]?.activeContextId ?? '';
+    syncNavStateToLocalStorage(
+      newActiveTabId,
+      ctx,
+      getTabCollection().toArray.filter((t) => t.id !== tabId),
+    );
+  }
   commitTabAndUi(
     () => getDb().delete(table).where(eq(table.id, tabId)),
     () => {

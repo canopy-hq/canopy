@@ -1,3 +1,25 @@
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║  ⚠️  CAUTION — LOW-LEVEL DAEMON PROTOCOL & BINARY FRAMING  ⚠️              ║
+// ║                                                                            ║
+// ║  This module owns the Unix socket protocol between the Tauri app and the   ║
+// ║  standalone PTY daemon. It handles binary-framed output (4-byte BE length  ║
+// ║  prefix), persistent streams for fire-and-forget ops, and the sentinel     ║
+// ║  frame (zero-length) that signals scrollback replay completion.            ║
+// ║                                                                            ║
+// ║  Before modifying:                                                         ║
+// ║    1. Read the daemon protocol spec in packages/pty-daemon/CLAUDE.md       ║
+// ║    2. Understand the two connection modes: per-call (spawn/claim/close)    ║
+// ║       vs persistent stream (write/resize)                                  ║
+// ║    3. The attach() task runs for the LIFETIME of a terminal — breaking     ║
+// ║       its read loop kills all output for that pane                         ║
+// ║    4. Test with: rapid typing, resize during scrollback replay, reconnect  ║
+// ║                                                                            ║
+// ║  Key invariants:                                                           ║
+// ║    - Sentinel (zero-length frame) must be forwarded to TypeScript          ║
+// ║    - ready_tx fires exactly once per attach (on sentinel)                  ║
+// ║    - Persistent cmd_stream auto-reconnects on broken pipe                  ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
+
 use std::os::unix::net::UnixStream as StdUnixStream;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, atomic::AtomicU64};
@@ -9,6 +31,12 @@ use tokio::net::UnixStream;
 use tokio::sync::Mutex;
 
 use crate::agent_watcher::now_millis;
+
+#[derive(Debug)]
+pub struct ClaimResult {
+    pub pid: u32,
+    pub empty: bool,
+}
 
 pub struct DaemonClient {
     pub socket: PathBuf,
@@ -51,6 +79,15 @@ impl DaemonClient {
         }
 
         Err("daemon did not start within timeout".to_string())
+    }
+
+    /// Check that a daemon response has `ok: true`, otherwise extract the error.
+    fn check_ok(resp: serde_json::Value, fallback: &str) -> Result<serde_json::Value, String> {
+        if resp["ok"].as_bool() == Some(true) {
+            Ok(resp)
+        } else {
+            Err(resp["error"].as_str().unwrap_or(fallback).to_string())
+        }
     }
 
     /// Send a command that expects a JSON response (per-call connection).
@@ -100,18 +137,13 @@ impl DaemonClient {
         }
         let msg = format!("{obj}\n");
 
-        let resp = self.send_cmd(&msg).await?;
-        if resp["ok"].as_bool() == Some(true) {
-            let pid = resp["pid"]
-                .as_u64()
-                .map(|p| p as u32)
-                .ok_or_else(|| "daemon: spawn returned no pid".to_string())?;
-            // Default to true (fresh) if the daemon omits "new" (forward compat with older daemons).
-            let is_new = resp["new"].as_bool().unwrap_or(true);
-            Ok((pid, is_new))
-        } else {
-            Err(resp["error"].as_str().unwrap_or("spawn failed").to_string())
-        }
+        let resp = Self::check_ok(self.send_cmd(&msg).await?, "spawn failed")?;
+        let pid = resp["pid"]
+            .as_u64()
+            .map(|p| p as u32)
+            .ok_or_else(|| "daemon: spawn returned no pid".to_string())?;
+        let is_new = resp["new"].as_bool().unwrap_or(true);
+        Ok((pid, is_new))
     }
 
     /// Write data to a PTY session (fire-and-forget, persistent stream).
@@ -138,23 +170,51 @@ impl DaemonClient {
     /// Get the current working directory of a PTY session's shell process.
     pub async fn get_cwd(&self, pane_id: &str) -> Result<String, String> {
         let msg = format!("{{\"op\":\"cwd\",\"paneId\":{}}}\n", serde_json::json!(pane_id));
-        let resp = self.send_cmd(&msg).await?;
-        if resp["ok"].as_bool() == Some(true) {
-            resp["cwd"].as_str().map(String::from).ok_or_else(|| "no cwd in response".to_string())
-        } else {
-            Err(resp["error"].as_str().unwrap_or("cwd failed").to_string())
-        }
+        let resp = Self::check_ok(self.send_cmd(&msg).await?, "cwd failed")?;
+        resp["cwd"].as_str().map(String::from).ok_or_else(|| "no cwd in response".to_string())
     }
 
     /// Close a PTY session and kill its process.
     pub async fn close(&self, pane_id: &str) -> Result<(), String> {
         let msg = format!("{{\"op\":\"close\",\"paneId\":{}}}\n", serde_json::json!(pane_id));
-        let resp = self.send_cmd(&msg).await?;
-        if resp["ok"].as_bool() == Some(true) {
-            Ok(())
-        } else {
-            Err("close failed".to_string())
-        }
+        Self::check_ok(self.send_cmd(&msg).await?, "close failed")?;
+        Ok(())
+    }
+
+    /// Claim a pre-warmed PTY from the daemon pool.
+    /// Returns `ClaimResult { pid, empty }`. When `empty` is true, the pool is
+    /// exhausted and the caller should fall back to a regular `spawn`.
+    pub async fn claim(&self, pane_id: &str, rows: u16, cols: u16) -> Result<ClaimResult, String> {
+        let msg = format!(
+            "{{\"op\":\"claim\",\"paneId\":{},\"rows\":{},\"cols\":{}}}\n",
+            serde_json::json!(pane_id),
+            rows,
+            cols,
+        );
+        let resp = Self::check_ok(self.send_cmd(&msg).await?, "claim failed")?;
+        Ok(ClaimResult {
+            pid: resp["pid"].as_u64().unwrap_or(0) as u32,
+            empty: resp["empty"].as_bool().unwrap_or(false),
+        })
+    }
+
+    /// Initialize the daemon's PTY pool for the given CWD.
+    pub async fn init_pool(&self, cwd: &str, size: usize) -> Result<(), String> {
+        let msg = format!(
+            "{{\"op\":\"init_pool\",\"cwd\":{},\"size\":{}}}\n",
+            serde_json::json!(cwd),
+            size,
+        );
+        Self::check_ok(self.send_cmd(&msg).await?, "init_pool failed")?;
+        Ok(())
+    }
+
+    /// Drain and kill all pool entries.
+    #[allow(dead_code)]
+    pub async fn drain_pool(&self) -> Result<(), String> {
+        let msg = "{\"op\":\"drain_pool\",\"paneId\":\"\"}\n";
+        Self::check_ok(self.send_cmd(msg).await?, "drain_pool failed")?;
+        Ok(())
     }
 
     /// Attach to a PTY session: spawns a background task that reads frames

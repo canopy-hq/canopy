@@ -8,6 +8,7 @@ export {
   closePtysForPanes,
   getPtyCwd,
   listPtySessions,
+  initTerminalPool,
   type PtySessionInfo,
 } from './pty';
 export {

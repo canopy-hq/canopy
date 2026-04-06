@@ -15,5 +15,11 @@ export { getSessionCollection } from './collections/sessions';
 export { getSettingCollection, getSetting, setSetting } from './collections/settings';
 export { agentCollection } from './collections/agents';
 export type { AgentInfo } from './collections/agents';
-export { uiCollection, getUiState, SIDEBAR_WIDTH_MIN, SIDEBAR_WIDTH_MAX } from './collections/ui';
+export {
+  uiCollection,
+  getUiState,
+  syncNavStateToLocalStorage,
+  SIDEBAR_WIDTH_MIN,
+  SIDEBAR_WIDTH_MAX,
+} from './collections/ui';
 export type { UiState } from './collections/ui';
