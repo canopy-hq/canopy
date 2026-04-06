@@ -196,15 +196,16 @@ function RootLayout() {
       { key: 'b', meta: true, action: () => toggleSidebar() },
       { key: 'n', meta: true, action: () => void openImportDialog(navigate) },
       { key: 'o', meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
-      // ⌘1–9: navigate to the Nth project (sorted by position). No shortcut beyond 9 projects.
+      // ⌘1–9: navigate to the Nth project (sorted by position). No shortcut beyond 9.
+      // Uses e.code (physical key) so it works on AZERTY/QWERTY/etc.
       ...([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map((n) => ({
-        key: String(n),
+        code: `Digit${n}`,
         meta: true,
         action: () => switchProjectByIndex(n - 1, navigate),
       })),
-      // ⌘[ / ⌘]: navigate to the prev/next branch or worktree within the active project.
-      { key: '[', meta: true, action: () => switchProjectItemRelative('prev', navigate) },
-      { key: ']', meta: true, action: () => switchProjectItemRelative('next', navigate) },
+      // ⌘↑ / ⌘↓: navigate to the prev/next branch or worktree within the active project.
+      { key: 'ArrowUp', meta: true, action: () => switchProjectItemRelative('prev', navigate) },
+      { key: 'ArrowDown', meta: true, action: () => switchProjectItemRelative('next', navigate) },
     ],
     [navigate],
   );
