@@ -49,7 +49,7 @@ pub async fn spawn_terminal(
         let c = cols.unwrap_or(80);
         // Try to claim a pre-warmed PTY from the pool first
         match daemon.claim(&pane_id, r, c).await {
-            Ok(result) if !result.empty => (result.pid, false),
+            Ok(result) if !result.empty => (result.pid, true),
             _ => daemon.spawn(&pane_id, cwd.as_deref(), r, c).await?,
         }
     };

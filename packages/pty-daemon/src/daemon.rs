@@ -257,6 +257,12 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                         // Reassign paneId: remove session under old key, reinsert under new key
                         if let Some(mut sess) = st.sessions.remove(&old_pane_id) {
                             let pid = sess.child_pid;
+                            // Clear stale scrollback (old prompt at 80×24) so
+                            // attach replays only post-resize output.
+                            sess.scrollback = ScrollbackBuffer::new(SCROLLBACK_CAP);
+                            // Write clear-screen to PTY so the shell redraws cleanly
+                            let _ = sess.writer.write_all(b"\x1b[2J\x1b[H");
+                            let _ = sess.writer.flush();
                             // Resize to actual container dimensions
                             let _ = sess.master.resize(PtySize {
                                 rows,
@@ -1131,11 +1137,12 @@ mod tests {
         let pid = resp2["pid"].as_u64().unwrap();
         assert!(pid > 0, "expected valid pid from claim");
 
-        // The claimed pane should now be accessible by its real paneId
+        // The claimed pane should now be accessible by its real paneId.
+        // Scrollback is cleared during claim (to avoid flashing the old prompt),
+        // so we just verify attach succeeds and the sentinel is received.
         let mut conn3 = UnixStream::connect(&socket).await.unwrap();
         send_line(&mut conn3, r#"{"op":"attach","paneId":"real-pane-1"}"#).await;
-        let scrollback = drain_scrollback(&mut conn3).await;
-        assert!(!scrollback.is_empty(), "claimed PTY should have scrollback (shell prompt)");
+        let _scrollback = drain_scrollback(&mut conn3).await;
 
         let _ = std::fs::remove_file(&socket);
     }
@@ -1210,11 +1217,11 @@ mod tests {
         assert_eq!(resp2["ok"], true);
         assert!(resp2["pid"].as_u64().unwrap() > 0);
 
-        // Attach to claimed entry and verify scrollback exists
+        // Attach to claimed entry — scrollback is cleared during claim,
+        // so just verify attach succeeds (sentinel received).
         let mut conn3 = UnixStream::connect(&socket).await.unwrap();
         send_line(&mut conn3, r#"{"op":"attach","paneId":"tab-1"}"#).await;
-        let scrollback = drain_scrollback(&mut conn3).await;
-        assert!(!scrollback.is_empty(), "claimed PTY must have scrollback from shell prompt");
+        let _scrollback = drain_scrollback(&mut conn3).await;
 
         // Claim second entry
         let mut conn4 = UnixStream::connect(&socket).await.unwrap();
