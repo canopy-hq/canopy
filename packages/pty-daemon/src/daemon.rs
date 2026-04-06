@@ -364,13 +364,16 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 let rows = cmd["rows"].as_u64().unwrap_or(24) as u16;
                 let cols = cmd["cols"].as_u64().unwrap_or(80) as u16;
 
-                // Build the cd+clear+sentinel command outside the lock
+                // Build the cd+clear+sentinel command outside the lock.
+                // Wrap in `set +o history` / `set -o history` to suppress
+                // history recording in both bash and zsh — the leading space
+                // trick only works when HIST_IGNORE_SPACE is enabled.
                 let cd_cmd = match &cwd {
                     Some(dir) => format!(
-                        " cd {} && clear && printf '\\x1b]555;poolready\\x07'\n",
+                        " set +o history; cd {} && clear && printf '\\x1b]555;poolready\\x07'; set -o history\n",
                         shell_escape(dir),
                     ),
-                    None => "clear && printf '\\x1b]555;poolready\\x07'\n".to_string(),
+                    None => " set +o history; clear && printf '\\x1b]555;poolready\\x07'; set -o history\n".to_string(),
                 };
 
                 // Single lock: claim → remap → resize → write cd/clear
@@ -1167,7 +1170,7 @@ mod tests {
     async fn pool_claim_returns_warm_session() {
         let socket = temp_socket();
         start_daemon(&socket).await;
-        wait_pool_ready(&socket, 3000).await;
+        wait_pool_ready(&socket, 10_000).await;
 
         // Claim a warm session
         let mut conn2 = UnixStream::connect(&socket).await.unwrap();
@@ -1216,7 +1219,7 @@ mod tests {
     async fn pool_replenishes_after_claim() {
         let socket = temp_socket();
         start_daemon(&socket).await;
-        wait_pool_ready(&socket, 3000).await;
+        wait_pool_ready(&socket, 10_000).await;
 
         // Claim one
         let mut conn = UnixStream::connect(&socket).await.unwrap();
@@ -1228,14 +1231,19 @@ mod tests {
         assert_eq!(resp["ok"], true, "first claim failed: {resp}");
 
         // Wait for replenishment (pool should refill after claim)
-        wait_pool_ready(&socket, 3000).await;
+        wait_pool_ready(&socket, 10_000).await;
 
         let _ = std::fs::remove_file(&socket);
     }
 
     /// Poll pool_status until at least one session is ready, or panic after timeout.
+    /// Poll pool_status until at least one session is ready, with exponential
+    /// backoff to reduce socket churn under load. 10s timeout accommodates
+    /// slow CI environments and parallel test runs.
     async fn wait_pool_ready(socket: &str, timeout_ms: u64) {
         let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_millis(timeout_ms);
+        let mut interval_ms = 50u64;
+        let mut last_status = String::new();
         loop {
             let mut conn = UnixStream::connect(socket).await.unwrap();
             send_line(&mut conn, r#"{"op":"pool_status","paneId":""}"#).await;
@@ -1243,10 +1251,12 @@ mod tests {
             if status["ready"].as_u64().unwrap_or(0) >= 1 {
                 return;
             }
+            last_status = status.to_string();
             if tokio::time::Instant::now() > deadline {
-                panic!("pool not ready within {timeout_ms}ms; last status: {status}");
+                panic!("pool not ready within {timeout_ms}ms; last status: {last_status}");
             }
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(interval_ms)).await;
+            interval_ms = (interval_ms * 2).min(500); // backoff: 50 → 100 → 200 → 500ms
         }
     }
 
@@ -1254,7 +1264,7 @@ mod tests {
     async fn attach_fresh_skips_cd_echo_via_sentinel() {
         let socket = temp_socket();
         start_daemon(&socket).await;
-        wait_pool_ready(&socket, 3000).await;
+        wait_pool_ready(&socket, 10_000).await;
 
         // Claim with cwd /tmp
         let mut conn = UnixStream::connect(&socket).await.unwrap();
@@ -1302,7 +1312,7 @@ mod tests {
     async fn scrollback_clean_after_claim() {
         let socket = temp_socket();
         start_daemon(&socket).await;
-        wait_pool_ready(&socket, 3000).await;
+        wait_pool_ready(&socket, 10_000).await;
 
         // Claim
         let mut conn = UnixStream::connect(&socket).await.unwrap();
@@ -1345,7 +1355,7 @@ mod tests {
     async fn drain_pool_kills_entries() {
         let socket = temp_socket();
         start_daemon(&socket).await;
-        wait_pool_ready(&socket, 3000).await;
+        wait_pool_ready(&socket, 10_000).await;
 
         // Drain
         let mut conn = UnixStream::connect(&socket).await.unwrap();
@@ -1367,7 +1377,7 @@ mod tests {
     async fn claim_without_cwd_emits_sentinel() {
         let socket = temp_socket();
         start_daemon(&socket).await;
-        wait_pool_ready(&socket, 3000).await;
+        wait_pool_ready(&socket, 10_000).await;
 
         // Claim without cwd
         let mut conn = UnixStream::connect(&socket).await.unwrap();
