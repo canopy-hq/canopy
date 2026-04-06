@@ -12,14 +12,14 @@ function IndexRoute() {
     <div className="flex flex-1 flex-col items-center justify-center gap-2 select-none">
       <ActionRow
         icon={<FolderPlus size={15} />}
-        label="Add Project"
+        label="Add project"
         shortcut="⌘N"
         onPress={() => void openImportDialog()}
       />
       {projects.length > 0 && (
         <ActionRow
           icon={<PanelLeft size={15} />}
-          label="Toggle Sidebar"
+          label="Toggle sidebar"
           shortcut="⌘B"
           onPress={() => toggleSidebar()}
         />

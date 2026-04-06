@@ -28,7 +28,7 @@ export function useScrollSelectedIntoView(
 
 export function SectionHeader({ label }: { label: string }) {
   return (
-    <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted opacity-60">
+    <div className="px-3 pt-2 pb-1 font-mono text-2xs font-medium tracking-widest text-text-faint uppercase">
       {label}
     </div>
   );

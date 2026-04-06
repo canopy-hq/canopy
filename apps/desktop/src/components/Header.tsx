@@ -45,7 +45,7 @@ export function Header({ onSessionsClick, onSearchClick }: HeaderProps = {}) {
           className="flex w-full max-w-[320px] cursor-pointer items-center gap-2 rounded-md border border-border/30 bg-bg-primary/40 px-3 py-1.5 text-[13px] text-text-faint transition-colors hover:border-border/50 hover:bg-bg-primary/70 hover:text-text-muted"
         >
           <Search size={12} className="shrink-0" />
-          <span className="flex-1 text-left">Search or run a command…</span>
+          <span className="flex-1 text-left leading-none">Search or run a command…</span>
           <Kbd>⌘K</Kbd>
         </button>
       </div>
