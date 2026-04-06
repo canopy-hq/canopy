@@ -115,14 +115,7 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
         handleOpenWorktree(item.worktree.name, item.worktree.path, item.worktree.branch);
       }
     },
-    [
-      pickingBase,
-      quickBase,
-      handleCreateWorktree,
-      handleOpenWorktree,
-      setPickingBase,
-      setQuickBase,
-    ],
+    [pickingBase, handleCreateWorktree, handleOpenWorktree, setPickingBase, setQuickBase],
   );
 
   // Keyboard — same pattern as CommandMenu, wired to the input
