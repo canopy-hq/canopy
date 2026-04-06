@@ -60,13 +60,22 @@ import { closeAllTabs } from '../lib/tab-actions';
 import { ClaudeCodeIcon } from './ClaudeCodeIcon';
 import { CloseProjectModal } from './CloseProjectModal';
 import { RemoveWorktreeModal } from './RemoveWorktreeModal';
-import { StatusDot } from './StatusDot';
-import { Badge, Button, DiffPill, IconWithBadge, Kbd, Spinner, Tooltip, ContextMenu } from './ui';
+import {
+  Badge,
+  badge,
+  Button,
+  DiffPill,
+  IconWithBadge,
+  Kbd,
+  Spinner,
+  StatusDot,
+  Tooltip,
+  ContextMenu,
+} from './ui';
 
 import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
 import type { PrInfo } from '../lib/github';
-import type { DotStatus } from './StatusDot';
-import type { ContextMenuItemDef } from './ui';
+import type { ContextMenuItemDef, DotStatus } from './ui';
 import type { Project } from '@superagent/db';
 
 const WORKSPACE_COLORS: Array<{ value: string; label: string }> = [
@@ -82,18 +91,22 @@ const WORKSPACE_COLORS: Array<{ value: string; label: string }> = [
   { value: '#14b8a6', label: 'Teal' },
 ];
 
-const PR_TEXT_COLOR: Record<PrInfo['state'], string> = {
-  OPEN: 'text-emerald-500',
-  DRAFT: 'text-text-muted',
-  MERGED: 'text-purple-500',
-  CLOSED: 'text-text-muted',
+const PR_COLOR: Record<PrInfo['state'], 'success' | 'neutral' | 'merged' | 'error'> = {
+  OPEN: 'success',
+  DRAFT: 'neutral',
+  MERGED: 'merged',
+  CLOSED: 'error',
 };
-const PR_BG_COLOR: Record<PrInfo['state'], string> = {
-  OPEN: 'bg-emerald-500/10',
-  DRAFT: 'bg-white/[0.04]',
-  MERGED: 'bg-purple-500/10',
-  CLOSED: 'bg-white/[0.04]',
-};
+
+const branchName = tv({
+  base: 'min-w-0 flex-1 truncate font-mono text-sm leading-none',
+  variants: { head: { true: 'text-text-secondary', false: 'text-text-muted' } },
+});
+
+const worktreeRow = tv({
+  base: 'group/wt py-1.5 pr-3 pl-3',
+  variants: { deleting: { true: 'opacity-50' } },
+});
 
 const PrBadge = memo(function PrBadge({ pr }: { pr: PrInfo }) {
   return (
@@ -103,9 +116,13 @@ const PrBadge = memo(function PrBadge({ pr }: { pr: PrInfo }) {
         e.stopPropagation();
         void openUrl(pr.url);
       }}
-      className={`inline-flex shrink-0 items-center gap-1 rounded-sm px-1 py-px text-2xs font-normal whitespace-nowrap hover:brightness-125 ${PR_TEXT_COLOR[pr.state]} ${PR_BG_COLOR[pr.state]}`}
+      className={badge({
+        color: PR_COLOR[pr.state],
+        size: 'sm',
+        class: 'gap-1 font-mono text-[11px] font-normal hover:brightness-125',
+      })}
     >
-      <GitPullRequest size={9} />#{pr.number}
+      <GitPullRequest size={10} className="shrink-0" />#{pr.number}
     </button>
   );
 });
@@ -132,11 +149,7 @@ const BranchRow = memo(
           <IconWithBadge agentStatus={agentStatus}>
             <Laptop size={14} stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'} />
           </IconWithBadge>
-          <span
-            className={`min-w-0 flex-1 truncate font-mono text-sm leading-none ${branch.is_head ? 'text-text-secondary' : 'text-text-muted'}`}
-          >
-            {branch.name}
-          </span>
+          <span className={branchName({ head: branch.is_head })}>{branch.name}</span>
           {tabCount != null && tabCount > 0 && (
             <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.25 py-px font-mono text-xs leading-none text-text-faint tabular-nums">
               {tabCount}
@@ -218,7 +231,7 @@ const WorktreeRow = memo(
     }
 
     return (
-      <div className={`group/wt py-1.5 pr-3 pl-3 ${isDeleting ? 'opacity-50' : ''}`}>
+      <div className={worktreeRow({ deleting: isDeleting })}>
         <div className="flex items-center gap-2">
           {isDeleting ? (
             <div className="relative flex w-6 shrink-0 items-center justify-center">
@@ -271,8 +284,8 @@ const WorktreeRow = memo(
         </div>
         {!isDeleting && (
           <div className="mt-1 flex min-w-0 items-center gap-2 pl-[32px]">
-            <Badge size="xs" className="min-w-0 shrink gap-1 font-mono">
-              <GitBranch size={9} className="shrink-0 opacity-60" />
+            <Badge size="sm" className="min-w-0 shrink gap-1 font-mono text-[11px]">
+              <GitBranch size={10} className="shrink-0 opacity-60" />
               <span className="min-w-0 truncate">{worktree.branch || worktree.name}</span>
             </Badge>
           </div>

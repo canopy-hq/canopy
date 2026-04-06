@@ -2,10 +2,9 @@ import { useCallback } from 'react';
 
 import { tv } from 'tailwind-variants';
 
-import { StatusDot } from './StatusDot';
-import { Tooltip } from './ui';
+import { StatusDot, Tooltip } from './ui';
 
-import type { DotStatus } from './StatusDot';
+import type { DotStatus } from './ui';
 
 const wrapper = tv({
   base: 'absolute top-0 right-0 z-10 rounded-bl-[6px] px-4 py-1 font-mono text-md leading-none flex items-center gap-1 backdrop-blur-[4px] cursor-pointer select-none',
@@ -40,8 +39,7 @@ export function PaneHeader({
 
   const content = (
     <div
-      className={wrapper({ focused: isFocused })}
-      style={{ background: 'color-mix(in srgb, var(--bg-tertiary) 85%, transparent)' }}
+      className={wrapper({ focused: isFocused, class: 'bg-bg-tertiary/85' })}
       onClick={handleCopy}
     >
       <StatusDot status={agentStatus} size={8} />
