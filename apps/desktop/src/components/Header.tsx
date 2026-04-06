@@ -17,7 +17,7 @@ export function Header({ onSessionsClick, onSearchClick }: HeaderProps = {}) {
   return (
     <header
       data-tauri-drag-region
-      className="relative flex h-12 shrink-0 items-center border-b border-border/40 bg-bg-secondary pl-[78px]"
+      className="relative flex h-12 shrink-0 items-center border-b border-border/20 bg-bg-secondary pl-[78px]"
     >
       {/* Left zone — sidebar toggle + PTY sessions */}
       <div data-tauri-drag-region className="flex h-full items-center px-1">
