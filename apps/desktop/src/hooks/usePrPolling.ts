@@ -69,7 +69,7 @@ export function usePrPolling(
     inaccessiblePathsRef.current = new Set();
   }, [githubConnected]);
 
-  const projectKey = useMemo(() => projects.map((ws) => ws.id).join(','), [projects]);
+  const projectKey = useMemo(() => projects.map((p) => p.id).join(','), [projects]);
 
   useEffect(() => {
     if (!enabled || !githubConnected) return;
@@ -130,7 +130,7 @@ export function usePrPolling(
           if (!prMapEqual(prev, merged)) {
             noChangeCountRef.current = 0;
             console.debug(
-              `[pr-poll] updated: ${totalPrs} PR(s) across ${Object.keys(merged).length} workspace(s)`,
+              `[pr-poll] updated: ${totalPrs} PR(s) across ${Object.keys(merged).length} project(s)`,
             );
             setPrMap(merged);
             setSetting(PR_SETTING_KEY, merged);

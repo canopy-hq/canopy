@@ -65,7 +65,6 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
     if (isOpen) setSelectedIndex(0);
   }, [isOpen]);
 
-  // Build agent rows with workspace mapping
   const agentRows: AgentRow[] = useMemo(() => {
     const rows: AgentRow[] = [];
 
@@ -74,22 +73,13 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
       let tabId = '';
       let projectItemId = '';
 
-      // Find which tab contains this agent's ptyId
       for (const tab of tabs) {
         if (containsPtyId(tab.paneRoot, agent.ptyId)) {
           tabId = tab.id;
           projectItemId = tab.projectItemId;
-          // Look up workspace name from workspace store
-          const ws = projects.find((w) => {
-            // Check if any branch/worktree id matches projectItemId
-            // projectItemId could be the workspace id or a sub-item id
-            return (
-              w.id === tab.projectItemId ||
-              w.branches.some((b) => b.name === tab.projectItemId) ||
-              w.worktrees.some((wt) => wt.name === tab.projectItemId)
-            );
-          });
-          if (ws) projectName = ws.name;
+          // projectItemId is a composite key like `${proj.id}-branch-name`; match by prefix
+          const proj = projects.find((p) => tab.projectItemId.startsWith(p.id));
+          if (proj) projectName = proj.name;
           break;
         }
       }
@@ -100,7 +90,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
     return rows;
   }, [agentList, tabs, projects]);
 
-  // Group rows by workspace name
+  // Group rows by project name
   const groupedRows: Record<string, AgentRow[]> = useMemo(() => {
     const groups: Record<string, AgentRow[]> = {};
     for (const row of agentRows) {
@@ -205,12 +195,11 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                 No agents running
               </div>
             ) : (
-              /* Agent rows grouped by workspace */
-              Object.entries(groupedRows).map(([wsName, rows]) => (
-                <div key={wsName}>
+              Object.entries(groupedRows).map(([projName, rows]) => (
+                <div key={projName}>
                   {/* Group header */}
                   <div className="px-4 pt-2 pb-1 text-sm font-semibold text-text-muted">
-                    {wsName}
+                    {projName}
                   </div>
                   {/* Agent rows */}
                   {rows.map((row) => {

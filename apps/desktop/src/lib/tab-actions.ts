@@ -26,17 +26,17 @@ import type { Tab } from '@superagent/db';
 
 /** Resolve a projectItemId composite key to a filesystem path. */
 export function resolveProjectItemCwd(projectItemId: string): string | undefined {
-  for (const ws of getProjectCollection().toArray) {
-    if (projectItemId === ws.id) return ws.path;
+  for (const proj of getProjectCollection().toArray) {
+    if (projectItemId === proj.id) return proj.path;
 
-    const branchPrefix = `${ws.id}-branch-`;
-    if (projectItemId.startsWith(branchPrefix)) return ws.path;
+    const branchPrefix = `${proj.id}-branch-`;
+    if (projectItemId.startsWith(branchPrefix)) return proj.path;
 
-    const wtPrefix = `${ws.id}-wt-`;
+    const wtPrefix = `${proj.id}-wt-`;
     if (projectItemId.startsWith(wtPrefix)) {
       const wtName = projectItemId.slice(wtPrefix.length);
-      const wt = ws.worktrees.find((w) => w.name === wtName);
-      return wt?.path ?? ws.path;
+      const wt = proj.worktrees.find((w) => w.name === wtName);
+      return wt?.path ?? proj.path;
     }
   }
   return undefined;
@@ -280,7 +280,7 @@ export function killPaneInTab(tabId: string, paneId: PaneId): void {
 }
 
 /**
- * Navigate to a specific workspace → tab → pane from anywhere in the app.
+ * Navigate to a specific project → tab → pane from anywhere in the app.
  *
  * - Same context: switchTab direct — no route change, no re-render.
  * - Cross context: pre-populates contextActiveTabIds before navigating so that
@@ -288,7 +288,7 @@ export function killPaneInTab(tabId: string, paneId: PaneId): void {
  * - Pane: focusedPaneId is set directly on the tab, independent of active context.
  *
  * Always calls navigate() to handle the case where the user is on a different
- * route (e.g. /settings) even when the workspace context is already correct.
+ * route (e.g. /settings) even when the project context is already correct.
  */
 export function jumpToPane(
   navigate: (opts: { to: string; params?: Record<string, string> }) => void,

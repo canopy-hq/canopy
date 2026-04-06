@@ -19,14 +19,14 @@ export function buildTabCommands(
   });
 
   return sorted.map((tab): CommandItem => {
-    const ws = resolveProjectForTab(tab, projects);
+    const proj = resolveProjectForTab(tab, projects);
     return {
       id: `tab:${tab.id}`,
       label: tab.label,
       category: 'tab',
       keywords: ['terminal', 'switch', 'pane'],
       icon: 'tab',
-      group: ws?.name,
+      group: proj?.name,
       contextId: tab.projectItemId,
       action: ({ close }) => {
         jumpToPane(navigate, tab.projectItemId, tab.id);
