@@ -45,7 +45,12 @@ bun run format                                     # oxfmt (root)
 
 - Frontend conventions → `apps/desktop/CLAUDE.md`
 - Rust backend → `apps/desktop/src-tauri/CLAUDE.md`
-- Shared UI package → `packages/ui/CLAUDE.md`
+- Shared UI primitives → `packages/ui/CLAUDE.md`
+- Database & collections → `packages/db/CLAUDE.md`
+- Terminal emulation & PTY IPC → `packages/terminal/CLAUDE.md`
+- Command palette → `packages/command-palette/CLAUDE.md`
+- PTY daemon (Rust binary) → `packages/pty-daemon/CLAUDE.md`
+- FPS overlay (dev) → `packages/fps/CLAUDE.md`
 
 ## Git
 
