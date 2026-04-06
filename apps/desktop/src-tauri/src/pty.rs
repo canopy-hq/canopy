@@ -44,7 +44,15 @@ pub async fn spawn_terminal(
     daemon: tauri::State<'_, DaemonClient>,
     watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
 ) -> Result<SpawnResult, String> {
-    let (pid, is_new) = daemon.spawn(&pane_id, cwd.as_deref(), rows.unwrap_or(24), cols.unwrap_or(80)).await?;
+    let (pid, is_new) = {
+        let r = rows.unwrap_or(24);
+        let c = cols.unwrap_or(80);
+        // Try to claim a pre-warmed PTY from the pool first
+        match daemon.claim(&pane_id, r, c).await {
+            Ok(result) if !result.empty => (result.pid, false),
+            _ => daemon.spawn(&pane_id, cwd.as_deref(), r, c).await?,
+        }
+    };
 
     {
         let mut s = state.lock().map_err(|e| e.to_string())?;
@@ -239,6 +247,16 @@ pub async fn get_pty_cwd(
     daemon: tauri::State<'_, crate::daemon_client::DaemonClient>,
 ) -> Result<String, String> {
     daemon.get_cwd(&pane_id).await
+}
+
+/// Pre-warm the daemon's PTY pool for the given CWD.
+/// Called once when a project is opened or switched.
+#[tauri::command]
+pub async fn init_terminal_pool(
+    cwd: String,
+    daemon: tauri::State<'_, DaemonClient>,
+) -> Result<(), String> {
+    daemon.init_pool(&cwd, 2).await
 }
 
 #[cfg(test)]

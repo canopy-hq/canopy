@@ -85,6 +85,7 @@ pub fn run() {
             pty::close_ptys_for_panes,
             pty::get_pty_cwd,
             pty::list_pty_sessions,
+            pty::init_terminal_pool,
             git::import_repo,
             git::list_branches,
             git::list_all_branches,
