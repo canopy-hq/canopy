@@ -7,7 +7,7 @@ import { ClaudeCodeIcon } from '../../components/ClaudeCodeIcon';
 import { ClaudeCodeSetupDialog } from '../../components/ClaudeCodeSetupDialog';
 import { PaneContainer } from '../../components/PaneContainer';
 import { TabBar } from '../../components/TabBar';
-import { ActionRow, Button, Kbd, Spinner } from '../../components/ui';
+import { ActionRow, Button, Spinner } from '../../components/ui';
 import { useUiState, useTabs } from '../../hooks/useCollections';
 import {
   toggleSidebar,
@@ -59,40 +59,11 @@ function CreatingWorktree({
   );
 }
 
-function QuickActionsBar({ projectId }: { projectId: string }) {
-  return (
-    <div className="flex h-9 shrink-0 items-center gap-0.5 bg-bg-secondary px-2">
-      <Button
-        size="sm"
-        variant="ghost"
-        onPress={() => addTab(projectId)}
-        className="flex items-center gap-1.5 px-2 py-1 font-mono text-sm text-text-faint"
-      >
-        <SquareTerminal size={12} />
-        New terminal
-        <Kbd>⌘T</Kbd>
-      </Button>
-      <span className="mx-1 h-3.5 w-px bg-border/50" aria-hidden />
-      <Button
-        size="sm"
-        variant="ghost"
-        onPress={() => addClaudeCodeTab(projectId)}
-        className="flex items-center gap-1.5 px-2 py-1 font-mono text-sm text-text-faint"
-      >
-        <ClaudeCodeIcon size={12} className="text-[#da7756]" />
-        Claude Code
-      </Button>
-    </div>
-  );
-}
-
 function ProjectRoute() {
   const { projectId } = Route.useParams();
   const ui = useUiState();
   const allTabs = useTabs();
   const activeTab = allTabs.find((t) => t.id === ui.activeTabId);
-  const hasTabs = allTabs.some((t) => t.projectItemId === projectId);
-
   // Sync store state when navigating to a project URL directly (routing is source of truth)
   useEffect(() => {
     if (ui.activeContextId !== projectId) {
@@ -112,7 +83,6 @@ function ProjectRoute() {
   return (
     <>
       <TabBar />
-      {hasTabs && <QuickActionsBar projectId={projectId} />}
       <div className="relative min-h-0 flex-1">
         {isCreating ? (
           <CreatingWorktree pendingSession={pendingSession} />
