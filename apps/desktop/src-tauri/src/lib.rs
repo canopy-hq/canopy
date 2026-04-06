@@ -96,7 +96,7 @@ pub fn run() {
             git::remove_worktree,
             git::get_diff_stats,
             git::get_all_diff_stats,
-            git::poll_all_workspace_states,
+            git::poll_all_project_states,
             agent_watcher::start_agent_watching,
             agent_watcher::stop_agent_watching,
             agent_watcher::toggle_agent_manual,

@@ -3,10 +3,10 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { getSettingCollection, getSetting, setSetting } from '@superagent/db';
 
 import { getPrStatuses } from '../lib/github';
-import { getExpandedWorkspacePaths } from '../lib/workspace-utils';
+import { getExpandedProjectPaths } from '../lib/project-utils';
 
 import type { PrInfo } from '../lib/github';
-import type { Workspace } from '@superagent/db';
+import type { Project } from '@superagent/db';
 
 const PR_SETTING_KEY = 'prStatuses';
 
@@ -49,27 +49,27 @@ export function prMapEqual(a: PrMap, b: PrMap): boolean {
  * Polls GitHub API on a 30s+ adaptive cadence. Never blocks local operations.
  */
 export function usePrPolling(
-  workspaces: Workspace[],
+  projects: Project[],
   enabled: boolean,
   githubConnected: boolean,
 ): PrMap {
   const [prMap, setPrMap] = useState<PrMap>(loadCachedPrMap);
-  const workspacesRef = useRef(workspaces);
+  const projectsRef = useRef(projects);
   const noChangeCountRef = useRef(0);
   const prevPrMapRef = useRef(prMap);
   const inaccessiblePathsRef = useRef(new Set<string>());
   prevPrMapRef.current = prMap;
 
   useEffect(() => {
-    workspacesRef.current = workspaces;
-  }, [workspaces]);
+    projectsRef.current = projects;
+  }, [projects]);
 
   // Reset inaccessible paths when GitHub connection changes (user re-authed)
   useEffect(() => {
     inaccessiblePathsRef.current = new Set();
   }, [githubConnected]);
 
-  const workspaceKey = useMemo(() => workspaces.map((ws) => ws.id).join(','), [workspaces]);
+  const projectKey = useMemo(() => projects.map((p) => p.id).join(','), [projects]);
 
   useEffect(() => {
     if (!enabled || !githubConnected) return;
@@ -79,8 +79,8 @@ export function usePrPolling(
     let timer: ReturnType<typeof setTimeout>;
 
     function poll() {
-      const current = workspacesRef.current;
-      const { paths, pathToId, expandedIds } = getExpandedWorkspacePaths(current);
+      const current = projectsRef.current;
+      const { paths, pathToId, expandedIds } = getExpandedProjectPaths(current);
 
       // Filter out paths we know are inaccessible
       const accessiblePaths = paths.filter((p) => !inaccessiblePathsRef.current.has(p));
@@ -130,7 +130,7 @@ export function usePrPolling(
           if (!prMapEqual(prev, merged)) {
             noChangeCountRef.current = 0;
             console.debug(
-              `[pr-poll] updated: ${totalPrs} PR(s) across ${Object.keys(merged).length} workspace(s)`,
+              `[pr-poll] updated: ${totalPrs} PR(s) across ${Object.keys(merged).length} project(s)`,
             );
             setPrMap(merged);
             setSetting(PR_SETTING_KEY, merged);
@@ -155,7 +155,7 @@ export function usePrPolling(
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [workspaceKey, enabled, githubConnected]);
+  }, [projectKey, enabled, githubConnected]);
 
   return prMap;
 }

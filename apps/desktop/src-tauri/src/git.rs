@@ -688,14 +688,14 @@ fn get_diff_stats_sync(repo_path: &str) -> Result<HashMap<String, DiffStat>, Str
 }
 
 #[derive(Serialize, Clone)]
-pub struct WorkspacePollState {
+pub struct ProjectPollState {
     pub head_oid: String,
     pub branches: Vec<BranchInfo>,
     pub worktree_branches: HashMap<String, String>,
     pub diff_stats: HashMap<String, DiffStat>,
 }
 
-fn poll_workspace_state_sync(repo_path: &str) -> Result<WorkspacePollState, String> {
+fn poll_project_state_sync(repo_path: &str) -> Result<ProjectPollState, String> {
     let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
 
     let branches = enumerate_branches(&repo, true)?;
@@ -725,7 +725,7 @@ fn poll_workspace_state_sync(repo_path: &str) -> Result<WorkspacePollState, Stri
 
     let diff_stats = get_diff_stats_for_repo(&repo, Some(&worktree_branches))?;
 
-    Ok(WorkspacePollState {
+    Ok(ProjectPollState {
         head_oid,
         branches,
         worktree_branches,
@@ -734,9 +734,9 @@ fn poll_workspace_state_sync(repo_path: &str) -> Result<WorkspacePollState, Stri
 }
 
 #[tauri::command]
-pub async fn poll_all_workspace_states(
+pub async fn poll_all_project_states(
     repo_paths: Vec<String>,
-) -> Result<HashMap<String, WorkspacePollState>, String> {
+) -> Result<HashMap<String, ProjectPollState>, String> {
     let semaphore = Arc::new(Semaphore::new(6));
     let mut handles = Vec::with_capacity(repo_paths.len());
 
@@ -745,7 +745,7 @@ pub async fn poll_all_workspace_states(
         let key = path.clone();
         handles.push(tokio::spawn(async move {
             let _permit = sem.acquire().await.map_err(|e| e.to_string())?;
-            let state = tokio::task::spawn_blocking(move || poll_workspace_state_sync(&path))
+            let state = tokio::task::spawn_blocking(move || poll_project_state_sync(&path))
                 .await
                 .map_err(|e| e.to_string())??;
             Ok::<_, String>((key, state))
@@ -758,8 +758,8 @@ pub async fn poll_all_workspace_states(
             Ok(Ok((key, state))) => {
                 result.insert(key, state);
             }
-            Ok(Err(e)) => eprintln!("poll_all_workspace_states: repo failed: {e}"),
-            Err(e) => eprintln!("poll_all_workspace_states: task panicked: {e}"),
+            Ok(Err(e)) => eprintln!("poll_all_project_states: repo failed: {e}"),
+            Err(e) => eprintln!("poll_all_project_states: task panicked: {e}"),
         }
     }
     Ok(result)
@@ -1142,7 +1142,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_poll_all_workspace_states() {
+    async fn test_poll_all_project_states() {
         let tmp1 = TempDir::new().unwrap();
         let path1 = create_repo_with_feature_branch(tmp1.path());
 
@@ -1150,7 +1150,7 @@ mod tests {
         let _repo2 = init_repo_with_commit(tmp2.path());
         let path2 = tmp2.path().to_string_lossy().to_string();
 
-        let result = poll_all_workspace_states(vec![path1.clone(), path2.clone()])
+        let result = poll_all_project_states(vec![path1.clone(), path2.clone()])
             .await
             .unwrap();
 

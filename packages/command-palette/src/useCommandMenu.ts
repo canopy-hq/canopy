@@ -92,8 +92,7 @@ function buildDefaultSections(
     const activeWsItem = activeContextId
       ? items.find(
           (i) =>
-            i.category === 'workspace' &&
-            activeContextId.startsWith(i.id.replace(/^workspace:/, '')),
+            i.category === 'project' && activeContextId.startsWith(i.id.replace(/^project:/, '')),
         )
       : null;
     sections.push({
@@ -117,10 +116,10 @@ function buildDefaultSections(
   }
 
   const workspaceItems = items
-    .filter((i) => i.category === 'workspace')
+    .filter((i) => i.category === 'project')
     .slice(0, MAX_DEFAULT_PER_SECTION);
   if (workspaceItems.length > 0)
-    sections.push({ id: 'recent', label: 'Recent Workspaces', items: workspaceItems });
+    sections.push({ id: 'recent', label: 'Recent Projects', items: workspaceItems });
 
   const agentItems = items.filter((i) => i.category === 'agent' && i.agentStatus !== 'idle');
   if (agentItems.length > 0)
@@ -135,7 +134,7 @@ function buildDefaultSections(
 function filterByCategorySection(items: CommandItem[], section: MenuSection): CommandItem[] {
   switch (section) {
     case 'projects':
-      return items.filter((i) => i.category === 'workspace');
+      return items.filter((i) => i.category === 'project');
     case 'tabs':
       return items.filter((i) => i.category === 'tab');
     case 'pty':

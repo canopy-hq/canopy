@@ -31,36 +31,30 @@ import {
 } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
-import { makeWorkspacePaletteItem } from '../commands/workspace-commands';
-import {
-  useWorkspaces,
-  useAgents,
-  useTabs,
-  useUiState,
-  useSettings,
-} from '../hooks/useCollections';
+import { makeProjectPaletteItem } from '../commands/project-commands';
+import { useProjects, useAgents, useTabs, useUiState, useSettings } from '../hooks/useCollections';
 import { useDragStyle } from '../hooks/useDragStyle';
 import { useDropping } from '../hooks/useDropping';
 import { useFlipAnimation } from '../hooks/useFlipAnimation';
 import { usePageVisible } from '../hooks/usePageVisible';
+import { useProjectPolling } from '../hooks/useProjectPolling';
 import { usePrPolling } from '../hooks/usePrPolling';
-import { useWorkspacePolling } from '../hooks/useWorkspacePolling';
 import { restrictToVerticalAxis, sortableTransition, useDragSensors } from '../lib/dnd';
 import { GITHUB_CONNECTION_KEY } from '../lib/github';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
-import { closeAllTabs } from '../lib/tab-actions';
 import {
   toggleExpanded,
-  selectWorkspaceItem,
+  selectProjectItem,
   closeProject,
   hideWorktree,
   removeWorktree,
   renameWorktree,
-  renameWorkspace,
-  reorderWorkspaces,
-  setWorkspaceColor,
-} from '../lib/workspace-actions';
-import { openWorkspacePalette } from '../lib/workspace-palette-bridge';
+  renameProject,
+  reorderProjects,
+  setProjectColor,
+} from '../lib/project-actions';
+import { openProjectPalette } from '../lib/project-palette-bridge';
+import { closeAllTabs } from '../lib/tab-actions';
 import { CloseProjectModal } from './CloseProjectModal';
 import { RemoveWorktreeModal } from './RemoveWorktreeModal';
 import { StatusDot } from './StatusDot';
@@ -70,7 +64,7 @@ import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
 import type { PrInfo } from '../lib/github';
 import type { DotStatus } from './StatusDot';
 import type { ContextMenuItemDef } from './ui';
-import type { Workspace } from '@superagent/db';
+import type { Project } from '@superagent/db';
 
 const WORKSPACE_COLORS: Array<{ value: string; label: string }> = [
   { value: '#f59e0b', label: 'Amber' },
@@ -175,7 +169,7 @@ const BranchRow = memo(
 const WorktreeRow = memo(
   function WorktreeRow({
     worktree,
-    workspaceId,
+    projectId,
     agentStatus,
     diffStat,
     isDeleting,
@@ -184,7 +178,7 @@ const WorktreeRow = memo(
     tabCount,
   }: {
     worktree: WorktreeInfo & { label?: string };
-    workspaceId: string;
+    projectId: string;
     agentStatus?: DotStatus;
     diffStat?: DiffStat;
     isDeleting?: boolean;
@@ -208,7 +202,7 @@ const WorktreeRow = memo(
       const trimmed = editValue.trim();
       const newLabel =
         trimmed && trimmed !== worktree.branch && trimmed !== worktree.name ? trimmed : '';
-      renameWorktree(workspaceId, worktree.name, newLabel);
+      renameWorktree(projectId, worktree.name, newLabel);
       setEditing(false);
     }
 
@@ -287,7 +281,7 @@ const WorktreeRow = memo(
     prev.worktree.name === next.worktree.name &&
     prev.worktree.branch === next.worktree.branch &&
     prev.worktree.label === next.worktree.label &&
-    prev.workspaceId === next.workspaceId &&
+    prev.projectId === next.projectId &&
     prev.agentStatus === next.agentStatus &&
     prev.isDeleting === next.isDeleting &&
     prev.isProjectActive === next.isProjectActive &&
@@ -306,7 +300,7 @@ const repoHeader = tv({
 
 const RepoHeader = memo(
   function RepoHeader({
-    workspace,
+    project,
     agentSummary,
     isSelected,
     isRenaming,
@@ -317,7 +311,7 @@ const RepoHeader = memo(
     onRenameCancel,
     dragListeners,
   }: {
-    workspace: Workspace;
+    project: Project;
     agentSummary?: Array<'running' | 'waiting'>;
     isSelected: boolean;
     isRenaming: boolean;
@@ -328,21 +322,21 @@ const RepoHeader = memo(
     onRenameCancel: () => void;
     dragListeners?: DraggableSyntheticListeners;
   }) {
-    const childCount = workspace.branches.length + workspace.worktrees.length;
+    const childCount = project.branches.length + project.worktrees.length;
     const [editValue, setEditValue] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
       if (isRenaming) {
-        setEditValue(workspace.name);
+        setEditValue(project.name);
         requestAnimationFrame(() => inputRef.current?.select());
       }
-    }, [isRenaming, workspace.name]);
+    }, [isRenaming, project.name]);
 
     const iconStyle = useMemo((): React.CSSProperties => {
-      if (workspace.color) {
+      if (project.color) {
         return {
-          '--c': workspace.color,
+          '--c': project.color,
           color: isSelected
             ? 'color-mix(in srgb, var(--c) 100%, white)'
             : 'color-mix(in srgb, var(--c) 40%, var(--text-faint))',
@@ -363,7 +357,7 @@ const RepoHeader = memo(
             borderColor: 'transparent',
             backgroundColor: 'color-mix(in srgb, var(--bg-tertiary) 60%, var(--bg-secondary))',
           };
-    }, [workspace.color, isSelected]);
+    }, [project.color, isSelected]);
 
     function commitRename() {
       onRenameCommit(editValue);
@@ -380,7 +374,7 @@ const RepoHeader = memo(
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded border text-sm leading-none font-medium transition-colors duration-150"
           style={iconStyle}
         >
-          {workspace.name.charAt(0).toUpperCase()}
+          {project.name.charAt(0).toUpperCase()}
         </div>
         {isRenaming ? (
           <input
@@ -398,17 +392,17 @@ const RepoHeader = memo(
           />
         ) : (
           <span className="flex-1 truncate font-mono text-lg font-medium text-text-primary">
-            {workspace.name}
+            {project.name}
           </span>
         )}
-        {!isRenaming && !workspace.expanded && agentSummary && agentSummary.length > 0 && (
+        {!isRenaming && !project.expanded && agentSummary && agentSummary.length > 0 && (
           <span className="ml-1 flex items-center gap-0.75">
             {agentSummary.slice(0, 3).map((status, i) => (
               <StatusDot key={i} status={status} size={5} />
             ))}
           </span>
         )}
-        {!isRenaming && !workspace.expanded && childCount > 0 && (
+        {!isRenaming && !project.expanded && childCount > 0 && (
           <span className="rounded-sm bg-bg-tertiary/60 px-1.25 py-px font-mono text-xs leading-none text-text-faint tabular-nums">
             {childCount}
           </span>
@@ -423,7 +417,7 @@ const RepoHeader = memo(
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
               onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
             >
-              {workspace.expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              {project.expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             </Button>
             <Tooltip label="New branch / worktree" placement="right">
               <Button
@@ -444,12 +438,12 @@ const RepoHeader = memo(
     );
   },
   (prev, next) =>
-    prev.workspace.id === next.workspace.id &&
-    prev.workspace.name === next.workspace.name &&
-    prev.workspace.color === next.workspace.color &&
-    prev.workspace.expanded === next.workspace.expanded &&
-    prev.workspace.branches.length === next.workspace.branches.length &&
-    prev.workspace.worktrees.length === next.workspace.worktrees.length &&
+    prev.project.id === next.project.id &&
+    prev.project.name === next.project.name &&
+    prev.project.color === next.project.color &&
+    prev.project.expanded === next.project.expanded &&
+    prev.project.branches.length === next.project.branches.length &&
+    prev.project.worktrees.length === next.project.worktrees.length &&
     prev.isSelected === next.isSelected &&
     prev.isRenaming === next.isRenaming &&
     prev.onPlusClick === next.onPlusClick &&
@@ -462,7 +456,7 @@ const RepoHeader = memo(
     prev.dragListeners === next.dragListeners,
 );
 
-function useWorkspaceAgentMap(): Record<string, DotStatus> {
+function useProjectAgentMap(): Record<string, DotStatus> {
   const agents = useAgents();
   const tabs = useTabs();
 
@@ -480,11 +474,11 @@ function useWorkspaceAgentMap(): Record<string, DotStatus> {
         }
         if (agent?.status === 'running') best = 'running';
       }
-      const existing = result[tab.workspaceItemId];
+      const existing = result[tab.projectItemId];
       if (best === 'waiting' || (best === 'running' && existing !== 'waiting')) {
-        result[tab.workspaceItemId] = best;
+        result[tab.projectItemId] = best;
       } else if (!existing) {
-        result[tab.workspaceItemId] = best;
+        result[tab.projectItemId] = best;
       }
     }
     return result;
@@ -492,7 +486,7 @@ function useWorkspaceAgentMap(): Record<string, DotStatus> {
 }
 
 function getRepoAgentSummary(
-  ws: Workspace,
+  ws: Project,
   agentMap: Record<string, DotStatus>,
 ): Array<'running' | 'waiting'> {
   const statuses: Array<'running' | 'waiting'> = [];
@@ -509,11 +503,11 @@ function getRepoAgentSummary(
   return statuses;
 }
 
-export function WorkspaceTree({ onAddProject }: { onAddProject?: () => void }) {
-  const rawWorkspaces = useWorkspaces();
-  const workspaces = useMemo(
-    () => [...rawWorkspaces].sort((a, b) => a.position - b.position),
-    [rawWorkspaces],
+export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
+  const rawProjects = useProjects();
+  const projects = useMemo(
+    () => [...rawProjects].sort((a, b) => a.position - b.position),
+    [rawProjects],
   );
   const { selectedItemId, activeContextId, sidebarVisible, creatingWorktreeIds } = useUiState();
   const creatingWorktreeIdSet = useMemo(() => new Set(creatingWorktreeIds), [creatingWorktreeIds]);
@@ -521,57 +515,56 @@ export function WorkspaceTree({ onAddProject }: { onAddProject?: () => void }) {
   const tabCountMap = useMemo(() => {
     const map: Record<string, number> = {};
     for (const tab of tabs) {
-      map[tab.workspaceItemId] = (map[tab.workspaceItemId] ?? 0) + 1;
+      map[tab.projectItemId] = (map[tab.projectItemId] ?? 0) + 1;
     }
     return map;
   }, [tabs]);
-  const [closeTarget, setCloseTarget] = useState<Workspace | null>(null);
-  const [removeWtTarget, setRemoveWtTarget] = useState<{
-    workspaceId: string;
-    name: string;
-  } | null>(null);
+  const [closeTarget, setCloseTarget] = useState<Project | null>(null);
+  const [removeWtTarget, setRemoveWtTarget] = useState<{ projectId: string; name: string } | null>(
+    null,
+  );
   const [deletingWtIds, setDeletingWtIds] = useState<Set<string>>(() => new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
-  const agentMap = useWorkspaceAgentMap();
+  const agentMap = useProjectAgentMap();
   const pageVisible = usePageVisible();
-  const diffStatsMap = useWorkspacePolling(
-    workspaces,
+  const diffStatsMap = useProjectPolling(
+    projects,
     sidebarVisible && pageVisible,
     activeContextId ?? undefined,
   );
   const settings = useSettings();
   const githubConnected = getSetting(settings, GITHUB_CONNECTION_KEY, null) !== null;
-  const prMap = usePrPolling(workspaces, sidebarVisible && pageVisible, githubConnected);
+  const prMap = usePrPolling(projects, sidebarVisible && pageVisible, githubConnected);
   const navigate = useNavigate();
   const sensors = useDragSensors();
   useDragStyle(activeId !== null);
-  const workspaceListRef = useRef<HTMLDivElement>(null);
-  const { snapshot: flipSnapshot } = useFlipAnimation(workspaceListRef, 'vertical');
+  const projectListRef = useRef<HTMLDivElement>(null);
+  const { snapshot: flipSnapshot } = useFlipAnimation(projectListRef, 'vertical');
 
   // Stable separators — never update during drag to avoid layout shifts.
-  const separatorIds = useMemo(() => new Set(workspaces.slice(1).map((w) => w.id)), [workspaces]);
+  const separatorIds = useMemo(() => new Set(projects.slice(1).map((w) => w.id)), [projects]);
 
   const handleDragEnd = useCallback(
     ({ active, over }: DragEndEvent) => {
       flipSnapshot();
       setActiveId(null);
       if (!over || active.id === over.id) return;
-      const oldIndex = workspaces.findIndex((w) => w.id === active.id);
-      const newIndex = workspaces.findIndex((w) => w.id === over.id);
-      const reordered = arrayMove(workspaces, oldIndex, newIndex);
-      reorderWorkspaces(reordered.map((w) => w.id));
+      const oldIndex = projects.findIndex((w) => w.id === active.id);
+      const newIndex = projects.findIndex((w) => w.id === over.id);
+      const reordered = arrayMove(projects, oldIndex, newIndex);
+      reorderProjects(reordered.map((w) => w.id));
     },
-    [workspaces, flipSnapshot],
+    [projects, flipSnapshot],
   );
 
-  const workspaceIds = useMemo(() => workspaces.map((w) => w.id), [workspaces]);
+  const projectIds = useMemo(() => projects.map((w) => w.id), [projects]);
 
-  const handleRequestOpenPalette = useCallback((ws: Workspace) => {
-    openWorkspacePalette(makeWorkspacePaletteItem(ws));
+  const handleRequestOpenPalette = useCallback((ws: Project) => {
+    openProjectPalette(makeProjectPaletteItem(ws));
   }, []);
 
   const handleSelectItem = useCallback(
-    (itemId: string) => selectWorkspaceItem(itemId, navigate),
+    (itemId: string) => selectProjectItem(itemId, navigate),
     [navigate],
   );
 
@@ -610,9 +603,9 @@ export function WorkspaceTree({ onAddProject }: { onAddProject?: () => void }) {
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveId(null)}
       >
-        <SortableContext items={workspaceIds} strategy={verticalListSortingStrategy}>
-          <div ref={workspaceListRef}>
-            {workspaces.map((ws) => (
+        <SortableContext items={projectIds} strategy={verticalListSortingStrategy}>
+          <div ref={projectListRef}>
+            {projects.map((ws) => (
               <RepoTreeItem
                 key={ws.id}
                 ws={ws}
@@ -622,7 +615,7 @@ export function WorkspaceTree({ onAddProject }: { onAddProject?: () => void }) {
                 tabCounts={tabCountMap}
                 onRequestOpenPalette={handleRequestOpenPalette}
                 onRequestClose={setCloseTarget}
-                onRequestRemoveWt={(name) => setRemoveWtTarget({ workspaceId: ws.id, name })}
+                onRequestRemoveWt={(name) => setRemoveWtTarget({ projectId: ws.id, name })}
                 selectedItemId={selectedItemId}
                 activeContextId={activeContextId}
                 hasSeparator={separatorIds.has(ws.id)}
@@ -651,14 +644,14 @@ export function WorkspaceTree({ onAddProject }: { onAddProject?: () => void }) {
           onClose={() => setRemoveWtTarget(null)}
           worktreeName={removeWtTarget.name}
           onConfirm={(alsoDeleteGit) => {
-            const { workspaceId, name } = removeWtTarget;
-            const itemId = `${workspaceId}-wt-${name}`;
+            const { projectId, name } = removeWtTarget;
+            const itemId = `${projectId}-wt-${name}`;
             setRemoveWtTarget(null);
             closeAllTabs(itemId);
 
             // If the deleted wt is the active context, redirect to the first remaining item.
             if (activeContextId === itemId) {
-              const ws = workspaces.find((w) => w.id === workspaceId);
+              const ws = projects.find((w) => w.id === projectId);
               const fallback = ws
                 ? [
                     ...ws.branches.map((b) => `${ws.id}-branch-${b.name}`),
@@ -672,9 +665,9 @@ export function WorkspaceTree({ onAddProject }: { onAddProject?: () => void }) {
 
             if (alsoDeleteGit) {
               setDeletingWtIds((prev) => new Set([...prev, itemId]));
-              void removeWorktree(workspaceId, name)
+              void removeWorktree(projectId, name)
                 .then(() => {
-                  hideWorktree(workspaceId, name);
+                  hideWorktree(projectId, name);
                 })
                 .finally(() => {
                   setDeletingWtIds((prev) => {
@@ -684,7 +677,7 @@ export function WorkspaceTree({ onAddProject }: { onAddProject?: () => void }) {
                   });
                 });
             } else {
-              hideWorktree(workspaceId, name);
+              hideWorktree(projectId, name);
             }
           }}
         />
@@ -709,13 +702,13 @@ function RepoTreeItem({
   deletingWtIds,
   creatingWorktreeIds,
 }: {
-  ws: Workspace;
+  ws: Project;
   agentMap: Record<string, DotStatus>;
   diffStats?: Record<string, DiffStat>;
   prStatuses?: Record<string, PrInfo>;
   tabCounts: Record<string, number>;
-  onRequestOpenPalette: (ws: Workspace) => void;
-  onRequestClose: (ws: Workspace) => void;
+  onRequestOpenPalette: (ws: Project) => void;
+  onRequestClose: (ws: Project) => void;
   onRequestRemoveWt: (name: string) => void;
   selectedItemId: string | null;
   activeContextId: string | null;
@@ -779,7 +772,7 @@ function RepoTreeItem({
         }}
       >
         <RepoHeader
-          workspace={ws}
+          project={ws}
           agentSummary={agentSummary}
           isSelected={isRepoSelected}
           isRenaming={renamingWs}
@@ -787,7 +780,7 @@ function RepoTreeItem({
           onRowClick={handleRowClick}
           onContextMenu={handleContextMenu}
           onRenameCommit={(name) => {
-            renameWorkspace(ws.id, name);
+            renameProject(ws.id, name);
             setRenamingWs(false);
           }}
           onRenameCancel={() => setRenamingWs(false)}
@@ -840,7 +833,7 @@ function RepoTreeItem({
                   >
                     <WorktreeRow
                       worktree={wt}
-                      workspaceId={ws.id}
+                      projectId={ws.id}
                       agentStatus={agentMap[itemId]}
                       diffStat={diffStats?.[wt.branch]}
                       isDeleting={isDeleting}
@@ -914,7 +907,7 @@ function RepoTreeItem({
                       </div>
                     ),
                     checked: !ws.color,
-                    onSelect: () => setWorkspaceColor(ws.id, null),
+                    onSelect: () => setProjectColor(ws.id, null),
                   },
                   { type: 'separator' },
                   ...WORKSPACE_COLORS.map(({ value, label }) => ({
@@ -923,7 +916,7 @@ function RepoTreeItem({
                       <div className="h-3.5 w-3.5 rounded-sm" style={{ backgroundColor: value }} />
                     ),
                     checked: ws.color === value,
-                    onSelect: () => setWorkspaceColor(ws.id, value),
+                    onSelect: () => setProjectColor(ws.id, value),
                   })),
                 ] satisfies ContextMenuItemDef[],
               },

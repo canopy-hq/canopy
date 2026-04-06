@@ -4,7 +4,7 @@ import { Dialog, Heading } from 'react-aria-components';
 import { useNavigate } from '@tanstack/react-router';
 import { tv } from 'tailwind-variants';
 
-import { useAgents, useWorkspaces, useTabs } from '../hooks/useCollections';
+import { useAgents, useProjects, useTabs } from '../hooks/useCollections';
 import { containsPtyId } from '../lib/pane-tree-ops';
 import { jumpToPane } from '../lib/tab-actions';
 import { StatusDot } from './StatusDot';
@@ -25,9 +25,9 @@ function formatDuration(startedAt: number): string {
 
 interface AgentRow {
   agent: AgentInfo;
-  workspaceName: string;
+  projectName: string;
   tabId: string;
-  workspaceItemId: string;
+  projectItemId: string;
 }
 
 const agentRowStyle = tv({
@@ -47,7 +47,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
   const agentList = useAgents();
   const runningCount = agentList.filter((a) => a.status === 'running').length;
   const waitingCount = agentList.filter((a) => a.status === 'waiting').length;
-  const workspaces = useWorkspaces();
+  const projects = useProjects();
   const tabs = useTabs();
 
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -65,47 +65,37 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
     if (isOpen) setSelectedIndex(0);
   }, [isOpen]);
 
-  // Build agent rows with workspace mapping
   const agentRows: AgentRow[] = useMemo(() => {
     const rows: AgentRow[] = [];
 
     for (const agent of agentList) {
-      let workspaceName = 'Unknown';
+      let projectName = 'Unknown';
       let tabId = '';
-      let workspaceItemId = '';
+      let projectItemId = '';
 
-      // Find which tab contains this agent's ptyId
       for (const tab of tabs) {
         if (containsPtyId(tab.paneRoot, agent.ptyId)) {
           tabId = tab.id;
-          workspaceItemId = tab.workspaceItemId;
-          // Look up workspace name from workspace store
-          const ws = workspaces.find((w) => {
-            // Check if any branch/worktree id matches workspaceItemId
-            // workspaceItemId could be the workspace id or a sub-item id
-            return (
-              w.id === tab.workspaceItemId ||
-              w.branches.some((b) => b.name === tab.workspaceItemId) ||
-              w.worktrees.some((wt) => wt.name === tab.workspaceItemId)
-            );
-          });
-          if (ws) workspaceName = ws.name;
+          projectItemId = tab.projectItemId;
+          // projectItemId is a composite key like `${proj.id}-branch-name`; match by prefix
+          const proj = projects.find((p) => tab.projectItemId.startsWith(p.id));
+          if (proj) projectName = proj.name;
           break;
         }
       }
 
-      rows.push({ agent, workspaceName, tabId, workspaceItemId });
+      rows.push({ agent, projectName, tabId, projectItemId });
     }
 
     return rows;
-  }, [agentList, tabs, workspaces]);
+  }, [agentList, tabs, projects]);
 
-  // Group rows by workspace name
+  // Group rows by project name
   const groupedRows: Record<string, AgentRow[]> = useMemo(() => {
     const groups: Record<string, AgentRow[]> = {};
     for (const row of agentRows) {
-      if (!groups[row.workspaceName]) groups[row.workspaceName] = [];
-      groups[row.workspaceName]!.push(row);
+      if (!groups[row.projectName]) groups[row.projectName] = [];
+      groups[row.projectName]!.push(row);
     }
     return groups;
   }, [agentRows]);
@@ -122,7 +112,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
   const handleJump = useCallback(
     (row: AgentRow) => {
       if (row.tabId) {
-        jumpToPane(navigate, row.workspaceItemId, row.tabId);
+        jumpToPane(navigate, row.projectItemId, row.tabId);
       }
       onClose();
     },
@@ -205,12 +195,11 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                 No agents running
               </div>
             ) : (
-              /* Agent rows grouped by workspace */
-              Object.entries(groupedRows).map(([wsName, rows]) => (
-                <div key={wsName}>
+              Object.entries(groupedRows).map(([projName, rows]) => (
+                <div key={projName}>
                   {/* Group header */}
                   <div className="px-4 pt-2 pb-1 text-sm font-semibold text-text-muted">
-                    {wsName}
+                    {projName}
                   </div>
                   {/* Agent rows */}
                   {rows.map((row) => {
@@ -236,7 +225,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                           {row.agent.agentName}
                         </span>
                         <span className="flex-1 truncate text-base text-text-muted">
-                          {row.workspaceName}
+                          {row.projectName}
                         </span>
                         <span className="shrink-0 text-sm text-text-muted tabular-nums">
                           {formatDuration(row.agent.startedAt)}

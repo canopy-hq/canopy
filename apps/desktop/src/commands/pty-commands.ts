@@ -1,20 +1,20 @@
 import { containsPtyId } from '../lib/pane-tree-ops';
 import { jumpToPane } from '../lib/tab-actions';
-import { resolveWorkspaceForTab } from './utils';
+import { resolveProjectForTab } from './utils';
 
 import type { Nav, CommandItem } from '@superagent/command-palette';
-import type { Tab, Workspace } from '@superagent/db';
+import type { Tab, Project } from '@superagent/db';
 import type { PtySessionInfo } from '@superagent/terminal';
 
 export function buildPtyCommands(
   sessions: PtySessionInfo[],
   tabs: Tab[],
-  workspaces: Workspace[],
+  projects: Project[],
   navigate: Nav,
 ): CommandItem[] {
   return sessions.map((session): CommandItem => {
     const tab = tabs.find((t) => containsPtyId(t.paneRoot, session.ptyId));
-    const ws = tab ? resolveWorkspaceForTab(tab, workspaces) : undefined;
+    const proj = tab ? resolveProjectForTab(tab, projects) : undefined;
 
     const cpu = session.cpuPercent.toFixed(1);
     const mem =
@@ -29,9 +29,9 @@ export function buildPtyCommands(
       category: 'pty',
       keywords: ['pty', 'terminal', 'process', 'session'],
       icon: 'tab',
-      group: ws?.name ?? 'Orphaned',
+      group: proj?.name ?? 'Orphaned',
       action: ({ close }) => {
-        if (tab) jumpToPane(navigate, tab.workspaceItemId, tab.id);
+        if (tab) jumpToPane(navigate, tab.projectItemId, tab.id);
         close();
       },
     };

@@ -65,8 +65,8 @@ describe('Settings route', () => {
     const { getByLabelText } = render(<SettingsRoute />);
     fireEvent.click(getByLabelText('Back to app'));
     expect(mockNavigate).toHaveBeenCalledWith({
-      to: '/workspaces/$workspaceId',
-      params: { workspaceId: 'ws-1' },
+      to: '/projects/$projectId',
+      params: { projectId: 'ws-1' },
     });
   });
 });

@@ -1,5 +1,5 @@
 import {
-  getWorkspaceCollection,
+  getProjectCollection,
   getTabCollection,
   uiCollection,
   getUiState,
@@ -18,19 +18,19 @@ import { showErrorToast, showInfoToast } from './toast';
 
 type NavigateFn = (opts: { to: string; params?: Record<string, string> }) => void;
 
-import type { Workspace } from '@superagent/db';
+import type { Project } from '@superagent/db';
 
 /** Returns true for branch/worktree IDs — the only items that carry selection state. */
-export function isSelectableWorkspaceItem(id: string): boolean {
+export function isSelectableProjectItem(id: string): boolean {
   return id.includes('-branch-') || id.includes('-wt-');
 }
 
-/** All sidebar item IDs for a workspace (repo root + branches + worktrees). */
-export function getWorkspaceItemIds(ws: Workspace): Set<string> {
+/** All sidebar item IDs for a project (repo root + branches + worktrees). */
+export function getProjectItemIds(proj: Project): Set<string> {
   const ids = new Set<string>();
-  ids.add(ws.id);
-  for (const b of ws.branches) ids.add(`${ws.id}-branch-${b.name}`);
-  for (const wt of ws.worktrees) ids.add(`${ws.id}-wt-${wt.name}`);
+  ids.add(proj.id);
+  for (const b of proj.branches) ids.add(`${proj.id}-branch-${b.name}`);
+  for (const wt of proj.worktrees) ids.add(`${proj.id}-wt-${wt.name}`);
   return ids;
 }
 
@@ -51,9 +51,9 @@ export async function openImportDialog(): Promise<void> {
 export async function importRepo(path: string): Promise<void> {
   try {
     const info = await gitApi.importRepo(path);
-    const collection = getWorkspaceCollection();
+    const collection = getProjectCollection();
 
-    const existing = collection.toArray.find((w) => w.path === info.path);
+    const existing = collection.toArray.find((p) => p.path === info.path);
     if (existing) {
       showInfoToast(`"${existing.name}" is already imported`);
     } else {
@@ -80,13 +80,13 @@ export async function closeProject(
   id: string,
   navigate: (opts: { to: string }) => void,
 ): Promise<void> {
-  const ws = getWorkspaceCollection().toArray.find((w) => w.id === id);
-  if (!ws) return;
+  const proj = getProjectCollection().toArray.find((p) => p.id === id);
+  if (!proj) return;
 
-  const itemIds = getWorkspaceItemIds(ws);
+  const itemIds = getProjectItemIds(proj);
 
   const tabCol = getTabCollection();
-  const tabs = tabCol.toArray.filter((t) => itemIds.has(t.workspaceItemId));
+  const tabs = tabCol.toArray.filter((t) => itemIds.has(t.projectItemId));
 
   const ptyIds = tabs.flatMap((t) => collectLeafPtyIds(t.paneRoot));
   await Promise.allSettled(
@@ -115,15 +115,15 @@ export async function closeProject(
     navigate({ to: '/' });
   }
 
-  getWorkspaceCollection().delete(id);
+  getProjectCollection().delete(id);
 }
 
 export async function refreshRepo(id: string): Promise<void> {
-  const ws = getWorkspaceCollection().toArray.find((w) => w.id === id);
-  if (!ws) return;
+  const proj = getProjectCollection().toArray.find((p) => p.id === id);
+  if (!proj) return;
   try {
-    const info = await gitApi.importRepo(ws.path);
-    getWorkspaceCollection().update(id, (draft) => {
+    const info = await gitApi.importRepo(proj.path);
+    getProjectCollection().update(id, (draft) => {
       const headBranch = info.branches.find((b) => b.is_head);
       if (headBranch) {
         const existing = draft.branches.find((b) => b.name === headBranch.name);
@@ -142,13 +142,13 @@ export async function refreshRepo(id: string): Promise<void> {
 }
 
 export function toggleExpanded(id: string): void {
-  getWorkspaceCollection().update(id, (draft) => {
+  getProjectCollection().update(id, (draft) => {
     draft.expanded = !draft.expanded;
   });
 }
 
-export function setWorkspaceColor(id: string, color: string | null): void {
-  getWorkspaceCollection().update(id, (draft) => {
+export function setProjectColor(id: string, color: string | null): void {
+  getProjectCollection().update(id, (draft) => {
     draft.color = color;
   });
 }
@@ -161,21 +161,21 @@ export function setSelectedItem(itemId: string | null): void {
 
 const RECENT_MAX = 10;
 
-function trackRecentWorkspace(itemId: string): void {
-  // Extract workspace ID from composite item IDs (e.g. "ws-id-branch-main" → "ws-id")
-  const ws = getWorkspaceCollection().toArray.find(
-    (w) =>
-      itemId === w.id || itemId.startsWith(`${w.id}-branch-`) || itemId.startsWith(`${w.id}-wt-`),
+function trackRecentProject(itemId: string): void {
+  // Extract project ID from composite item IDs (e.g. "proj-id-branch-main" → "proj-id")
+  const proj = getProjectCollection().toArray.find(
+    (p) =>
+      itemId === p.id || itemId.startsWith(`${p.id}-branch-`) || itemId.startsWith(`${p.id}-wt-`),
   );
-  if (!ws) return;
+  if (!proj) return;
 
   const settings = getSettingCollection().toArray;
-  const current = getSetting<string[]>(settings, 'recentWorkspaceIds', []);
-  const updated = [ws.id, ...current.filter((id) => id !== ws.id)].slice(0, RECENT_MAX);
-  setSetting('recentWorkspaceIds', updated);
+  const current = getSetting<string[]>(settings, 'recentProjectIds', []);
+  const updated = [proj.id, ...current.filter((id) => id !== proj.id)].slice(0, RECENT_MAX);
+  setSetting('recentProjectIds', updated);
 }
 
-export function selectWorkspaceItem(
+export function selectProjectItem(
   itemId: string | null,
   navigate: (opts: { to: string; params?: Record<string, string> }) => void,
 ): void {
@@ -183,40 +183,40 @@ export function selectWorkspaceItem(
     draft.selectedItemId = itemId;
   });
   if (itemId !== null) {
-    trackRecentWorkspace(itemId);
-    navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: itemId } });
+    trackRecentProject(itemId);
+    navigate({ to: '/projects/$projectId', params: { projectId: itemId } });
   } else {
     navigate({ to: '/' });
   }
 }
 
 /**
- * Switch to the nth branch/worktree of the currently active workspace.
+ * Switch to the nth branch/worktree of the currently active project.
  * Index is 0-based (Cmd+1 → 0, Cmd+2 → 1, …).
  * Items are ordered: branches first (sidebar order), then worktrees.
  */
-export function switchWorkspaceItemByIndex(
+export function switchProjectItemByIndex(
   index: number,
   navigate: (opts: { to: string; params?: Record<string, string> }) => void,
 ): void {
   const ui = getUiState();
   if (!ui.activeContextId) return;
 
-  const ws = getWorkspaceCollection().toArray.find(
-    (w) =>
-      ui.activeContextId === w.id ||
-      ui.activeContextId.startsWith(`${w.id}-branch-`) ||
-      ui.activeContextId.startsWith(`${w.id}-wt-`),
+  const proj = getProjectCollection().toArray.find(
+    (p) =>
+      ui.activeContextId === p.id ||
+      ui.activeContextId.startsWith(`${p.id}-branch-`) ||
+      ui.activeContextId.startsWith(`${p.id}-wt-`),
   );
-  if (!ws) return;
+  if (!proj) return;
 
   const items = [
-    ...ws.branches.map((b) => `${ws.id}-branch-${b.name}`),
-    ...ws.worktrees.map((wt) => `${ws.id}-wt-${wt.name}`),
+    ...proj.branches.map((b) => `${proj.id}-branch-${b.name}`),
+    ...proj.worktrees.map((wt) => `${proj.id}-wt-${wt.name}`),
   ];
 
   const itemId = items[index];
-  if (itemId) selectWorkspaceItem(itemId, navigate);
+  if (itemId) selectProjectItem(itemId, navigate);
 }
 
 export function toggleSidebar(): void {
@@ -231,46 +231,46 @@ export function setSidebarWidth(width: number): void {
   });
 }
 
-export async function createBranch(workspaceId: string, name: string, base: string): Promise<void> {
-  const ws = getWorkspaceCollection().toArray.find((w) => w.id === workspaceId);
-  if (!ws) return;
+export async function createBranch(projectId: string, name: string, base: string): Promise<void> {
+  const proj = getProjectCollection().toArray.find((p) => p.id === projectId);
+  if (!proj) return;
   try {
-    await gitApi.createBranch(ws.path, name, base);
-    await refreshRepo(workspaceId);
+    await gitApi.createBranch(proj.path, name, base);
+    await refreshRepo(projectId);
   } catch (err) {
     showErrorToast('Create branch failed', String(err));
   }
 }
 
-export async function deleteBranch(workspaceId: string, name: string): Promise<void> {
-  const ws = getWorkspaceCollection().toArray.find((w) => w.id === workspaceId);
-  if (!ws) return;
+export async function deleteBranch(projectId: string, name: string): Promise<void> {
+  const proj = getProjectCollection().toArray.find((p) => p.id === projectId);
+  if (!proj) return;
   try {
-    await gitApi.deleteBranch(ws.path, name);
-    await refreshRepo(workspaceId);
+    await gitApi.deleteBranch(proj.path, name);
+    await refreshRepo(projectId);
   } catch (err) {
     showErrorToast('Delete branch failed', String(err));
   }
 }
 
 export async function createWorktree(
-  workspaceId: string,
+  projectId: string,
   name: string,
   path: string,
   baseBranch?: string,
   newBranch?: string,
 ): Promise<void> {
-  const ws = getWorkspaceCollection().toArray.find((w) => w.id === workspaceId);
-  if (!ws) return;
+  const proj = getProjectCollection().toArray.find((p) => p.id === projectId);
+  if (!proj) return;
   try {
-    const wt = await gitApi.createWorktree(ws.path, name, path, baseBranch, newBranch);
+    const wt = await gitApi.createWorktree(proj.path, name, path, baseBranch, newBranch);
     // Add the new worktree to the sidebar
-    getWorkspaceCollection().update(workspaceId, (draft) => {
+    getProjectCollection().update(projectId, (draft) => {
       if (!draft.worktrees.some((w) => w.name === wt.name)) {
         draft.worktrees.push({ name: wt.name, path: wt.path, branch: wt.branch });
       }
     });
-    await refreshRepo(workspaceId);
+    await refreshRepo(projectId);
   } catch (err) {
     showErrorToast('Create worktree failed', String(err));
   }
@@ -281,20 +281,20 @@ export async function createWorktree(
  * git op in the background — showing a "creating" spinner until it completes.
  */
 export function startWorktreeCreation(
-  workspaceId: string,
+  projectId: string,
   name: string,
   path: string,
   baseBranch: string | undefined,
   newBranch: string | undefined,
   navigate: NavigateFn,
 ): void {
-  const ws = getWorkspaceCollection().toArray.find((w) => w.id === workspaceId);
-  if (!ws) return;
+  const proj = getProjectCollection().toArray.find((p) => p.id === projectId);
+  if (!proj) return;
 
-  const wtItemId = `${workspaceId}-wt-${name}`;
+  const wtItemId = `${projectId}-wt-${name}`;
   const estimatedBranch = newBranch ?? baseBranch ?? name;
 
-  getWorkspaceCollection().update(workspaceId, (draft) => {
+  getProjectCollection().update(projectId, (draft) => {
     if (!draft.worktrees.some((w) => w.name === name)) {
       draft.worktrees.push({ name, path, branch: estimatedBranch });
     }
@@ -306,12 +306,12 @@ export function startWorktreeCreation(
     }
   });
 
-  selectWorkspaceItem(wtItemId, navigate);
+  selectProjectItem(wtItemId, navigate);
 
   void (async () => {
     try {
-      const wt = await gitApi.createWorktree(ws.path, name, path, baseBranch, newBranch);
-      getWorkspaceCollection().update(workspaceId, (draft) => {
+      const wt = await gitApi.createWorktree(proj.path, name, path, baseBranch, newBranch);
+      getProjectCollection().update(projectId, (draft) => {
         const entry = draft.worktrees.find((w) => w.name === name);
         if (entry) {
           entry.path = wt.path;
@@ -320,7 +320,7 @@ export function startWorktreeCreation(
       });
     } catch (err) {
       showErrorToast('Create worktree failed', String(err));
-      getWorkspaceCollection().update(workspaceId, (draft) => {
+      getProjectCollection().update(projectId, (draft) => {
         draft.worktrees = draft.worktrees.filter((w) => w.name !== name);
       });
     } finally {
@@ -331,60 +331,55 @@ export function startWorktreeCreation(
   })();
 }
 
-export async function removeWorktree(workspaceId: string, name: string): Promise<void> {
-  const ws = getWorkspaceCollection().toArray.find((w) => w.id === workspaceId);
-  if (!ws) return;
+export async function removeWorktree(projectId: string, name: string): Promise<void> {
+  const proj = getProjectCollection().toArray.find((p) => p.id === projectId);
+  if (!proj) return;
   try {
-    await gitApi.removeWorktree(ws.path, name);
-    await refreshRepo(workspaceId);
+    await gitApi.removeWorktree(proj.path, name);
+    await refreshRepo(projectId);
   } catch (err) {
     showErrorToast('Remove worktree failed', String(err));
   }
 }
 
 /** Remove worktree from sidebar only (can be re-opened from palette). Closes all associated tabs. */
-export function hideWorktree(workspaceId: string, name: string): void {
-  const wtItemId = `${workspaceId}-wt-${name}`;
-  for (const tab of getTabCollection().toArray.filter((t) => t.workspaceItemId === wtItemId)) {
+export function hideWorktree(projectId: string, name: string): void {
+  const wtItemId = `${projectId}-wt-${name}`;
+  for (const tab of getTabCollection().toArray.filter((t) => t.projectItemId === wtItemId)) {
     closeTab(tab.id);
   }
-  getWorkspaceCollection().update(workspaceId, (draft) => {
+  getProjectCollection().update(projectId, (draft) => {
     draft.worktrees = draft.worktrees.filter((wt) => wt.name !== name);
   });
 }
 
-export function openWorktree(
-  workspaceId: string,
-  name: string,
-  path: string,
-  branch: string,
-): void {
-  const ws = getWorkspaceCollection().toArray.find((w) => w.id === workspaceId);
-  if (!ws) return;
+export function openWorktree(projectId: string, name: string, path: string, branch: string): void {
+  const proj = getProjectCollection().toArray.find((p) => p.id === projectId);
+  if (!proj) return;
   // Don't add if already in the list
-  if (ws.worktrees.some((wt) => wt.name === name)) return;
-  getWorkspaceCollection().update(workspaceId, (draft) => {
+  if (proj.worktrees.some((wt) => wt.name === name)) return;
+  getProjectCollection().update(projectId, (draft) => {
     draft.worktrees.push({ name, path, branch });
   });
 }
 
-export function renameWorktree(workspaceId: string, wtName: string, label: string): void {
-  getWorkspaceCollection().update(workspaceId, (draft) => {
+export function renameWorktree(projectId: string, wtName: string, label: string): void {
+  getProjectCollection().update(projectId, (draft) => {
     const wt = draft.worktrees.find((w) => w.name === wtName);
     if (wt) wt.label = label || undefined;
   });
 }
 
-export function renameWorkspace(id: string, name: string): void {
+export function renameProject(id: string, name: string): void {
   const trimmed = name.trim();
   if (!trimmed) return;
-  getWorkspaceCollection().update(id, (draft) => {
+  getProjectCollection().update(id, (draft) => {
     draft.name = trimmed;
   });
 }
 
-export function reorderWorkspaces(orderedIds: string[]): void {
-  const col = getWorkspaceCollection();
+export function reorderProjects(orderedIds: string[]): void {
+  const col = getProjectCollection();
   for (let i = 0; i < orderedIds.length; i++) {
     col.update(orderedIds[i], (draft) => {
       draft.position = i;

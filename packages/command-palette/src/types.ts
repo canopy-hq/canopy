@@ -1,4 +1,4 @@
-export type CommandCategory = 'workspace' | 'tab' | 'pty' | 'agent' | 'action' | 'global';
+export type CommandCategory = 'project' | 'tab' | 'pty' | 'agent' | 'action' | 'global';
 
 export type CommandIcon =
   | 'branch'

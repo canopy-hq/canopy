@@ -22,7 +22,7 @@ export function RemoveWorktreeModal({
   return (
     <ConfirmModal
       title={`Remove "${worktreeName}"`}
-      description="Removes the worktree from the sidebar. You can re-open it later from the workspace palette."
+      description="Removes the worktree from the sidebar. You can re-open it later from the project palette."
       confirmLabel={deleteGit ? 'Delete Worktree' : 'Remove from Sidebar'}
       confirmVariant={deleteGit ? 'destructive' : 'primary'}
       onConfirm={() => onConfirm(deleteGit)}

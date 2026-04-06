@@ -18,7 +18,7 @@ import {
 } from '../lib/tab-actions';
 import { showErrorToast } from '../lib/toast';
 
-function WorkspaceLayout() {
+function ProjectLayout() {
   const handleSplit = useCallback((direction: 'horizontal' | 'vertical') => {
     const activeTab = getActiveTab();
     if (!activeTab?.focusedPaneId) return;
@@ -84,4 +84,4 @@ function WorkspaceLayout() {
   );
 }
 
-export const Route = createFileRoute('/_workspace')({ component: WorkspaceLayout });
+export const Route = createFileRoute('/_project')({ component: ProjectLayout });

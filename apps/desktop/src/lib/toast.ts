@@ -21,7 +21,7 @@ export function showInfoToast(title: string, description?: string) {
 export interface AgentToastContent {
   type: 'agent-complete' | 'agent-waiting';
   agentName: string;
-  workspace: string;
+  project: string;
   branch: string;
   ptyId: number;
 }

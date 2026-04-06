@@ -1,14 +1,11 @@
-import type { Tab, Workspace } from '@superagent/db';
+import type { Tab, Project } from '@superagent/db';
 
-/** Find the workspace that owns a given workspaceItemId (branch/worktree/root). */
-export function resolveWorkspace(
-  workspaceItemId: string,
-  workspaces: Workspace[],
-): Workspace | undefined {
-  return workspaces.find((w) => workspaceItemId.startsWith(w.id));
+/** Find the project that owns a given projectItemId (branch/worktree/root). */
+export function resolveProject(projectItemId: string, projects: Project[]): Project | undefined {
+  return projects.find((p) => projectItemId.startsWith(p.id));
 }
 
-/** Find the workspace that owns a given tab. */
-export function resolveWorkspaceForTab(tab: Tab, workspaces: Workspace[]): Workspace | undefined {
-  return resolveWorkspace(tab.workspaceItemId, workspaces);
+/** Find the project that owns a given tab. */
+export function resolveProjectForTab(tab: Tab, projects: Project[]): Project | undefined {
+  return resolveProject(tab.projectItemId, projects);
 }

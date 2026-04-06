@@ -26,10 +26,7 @@ export function AgentToastRegion() {
   function handleJump(ptyId: number, close: () => void) {
     const tab = getTabCollection().toArray.find((t) => containsPtyId(t.paneRoot, ptyId));
     if (tab) {
-      void navigate({
-        to: '/workspaces/$workspaceId',
-        params: { workspaceId: tab.workspaceItemId },
-      });
+      void navigate({ to: '/projects/$projectId', params: { projectId: tab.projectItemId } });
       switchTab(tab.id);
     }
     close();
@@ -55,7 +52,7 @@ export function AgentToastRegion() {
                 {toast.content.agentName}
               </Text>
               <span className="min-w-0 flex-1 truncate text-right text-sm text-text-muted">
-                {toast.content.workspace}/{toast.content.branch}
+                {toast.content.project}/{toast.content.branch}
               </span>
               <Button
                 slot="close"

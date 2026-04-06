@@ -1,6 +1,6 @@
 import {
   getTabCollection,
-  getWorkspaceCollection,
+  getProjectCollection,
   uiCollection,
   getUiState,
   setSetting,
@@ -24,33 +24,33 @@ import {
 
 import type { Tab } from '@superagent/db';
 
-/** Resolve a workspaceItemId composite key to a filesystem path. */
-export function resolveWorkspaceItemCwd(workspaceItemId: string): string | undefined {
-  for (const ws of getWorkspaceCollection().toArray) {
-    if (workspaceItemId === ws.id) return ws.path;
+/** Resolve a projectItemId composite key to a filesystem path. */
+export function resolveProjectItemCwd(projectItemId: string): string | undefined {
+  for (const proj of getProjectCollection().toArray) {
+    if (projectItemId === proj.id) return proj.path;
 
-    const branchPrefix = `${ws.id}-branch-`;
-    if (workspaceItemId.startsWith(branchPrefix)) return ws.path;
+    const branchPrefix = `${proj.id}-branch-`;
+    if (projectItemId.startsWith(branchPrefix)) return proj.path;
 
-    const wtPrefix = `${ws.id}-wt-`;
-    if (workspaceItemId.startsWith(wtPrefix)) {
-      const wtName = workspaceItemId.slice(wtPrefix.length);
-      const wt = ws.worktrees.find((w) => w.name === wtName);
-      return wt?.path ?? ws.path;
+    const wtPrefix = `${proj.id}-wt-`;
+    if (projectItemId.startsWith(wtPrefix)) {
+      const wtName = projectItemId.slice(wtPrefix.length);
+      const wt = proj.worktrees.find((w) => w.name === wtName);
+      return wt?.path ?? proj.path;
     }
   }
   return undefined;
 }
 
-function storePaneCwd(paneId: string, workspaceItemId: string): void {
-  const cwd = resolveWorkspaceItemCwd(workspaceItemId);
+function storePaneCwd(paneId: string, projectItemId: string): void {
+  const cwd = resolveProjectItemCwd(projectItemId);
   if (cwd) setSetting(`cwd:${paneId}`, cwd);
 }
 
-function getNextTabIndex(workspaceItemId: string): number {
+function getNextTabIndex(projectItemId: string): number {
   const usedNumbers = new Set(
     getTabCollection()
-      .toArray.filter((t) => t.workspaceItemId === workspaceItemId && !t.labelIsManual)
+      .toArray.filter((t) => t.projectItemId === projectItemId && !t.labelIsManual)
       .map((t) => {
         const match = /^Terminal (\d+)$/.exec(t.label);
         return match ? parseInt(match[1]!, 10) : null;
@@ -62,15 +62,15 @@ function getNextTabIndex(workspaceItemId: string): number {
   return i;
 }
 
-function makeTab(opts?: { workspaceItemId?: string; label?: string }): Tab {
+function makeTab(opts?: { projectItemId?: string; label?: string }): Tab {
   const id = crypto.randomUUID();
   const paneId = crypto.randomUUID();
-  const workspaceItemId = opts?.workspaceItemId ?? 'default';
+  const projectItemId = opts?.projectItemId ?? 'default';
   return {
     id,
-    label: opts?.label ?? `Terminal ${getNextTabIndex(workspaceItemId)}`,
+    label: opts?.label ?? `Terminal ${getNextTabIndex(projectItemId)}`,
     labelIsManual: false,
-    workspaceItemId,
+    projectItemId,
     paneRoot: { type: 'leaf', id: paneId, ptyId: -1 },
     focusedPaneId: paneId,
     position: Math.max(-1, ...getTabCollection().toArray.map((t) => t.position)) + 1,
@@ -87,11 +87,11 @@ export function renameTab(id: string, label: string, manual: boolean): void {
   });
 }
 
-export function addTab(workspaceItemId?: string): void {
+export function addTab(projectItemId?: string): void {
   const ui = getUiState();
-  const itemId = workspaceItemId ?? ui.activeContextId;
+  const itemId = projectItemId ?? ui.activeContextId;
   if (!itemId) return;
-  const tab = makeTab({ workspaceItemId: itemId });
+  const tab = makeTab({ projectItemId: itemId });
   storePaneCwd(tab.paneRoot.id, itemId);
   insertTabAndActivate(tab);
 }
@@ -108,8 +108,8 @@ export function closeTab(tabId: string): void {
   }
   void closePtysForPanes(collectAllLeafPaneIds(tab.paneRoot)).catch(() => {});
 
-  const contextId = tab.workspaceItemId;
-  const contextTabs = col.toArray.filter((t) => t.workspaceItemId === contextId);
+  const contextId = tab.projectItemId;
+  const contextTabs = col.toArray.filter((t) => t.projectItemId === contextId);
   const ui = getUiState();
 
   if (contextTabs.length === 1) {
@@ -145,7 +145,7 @@ export function switchTab(tabId: string): void {
 export function switchTabByIndex(index: number): void {
   const ui = getUiState();
   const contextTabs = getTabCollection().toArray.filter(
-    (t) => t.workspaceItemId === ui.activeContextId,
+    (t) => t.projectItemId === ui.activeContextId,
   );
   if (index >= 0 && index < contextTabs.length) {
     const tabId = contextTabs[index]!.id;
@@ -158,7 +158,7 @@ export function switchTabByIndex(index: number): void {
 export function switchTabRelative(direction: 'prev' | 'next'): void {
   const ui = getUiState();
   const contextTabs = getTabCollection().toArray.filter(
-    (t) => t.workspaceItemId === ui.activeContextId,
+    (t) => t.projectItemId === ui.activeContextId,
   );
   const idx = contextTabs.findIndex((t) => t.id === ui.activeTabId);
   if (idx === -1) return;
@@ -181,7 +181,7 @@ export function setActiveContext(contextId: string): void {
     [ui.activeContextId]: ui.activeTabId,
   };
 
-  const contextTabs = col.toArray.filter((t) => t.workspaceItemId === contextId);
+  const contextTabs = col.toArray.filter((t) => t.projectItemId === contextId);
 
   if (contextTabs.length > 0) {
     const savedTabId = updatedContextActiveTabIds[contextId];
@@ -210,7 +210,7 @@ export function getActiveTab(): Tab | undefined {
 
 export function getContextTabs(): Tab[] {
   const ui = getUiState();
-  return getTabCollection().toArray.filter((t) => t.workspaceItemId === ui.activeContextId);
+  return getTabCollection().toArray.filter((t) => t.projectItemId === ui.activeContextId);
 }
 
 export function splitPane(paneId: PaneId, direction: SplitDirection, newPtyId: number): void {
@@ -218,7 +218,7 @@ export function splitPane(paneId: PaneId, direction: SplitDirection, newPtyId: n
   const tab = getTabCollection().toArray.find((t) => t.id === ui.activeTabId);
   if (!tab) return;
   const [newTree, newLeafId] = splitNode(tab.paneRoot, paneId, direction, newPtyId);
-  storePaneCwd(newLeafId, tab.workspaceItemId);
+  storePaneCwd(newLeafId, tab.projectItemId);
   getTabCollection().update(tab.id, (draft) => {
     draft.paneRoot = newTree;
     draft.focusedPaneId = newLeafId;
@@ -280,7 +280,7 @@ export function killPaneInTab(tabId: string, paneId: PaneId): void {
 }
 
 /**
- * Navigate to a specific workspace → tab → pane from anywhere in the app.
+ * Navigate to a specific project → tab → pane from anywhere in the app.
  *
  * - Same context: switchTab direct — no route change, no re-render.
  * - Cross context: pre-populates contextActiveTabIds before navigating so that
@@ -288,11 +288,11 @@ export function killPaneInTab(tabId: string, paneId: PaneId): void {
  * - Pane: focusedPaneId is set directly on the tab, independent of active context.
  *
  * Always calls navigate() to handle the case where the user is on a different
- * route (e.g. /settings) even when the workspace context is already correct.
+ * route (e.g. /settings) even when the project context is already correct.
  */
 export function jumpToPane(
   navigate: (opts: { to: string; params?: Record<string, string> }) => void,
-  workspaceItemId: string,
+  projectItemId: string,
   tabId?: string,
   paneId?: string,
 ): void {
@@ -305,15 +305,15 @@ export function jumpToPane(
   }
 
   uiCollection.update('ui', (draft) => {
-    draft.selectedItemId = workspaceItemId;
-    if (ui.activeContextId !== workspaceItemId && tabId) {
-      draft.contextActiveTabIds[workspaceItemId] = tabId;
+    draft.selectedItemId = projectItemId;
+    if (ui.activeContextId !== projectItemId && tabId) {
+      draft.contextActiveTabIds[projectItemId] = tabId;
     }
   });
 
-  navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: workspaceItemId } });
+  navigate({ to: '/projects/$projectId', params: { projectId: projectItemId } });
 
-  if (ui.activeContextId === workspaceItemId && tabId) {
+  if (ui.activeContextId === projectItemId && tabId) {
     switchTab(tabId);
   }
 }
@@ -374,7 +374,7 @@ export function setPtyId(paneId: PaneId, ptyId: number): void {
 
 export function closeAllTabs(contextId: string): void {
   const col = getTabCollection();
-  const tabs = col.toArray.filter((t) => t.workspaceItemId === contextId);
+  const tabs = col.toArray.filter((t) => t.projectItemId === contextId);
   for (const tab of tabs) closeTab(tab.id);
 }
 
@@ -382,9 +382,7 @@ export function closeAllTabsExcept(tabId: string): void {
   const col = getTabCollection();
   const tab = col.toArray.find((t) => t.id === tabId);
   if (!tab) return;
-  const others = col.toArray.filter(
-    (t) => t.workspaceItemId === tab.workspaceItemId && t.id !== tabId,
-  );
+  const others = col.toArray.filter((t) => t.projectItemId === tab.projectItemId && t.id !== tabId);
   for (const other of others) closeTab(other.id);
 }
 

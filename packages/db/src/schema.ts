@@ -1,6 +1,6 @@
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
-export const workspaces = sqliteTable('workspaces', {
+export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
   path: text('path').notNull().unique(),
   name: text('name').notNull(),
@@ -17,7 +17,7 @@ export const tabs = sqliteTable('tabs', {
   id: text('id').primaryKey(),
   label: text('label').notNull().default('Terminal 1'),
   labelIsManual: integer('label_is_manual', { mode: 'boolean' }).notNull().default(false),
-  workspaceItemId: text('workspace_item_id').notNull().default('default'),
+  projectItemId: text('project_item_id').notNull().default('default'),
   // JSON: PaneNode (serialized recursive tree)
   paneRoot: text('pane_root').notNull(),
   focusedPaneId: text('focused_pane_id'),
@@ -28,7 +28,7 @@ export const sessions = sqliteTable('sessions', {
   id: text('id').primaryKey(),
   paneId: text('pane_id').notNull(),
   tabId: text('tab_id').notNull(),
-  workspaceId: text('workspace_id'),
+  projectId: text('project_id'),
   cwd: text('cwd').notNull(),
   shell: text('shell').notNull(),
 });
