@@ -125,10 +125,8 @@ export function addClaudeCodeTab(
   const tab = { ...base, labelIsManual: true, icon: 'claude-code' };
   storePaneCwd(tab.paneRoot.id, itemId);
   const mode = options?.mode ?? getClaudeDefaultMode();
-  const baseCmd =
-    mode === 'plan'
-      ? 'CLAUDE_CODE_NO_FLICKER=1 claude --permission-mode plan'
-      : 'CLAUDE_CODE_NO_FLICKER=1 claude --permission-mode bypassPermissions';
+  const permFlag = mode === 'plan' ? 'plan' : 'bypassPermissions';
+  const baseCmd = `CLAUDE_CODE_NO_FLICKER=1 claude --permission-mode ${permFlag}`;
   // Pass the prompt as a CLI argument so Claude receives it at startup rather than
   // via a deferred writeToPty. Single-quote the value and escape any inner quotes.
   const cmd = options?.prompt ? `${baseCmd} '${options.prompt.replace(/'/g, "'\\''")}'` : baseCmd;

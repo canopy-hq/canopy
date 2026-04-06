@@ -4,8 +4,8 @@ import {
   uiCollection,
   getUiState,
   getSetting,
-  setSetting,
   getSettingCollection,
+  setSetting,
   SIDEBAR_WIDTH_MIN,
   SIDEBAR_WIDTH_MAX,
 } from '@superagent/db';
@@ -13,8 +13,7 @@ import { closePty, closePtysForPanes, disposeCached } from '@superagent/terminal
 
 import * as gitApi from './git';
 import { collectAllLeafPaneIds, collectLeafPtyIds } from './pane-tree-ops';
-import { addClaudeCodeTab } from './tab-actions';
-import { closeTab } from './tab-actions';
+import { addClaudeCodeTab, closeTab } from './tab-actions';
 import { showErrorToast, showInfoToast } from './toast';
 
 type NavigateFn = (opts: { to: string; params?: Record<string, string> }) => void;
@@ -350,10 +349,8 @@ export function startWorktreeCreation(
       });
       uiCollection.update('ui', (draft) => {
         draft.pendingClaudeSession = null;
-        draft.creatingWorktreeIds = draft.creatingWorktreeIds.filter((id) => id !== wtItemId);
       });
     } finally {
-      // No-op on success (already cleared above), but kept as safety net.
       uiCollection.update('ui', (draft) => {
         draft.creatingWorktreeIds = draft.creatingWorktreeIds.filter((id) => id !== wtItemId);
       });
