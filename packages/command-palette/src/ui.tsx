@@ -1,5 +1,9 @@
 import { useEffect } from 'react';
 
+import { Kbd, type KbdVariant } from '@superagent/ui';
+
+export { Kbd, type KbdVariant };
+
 // ── focusLater ─────────────────────────────────────────────────────────────────
 // Schedules a focus call in the next animation frame so it runs after the
 // browser has committed the current render (avoids focus races on mount).

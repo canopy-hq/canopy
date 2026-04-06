@@ -27,7 +27,7 @@ const itemCls =
   'flex cursor-default items-center gap-2 px-3 py-1.5 text-base text-text-secondary outline-none data-[focused]:bg-bg-tertiary data-[disabled]:opacity-40';
 
 const panelCls =
-  'min-w-[180px] rounded-lg border border-border/60 bg-bg-secondary py-1 shadow-lg outline-none';
+  'w-max rounded-lg border border-border/60 bg-bg-secondary py-1 shadow-lg outline-none';
 
 export function ContextMenu({
   x,
@@ -81,7 +81,7 @@ export function ContextMenu({
                     <span className="flex-1">{item.label}</span>
                     <ChevronRight size={12} className="text-text-faint" />
                   </MenuItem>
-                  <Popover className={panelCls} offset={-4}>
+                  <Popover className={panelCls} placement="end top" offset={-4} crossOffset={-4}>
                     <Menu
                       aria-label={item.label}
                       className="outline-none"

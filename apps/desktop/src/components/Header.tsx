@@ -1,5 +1,6 @@
 import { PanelLeft, Search, Shell } from 'lucide-react';
 
+import { useProjects } from '../hooks/useCollections';
 import { toggleSidebar } from '../lib/project-actions';
 import { DevBranchBadge } from './DevBranchBadge';
 import { GitHubStatus } from './GitHubStatus';
@@ -11,6 +12,8 @@ interface HeaderProps {
 }
 
 export function Header({ onSessionsClick, onSearchClick }: HeaderProps = {}) {
+  const projects = useProjects();
+
   return (
     <header
       data-tauri-drag-region
@@ -18,18 +21,20 @@ export function Header({ onSessionsClick, onSearchClick }: HeaderProps = {}) {
     >
       {/* Left zone — sidebar toggle + PTY sessions */}
       <div data-tauri-drag-region className="flex h-full items-center px-1">
-        <Tooltip
-          label={
-            <>
-              Toggle sidebar <Kbd>⌘B</Kbd>
-            </>
-          }
-          placement="right"
-        >
-          <Button variant="ghost" iconOnly onPress={toggleSidebar} aria-label="Toggle sidebar">
-            <PanelLeft size={16} />
-          </Button>
-        </Tooltip>
+        {projects.length > 0 && (
+          <Tooltip
+            label={
+              <>
+                Toggle sidebar <Kbd>⌘B</Kbd>
+              </>
+            }
+            placement="right"
+          >
+            <Button variant="ghost" iconOnly onPress={toggleSidebar} aria-label="Toggle sidebar">
+              <PanelLeft size={16} />
+            </Button>
+          </Tooltip>
+        )}
         <Tooltip label="PTY Sessions" placement="right">
           <Button variant="ghost" iconOnly onPress={onSessionsClick} aria-label="PTY sessions">
             <Shell size={16} />
