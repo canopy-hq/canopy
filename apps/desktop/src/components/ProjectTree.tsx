@@ -580,7 +580,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
 
   return (
     <>
-      <div className="flex h-10 items-center pr-2 pl-3">
+      <div className="flex h-10 items-center border-b border-border/20 pr-2 pl-3">
         <span className="flex-1 font-mono text-sm font-medium tracking-widest text-text-faint uppercase">
           Projects
         </span>
