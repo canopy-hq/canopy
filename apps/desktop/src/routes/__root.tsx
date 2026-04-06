@@ -193,7 +193,7 @@ function RootLayout() {
           }),
       },
       { key: 'b', meta: true, action: () => toggleSidebar() },
-      { key: 'n', meta: true, action: () => void openImportDialog() },
+      { key: 'n', meta: true, action: () => void openImportDialog(navigate) },
       { key: 'o', meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
       ...([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map((n) => ({
         key: String(n),

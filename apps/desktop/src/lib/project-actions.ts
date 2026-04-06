@@ -34,7 +34,7 @@ export function getProjectItemIds(proj: Project): Set<string> {
   return ids;
 }
 
-export async function openImportDialog(): Promise<void> {
+export async function openImportDialog(navigate?: NavigateFn): Promise<void> {
   try {
     const { open } = await import('@tauri-apps/plugin-dialog');
     const selected = await open({
@@ -42,13 +42,13 @@ export async function openImportDialog(): Promise<void> {
       multiple: false,
       title: 'Select Git Repository',
     });
-    if (selected && typeof selected === 'string') await importRepo(selected);
+    if (selected && typeof selected === 'string') await importRepo(selected, navigate);
   } catch {
     // Dialog not available in test/dev environments
   }
 }
 
-export async function importRepo(path: string): Promise<void> {
+export async function importRepo(path: string, navigate?: NavigateFn): Promise<void> {
   try {
     const info = await gitApi.importRepo(path);
     const collection = getProjectCollection();
@@ -57,8 +57,9 @@ export async function importRepo(path: string): Promise<void> {
     if (existing) {
       showInfoToast(`"${existing.name}" is already imported`);
     } else {
+      const projectId = crypto.randomUUID();
       collection.insert({
-        id: crypto.randomUUID(),
+        id: projectId,
         path: info.path,
         name: info.name,
         branches: info.branches.filter((b) => b.is_head),
@@ -66,6 +67,12 @@ export async function importRepo(path: string): Promise<void> {
         expanded: true,
         position: collection.toArray.length,
       });
+
+      if (navigate) {
+        const headBranch = info.branches.find((b) => b.is_head);
+        const itemId = headBranch ? `${projectId}-branch-${headBranch.name}` : projectId;
+        selectProjectItem(itemId, navigate);
+      }
     }
 
     uiCollection.update('ui', (draft) => {
