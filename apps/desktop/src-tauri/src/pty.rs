@@ -47,9 +47,13 @@ pub async fn spawn_terminal(
     let (pid, is_new) = {
         let r = rows.unwrap_or(24);
         let c = cols.unwrap_or(80);
-        // Try to claim a pre-warmed PTY from the pool first
-        match daemon.claim(&pane_id, r, c).await {
-            Ok(result) if !result.empty => (result.pid, true),
+        // Try to claim a pre-warmed PTY from the pool first.
+        // 200ms timeout guards against stale daemons that don't know "claim".
+        match tokio::time::timeout(
+            std::time::Duration::from_millis(200),
+            daemon.claim(&pane_id, r, c),
+        ).await {
+            Ok(Ok(result)) if !result.empty => (result.pid, true),
             _ => daemon.spawn(&pane_id, cwd.as_deref(), r, c).await?,
         }
     };
