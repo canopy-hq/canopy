@@ -53,8 +53,14 @@ pub async fn spawn_terminal(
             std::time::Duration::from_millis(200),
             daemon.claim(&pane_id, r, c),
         ).await {
-            Ok(Ok(result)) if !result.empty => (result.pid, true),
-            _ => daemon.spawn(&pane_id, cwd.as_deref(), r, c).await?,
+            Ok(Ok(result)) if !result.empty => {
+                eprintln!("[pool] CLAIMED pid={} for pane={pane_id}", result.pid);
+                (result.pid, true)
+            }
+            other => {
+                eprintln!("[pool] FALLBACK to spawn for pane={pane_id} (claim result: {other:?})");
+                daemon.spawn(&pane_id, cwd.as_deref(), r, c).await?
+            }
         }
     };
 

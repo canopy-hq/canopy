@@ -10,6 +10,7 @@ use tokio::sync::Mutex;
 
 use crate::agent_watcher::now_millis;
 
+#[derive(Debug)]
 pub struct ClaimResult {
     pub pid: u32,
     pub empty: bool,
