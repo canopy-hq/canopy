@@ -197,24 +197,33 @@ export function selectProjectItem(
   }
 }
 
+/** Returns the project that contains the current activeContextId. */
+function getActiveProject(): Project | undefined {
+  const { activeContextId } = getUiState();
+  if (!activeContextId) return undefined;
+  return getProjectCollection().toArray.find(
+    (p) =>
+      activeContextId === p.id ||
+      activeContextId.startsWith(`${p.id}-branch-`) ||
+      activeContextId.startsWith(`${p.id}-wt-`),
+  );
+}
+
+/** Safe modular step: when currentIndex is -1 (not found), clamp to 0 before stepping. */
+function stepIndex(currentIndex: number, direction: 'prev' | 'next', length: number): number {
+  const safe = Math.max(currentIndex, 0);
+  return direction === 'next' ? (safe + 1) % length : (safe - 1 + length) % length;
+}
+
 /**
  * Switch to the nth branch/worktree of the currently active project.
- * Index is 0-based (Cmd+1 → 0, Cmd+2 → 1, …).
- * Items are ordered: branches first (sidebar order), then worktrees.
+ * Index is 0-based. Items are ordered: branches first, then worktrees.
  */
 export function switchProjectItemByIndex(
   index: number,
   navigate: (opts: { to: string; params?: Record<string, string> }) => void,
 ): void {
-  const ui = getUiState();
-  if (!ui.activeContextId) return;
-
-  const proj = getProjectCollection().toArray.find(
-    (p) =>
-      ui.activeContextId === p.id ||
-      ui.activeContextId.startsWith(`${p.id}-branch-`) ||
-      ui.activeContextId.startsWith(`${p.id}-wt-`),
-  );
+  const proj = getActiveProject();
   if (!proj) return;
 
   const items = [
@@ -234,20 +243,15 @@ export function switchProjectRelative(
   const projects = [...getProjectCollection().toArray].sort((a, b) => a.position - b.position);
   if (projects.length === 0) return;
 
-  const ui = getUiState();
+  const { activeContextId } = getUiState();
   const currentIndex = projects.findIndex(
     (p) =>
-      ui.activeContextId === p.id ||
-      ui.activeContextId.startsWith(`${p.id}-branch-`) ||
-      ui.activeContextId.startsWith(`${p.id}-wt-`),
+      activeContextId === p.id ||
+      activeContextId.startsWith(`${p.id}-branch-`) ||
+      activeContextId.startsWith(`${p.id}-wt-`),
   );
 
-  const nextIndex =
-    direction === 'next'
-      ? (currentIndex + 1) % projects.length
-      : (currentIndex - 1 + projects.length) % projects.length;
-
-  const proj = projects[nextIndex]!;
+  const proj = projects[stepIndex(currentIndex, direction, projects.length)]!;
   const head = proj.branches.find((b) => b.is_head);
   const first = proj.branches[0];
   const itemId = head
@@ -263,30 +267,18 @@ export function switchProjectItemRelative(
   direction: 'prev' | 'next',
   navigate: (opts: { to: string; params?: Record<string, string> }) => void,
 ): void {
-  const ui = getUiState();
-  if (!ui.activeContextId) return;
-
-  const proj = getProjectCollection().toArray.find(
-    (p) =>
-      ui.activeContextId === p.id ||
-      ui.activeContextId.startsWith(`${p.id}-branch-`) ||
-      ui.activeContextId.startsWith(`${p.id}-wt-`),
-  );
+  const proj = getActiveProject();
   if (!proj) return;
 
+  const { activeContextId } = getUiState();
   const items = [
     ...proj.branches.map((b) => `${proj.id}-branch-${b.name}`),
     ...proj.worktrees.map((wt) => `${proj.id}-wt-${wt.name}`),
   ];
   if (items.length === 0) return;
 
-  const currentIndex = items.indexOf(ui.activeContextId);
-  const nextIndex =
-    direction === 'next'
-      ? (currentIndex + 1) % items.length
-      : (currentIndex - 1 + items.length) % items.length;
-
-  const itemId = items[nextIndex];
+  const currentIndex = items.indexOf(activeContextId);
+  const itemId = items[stepIndex(currentIndex, direction, items.length)];
   if (itemId) selectProjectItem(itemId, navigate);
 }
 

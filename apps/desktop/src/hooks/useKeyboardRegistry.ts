@@ -1,17 +1,15 @@
 import { useEffect, useRef } from 'react';
 
-export interface Keybinding {
-  /** Logical key value (e.key) — layout-dependent. Use `code` for physical keys like digits. */
-  key?: string;
-  /** Physical key code (e.code) — layout-independent. Use for digit shortcuts (e.g. 'Digit1'). */
-  code?: string;
+type KeyOrCode = { key: string; code?: string } | { key?: string; code: string };
+
+export type Keybinding = KeyOrCode & {
   meta: boolean;
   shift?: boolean;
   alt?: boolean;
   action: () => void;
   /** If defined and returns false, the binding is skipped and the event propagates unchanged. */
   condition?: () => boolean;
-}
+};
 
 export function useKeyboardRegistry(bindings: Keybinding[]): void {
   const bindingsRef = useRef(bindings);
@@ -22,6 +20,9 @@ export function useKeyboardRegistry(bindings: Keybinding[]): void {
       for (const binding of bindingsRef.current) {
         const keyMatch = binding.key ? e.key === binding.key : true;
         const codeMatch = binding.code ? e.code === binding.code : true;
+        // Require at least one of key/code to be set — a binding with neither would
+        // match every keydown event, which is almost certainly a mistake.
+        if (!binding.key && !binding.code) continue;
         if (
           keyMatch &&
           codeMatch &&
