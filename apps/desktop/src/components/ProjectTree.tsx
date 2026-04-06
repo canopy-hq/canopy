@@ -103,7 +103,7 @@ const PrBadge = memo(function PrBadge({ pr }: { pr: PrInfo }) {
       }}
       className={`inline-flex shrink-0 items-center gap-1 rounded-sm px-1 py-px text-2xs font-normal whitespace-nowrap hover:brightness-125 ${PR_TEXT_COLOR[pr.state]} ${PR_BG_COLOR[pr.state]}`}
     >
-      <GitPullRequest size={12} />#{pr.number}
+      <GitPullRequest size={9} />#{pr.number}
     </button>
   );
 });
