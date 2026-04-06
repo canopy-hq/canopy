@@ -27,11 +27,10 @@ import {
   closeAllTabsExcept,
 } from '../lib/tab-actions';
 import { ClaudeCodeIcon } from './ClaudeCodeIcon';
-import { StatusDot } from './StatusDot';
-import { Badge, Kbd, Tooltip } from './ui';
+import { Badge, Kbd, StatusDot, Tooltip } from './ui';
 import { ContextMenu } from './ui/ContextMenu';
 
-import type { DotStatus } from './StatusDot';
+import type { DotStatus } from './ui';
 import type { Tab } from '@superagent/db';
 
 const closeTabLabel = (

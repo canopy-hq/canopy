@@ -166,12 +166,8 @@ export function SessionManager({ onClose }: SessionManagerProps) {
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[120px]"
     >
       <Modal
-        className="flex max-h-[70vh] w-[600px] flex-col overflow-hidden rounded-xl border border-border/60 font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
-        style={{
-          background: 'color-mix(in srgb, var(--bg-secondary) 85%, transparent)',
-          WebkitBackdropFilter: 'blur(12px)',
-          backdropFilter: 'blur(12px)',
-        }}
+        className="flex max-h-[70vh] w-[600px] flex-col overflow-hidden rounded-xl border border-border/60 bg-bg-secondary/85 font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-[12px]"
+        style={{ WebkitBackdropFilter: 'blur(12px)' }}
       >
         <Dialog className="flex min-h-0 flex-col outline-none" aria-label="PTY Session Manager">
           {/* Header */}

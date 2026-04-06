@@ -1,7 +1,7 @@
 import { tv, type VariantProps } from 'tailwind-variants';
 
-const badge = tv({
-  base: 'inline-flex shrink-0 items-center font-medium leading-none whitespace-nowrap overflow-hidden text-ellipsis',
+export const badge = tv({
+  base: 'inline-flex shrink-0 items-center font-normal leading-none whitespace-nowrap overflow-hidden text-ellipsis',
   variants: {
     color: {
       neutral: 'bg-white/[0.06] text-text-muted',

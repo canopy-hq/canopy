@@ -1,6 +1,6 @@
 export { ActionRow } from './ActionRow';
 
-export { Badge } from './Badge';
+export { Badge, badge } from './Badge';
 export type { BadgeProps, BadgeVariants } from './Badge';
 
 export { Button } from './Button';
