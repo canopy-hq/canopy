@@ -135,6 +135,9 @@ export function useTerminal(
       requestAnimationFrame(() => requestAnimationFrame(() => removeOverlay()));
     } else {
       // === NEW TERMINAL: spawn (ptyId === -1) or reconnect (ptyId > 0) ===
+      // Establish a positioning context so the absolute wrapper (inset:0) resolves
+      // against container — not the outer relative ancestor — preserving pb-2/pl-2.
+      container.style.position = 'relative';
       const termFontSize = getSetting<number>(
         getSettingCollection().toArray,
         'terminalFontSize',
@@ -191,24 +194,42 @@ export function useTerminal(
             clearTimeout(overlayTimer);
             overlayTimer = null;
           }
-          overlay.remove();
+          // Fade out over 80ms — masks sub-frame artifacts (clear→prompt gap,
+          // async prompt stages, font swap from fallback to Geist Mono).
+          overlay.style.transition = 'opacity 80ms ease-out';
+          overlay.style.opacity = '0';
+          setTimeout(() => overlay.remove(), 80);
         }
       };
-      // One-shot overlay removal: schedule the timer on the FIRST byte only.
-      // This reveals the terminal at first_byte+80ms+2×rAF (~112ms) regardless
-      // of how long Starship keeps emitting — the canvas fills in while visible,
-      // which looks responsive. The double-rAF ensures the WASM renderer has
-      // painted at least one frame after the first write before uncovering.
+      // Debounce overlay removal: reset the timer on every incoming data chunk.
+      // The overlay is lifted only once output has been silent for `delay` ms,
+      // which gives starship/p10k time to finish drawing the colored prompt.
+      // Without this, the overlay is removed mid-render and the user sees:
+      //   • the zsh partial-line indicator `%` (PROMPT_CR output, not yet erased)
+      //   • terminal sized to the wrong dimensions (fit not yet settled)
+      //   • text rendered in the fallback font (Geist Mono not yet applied)
+      // 300 ms minimum from first byte covers typical starship render time.
+      // Resets on each chunk; capped at 500 ms total so it always resolves.
+      let overlayFirstByte = 0;
       const debouncedRemoveOverlay = () => {
-        if (overlayRemoved || overlayTimer !== null) return; // one-shot
+        if (overlayRemoved) return;
+        if (overlayFirstByte === 0) overlayFirstByte = Date.now();
+        if (overlayTimer !== null) clearTimeout(overlayTimer);
+        const elapsed = Date.now() - overlayFirstByte;
+        const minRemaining = Math.max(0, 300 - elapsed);
+        const delay = Math.min(Math.max(80, minRemaining), Math.max(0, 500 - elapsed));
         overlayTimer = setTimeout(() => {
           overlayTimer = null;
-          requestAnimationFrame(() => {
+          requestAnimationFrame(() =>
             requestAnimationFrame(() => {
+              // Re-fit before revealing: the container is guaranteed to have its
+              // final dimensions here (300ms+ after first byte), whereas the initial
+              // fit in fontReady.then() may have run before CSS layout settled.
+              fitAddon.fit();
               removeOverlay();
-            });
-          });
-        }, 80);
+            }),
+          );
+        }, delay);
       };
 
       if (term.element) {
@@ -319,11 +340,18 @@ export function useTerminal(
       function startPtyConnection() {
         if (ptyId > 0) {
           // Reconnect: PTY already running in daemon (cold app restart).
-          // setHandler flushes buffered scrollback synchronously → overlay safe to
-          // remove immediately after connectPtyOutput returns.
+          // setHandler flushes buffered scrollback synchronously.
+          // Defer reveal by one double-rAF so the container has its final
+          // dimensions before we fit — otherwise the terminal shows with the
+          // wrong column count until the next tab-switch triggers a re-fit.
           connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
-          removeOverlay();
           setCached(ptyId, term, fitAddon);
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => {
+              fitAddon.fit();
+              removeOverlay();
+            }),
+          );
         } else {
           // Spawn: PTY started at exact fitted dimensions → lastSentSize = spawn dims
           // → dedup guard suppresses any subsequent fit at the same size → 0 SIGWINCH.
