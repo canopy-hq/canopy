@@ -395,7 +395,7 @@ export function TabBar() {
         </Button>
         <Popover
           placement="bottom start"
-          offset={2}
+          offset={4}
           className="entering:animate-in entering:fade-in entering:zoom-in-95 exiting:animate-out exiting:fade-out exiting:zoom-out-95 w-max rounded-lg border border-border/60 bg-bg-secondary py-1 shadow-lg outline-none"
         >
           <Menu
