@@ -410,8 +410,8 @@ export function TabBar() {
         </SortableContext>
       </DndContext>
       <MenuTrigger>
-        <Button aria-label="New tab" variant="ghost" iconOnly>
-          <Plus size={14} />
+        <Button aria-label="New tab" variant="ghost" iconOnly className="mx-1">
+          <Plus size={16} />
         </Button>
         <Popover
           placement="bottom end"
