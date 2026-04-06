@@ -50,6 +50,10 @@ struct PtySession {
     /// Shared pane ID that the reader thread uses for session lookups.
     /// Updated by the claim handler when remapping pool → real pane ID.
     current_pane_id: Arc<Mutex<String>>,
+    /// Pre-subscribed receiver created during `claim` — eliminates the data
+    /// loss window between claim response and attach_fresh subscribe.
+    /// `attach_fresh` takes this if available, otherwise subscribes fresh.
+    claim_rx: Option<broadcast::Receiver<Vec<u8>>>,
 }
 
 pub struct DaemonState {
@@ -186,10 +190,15 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
             // and eliminates the old 200ms sleep.
             "attach_fresh" => {
                 let result = {
-                    let st = state.lock().unwrap();
+                    let mut st = state.lock().unwrap();
                     st.sessions
-                        .get(&pane_id)
-                        .map(|s| s.tx.subscribe())
+                        .get_mut(&pane_id)
+                        .map(|s| {
+                            // Prefer claim_rx (subscribed before cd_cmd was written)
+                            // to eliminate the data loss window. Falls back to fresh
+                            // subscribe for non-pool callers.
+                            s.claim_rx.take().unwrap_or_else(|| s.tx.subscribe())
+                        })
                 };
                 let mut rx = match result {
                     Some(r) => r,
@@ -257,12 +266,22 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                     }
                     Ok(None) => return, // channel closed
                     Err(_) => {
-                        // Timeout — re-subscribe at broadcast head and stream live output.
-                        let st = state.lock().unwrap();
-                        match st.sessions.get(&pane_id).map(|s| s.tx.subscribe()) {
-                            Some(r) => r,
-                            None => return,
+                        // Timeout — subscribe fresh and dump current scrollback
+                        // (reader thread kept pushing since the clear) so the user
+                        // at least sees their prompt instead of a blank terminal.
+                        let (scrollback, rx) = {
+                            let st = state.lock().unwrap();
+                            match st.sessions.get(&pane_id).map(|s| (s.scrollback.get().to_vec(), s.tx.subscribe())) {
+                                Some(r) => r,
+                                None => return,
+                            }
+                        };
+                        if !scrollback.is_empty() {
+                            let len = (scrollback.len() as u32).to_be_bytes();
+                            if write_half.write_all(&len).await.is_err() { return; }
+                            if write_half.write_all(&scrollback).await.is_err() { return; }
                         }
+                        rx
                     }
                 };
 
@@ -366,6 +385,10 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                                     rows, cols, pixel_width: 0, pixel_height: 0,
                                 });
                                 session.scrollback.clear();
+                                // Subscribe BEFORE writing cd_cmd so the receiver
+                                // sees the sentinel response — eliminates the data
+                                // loss window between claim and attach_fresh.
+                                session.claim_rx = Some(session.tx.subscribe());
                                 let _ = session.writer.write_all(cd_cmd.as_bytes());
                                 let _ = session.writer.flush();
                                 st.sessions.insert(pane_id.clone(), session);
@@ -379,14 +402,21 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 let resp = match claimed {
                     Some(pid) => {
 
-                        // Replenish pool in background
-                        let state_clone = state.clone();
-                        tokio::spawn(async move {
-                            let res = tokio::task::spawn_blocking(move || pool_warm_one(&state_clone)).await;
-                            if let Ok(Err(e)) = res {
-                                eprintln!("pool: replenish failed: {e}");
-                            }
-                        });
+                        // Replenish pool by deficit (not just 1) so rapid
+                        // multi-claim doesn't permanently shrink the pool.
+                        let deficit = {
+                            let st = state.lock().unwrap();
+                            st.pool.deficit()
+                        };
+                        for _ in 0..deficit {
+                            let state_clone = state.clone();
+                            tokio::spawn(async move {
+                                let res = tokio::task::spawn_blocking(move || pool_warm_one(&state_clone)).await;
+                                if let Ok(Err(e)) = res {
+                                    eprintln!("pool: replenish failed: {e}");
+                                }
+                            });
+                        }
 
                         format!("{{\"ok\":true,\"pid\":{pid},\"new\":true}}\n")
                     }
@@ -398,7 +428,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
             }
 
             "drain_pool" => {
-                let drained = {
+                let (drained, deficit) = {
                     let mut st = state.lock().unwrap();
                     let pane_ids = st.pool.drain();
                     let mut count = 0usize;
@@ -409,8 +439,21 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                             count += 1;
                         }
                     }
-                    count
+                    (count, st.pool.deficit())
                 };
+
+                // Replenish immediately so the pool is warm for the
+                // first terminal open after an app restart.
+                for _ in 0..deficit {
+                    let state_clone = state.clone();
+                    tokio::spawn(async move {
+                        let res = tokio::task::spawn_blocking(move || pool_warm_one(&state_clone)).await;
+                        if let Ok(Err(e)) = res {
+                            eprintln!("pool: replenish failed: {e}");
+                        }
+                    });
+                }
+
                 let resp = format!("{{\"ok\":true,\"drained\":{drained}}}\n");
                 let _ = write_half.write_all(resp.as_bytes()).await;
             }
@@ -551,6 +594,7 @@ fn do_spawn(
                 scrollback: ScrollbackBuffer::new(SCROLLBACK_CAP),
                 tx,
                 current_pane_id: shared_pane_id.clone(),
+                claim_rx: None,
             },
         );
     }
@@ -1309,12 +1353,12 @@ mod tests {
         let resp = read_json_line(&mut conn).await;
         assert_eq!(resp["ok"], true, "drain_pool failed: {resp}");
 
-        // Pool should be empty
+        // Stale entries should be gone (ready=0). Warming entries may exist
+        // because drain_pool now triggers replenishment.
         let mut conn2 = UnixStream::connect(&socket).await.unwrap();
         send_line(&mut conn2, r#"{"op":"pool_status","paneId":""}"#).await;
         let status = read_json_line(&mut conn2).await;
-        assert_eq!(status["ready"].as_u64().unwrap_or(99), 0, "pool should be empty after drain");
-        assert_eq!(status["warming"].as_u64().unwrap_or(99), 0, "pool should be empty after drain");
+        assert_eq!(status["ready"].as_u64().unwrap_or(99), 0, "stale ready entries should be drained");
 
         let _ = std::fs::remove_file(&socket);
     }
