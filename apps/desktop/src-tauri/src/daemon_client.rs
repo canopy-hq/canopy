@@ -24,11 +24,16 @@ impl DaemonClient {
         }
     }
 
-    /// Ensure daemon process is running. Synchronous — safe to call from Tauri setup.
-    pub fn ensure_daemon_sync(socket: &Path, bin: &Path) -> Result<(), String> {
+    /// Ensure the PTY daemon is running. Synchronous — safe to call from Tauri setup.
+    ///
+    /// Returns `Ok(freshly_spawned)` where
+    /// `freshly_spawned` is true when we had to start a new daemon process
+    /// (its pool is clean — no drain needed) and false when we connected to
+    /// an existing daemon (may have stale pool entries from a previous app session).
+    pub fn ensure_daemon_sync(socket: &Path, bin: &Path) -> Result<bool, String> {
         // Try to connect first (daemon may already be running)
         if StdUnixStream::connect(socket).is_ok() {
-            return Ok(());
+            return Ok(false); // existing daemon — may need drain
         }
 
         // Spawn daemon in its own process group so it survives app exit
@@ -46,7 +51,7 @@ impl DaemonClient {
         for _ in 0..5 {
             std::thread::sleep(std::time::Duration::from_millis(50));
             if StdUnixStream::connect(socket).is_ok() {
-                return Ok(());
+                return Ok(true); // freshly spawned — pool is clean
             }
         }
 

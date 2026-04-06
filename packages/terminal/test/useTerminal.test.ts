@@ -115,7 +115,7 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
     unmount();
   });
 
-  it('overlay removed 80ms after FIRST byte (one-shot) — subsequent bytes do NOT reset the timer', async () => {
+  it('cold spawn overlay waits 300ms minimum from first byte before reveal', async () => {
     vi.useFakeTimers();
     // happy-dom's rAF uses setImmediate which fake timers don't control;
     // replace with setTimeout(cb, 0) so vi.advanceTimersByTime flushes them.
@@ -135,25 +135,33 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
 
     const freshHandler = vi.mocked(connectPtyOutput).mock.calls[0]![1];
 
-    // First byte: starts the one-shot 80ms timer, overlay still present
+    // First byte at t=0: 300ms minimum enforced
     act(() => {
       freshHandler(new Uint8Array([65]));
     });
     expect(overlay.parentNode).not.toBeNull();
 
-    // More output at 40ms: timer is NOT reset (one-shot), overlay still present
+    // At t=100: still within 300ms minimum — NOT removed even after 80ms silence
     act(() => {
-      vi.advanceTimersByTime(40);
-      freshHandler(new Uint8Array([66]));
+      vi.advanceTimersByTime(100);
     });
-    expect(overlay.parentNode).not.toBeNull();
+    expect(overlay.style.opacity).not.toBe('0');
 
-    // 80ms after FIRST byte: debounce fires, then double rAF removes overlay
+    // At t=200: still within minimum
     act(() => {
-      vi.advanceTimersByTime(40); // reaches 80ms from first byte → fires timer → rAF #1
-      vi.advanceTimersByTime(1); // fires rAF #1 → schedules rAF #2
-      vi.advanceTimersByTime(1); // fires rAF #2 → removeOverlay()
+      vi.advanceTimersByTime(100);
     });
+    expect(overlay.style.opacity).not.toBe('0');
+
+    // At t=300: minimum reached, timer fires → double rAF → fade starts
+    act(() => {
+      vi.advanceTimersByTime(100);
+      vi.advanceTimersByTime(1); // rAF #1
+      vi.advanceTimersByTime(1); // rAF #2 → removeOverlay() starts fade
+    });
+    expect(overlay.style.opacity).toBe('0');
+    // Fade-out cleanup removes from DOM after 80ms
+    await act(() => vi.advanceTimersByTime(80));
     expect(overlay.parentNode).toBeNull();
 
     globalThis.requestAnimationFrame = origRAF;
@@ -227,6 +235,7 @@ describe('useTerminal — reconnect path (ptyId > 0)', () => {
   });
 
   it('overlay removed synchronously after connectPtyOutput (buffer has scrollback, safe to reveal immediately)', async () => {
+    vi.useFakeTimers();
     const container = makeContainer();
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, 5, false, vi.fn()),
@@ -235,10 +244,15 @@ describe('useTerminal — reconnect path (ptyId > 0)', () => {
 
     expect(connectPtyOutput).toHaveBeenCalledWith(5, expect.any(Function));
 
-    // Overlay removed synchronously — no data needed
+    // Overlay fade triggered synchronously — opacity set to 0
     const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
     const wrapper = termInstance.element as HTMLElement;
+    const overlay = wrapper.firstElementChild as HTMLElement;
+    expect(overlay.style.opacity).toBe('0');
+    // Fade cleanup removes from DOM
+    await act(() => vi.advanceTimersByTime(80));
     expect(wrapper.querySelector('[style*="z-index"]')).toBeNull();
+    vi.useRealTimers();
     unmount();
   });
 });
@@ -452,6 +466,7 @@ describe('useTerminal — restored session (isNew=false) [PHASE 2]', () => {
   });
 
   it('overlay removed synchronously for restored sessions (buffer has scrollback when setHandler runs)', async () => {
+    vi.useFakeTimers();
     vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
 
     const container = makeContainer();
@@ -462,10 +477,15 @@ describe('useTerminal — restored session (isNew=false) [PHASE 2]', () => {
 
     expect(connectPtyOutput).toHaveBeenCalledWith(42, expect.any(Function));
 
-    // Overlay removed synchronously after connectPtyOutput
+    // Overlay fade triggered synchronously — opacity set to 0
     const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
     const wrapper = termInstance.element as HTMLElement;
+    const overlay = wrapper.firstElementChild as HTMLElement;
+    expect(overlay.style.opacity).toBe('0');
+    // Fade cleanup removes from DOM
+    await act(() => vi.advanceTimersByTime(80));
     expect(wrapper.querySelector('[style*="z-index"]')).toBeNull();
+    vi.useRealTimers();
     unmount();
   });
 
@@ -509,16 +529,19 @@ describe('useTerminal — restored session (isNew=false) [PHASE 2]', () => {
     const overlay = wrapper.firstElementChild as HTMLElement;
     expect(overlay.style.position).toBe('absolute');
 
-    // Simulate first byte → one-shot 80ms timer fires → overlay removed
+    // Simulate first byte → 300ms minimum wait → fade starts
     const handler = vi.mocked(connectPtyOutput).mock.calls[0]![1];
     act(() => {
       handler(new Uint8Array([65]));
     });
     act(() => {
-      vi.advanceTimersByTime(80);
+      vi.advanceTimersByTime(300);
       vi.advanceTimersByTime(1);
       vi.advanceTimersByTime(1);
     });
+    expect(overlay.style.opacity).toBe('0');
+    // Fade cleanup removes from DOM
+    await act(() => vi.advanceTimersByTime(80));
     expect(overlay.parentNode).toBeNull();
 
     globalThis.requestAnimationFrame = origRAF;

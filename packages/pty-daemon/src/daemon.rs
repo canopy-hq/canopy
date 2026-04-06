@@ -241,7 +241,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 ).await;
 
                 // Clear scrollback in all outcomes so future regular attach
-                // never replays cd/clear/sentinel bytes.
+                // never replays cd/sentinel/clear bytes.
                 {
                     let mut st = state.lock().unwrap();
                     if let Some(sess) = st.sessions.get_mut(&pane_id) {
@@ -364,26 +364,27 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 let rows = cmd["rows"].as_u64().unwrap_or(24) as u16;
                 let cols = cmd["cols"].as_u64().unwrap_or(80) as u16;
 
-                // Build the cd+clear+sentinel command outside the lock.
-                // Wrap in `set +o history` / `set -o history` to suppress
-                // history recording in both bash and zsh — the leading space
-                // trick only works when HIST_IGNORE_SPACE is enabled.
+                // cd+sentinel+clear: `clear` is AFTER `printf sentinel` so it lands
+                // after the sentinel boundary, wiping ZLE echo fragments that may
+                // leak into the post-sentinel window. History suppressed via
+                // `set +o history` / `set -o history` (leading-space trick is
+                // unreliable without HIST_IGNORE_SPACE).
                 let cd_cmd = match &cwd {
                     Some(dir) => format!(
-                        " set +o history; cd {} && clear && printf '\\x1b]555;poolready\\x07'; set -o history\n",
+                        " set +o history; cd {} && printf '\\x1b]555;poolready\\x07' && clear; set -o history\n",
                         shell_escape(dir),
                     ),
-                    None => " set +o history; clear && printf '\\x1b]555;poolready\\x07'; set -o history\n".to_string(),
+                    None => " set +o history; printf '\\x1b]555;poolready\\x07' && clear; set -o history\n".to_string(),
                 };
 
-                // Single lock: claim → remap → resize → write cd/clear
+                // Single lock: claim → remap → resize → write cd/sentinel/clear
                 let claimed = {
                     let mut st = state.lock().unwrap();
                     match st.pool.claim() {
                         Some((temp_pane_id, pid)) => {
                             if let Some(mut session) = st.sessions.remove(&temp_pane_id) {
                                 *session.current_pane_id.lock().unwrap() = pane_id.clone();
-                                // Resize BEFORE cd/clear so clear runs at user's dimensions
+                                // Resize BEFORE cd/sentinel/clear so clear runs at user's dimensions
                                 let _ = session.master.resize(PtySize {
                                     rows, cols, pixel_width: 0, pixel_height: 0,
                                 });

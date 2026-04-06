@@ -132,24 +132,6 @@ describe('channel pipeline — ASCII art payload fidelity', () => {
     expect(received).toEqual(ASCII_ART_BYTES);
   });
 
-  it('setHandlerFresh path — pre-call buffer discarded, all subsequent data forwarded intact', () => {
-    const entry = createChannelEntry();
-
-    // Accumulate data before wiring — will be discarded
-    entry.onData(ASCII_ART_BYTES);
-    entry.onData(ASCII_ART_BYTES);
-
-    const received: number[] = [];
-    entry.setHandlerFresh((d) => received.push(...Array.from(d)));
-
-    // Pre-call buffer was discarded
-    expect(received).toHaveLength(0);
-
-    // Live data arriving after the call is forwarded byte-for-byte
-    entry.onData(ASCII_ART_BYTES);
-    expect(received).toEqual(ASCII_ART_BYTES);
-  });
-
   it('100× repeated payload — no truncation, total byte count exact', () => {
     const REPEAT = 100;
     const entry = createChannelEntry();

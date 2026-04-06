@@ -42,17 +42,15 @@ describe('channel-manager — scrollback flush latency (setHandler on pre-filled
   });
 });
 
-describe('channel-manager — onData throughput (setHandlerFresh path, post-sentinel)', () => {
-  // Entry wired once in fresh mode after sentinel; measures live-data dispatch.
-  const freshEntry = createChannelEntry();
-  freshEntry.setHandlerFresh(NO_OP);
-  freshEntry.onData([]); // sentinel — transitions to live mode
+describe('channel-manager — onData throughput (handler wired, live data)', () => {
+  const liveEntry = createChannelEntry();
+  liveEntry.setHandler(NO_OP);
 
-  bench('1 KB live data (fresh mode)', () => {
-    freshEntry.onData(PAYLOAD_1KB);
+  bench('1 KB live data', () => {
+    liveEntry.onData(PAYLOAD_1KB);
   });
 
-  bench('64 KB live data (fresh mode)', () => {
-    freshEntry.onData(PAYLOAD_64KB);
+  bench('64 KB live data', () => {
+    liveEntry.onData(PAYLOAD_64KB);
   });
 });

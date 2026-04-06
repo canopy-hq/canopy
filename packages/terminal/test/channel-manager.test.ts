@@ -79,56 +79,6 @@ describe('createChannelEntry — setHandler (flush path)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// setHandlerFresh — cached remount path
-// (terminal canvas already has content; discard accumulated buffer)
-// ---------------------------------------------------------------------------
-
-describe('createChannelEntry — setHandlerFresh (discard path)', () => {
-  it('discards buffer on setHandlerFresh', () => {
-    const entry = createChannelEntry();
-    entry.onData(bytes(1, 2, 3));
-    entry.onData(bytes(4, 5, 6));
-    const received: Uint8Array[] = [];
-    entry.setHandlerFresh((d) => received.push(d));
-    expect(received).toHaveLength(0);
-  });
-
-  it('forwards data arriving after setHandlerFresh', () => {
-    const entry = createChannelEntry();
-    entry.onData(bytes(1)); // accumulated — will be discarded
-    const received: Uint8Array[] = [];
-    entry.setHandlerFresh((d) => received.push(d));
-    entry.onData(bytes(42));
-    expect(received).toHaveLength(1);
-    expect(Array.from(received[0]!)).toEqual([42]);
-  });
-
-  it('sentinel is ignored even in fresh mode', () => {
-    const entry = createChannelEntry();
-    const received: Uint8Array[] = [];
-    entry.setHandlerFresh((d) => received.push(d));
-    entry.onData(sentinel);
-    entry.onData(bytes(7));
-    expect(received).toHaveLength(1);
-    expect(Array.from(received[0]!)).toEqual([7]);
-  });
-
-  it('re-wiring via setHandlerFresh mid-stream discards and switches handler', () => {
-    const entry = createChannelEntry();
-    const r1: Uint8Array[] = [];
-    entry.setHandlerFresh((d) => r1.push(d));
-    entry.onData(bytes(1));
-
-    const r2: Uint8Array[] = [];
-    entry.setHandlerFresh((d) => r2.push(d)); // re-wire discards nothing new
-    entry.onData(bytes(2));
-
-    expect(r1).toHaveLength(1); // got bytes(1)
-    expect(r2).toHaveLength(1); // got bytes(2)
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Large buffer — ensures no truncation
 // ---------------------------------------------------------------------------
 

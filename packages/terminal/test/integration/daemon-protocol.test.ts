@@ -193,7 +193,7 @@ describe('daemon → channel-manager protocol', () => {
     expect(text).toContain('DAEMON_OUTPUT_12345');
   });
 
-  it('setHandlerFresh discards pre-sentinel frames, delivers only live bytes', async () => {
+  it('setHandler flushes scrollback, sentinel frame is silently ignored', async () => {
     const { socket: s1, buf: b1 } = await connectSocket(sockPath);
     sendLine(s1, {
       op: 'spawn',
@@ -220,19 +220,17 @@ describe('daemon → channel-manager protocol', () => {
     }
     s2.destroy();
 
-    // Feed all frames into the channel-manager using the fresh (spawn) path
+    // Feed all frames into the channel-manager — setHandler flushes buffered data
     const entry = createChannelEntry();
-    const freshReceived: number[] = [];
-    entry.setHandlerFresh((d) => freshReceived.push(...Array.from(d)));
-
     for (const frame of allFrames) {
       entry.onData(Array.from(frame));
     }
+    const received: number[] = [];
+    entry.setHandler((d) => received.push(...Array.from(d)));
 
-    // Fresh handler must NOT have received scrollback (pre-sentinel frames)
-    // It will receive nothing here since we have no live frames beyond sentinel
-    // — the key assertion is that the scrollback did NOT reach the handler
-    expect(freshReceived).toHaveLength(0);
+    // Scrollback was buffered pre-handler, flushed on setHandler
+    const text = Buffer.from(received).toString('utf8');
+    expect(text).toContain('SCROLLBACK_DATA');
   });
 
   it('ANSI + Unicode + emoji bytes survive the full round-trip', async () => {

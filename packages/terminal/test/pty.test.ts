@@ -5,11 +5,7 @@ describe('pty', () => {
   let pty: typeof import('../src/pty');
   let invokeFn: ReturnType<typeof vi.fn>;
   let MockChannel: { new (): { onmessage: ((data: number[]) => void) | null } };
-  let mockEntry: {
-    onData: ReturnType<typeof vi.fn>;
-    setHandler: ReturnType<typeof vi.fn>;
-    setHandlerFresh: ReturnType<typeof vi.fn>;
-  };
+  let mockEntry: { onData: ReturnType<typeof vi.fn>; setHandler: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     vi.resetModules();
@@ -20,7 +16,7 @@ describe('pty', () => {
     };
     vi.doMock('@tauri-apps/api/core', () => ({ invoke: invokeFn, Channel: MockChannel }));
 
-    mockEntry = { onData: vi.fn(), setHandler: vi.fn(), setHandlerFresh: vi.fn() };
+    mockEntry = { onData: vi.fn(), setHandler: vi.fn() };
     vi.doMock('../src/channel-manager', () => ({ createChannelEntry: vi.fn(() => mockEntry) }));
 
     pty = await import('../src/pty');

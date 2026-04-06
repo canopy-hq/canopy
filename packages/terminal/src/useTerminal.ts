@@ -4,14 +4,7 @@ import { getSettingCollection, getSetting } from '@superagent/db';
 import { Terminal, FitAddon } from 'ghostty-web';
 
 import { ensureGhosttyInit, isGhosttyReady } from './ghostty-init';
-import {
-  writeToPty,
-  resizePty,
-  connectPtyOutput,
-  connectPtyOutputFresh,
-  spawnTerminal,
-  claimWarmTerminal,
-} from './pty';
+import { writeToPty, resizePty, connectPtyOutput, spawnTerminal, claimWarmTerminal } from './pty';
 import { getCached, setCached } from './terminal-cache';
 import { DEFAULT_TERMINAL_FONT_SIZE } from './terminal-font-size';
 import { terminalThemes, type ThemeName } from './themes';
@@ -131,7 +124,6 @@ export function useTerminal(
 
       // connectPtyOutput: buffer is empty (handler was never cleared, data flowed
       // directly to term.write while tab was inactive), so flush is a no-op.
-      // setHandlerFresh would be equivalent here, but connectPtyOutput is simpler.
       connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
       fitAddon.fit();
       // Unconditional resize IPC on cached remount — ptyId is the real pid,
@@ -198,16 +190,25 @@ export function useTerminal(
             clearTimeout(overlayTimer);
             overlayTimer = null;
           }
-          overlay.remove();
+          // Fade out over 80ms instead of instant removal — masks any
+          // sub-frame artifacts (clear→prompt gap, async prompt stages).
+          overlay.style.transition = 'opacity 80ms ease-out';
+          overlay.style.opacity = '0';
+          setTimeout(() => overlay.remove(), 80);
         }
       };
-      // One-shot overlay removal: schedule the timer on the FIRST byte only.
-      // This reveals the terminal at first_byte+80ms+2×rAF (~112ms) regardless
-      // of how long the prompt keeps emitting — the canvas fills in while visible,
-      // which looks responsive. The double-rAF ensures the WASM renderer has
-      // painted at least one frame after the first write before uncovering.
-      const debouncedRemoveOverlay = () => {
-        if (overlayRemoved || overlayTimer !== null) return; // one-shot
+      // Overlay reveal debounce. Resets on each data chunk. Two modes:
+      // - minMs=80:  pool path — prompt arrives pre-colored, 80ms silence is enough
+      // - minMs=300: cold spawn — starship/p10k need time to compute colored prompt
+      // Capped at 500ms total from first byte.
+      let overlayFirstByte = 0;
+      const makeOverlayReveal = (minMs: number) => () => {
+        if (overlayRemoved) return;
+        if (overlayFirstByte === 0) overlayFirstByte = Date.now();
+        if (overlayTimer !== null) clearTimeout(overlayTimer);
+        const elapsed = Date.now() - overlayFirstByte;
+        const minRemaining = Math.max(0, minMs - elapsed);
+        const delay = Math.min(Math.max(80, minRemaining), Math.max(0, 500 - elapsed));
         overlayTimer = setTimeout(() => {
           overlayTimer = null;
           requestAnimationFrame(() => {
@@ -215,7 +216,7 @@ export function useTerminal(
               removeOverlay();
             });
           });
-        }, 80);
+        }, delay);
       };
 
       if (term.element) {
@@ -356,23 +357,25 @@ export function useTerminal(
             resizeGraceUntil = Date.now() + 500;
 
             if (fromPool) {
-              // Warm terminal: daemon sent cd+clear+sentinel before returning.
-              // attach_fresh scans for the OSC sentinel and discards everything
-              // before it — only live shell output reaches the handler.
+              // Pool terminal: flush buffer (prompt may arrive before handler is wired).
               // Hide cursor while waiting — ghostty renders it at open().
               term.write('\x1b[?25l');
               let cursorRestored = false;
-              connectPtyOutputFresh(newId, (data: Uint8Array) => {
+              const poolReveal = makeOverlayReveal(80);
+              connectPtyOutput(newId, (data: Uint8Array) => {
                 if (!cursorRestored) {
                   cursorRestored = true;
                   term.write('\x1b[?25h');
                 }
-                debouncedRemoveOverlay();
+                poolReveal();
                 term.write(data);
               });
             } else if (isNew) {
+              // Cold spawn: starship/p10k need ~200-400ms to compute colored prompt.
+              // 300ms minimum prevents revealing the white/basic prompt too early.
+              const coldReveal = makeOverlayReveal(300);
               connectPtyOutput(newId, (data: Uint8Array) => {
-                debouncedRemoveOverlay();
+                coldReveal();
                 term.write(data);
               });
             } else {

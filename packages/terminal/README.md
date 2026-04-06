@@ -37,14 +37,11 @@ The `channel-manager` state machine separates these phases so the overlay is onl
 
 ### Two wiring modes
 
-| Mode            | API                  | When to use                                                                                              |
-| --------------- | -------------------- | -------------------------------------------------------------------------------------------------------- |
-| **Reconnect**   | `setHandler(h)`      | Cold restart — user wants to see their previous session. Flushes scrollback immediately.                 |
-| **Fresh spawn** | `setHandlerFresh(h)` | New PTY — discard all pre-sentinel data, forward only live bytes. Keeps overlay until first real prompt. |
+Wiring mode: `setHandler(h)` — flushes buffered scrollback to the handler, then forwards live data directly.
 
 ### Overlay mechanism
 
-For new spawns, an opaque overlay (matching the terminal background color) covers the canvas until `connectPtyOutputFresh`'s handler receives the first post-sentinel byte. This prevents flickering ghostly scrollback before the shell prompt appears.
+For new spawns, an opaque overlay (matching the terminal background color) covers the canvas until the handler receives the first live byte. For pool-claimed terminals, the overlay uses a resetting debounce (80ms silence, 500ms cap) to let async prompts (p10k) finish rendering before reveal. The overlay fades out over 80ms for a smooth transition.
 
 ### Terminal cache
 
@@ -69,15 +66,14 @@ useTerminal(
 
 ### PTY functions (`pty.ts`)
 
-| Function                                    | Description                                                       |
-| ------------------------------------------- | ----------------------------------------------------------------- |
-| `spawnTerminal(paneId, cwd?, rows?, cols?)` | Spawn a new PTY; returns `ptyId`.                                 |
-| `connectPtyOutput(ptyId, handler)`          | Wire handler, flush scrollback (reconnect path).                  |
-| `connectPtyOutputFresh(ptyId, handler)`     | Wire handler, discard scrollback, wait for sentinel (spawn path). |
-| `writeToPty(ptyId, data)`                   | Send string data to the PTY.                                      |
-| `resizePty(ptyId, rows, cols)`              | Resize the PTY grid.                                              |
-| `closePty(ptyId)`                           | Close PTY and remove from registry.                               |
-| `getPtyCwd(ptyId)`                          | Get the current working directory of the PTY process.             |
+| Function                                    | Description                                           |
+| ------------------------------------------- | ----------------------------------------------------- |
+| `spawnTerminal(paneId, cwd?, rows?, cols?)` | Spawn a new PTY; returns `ptyId`.                     |
+| `connectPtyOutput(ptyId, handler)`          | Wire handler and flush buffered scrollback.           |
+| `writeToPty(ptyId, data)`                   | Send string data to the PTY.                          |
+| `resizePty(ptyId, rows, cols)`              | Resize the PTY grid.                                  |
+| `closePty(ptyId)`                           | Close PTY and remove from registry.                   |
+| `getPtyCwd(ptyId)`                          | Get the current working directory of the PTY process. |
 
 ### Terminal cache (`terminal-cache.ts`)
 

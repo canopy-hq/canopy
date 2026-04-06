@@ -63,19 +63,30 @@ pub fn run() {
                 .and_then(|p| p.parent().map(|d| d.join("superagent-pty-daemon")))
                 .unwrap_or_else(|| std::path::PathBuf::from("superagent-pty-daemon"));
 
-            // Start or connect to the daemon (synchronous)
-            if let Err(e) = DaemonClient::ensure_daemon_sync(&socket, &bin) {
-                eprintln!("Warning: could not start PTY daemon: {e}");
-            }
-
-            // Drain stale pool entries from a previous app session
-            let drain_socket = socket.clone();
-            tauri::async_runtime::spawn(async move {
-                let client = DaemonClient::new(drain_socket);
-                if let Err(e) = client.drain_pool().await {
-                    eprintln!("Warning: failed to drain stale pool entries: {e}");
+            // Start or connect to the daemon (synchronous).
+            // Returns true if we just spawned a fresh daemon (pool is clean),
+            // false if we connected to an existing one (may have stale entries).
+            let freshly_spawned = match DaemonClient::ensure_daemon_sync(&socket, &bin) {
+                Ok(fresh) => fresh,
+                Err(e) => {
+                    eprintln!("Warning: could not start PTY daemon: {e}");
+                    true // assume fresh if we can't tell — skip drain to avoid killing good pool entries
                 }
-            });
+            };
+
+            // Only drain stale pool entries when reconnecting to an existing daemon
+            // from a previous app session. A freshly spawned daemon has a clean pool
+            // that is already warming — draining it would kill those shells and force
+            // the first terminal into a slow cold-spawn path.
+            if !freshly_spawned {
+                let drain_socket = socket.clone();
+                tauri::async_runtime::spawn(async move {
+                    let client = DaemonClient::new(drain_socket);
+                    if let Err(e) = client.drain_pool().await {
+                        eprintln!("Warning: failed to drain stale pool entries: {e}");
+                    }
+                });
+            }
 
             app.manage(DaemonClient::new(socket));
             app.manage(Mutex::new(pty::PtyState::new()));

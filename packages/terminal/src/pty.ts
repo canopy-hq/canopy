@@ -69,11 +69,6 @@ export function connectPtyOutput(ptyId: number, handler: (data: Uint8Array) => v
   outputRegistry.get(ptyId)?.setHandler(handler);
 }
 
-/** Discard buffered scrollback and wire handler for live data only (pool claim path). */
-export function connectPtyOutputFresh(ptyId: number, handler: (data: Uint8Array) => void): void {
-  outputRegistry.get(ptyId)?.setHandlerFresh(handler);
-}
-
 export async function writeToPty(ptyId: number, data: string): Promise<void> {
   const bytes = Array.from(encoder.encode(data));
   return invoke('write_to_pty', { ptyId, data: bytes });
