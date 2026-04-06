@@ -1,3 +1,22 @@
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║  ⚠️  CAUTION — PERFORMANCE-CRITICAL & RACE-CONDITION-SENSITIVE MODULE  ⚠️   ║
+// ║                                                                            ║
+// ║  This module orchestrates PTY lifecycle: pool claim-first spawn, attach    ║
+// ║  task dedup, scrollback sentinel signaling, and bulk cleanup. Subtle bugs  ║
+// ║  here cause doubled terminal output, blank screens, or zombie processes.   ║
+// ║                                                                            ║
+// ║  Before modifying:                                                         ║
+// ║    1. Read the integration tests in packages/terminal/test/integration/    ║
+// ║    2. Read the channel-manager tests in packages/terminal/test/            ║
+// ║    3. Understand the claim → attach → sentinel → ready flow end-to-end    ║
+// ║    4. Test with rapid tab open/close and project switching                 ║
+// ║                                                                            ║
+// ║  Key invariants:                                                           ║
+// ║    - Only ONE attach task per paneId (old ones are aborted)                ║
+// ║    - spawn_terminal must not return until sentinel is received (or timeout) ║
+// ║    - Pool claim has a 200ms timeout — stale daemons fall back to spawn     ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
+
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicU64;

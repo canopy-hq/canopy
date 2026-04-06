@@ -1,3 +1,25 @@
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║  ⚠️  CAUTION — LOW-LEVEL DAEMON PROTOCOL & BINARY FRAMING  ⚠️              ║
+// ║                                                                            ║
+// ║  This module owns the Unix socket protocol between the Tauri app and the   ║
+// ║  standalone PTY daemon. It handles binary-framed output (4-byte BE length  ║
+// ║  prefix), persistent streams for fire-and-forget ops, and the sentinel     ║
+// ║  frame (zero-length) that signals scrollback replay completion.            ║
+// ║                                                                            ║
+// ║  Before modifying:                                                         ║
+// ║    1. Read the daemon protocol spec in packages/pty-daemon/CLAUDE.md       ║
+// ║    2. Understand the two connection modes: per-call (spawn/claim/close)    ║
+// ║       vs persistent stream (write/resize)                                  ║
+// ║    3. The attach() task runs for the LIFETIME of a terminal — breaking     ║
+// ║       its read loop kills all output for that pane                         ║
+// ║    4. Test with: rapid typing, resize during scrollback replay, reconnect  ║
+// ║                                                                            ║
+// ║  Key invariants:                                                           ║
+// ║    - Sentinel (zero-length frame) must be forwarded to TypeScript          ║
+// ║    - ready_tx fires exactly once per attach (on sentinel)                  ║
+// ║    - Persistent cmd_stream auto-reconnects on broken pipe                  ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
+
 use std::os::unix::net::UnixStream as StdUnixStream;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, atomic::AtomicU64};
