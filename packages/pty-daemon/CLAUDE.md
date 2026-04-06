@@ -16,15 +16,15 @@ superagent-pty-daemon /tmp/superagent-{port}.sock
 
 Commands are newline-delimited JSON. Responses vary by operation:
 
-| Operation | Request | Response |
-| --------- | ------- | -------- |
-| `spawn`  | `{"op":"spawn","paneId":"...","cwd":"...","rows":24,"cols":80}` | `{"ok":true,"pid":1234,"new":true}` |
-| `attach` | `{"op":"attach","paneId":"..."}` | scrollback bytes → sentinel `\x00\x00\x00\x00` → live stream |
-| `write`  | `{"op":"write","paneId":"...","data":[...bytes...]}` | — |
-| `resize` | `{"op":"resize","paneId":"...","rows":24,"cols":80}` | — |
-| `close`  | `{"op":"close","paneId":"..."}` | — |
-| `cwd`    | `{"op":"cwd","paneId":"..."}` | `{"ok":true,"cwd":"/path"}` |
-| `list`   | `{"op":"list"}` | `{"paneIds":["..."]}` |
+| Operation | Request                                                         | Response                                                     |
+| --------- | --------------------------------------------------------------- | ------------------------------------------------------------ |
+| `spawn`   | `{"op":"spawn","paneId":"...","cwd":"...","rows":24,"cols":80}` | `{"ok":true,"pid":1234,"new":true}`                          |
+| `attach`  | `{"op":"attach","paneId":"..."}`                                | scrollback bytes → sentinel `\x00\x00\x00\x00` → live stream |
+| `write`   | `{"op":"write","paneId":"...","data":[...bytes...]}`            | —                                                            |
+| `resize`  | `{"op":"resize","paneId":"...","rows":24,"cols":80}`            | —                                                            |
+| `close`   | `{"op":"close","paneId":"..."}`                                 | —                                                            |
+| `cwd`     | `{"op":"cwd","paneId":"..."}`                                   | `{"ok":true,"cwd":"/path"}`                                  |
+| `list`    | `{"op":"list"}`                                                 | `{"paneIds":["..."]}`                                        |
 
 Output frames are length-prefixed (4-byte big-endian) for reliable boundaries.
 
@@ -39,6 +39,7 @@ If `spawn` is called for a `paneId` that already has an active session, the daem
 ## When to modify this
 
 Rarely. The daemon's job is PTY lifecycle only — no business logic. Add new operations when the Tauri backend (`pty.rs`) needs a new daemon capability. Keep it:
+
 - Stateless per-command where possible
 - Free of app-level concepts (projects, tabs, agents)
 - Always backwards-compatible (the daemon may outlive an app restart)

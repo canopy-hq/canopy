@@ -13,7 +13,7 @@ export function buildStaticCommands(navigate: Nav): CommandItem[] {
       shortcut: '⌘N',
       action: async ({ close }) => {
         close();
-        await openImportDialog();
+        await openImportDialog(navigate);
       },
     },
     {

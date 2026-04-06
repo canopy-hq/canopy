@@ -6,17 +6,18 @@ React hooks and utilities for Ghostty-web (WASM) terminal emulation connected to
 
 ```ts
 const termRef = useTerminal({
-  containerRef,  // where to mount the terminal DOM
-  paneId,        // unique identifier for the pane
-  savedCwd,      // restore cwd on reconnect
-  ptyId,         // existing PTY to reconnect to (null = new spawn)
-  isFocused,     // forward keyboard events
-  onPtySpawned,  // (ptyId: number) => void — called once after spawn
-  onCommand,     // handle escape-sequence commands from the shell
+  containerRef, // where to mount the terminal DOM
+  paneId, // unique identifier for the pane
+  savedCwd, // restore cwd on reconnect
+  ptyId, // existing PTY to reconnect to (null = new spawn)
+  isFocused, // forward keyboard events
+  onPtySpawned, // (ptyId: number) => void — called once after spawn
+  onCommand, // handle escape-sequence commands from the shell
 });
 ```
 
 **What it does:**
+
 1. Ensures Ghostty WASM is initialized (`ensureGhosttyInit()`)
 2. Fits the terminal to its container in a `useLayoutEffect` — **before** spawning the PTY so the daemon receives the correct grid size
 3. Spawns or reconnects to a PTY via `spawnTerminal()`
@@ -45,10 +46,10 @@ listPtySessions()                          // list all active sessions with CPU/
 
 Output buffering is managed by `ChannelEntry`:
 
-| Method | Use case | Scrollback |
-| --- | --- | --- |
-| `setHandler(h)` | Fresh spawn or reconnect after remount | Flushes buffered scrollback, then wires live |
-| `setHandlerFresh(h)` | Cached terminal remount (DOM reparented) | Discards buffer, wires live only |
+| Method               | Use case                                 | Scrollback                                   |
+| -------------------- | ---------------------------------------- | -------------------------------------------- |
+| `setHandler(h)`      | Fresh spawn or reconnect after remount   | Flushes buffered scrollback, then wires live |
+| `setHandlerFresh(h)` | Cached terminal remount (DOM reparented) | Discards buffer, wires live only             |
 
 Use `setHandlerFresh` when the terminal already has scrollback rendered — replaying it would duplicate output.
 
@@ -57,10 +58,10 @@ Use `setHandlerFresh` when the terminal already has scrollback rendered — repl
 Terminal instances survive React tree restructuring (splits, close/reopen) by caching globally:
 
 ```ts
-getCached(ptyId)                   // Terminal | undefined
-setCached(ptyId, term, fitAddon)
-disposeCached(ptyId)               // call on closePty
-getAllCached()                      // for font-size changes
+getCached(ptyId); // Terminal | undefined
+setCached(ptyId, term, fitAddon);
+disposeCached(ptyId); // call on closePty
+getAllCached(); // for font-size changes
 ```
 
 The DOM node is reparented to the new `containerRef` on remount — no re-render, no scrollback loss.
@@ -68,12 +69,12 @@ The DOM node is reparented to the new `containerRef` on remount — no re-render
 ## Font size & themes
 
 ```ts
-applyFontSizeToAll(size)    // update all cached terminals + refit grids
-DEFAULT_TERMINAL_FONT_SIZE  // = 13
+applyFontSizeToAll(size); // update all cached terminals + refit grids
+DEFAULT_TERMINAL_FONT_SIZE; // = 13
 
-terminalThemes              // Record<ThemeName, ITheme> — for ghostty-web
-themeNames                  // string[]
-cssThemeProperties(name)    // CSS vars for the app chrome matching the terminal palette
+terminalThemes; // Record<ThemeName, ITheme> — for ghostty-web
+themeNames; // string[]
+cssThemeProperties(name); // CSS vars for the app chrome matching the terminal palette
 ```
 
 8 built-in dark themes: `carbon`, `graphite`, `obsidian`, `slate`, `midnight`, `void`, `smoke`, `ash`.

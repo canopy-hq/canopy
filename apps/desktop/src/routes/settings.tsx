@@ -69,7 +69,7 @@ function SettingsRoute() {
   return (
     <div className="fixed inset-0 z-50 flex bg-bg-primary">
       {/* Left sidebar */}
-      <div className="flex w-[220px] flex-shrink-0 flex-col border-r border-border/40 bg-bg-secondary">
+      <div className="flex w-[220px] flex-shrink-0 flex-col border-r border-border/20 bg-bg-secondary">
         <div data-tauri-drag-region className="h-12 flex-shrink-0" />
         <div className="px-3 py-2">
           <Button variant="link" size="md" onPress={navigateBack} aria-label="Back to app">

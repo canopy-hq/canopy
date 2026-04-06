@@ -7,6 +7,7 @@ export interface RemoveWorktreeModalProps {
   onClose: () => void;
   onConfirm: (alsoDeleteGit: boolean) => void;
   worktreeName: string;
+  branch: string;
 }
 
 export function RemoveWorktreeModal({
@@ -14,8 +15,9 @@ export function RemoveWorktreeModal({
   onClose,
   onConfirm,
   worktreeName,
+  branch,
 }: RemoveWorktreeModalProps) {
-  const [deleteGit, setDeleteGit] = useState(false);
+  const [deleteGit, setDeleteGit] = useState(true);
 
   if (!isOpen) return null;
 
@@ -23,7 +25,7 @@ export function RemoveWorktreeModal({
     <ConfirmModal
       title={`Remove "${worktreeName}"`}
       description="Removes the worktree from the sidebar. You can re-open it later from the project palette."
-      confirmLabel={deleteGit ? 'Delete Worktree' : 'Remove from Sidebar'}
+      confirmLabel={deleteGit ? 'Delete Worktree & Branch' : 'Remove from Sidebar'}
       confirmVariant={deleteGit ? 'destructive' : 'primary'}
       onConfirm={() => onConfirm(deleteGit)}
       onClose={onClose}
@@ -35,12 +37,15 @@ export function RemoveWorktreeModal({
           onChange={(e) => setDeleteGit(e.target.checked)}
           className="accent-destructive"
         />
-        <span className="text-sm text-text-muted">Also delete the git worktree from disk</span>
+        <span className="text-sm text-text-muted">
+          Also delete the working directory and local branch{branch ? ` (${branch})` : ''}
+        </span>
       </label>
       {deleteGit && (
         <p className="mt-2 text-sm leading-relaxed text-destructive/80">
           Runs <code className="rounded-sm bg-bg-tertiary px-1 font-mono">git worktree remove</code>{' '}
-          and deletes the working directory. Uncommitted changes will be lost.
+          and <code className="rounded-sm bg-bg-tertiary px-1 font-mono">git branch -d</code>.
+          Uncommitted changes will be lost.
         </p>
       )}
     </ConfirmModal>

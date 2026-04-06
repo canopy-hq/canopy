@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { Bot, FolderPlus, GitBranch, PanelLeft, Terminal } from 'lucide-react';
 
 import { Button, Kbd } from '../../components/ui';
@@ -14,6 +14,7 @@ const FEATURES: { Icon: ComponentType<{ size: number }>; label: string }[] = [
 ];
 
 function Onboarding() {
+  const navigate = useNavigate();
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-10 select-none">
       <div className="flex flex-col items-center gap-4">
@@ -29,7 +30,7 @@ function Onboarding() {
       </div>
 
       <div className="flex flex-col items-center gap-3">
-        <Button variant="primary" size="md" onPress={() => void openImportDialog()}>
+        <Button variant="primary" size="md" onPress={() => void openImportDialog(navigate)}>
           <FolderPlus size={14} />
           Add a project
         </Button>

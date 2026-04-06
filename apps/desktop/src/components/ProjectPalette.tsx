@@ -35,10 +35,16 @@ export interface ProjectPalettePanelProps {
 
 // ── Icon ───────────────────────────────────────────────────────────────────────
 
-function PaletteIcon({ kind }: { kind: PaletteItem['kind'] }) {
+function PaletteIcon({ item }: { item: PaletteItem }) {
   const props = { size: 12, className: 'shrink-0 text-text-muted' } as const;
-  if (kind === 'create') return <Plus {...props} className="shrink-0 text-accent" />;
-  if (kind === 'branch') return <GitBranch {...props} />;
+  if (item.kind === 'create') return <Plus {...props} className="shrink-0 text-accent" />;
+  if (item.kind === 'branch') return <GitBranch {...props} />;
+  if (item.kind === 'quick-base')
+    return item.quickBaseAction === 'from-other' ? (
+      <GitFork {...props} />
+    ) : (
+      <GitBranch {...props} />
+    );
   return <GitFork {...props} />;
 }
 
@@ -53,6 +59,8 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
     isCreateMode,
     sanitizedName,
     baseBranch,
+    quickBase,
+    setQuickBase,
     pickingBase,
     setPickingBase,
     sections,
@@ -79,15 +87,23 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
   const handleActivate = useCallback(
     (item: PaletteItem) => {
       if (item.kind === 'create') {
-        // Enter on "Create X" opens the base picker;
+        // Enter on "Create X" opens the quick base picker;
         // ⌘↩ (handled in handleKeyDown) bypasses it and creates immediately.
-        setPickingBase(true);
+        setQuickBase(true);
+        return;
+      }
+      if (item.kind === 'quick-base') {
+        if (item.quickBaseAction === 'from-default') {
+          handleCreateWorktree();
+        } else {
+          setQuickBase(false);
+          setPickingBase(true);
+        }
         return;
       }
       if (item.kind === 'branch') {
         if (!item.branch) return;
         if (pickingBase) {
-          // Selecting a base branch → create worktree from the typed name
           handleCreateWorktree({ base: item.branch.name });
           return;
         }
@@ -99,7 +115,7 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
         handleOpenWorktree(item.worktree.name, item.worktree.path, item.worktree.branch);
       }
     },
-    [pickingBase, handleCreateWorktree, handleOpenWorktree, setPickingBase],
+    [pickingBase, handleCreateWorktree, handleOpenWorktree, setPickingBase, setQuickBase],
   );
 
   // Keyboard — same pattern as CommandMenu, wired to the input
@@ -152,6 +168,9 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
             e.preventDefault();
             if (pickingBase) {
               setPickingBase(false);
+              setQuickBase(true);
+            } else if (quickBase) {
+              setQuickBase(false);
             } else {
               ctx.back();
             }
@@ -166,9 +185,11 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
       query,
       tab,
       isCreateMode,
+      quickBase,
       pickingBase,
       setSelectedId,
       setTab,
+      setQuickBase,
       setPickingBase,
       handleActivate,
       handleCreateWorktree,
@@ -205,26 +226,21 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
       </>
     );
 
-    if (isCreateMode && !pickingBase) {
+    if (isCreateMode && !quickBase && !pickingBase) {
       return (
         <>
           {nav}
           <FooterSep />
-          <FooterHint label="pick base">
+          <FooterHint label="select base">
             <Kbd variant="menu">
               <CornerDownLeft size={9} />
             </Kbd>
           </FooterHint>
           {tail}
-          <span className="ml-auto font-mono opacity-80">
-            git worktree add -b <span className="text-accent">{sanitizedName}</span>
-            {' … '}
-            <span>{baseBranch}</span>
-          </span>
         </>
       );
     }
-    if (pickingBase) {
+    if (quickBase || pickingBase) {
       return (
         <>
           {nav}
@@ -323,8 +339,18 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
         )}
       </div>
 
+      {/* Command preview — shown when naming a new worktree */}
+      {isCreateMode && !quickBase && !pickingBase && (
+        <div className="flex min-w-0 items-center gap-1 border-b border-border px-3 py-1.5 font-mono text-[11px] text-text-muted/60">
+          <span className="shrink-0">git worktree add -b</span>
+          <span className="max-w-[140px] min-w-0 truncate text-accent">{sanitizedName}</span>
+          <span className="shrink-0">…</span>
+          <span className="max-w-[140px] min-w-0 truncate">{baseBranch}</span>
+        </div>
+      )}
+
       {/* Tab chips — only shown in normal (non-picker) mode */}
-      {!pickingBase && !isCreateMode && (
+      {!quickBase && !pickingBase && !isCreateMode && (
         <div className="flex items-center gap-1 border-b border-border px-3 py-1.5">
           {(['all', 'worktrees'] as const).map((t) => (
             <button
@@ -343,13 +369,20 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
         </div>
       )}
 
-      {/* Base picker header */}
-      {pickingBase && (
+      {/* Quick base / full base picker header */}
+      {(quickBase || pickingBase) && (
         <div className="flex items-center gap-1.5 border-b border-border px-3 py-1.5">
           <Button
             variant="link"
             onMouseDown={(e: React.MouseEvent) => e.preventDefault()}
-            onPress={() => setPickingBase(false)}
+            onPress={() => {
+              if (pickingBase) {
+                setPickingBase(false);
+                setQuickBase(true);
+              } else {
+                setQuickBase(false);
+              }
+            }}
             className="flex cursor-pointer items-center gap-1 text-[11px]"
           >
             <ChevronLeft size={11} />
@@ -430,7 +463,7 @@ function PaletteRow({
         isSelected ? 'bg-bg-tertiary' : 'hover:bg-bg-tertiary/50'
       } ${isDisabled ? 'opacity-50' : ''}`}
     >
-      <PaletteIcon kind={item.kind} />
+      <PaletteIcon item={item} />
 
       {/* Label */}
       <span
@@ -438,7 +471,11 @@ function PaletteRow({
       >
         {item.kind === 'create'
           ? `Create "${item.label ?? ''}"`
-          : (item.branch?.name ?? item.worktree?.name ?? '')}
+          : item.kind === 'quick-base'
+            ? item.quickBaseAction === 'from-default'
+              ? `from ${item.label}`
+              : item.label
+            : (item.branch?.name ?? item.worktree?.name ?? '')}
       </span>
 
       {/* Right side: badges + status */}

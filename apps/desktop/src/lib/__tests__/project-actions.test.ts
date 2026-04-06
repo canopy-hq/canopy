@@ -14,6 +14,8 @@ let _uiState: UiState = {
   activeContextId: '',
   contextActiveTabIds: {},
   creatingWorktreeIds: [],
+  justStartedWorktreeId: null,
+  pendingClaudeSession: null,
 };
 
 const mockSetSetting = vi.fn();
@@ -49,6 +51,12 @@ vi.mock('@superagent/db', () => ({
   },
   getUiState: () => _uiState,
   setSetting: (...args: unknown[]) => mockSetSetting(...args),
+  getSettingCollection: () => ({
+    get toArray() {
+      return [];
+    },
+  }),
+  getSetting: (_arr: unknown[], _key: string, fallback: unknown) => fallback,
 }));
 
 // ── Mock git API ─────────────────────────────────────────────────────────────
@@ -65,7 +73,7 @@ vi.mock('@superagent/terminal', () => ({ closePty: vi.fn(), disposeCached: vi.fn
 
 import * as gitApi from '../git';
 // Import AFTER mocks are set up
-import { importRepo } from '../project-actions';
+import { importRepo, switchProjectRelative, switchProjectItemRelative } from '../project-actions';
 import { showInfoToast } from '../toast';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -95,6 +103,8 @@ describe('importRepo', () => {
       activeContextId: '',
       contextActiveTabIds: {},
       creatingWorktreeIds: [],
+      justStartedWorktreeId: null,
+      pendingClaudeSession: null,
     };
     vi.clearAllMocks();
   });
@@ -157,5 +167,147 @@ describe('importRepo', () => {
     // Should detect duplicate via canonical info.path
     expect(_projects).toHaveLength(1);
     expect(showInfoToast).toHaveBeenCalledWith('"my-repo" is already imported');
+  });
+});
+
+// ── Navigation helpers ────────────────────────────────────────────────────────
+
+const mockNavigate = vi.fn();
+
+function makeBranch(name: string, is_head = false) {
+  return { name, is_head, ahead: 0, behind: 0 };
+}
+
+function resetNav() {
+  mockNavigate.mockClear();
+  _projects = [];
+  _uiState = {
+    id: 'ui',
+    sidebarVisible: false,
+    sidebarWidth: 400,
+    selectedItemId: null,
+    activeTabId: '',
+    activeContextId: '',
+    contextActiveTabIds: {},
+    creatingWorktreeIds: [],
+    justStartedWorktreeId: null,
+    pendingClaudeSession: null,
+  };
+}
+
+describe('switchProjectRelative', () => {
+  beforeEach(() => {
+    resetNav();
+    _projects = [
+      makeProject({ id: 'p1', path: '/p1', position: 0, branches: [makeBranch('main', true)] }),
+      makeProject({ id: 'p2', path: '/p2', position: 1, branches: [makeBranch('dev', true)] }),
+      makeProject({ id: 'p3', path: '/p3', position: 2, branches: [makeBranch('feat', true)] }),
+    ];
+  });
+
+  it('moves to the next project', () => {
+    _uiState.activeContextId = 'p1-branch-main';
+    switchProjectRelative('next', mockNavigate);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { projectId: 'p2-branch-dev' } }),
+    );
+  });
+
+  it('moves to the previous project', () => {
+    _uiState.activeContextId = 'p2-branch-dev';
+    switchProjectRelative('prev', mockNavigate);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { projectId: 'p1-branch-main' } }),
+    );
+  });
+
+  it('wraps from last to first on next', () => {
+    _uiState.activeContextId = 'p3-branch-feat';
+    switchProjectRelative('next', mockNavigate);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { projectId: 'p1-branch-main' } }),
+    );
+  });
+
+  it('wraps from first to last on prev', () => {
+    _uiState.activeContextId = 'p1-branch-main';
+    switchProjectRelative('prev', mockNavigate);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { projectId: 'p3-branch-feat' } }),
+    );
+  });
+
+  it('does not crash when activeContextId is not found (-1 edge case)', () => {
+    _uiState.activeContextId = 'unknown-ctx';
+    expect(() => switchProjectRelative('prev', mockNavigate)).not.toThrow();
+    expect(mockNavigate).toHaveBeenCalled();
+  });
+
+  it('is a no-op when there are no projects', () => {
+    _projects = [];
+    _uiState.activeContextId = 'p1-branch-main';
+    switchProjectRelative('next', mockNavigate);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+});
+
+describe('switchProjectItemRelative', () => {
+  beforeEach(() => {
+    resetNav();
+    _projects = [
+      makeProject({
+        id: 'p1',
+        path: '/p1',
+        position: 0,
+        branches: [makeBranch('main', true), makeBranch('dev')],
+        worktrees: [{ name: 'feat', path: '/p1-feat', branch: 'feat' }],
+      }),
+    ];
+    _uiState.activeContextId = 'p1-branch-main';
+  });
+
+  it('moves to the next item (branch → branch)', () => {
+    switchProjectItemRelative('next', mockNavigate);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { projectId: 'p1-branch-dev' } }),
+    );
+  });
+
+  it('moves to the next item (branch → worktree)', () => {
+    _uiState.activeContextId = 'p1-branch-dev';
+    switchProjectItemRelative('next', mockNavigate);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { projectId: 'p1-wt-feat' } }),
+    );
+  });
+
+  it('moves to the previous item', () => {
+    _uiState.activeContextId = 'p1-branch-dev';
+    switchProjectItemRelative('prev', mockNavigate);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { projectId: 'p1-branch-main' } }),
+    );
+  });
+
+  it('wraps from last to first on next', () => {
+    _uiState.activeContextId = 'p1-wt-feat';
+    switchProjectItemRelative('next', mockNavigate);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { projectId: 'p1-branch-main' } }),
+    );
+  });
+
+  it('wraps from first to last on prev', () => {
+    _uiState.activeContextId = 'p1-branch-main';
+    switchProjectItemRelative('prev', mockNavigate);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { projectId: 'p1-wt-feat' } }),
+    );
+  });
+
+  it('does not crash when activeContextId is not in items (-1 edge case)', () => {
+    _uiState.activeContextId = 'p1'; // project root, not in items list
+    expect(() => switchProjectItemRelative('prev', mockNavigate)).not.toThrow();
+    expect(mockNavigate).toHaveBeenCalled();
   });
 });

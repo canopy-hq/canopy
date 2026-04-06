@@ -4,15 +4,15 @@ React 19 + TypeScript frontend running inside Tauri v2. This is a native macOS a
 
 ## UI Stack
 
-| Layer             | Library                              | Role                                          |
-| ----------------- | ------------------------------------ | --------------------------------------------- |
-| Styling           | **Tailwind CSS v4** (`@tailwindcss/vite`) | No config file — tokens in `src/index.css` `@theme {}` |
-| Variants          | **tailwind-variants** (`tv()`)       | All component variant logic                   |
-| Components        | **react-aria-components**            | Headless accessible primitives (Button, Menu, Dialog…) |
-| ARIA + Tailwind   | **tailwindcss-react-aria-components**| `data-[selected]:`, `data-[focused]:` variants |
-| Routing           | **TanStack Router** (file-based)     | Routes in `src/routes/`                       |
-| State             | **TanStack DB** + `useLiveQuery`     | In-memory collections, write-through to SQLite |
-| Shared UI         | **`@superagent/ui`**                 | Primitives shared with command-palette — see `packages/ui/CLAUDE.md` |
+| Layer           | Library                                   | Role                                                                 |
+| --------------- | ----------------------------------------- | -------------------------------------------------------------------- |
+| Styling         | **Tailwind CSS v4** (`@tailwindcss/vite`) | No config file — tokens in `src/index.css` `@theme {}`               |
+| Variants        | **tailwind-variants** (`tv()`)            | All component variant logic                                          |
+| Components      | **react-aria-components**                 | Headless accessible primitives (Button, Menu, Dialog…)               |
+| ARIA + Tailwind | **tailwindcss-react-aria-components**     | `data-[selected]:`, `data-[focused]:` variants                       |
+| Routing         | **TanStack Router** (file-based)          | Routes in `src/routes/`                                              |
+| State           | **TanStack DB** + `useLiveQuery`          | In-memory collections, write-through to SQLite                       |
+| Shared UI       | **`@superagent/ui`**                      | Primitives shared with command-palette — see `packages/ui/CLAUDE.md` |
 
 ## Tailwind v4 rules
 
@@ -34,14 +34,14 @@ React 19 + TypeScript frontend running inside Tauri v2. This is a native macOS a
 
 **Token reference:**
 
-| Role              | Tailwind class                             |
-| ----------------- | ------------------------------------------ |
-| Background        | `bg-bg-primary` / `bg-bg-secondary` / `bg-bg-tertiary` |
-| Text              | `text-text-primary` / `text-text-secondary` / `text-text-muted` / `text-text-faint` |
-| Border            | `border-border` / `border-border-focus`    |
-| Accent            | `text-accent` / `bg-accent` / `border-accent` |
-| Destructive       | `text-destructive` / `bg-destructive`      |
-| Agent states      | `bg-(--agent-running)` / `bg-(--agent-waiting)` / `bg-(--agent-idle)` |
+| Role         | Tailwind class                                                                      |
+| ------------ | ----------------------------------------------------------------------------------- |
+| Background   | `bg-bg-primary` / `bg-bg-secondary` / `bg-bg-tertiary`                              |
+| Text         | `text-text-primary` / `text-text-secondary` / `text-text-muted` / `text-text-faint` |
+| Border       | `border-border` / `border-border-focus`                                             |
+| Accent       | `text-accent` / `bg-accent` / `border-accent`                                       |
+| Destructive  | `text-destructive` / `bg-destructive`                                               |
+| Agent states | `bg-(--agent-running)` / `bg-(--agent-waiting)` / `bg-(--agent-idle)`               |
 
 If a CSS variable is used in 3+ places and isn't in `@theme`, add it.
 
