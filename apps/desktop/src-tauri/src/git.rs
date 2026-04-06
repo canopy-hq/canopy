@@ -242,6 +242,58 @@ pub async fn list_all_branches(repo_path: String) -> Result<Vec<BranchDetail>, S
         .map_err(|e| e.to_string())?
 }
 
+/// Try SSH keys, then credential helpers. Shared by fetch and clone.
+fn try_credentials(
+    url: &str,
+    username_from_url: Option<&str>,
+    allowed_types: git2::CredentialType,
+    config: Option<&git2::Config>,
+) -> Result<git2::Cred, git2::Error> {
+    let username = username_from_url.unwrap_or("git");
+
+    if allowed_types.contains(git2::CredentialType::SSH_KEY) {
+        if let Ok(cred) = git2::Cred::ssh_key_from_agent(username) {
+            return Ok(cred);
+        }
+        let home = std::env::var("HOME")
+            .map_err(|_| git2::Error::from_str("HOME not set"))?;
+        for key_name in &["id_ed25519", "id_rsa"] {
+            let key_path = std::path::Path::new(&home).join(".ssh").join(key_name);
+            if key_path.exists() {
+                let pub_path = key_path.with_extension("pub");
+                let pub_key = if pub_path.exists() {
+                    Some(pub_path.as_path())
+                } else {
+                    None
+                };
+                if let Ok(cred) = git2::Cred::ssh_key(username, pub_key, &key_path, None) {
+                    return Ok(cred);
+                }
+            }
+        }
+    }
+
+    if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
+        if let Some(cfg) = config {
+            if let Ok(cred) = git2::Cred::credential_helper(cfg, url, username_from_url) {
+                return Ok(cred);
+            }
+        }
+    }
+
+    Err(git2::Error::from_str("no credentials available"))
+}
+
+/// Extract the repository name from a remote URL (HTTPS or SSH).
+fn repo_name_from_url(url: &str) -> Option<String> {
+    let trimmed = url.trim_end_matches('/');
+    let base = trimmed.rsplit('/').next()?;
+    // SSH URLs: git@host:owner/repo.git — take after the last '/'
+    let base = base.rsplit(':').next().unwrap_or(base);
+    let name = base.strip_suffix(".git").unwrap_or(base);
+    if name.is_empty() { None } else { Some(name.to_string()) }
+}
+
 fn fetch_remote_sync(repo_path: &str) -> Result<(), String> {
     let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
 
@@ -249,8 +301,8 @@ fn fetch_remote_sync(repo_path: &str) -> Result<(), String> {
         .find_remote("origin")
         .map_err(|e| format!("no 'origin' remote: {e}"))?;
 
-    // Track attempts to avoid infinite retry loops from libgit2
     let attempted = std::cell::Cell::new(false);
+    let config = repo.config().ok();
 
     let mut callbacks = git2::RemoteCallbacks::new();
     callbacks.credentials(|url, username_from_url, allowed_types| {
@@ -258,46 +310,7 @@ fn fetch_remote_sync(repo_path: &str) -> Result<(), String> {
             return Err(git2::Error::from_str("no credentials available"));
         }
         attempted.set(true);
-
-        let username = username_from_url.unwrap_or("git");
-
-        if allowed_types.contains(git2::CredentialType::SSH_KEY) {
-            if let Ok(cred) = git2::Cred::ssh_key_from_agent(username) {
-                return Ok(cred);
-            }
-            let home = match std::env::var("HOME") {
-                Ok(h) => h,
-                Err(_) => return Err(git2::Error::from_str("HOME not set")),
-            };
-            for key_name in &["id_ed25519", "id_rsa"] {
-                let key_path = std::path::Path::new(&home).join(".ssh").join(key_name);
-                if key_path.exists() {
-                    let pub_path = key_path.with_extension("pub");
-                    let pub_key = if pub_path.exists() {
-                        Some(pub_path.as_path())
-                    } else {
-                        None
-                    };
-                    if let Ok(cred) =
-                        git2::Cred::ssh_key(username, pub_key, &key_path, None)
-                    {
-                        return Ok(cred);
-                    }
-                }
-            }
-        }
-
-        if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
-            if let Ok(cfg) = repo.config() {
-                if let Ok(cred) =
-                    git2::Cred::credential_helper(&cfg, url, username_from_url)
-                {
-                    return Ok(cred);
-                }
-            }
-        }
-
-        Err(git2::Error::from_str("no credentials available"))
+        try_credentials(url, username_from_url, allowed_types, config.as_ref())
     });
 
     let mut fetch_opts = git2::FetchOptions::new();
@@ -322,6 +335,7 @@ pub async fn fetch_remote(repo_path: String) -> Result<(), String> {
 pub async fn clone_repo(url: String, dest: String) -> Result<RepoInfo, String> {
     tokio::task::spawn_blocking(move || {
         let attempted = std::cell::Cell::new(false);
+        let config = git2::Config::open_default().ok();
 
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.credentials(|remote_url, username_from_url, allowed_types| {
@@ -329,68 +343,29 @@ pub async fn clone_repo(url: String, dest: String) -> Result<RepoInfo, String> {
                 return Err(git2::Error::from_str("no credentials available"));
             }
             attempted.set(true);
-
-            let username = username_from_url.unwrap_or("git");
-
-            if allowed_types.contains(git2::CredentialType::SSH_KEY) {
-                if let Ok(cred) = git2::Cred::ssh_key_from_agent(username) {
-                    return Ok(cred);
-                }
-                let home = match std::env::var("HOME") {
-                    Ok(h) => h,
-                    Err(_) => return Err(git2::Error::from_str("HOME not set")),
-                };
-                for key_name in &["id_ed25519", "id_rsa"] {
-                    let key_path = std::path::Path::new(&home).join(".ssh").join(key_name);
-                    if key_path.exists() {
-                        let pub_path = key_path.with_extension("pub");
-                        let pub_key = if pub_path.exists() {
-                            Some(pub_path.as_path())
-                        } else {
-                            None
-                        };
-                        if let Ok(cred) = git2::Cred::ssh_key(username, pub_key, &key_path, None) {
-                            return Ok(cred);
-                        }
-                    }
-                }
-            }
-
-            if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
-                // Try git credential helper via a throwaway repo config
-                if let Ok(cfg) = git2::Config::open_default() {
-                    if let Ok(cred) =
-                        git2::Cred::credential_helper(&cfg, remote_url, username_from_url)
-                    {
-                        return Ok(cred);
-                    }
-                }
-            }
-
-            Err(git2::Error::from_str("no credentials available"))
+            try_credentials(remote_url, username_from_url, allowed_types, config.as_ref())
         });
 
         let mut fetch_opts = git2::FetchOptions::new();
         fetch_opts.remote_callbacks(callbacks);
 
-        let dest_path = Path::new(&dest);
-        git2::build::RepoBuilder::new()
+        // Append repo name to dest directory (like `git clone` does by default)
+        let repo_name = repo_name_from_url(&url)
+            .ok_or_else(|| format!("cannot derive repository name from URL: {url}"))?;
+        let dest_path = Path::new(&dest).join(&repo_name);
+
+        let repo = git2::build::RepoBuilder::new()
             .fetch_options(fetch_opts)
-            .clone(&url, dest_path)
+            .clone(&url, &dest_path)
             .map_err(|e| e.to_string())?;
 
-        let name = dest_path
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| dest.clone());
-
-        let repo = Repository::open(dest_path).map_err(|e| e.to_string())?;
+        let dest_str = dest_path.to_string_lossy().to_string();
         let all_branches = enumerate_branches(&repo, true)?;
         let head_only: Vec<BranchInfo> = all_branches.into_iter().filter(|b| b.is_head).collect();
 
         Ok(RepoInfo {
-            path: dest,
-            name,
+            path: dest_str,
+            name: repo_name,
             branches: head_only,
             worktrees: Vec::new(),
         })
@@ -1375,5 +1350,42 @@ mod tests {
         repo.remote("origin", "/some/local/path").unwrap();
         let result = parse_github_remote(&tmp.path().to_string_lossy());
         assert_eq!(result, None);
+    }
+
+    #[test]
+    fn repo_name_from_https_url() {
+        assert_eq!(
+            repo_name_from_url("https://github.com/owner/repo.git"),
+            Some("repo".to_string()),
+        );
+    }
+
+    #[test]
+    fn repo_name_from_https_no_git_suffix() {
+        assert_eq!(
+            repo_name_from_url("https://github.com/owner/repo"),
+            Some("repo".to_string()),
+        );
+    }
+
+    #[test]
+    fn repo_name_from_ssh_url() {
+        assert_eq!(
+            repo_name_from_url("git@github.com:owner/repo.git"),
+            Some("repo".to_string()),
+        );
+    }
+
+    #[test]
+    fn repo_name_from_trailing_slash() {
+        assert_eq!(
+            repo_name_from_url("https://github.com/owner/repo/"),
+            Some("repo".to_string()),
+        );
+    }
+
+    #[test]
+    fn repo_name_from_empty_url() {
+        assert_eq!(repo_name_from_url(""), None);
     }
 }

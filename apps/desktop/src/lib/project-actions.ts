@@ -40,12 +40,6 @@ export function openAddProjectDialog(): void {
   openAddProjectDialogViaBridge();
 }
 
-/** @deprecated Use openAddProjectDialog() */
-export function openImportDialog(_navigate?: NavigateFn): Promise<void> {
-  openAddProjectDialog();
-  return Promise.resolve();
-}
-
 /** Insert a locally validated project into the DB (called from AddProjectDialog). */
 export function importLocalProject(
   path: string,
@@ -75,15 +69,17 @@ export function importLocalProject(
   selectProjectItem(`${projectId}-branch-${branch.name}`, navigate);
 }
 
+function deriveNameFromUrl(url: string): string {
+  const trimmed = url.trim().replace(/\.git$/, '');
+  const parts = trimmed.split('/');
+  return parts[parts.length - 1] ?? '';
+}
+
 /** Optimistically insert a cloning project and run git clone in the background. */
-export function startProjectClone(
-  url: string,
-  dest: string,
-  name: string,
-  navigate: NavigateFn,
-): void {
+export function startProjectClone(url: string, dest: string, navigate: NavigateFn): void {
   const collection = getProjectCollection();
   const projectId = crypto.randomUUID();
+  const name = deriveNameFromUrl(url) || (dest.split('/').pop() ?? 'project');
 
   collection.insert({
     id: projectId,
@@ -103,8 +99,7 @@ export function startProjectClone(
   void (async () => {
     try {
       const info = await gitApi.cloneRepo(url, dest);
-      const branches = await gitApi.listBranches(info.path);
-      const headBranch = branches.find((b) => b.is_head) ?? branches[0];
+      const headBranch = info.branches.find((b) => b.is_head) ?? info.branches[0];
 
       collection.update(projectId, (draft) => {
         draft.path = info.path;

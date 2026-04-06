@@ -30,13 +30,16 @@ interface BranchStep {
   path: string;
   name: string;
   branches: gitApi.BranchInfo[];
-  headBranch: string;
 }
 
-function deriveNameFromUrl(url: string): string {
-  const trimmed = url.trim().replace(/\.git$/, '');
-  const parts = trimmed.split('/');
-  return parts[parts.length - 1] ?? '';
+async function pickDirectory(title: string): Promise<string | null> {
+  try {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const selected = await open({ directory: true, multiple: false, title });
+    return typeof selected === 'string' ? selected : null;
+  } catch {
+    return null;
+  }
 }
 
 export function AddProjectDialog({ onClose }: { onClose: () => void }) {
@@ -60,6 +63,7 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
   const [projectName, setProjectName] = useState('');
 
   const localPathRef = useRef<HTMLInputElement>(null);
+  const cloneUrlRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -73,37 +77,23 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
     localPathRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    if (activeTab === 'clone') cloneUrlRef.current?.focus();
+  }, [activeTab]);
+
   const openBrowseForLocal = useCallback(async () => {
-    try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: 'Select Git Repository',
-      });
-      if (selected && typeof selected === 'string') {
-        setLocalPath(selected);
-        setLocalError('');
-      }
-    } catch {
-      // dialog not available in test envs
+    const path = await pickDirectory('Select Git Repository');
+    if (path) {
+      setLocalPath(path);
+      setLocalError('');
     }
   }, []);
 
   const openBrowseForDest = useCallback(async () => {
-    try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: 'Choose destination directory',
-      });
-      if (selected && typeof selected === 'string') {
-        setCloneDest(selected);
-        setCloneDestError('');
-      }
-    } catch {
-      // dialog not available in test envs
+    const path = await pickDirectory('Choose destination directory');
+    if (path) {
+      setCloneDest(path);
+      setCloneDestError('');
     }
   }, []);
 
@@ -115,7 +105,7 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
       const info = await gitApi.importRepo(path.trim());
       const branches = await gitApi.listBranches(info.path);
       const head = branches.find((b) => b.is_head)?.name ?? branches[0]?.name ?? '';
-      setBranchStep({ path: info.path, name: info.name, branches, headBranch: head });
+      setBranchStep({ path: info.path, name: info.name, branches });
       setSelectedBranch(head);
       setProjectName(info.name);
     } catch (err) {
@@ -158,13 +148,7 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
     }
     if (!valid) return;
 
-    const name = deriveNameFromUrl(cloneUrl);
-    startProjectClone(
-      cloneUrl.trim(),
-      cloneDest.trim(),
-      name || (cloneDest.split('/').pop() ?? 'project'),
-      navigate,
-    );
+    startProjectClone(cloneUrl.trim(), cloneDest.trim(), navigate);
     onClose();
   }, [cloneUrl, cloneDest, navigate, onClose]);
 
@@ -303,6 +287,7 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
                       Repository URL
                     </label>
                     <input
+                      ref={cloneUrlRef}
                       type="text"
                       value={cloneUrl}
                       onChange={(e) => {
@@ -313,7 +298,6 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
                       className={inputClass}
                       autoComplete="off"
                       spellCheck={false}
-                      autoFocus={activeTab === 'clone'}
                     />
                     {cloneUrlError && <p className={errorClass}>{cloneUrlError}</p>}
                   </div>
