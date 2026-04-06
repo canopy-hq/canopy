@@ -46,6 +46,7 @@ struct PtySession {
     child_pid: u32,
     scrollback: ScrollbackBuffer,
     tx: broadcast::Sender<Vec<u8>>,
+    pane_id_ref: Arc<Mutex<String>>,
 }
 
 struct PoolEntry {
@@ -254,7 +255,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                         let entry = st.pool.remove(idx);
                         let old_pane_id = entry.pane_id;
                         // Reassign paneId: remove session under old key, reinsert under new key
-                        if let Some(sess) = st.sessions.remove(&old_pane_id) {
+                        if let Some(mut sess) = st.sessions.remove(&old_pane_id) {
                             let pid = sess.child_pid;
                             // Resize to actual container dimensions
                             let _ = sess.master.resize(PtySize {
@@ -263,6 +264,9 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                                 pixel_width: 0,
                                 pixel_height: 0,
                             });
+                            // Update the shared pane_id so the reader thread
+                            // looks up the session under the new key.
+                            *sess.pane_id_ref.lock().unwrap() = pane_id.clone();
                             st.sessions.insert(pane_id.clone(), sess);
                             Some(pid)
                         } else {
@@ -492,6 +496,8 @@ fn do_spawn(
     // broadcast::channel capacity: 256 chunks before lagging
     let (tx, _) = broadcast::channel::<Vec<u8>>(256);
 
+    let pane_id_ref = Arc::new(Mutex::new(pane_id.clone()));
+
     {
         let mut st = state.lock().unwrap();
         st.sessions.insert(
@@ -503,6 +509,7 @@ fn do_spawn(
                 child_pid,
                 scrollback: ScrollbackBuffer::new(SCROLLBACK_CAP),
                 tx,
+                pane_id_ref: pane_id_ref.clone(),
             },
         );
     }
@@ -521,8 +528,9 @@ fn do_spawn(
                 Ok(n) => {
                     let data = buf[..n].to_vec();
                     let tx = {
+                        let current_pane_id = pane_id_ref.lock().unwrap().clone();
                         let mut st = state_clone.lock().unwrap();
-                        if let Some(sess) = st.sessions.get_mut(&pane_id) {
+                        if let Some(sess) = st.sessions.get_mut(&current_pane_id) {
                             sess.scrollback.push(&data);
                             Some(sess.tx.clone())
                         } else {
