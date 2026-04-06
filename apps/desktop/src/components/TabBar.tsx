@@ -390,7 +390,7 @@ export function TabBar() {
   return (
     <div className="flex h-10 shrink-0 items-center border-b border-border/20 bg-bg-secondary">
       <MenuTrigger>
-        <Button aria-label="New tab" size="sm" variant="ghost" iconOnly className="mx-1">
+        <Button aria-label="New tab" size="sm" variant="ghost" iconOnly className="mx-2">
           <SquarePlus size={12} />
         </Button>
         <Popover
