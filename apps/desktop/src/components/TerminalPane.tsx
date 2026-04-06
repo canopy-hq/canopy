@@ -221,7 +221,9 @@ function TerminalPaneInner({
         agentStatus={agentStatus}
         agentName={agent?.agentName}
       />
-      <div ref={containerRef} className="h-full w-full overflow-hidden" />
+      <div className="h-full w-full overflow-hidden pb-2 pl-2">
+        <div ref={containerRef} className="h-full w-full overflow-hidden" />
+      </div>
     </div>
   );
 }

@@ -58,13 +58,13 @@ function EmptyState() {
     <div className="flex h-full flex-1 flex-col items-center justify-center gap-2 select-none">
       <ActionRow
         icon={<SquareTerminal size={15} />}
-        label="New Terminal"
+        label="New terminal"
         shortcut="⌘T"
         onPress={() => addTab()}
       />
       <ActionRow
         icon={<PanelLeft size={15} />}
-        label="Toggle Sidebar"
+        label="Toggle sidebar"
         shortcut="⌘B"
         onPress={() => toggleSidebar()}
       />

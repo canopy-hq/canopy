@@ -19,7 +19,8 @@ export async function runMigrations(): Promise<void> {
       branches TEXT NOT NULL DEFAULT '[]',
       worktrees TEXT NOT NULL DEFAULT '[]',
       expanded INTEGER NOT NULL DEFAULT 1,
-      position INTEGER NOT NULL DEFAULT 0
+      position INTEGER NOT NULL DEFAULT 0,
+      color TEXT
     )
   `);
 

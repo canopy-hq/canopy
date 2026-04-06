@@ -303,7 +303,7 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
           onKeyDown={handleKeyDown}
           className="flex-1 bg-transparent text-[13px] text-text-primary outline-none placeholder:text-text-muted/60"
           placeholder={
-            pickingBase ? `Select base for "${sanitizedName}"…` : 'Search or create new branch…'
+            pickingBase ? `Select base for "${sanitizedName}"…` : 'Search or create worktree…'
           }
         />
         {query && (

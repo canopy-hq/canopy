@@ -6,7 +6,7 @@ export function buildStaticCommands(navigate: Nav): CommandItem[] {
   return [
     {
       id: 'action:add-project',
-      label: 'Add Project',
+      label: 'Add project',
       category: 'global',
       keywords: ['import', 'repository', 'repo', 'open', 'folder'],
       icon: 'folder',
@@ -18,7 +18,7 @@ export function buildStaticCommands(navigate: Nav): CommandItem[] {
     },
     {
       id: 'action:toggle-sidebar',
-      label: 'Toggle Sidebar',
+      label: 'Toggle sidebar',
       category: 'global',
       keywords: ['show', 'hide', 'sidebar', 'panel'],
       shortcut: '⌘B',
@@ -30,7 +30,7 @@ export function buildStaticCommands(navigate: Nav): CommandItem[] {
     },
     {
       id: 'action:settings',
-      label: 'Open Settings',
+      label: 'Open settings',
       category: 'global',
       keywords: ['preferences', 'config', 'theme'],
       icon: 'settings',

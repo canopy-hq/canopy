@@ -41,7 +41,7 @@ const closeTabLabel = (
 
 const newTabLabel = (
   <>
-    New Tab <Kbd>⌘T</Kbd>
+    New tab <Kbd>⌘T</Kbd>
   </>
 );
 
@@ -268,7 +268,7 @@ const TabItemComponent = memo(
               },
               {
                 type: 'action',
-                label: 'Close All',
+                label: 'Close all',
                 icon: <XSquare size={13} />,
                 onSelect: () => {
                   setContextMenu(null);
@@ -277,7 +277,7 @@ const TabItemComponent = memo(
               },
               {
                 type: 'action',
-                label: 'Close Others',
+                label: 'Close others',
                 icon: <XCircle size={13} />,
                 onSelect: () => {
                   setContextMenu(null);
@@ -407,7 +407,7 @@ export function TabBar() {
           iconOnly
           variant="ghost"
           onPress={() => addTab()}
-          aria-label="New Tab"
+          aria-label="New tab"
           className="my-1 mr-3 ml-1 shrink-0"
         >
           <Plus size={14} />

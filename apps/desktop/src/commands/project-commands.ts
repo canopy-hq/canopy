@@ -12,10 +12,10 @@ import type { Setting, Project } from '@superagent/db';
 export function makeProjectPaletteItem(proj: Project): CommandItem {
   return {
     id: `project:${proj.id}:palette`,
-    label: 'New branch or worktree',
+    label: 'New worktree',
     category: 'action',
     icon: 'plus',
-    keywords: ['branch', 'worktree', 'create', 'new', proj.name],
+    keywords: ['worktree', 'create', 'new', proj.name],
     contextId: proj.id,
     renderPanel: (ctx: PanelContext) => createElement(ProjectPalettePanel, { project: proj, ctx }),
   };
@@ -63,7 +63,7 @@ export function buildProjectCommands(
   if (activeProj) {
     items.push({
       id: `project:${activeProj.id}:new-tab`,
-      label: 'New Tab',
+      label: 'New tab',
       category: 'action',
       icon: 'tab',
       shortcut: '⌘T',
