@@ -31,7 +31,8 @@ import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
 import {
   toggleSidebar,
   refreshRepo,
-  switchProjectItemByIndex,
+  switchProjectRelative,
+  switchProjectItemRelative,
   openImportDialog,
 } from '../lib/project-actions';
 import { onOpenProjectPalette } from '../lib/project-palette-bridge';
@@ -193,13 +194,24 @@ function RootLayout() {
           }),
       },
       { key: 'b', meta: true, action: () => toggleSidebar() },
-      { key: 'n', meta: true, action: () => void openImportDialog() },
+      { key: 'n', meta: true, action: () => void openImportDialog(navigate) },
       { key: 'o', meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
-      ...([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map((n) => ({
-        key: String(n),
+      // ⌘⇧↑ / ⌘⇧↓: navigate to the prev/next project (sorted by position, wraps).
+      {
+        key: 'ArrowUp',
         meta: true,
-        action: () => switchProjectItemByIndex(n - 1, navigate),
-      })),
+        shift: true,
+        action: () => switchProjectRelative('prev', navigate),
+      },
+      {
+        key: 'ArrowDown',
+        meta: true,
+        shift: true,
+        action: () => switchProjectRelative('next', navigate),
+      },
+      // ⌘↑ / ⌘↓: navigate to the prev/next branch or worktree within the active project.
+      { key: 'ArrowUp', meta: true, action: () => switchProjectItemRelative('prev', navigate) },
+      { key: 'ArrowDown', meta: true, action: () => switchProjectItemRelative('next', navigate) },
     ],
     [navigate],
   );

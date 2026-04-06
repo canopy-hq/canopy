@@ -1,12 +1,15 @@
 import { useEffect, useRef } from 'react';
 
-export interface Keybinding {
-  key: string;
+type KeyOrCode = { key: string; code?: string } | { key?: string; code: string };
+
+export type Keybinding = KeyOrCode & {
   meta: boolean;
   shift?: boolean;
   alt?: boolean;
   action: () => void;
-}
+  /** If defined and returns false, the binding is skipped and the event propagates unchanged. */
+  condition?: () => boolean;
+};
 
 export function useKeyboardRegistry(bindings: Keybinding[]): void {
   const bindingsRef = useRef(bindings);
@@ -15,12 +18,16 @@ export function useKeyboardRegistry(bindings: Keybinding[]): void {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       for (const binding of bindingsRef.current) {
+        const keyMatch = binding.key ? e.key === binding.key : true;
+        const codeMatch = binding.code ? e.code === binding.code : true;
         if (
-          e.key === binding.key &&
+          keyMatch &&
+          codeMatch &&
           e.metaKey === binding.meta &&
           e.shiftKey === (binding.shift ?? false) &&
           e.altKey === (binding.alt ?? false)
         ) {
+          if (binding.condition && !binding.condition()) continue;
           e.preventDefault();
           e.stopPropagation();
           binding.action();

@@ -15,6 +15,8 @@ let _uiState: UiState = {
   activeContextId: '',
   contextActiveTabIds: {},
   creatingWorktreeIds: [],
+  justStartedWorktreeId: null,
+  pendingClaudeSession: null,
 };
 
 const _projects: Project[] = [
@@ -30,6 +32,8 @@ const _projects: Project[] = [
 ];
 
 const mockSetSetting = vi.fn();
+
+let _insertTabSilentlyCalls: Tab[] = [];
 
 vi.mock('@superagent/db', () => ({
   getProjectCollection: () => ({
@@ -52,6 +56,12 @@ vi.mock('@superagent/db', () => ({
       if (tab) updater(tab);
     },
   }),
+  getSettingCollection: () => ({
+    get toArray() {
+      return [];
+    },
+  }),
+  getSetting: (_arr: unknown[], _key: string, fallback: unknown) => fallback,
   uiCollection: {
     update: (_key: string, updater: (draft: UiState) => void) => {
       updater(_uiState);
@@ -63,10 +73,22 @@ vi.mock('@superagent/db', () => ({
     _tabs.push(tab);
     _uiState.activeTabId = tab.id;
   },
+  insertTabSilently: (tab: Tab) => {
+    _tabs.push(tab);
+    _insertTabSilentlyCalls.push(tab);
+  },
   deleteTabAndUpdateActive: (tabId: string, newActiveTabId: string | null) => {
     _tabs = _tabs.filter((t) => t.id !== tabId);
     if (newActiveTabId !== null) _uiState.activeTabId = newActiveTabId;
   },
+}));
+
+vi.mock('@superagent/terminal', () => ({
+  spawnTerminal: vi.fn().mockResolvedValue({ ptyId: 42 }),
+  writeToPty: vi.fn().mockResolvedValue(undefined),
+  closePty: vi.fn().mockResolvedValue(undefined),
+  closePtysForPanes: vi.fn().mockResolvedValue(undefined),
+  disposeCached: vi.fn(),
 }));
 
 // Import AFTER mock is set up
@@ -77,6 +99,7 @@ import {
   addTab,
   splitPane,
   resolveProjectItemCwd,
+  addClaudeCodeTab,
 } from '../tab-actions';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -100,6 +123,7 @@ function findCwdSettingCall() {
 
 function resetState() {
   _tabs = [];
+  _insertTabSilentlyCalls = [];
   _uiState = {
     id: 'ui',
     sidebarVisible: false,
@@ -109,6 +133,8 @@ function resetState() {
     activeContextId: '',
     contextActiveTabIds: {},
     creatingWorktreeIds: [],
+    justStartedWorktreeId: null,
+    pendingClaudeSession: null,
   };
   mockSetSetting.mockClear();
 }
@@ -392,5 +418,104 @@ describe('splitPane', () => {
     const cwdCall = findCwdSettingCall();
     expect(cwdCall).toBeDefined();
     expect(cwdCall![1]).toBe('/worktrees/feature-x');
+  });
+});
+
+describe('addClaudeCodeTab', () => {
+  beforeEach(resetState);
+
+  it('activates the new tab when the active context matches', () => {
+    _uiState.activeContextId = 'ws-1';
+
+    addClaudeCodeTab('ws-1');
+
+    expect(_tabs).toHaveLength(1);
+    expect(_uiState.activeTabId).toBe(_tabs[0]!.id);
+    expect(_insertTabSilentlyCalls).toHaveLength(0);
+  });
+
+  it('inserts silently (no focus switch) when on a different context', () => {
+    _uiState.activeContextId = 'ws-1-branch-main';
+
+    addClaudeCodeTab('ws-1-wt-feature-x');
+
+    expect(_tabs).toHaveLength(1);
+    expect(_insertTabSilentlyCalls).toHaveLength(1);
+    expect(_uiState.activeTabId).toBe(''); // unchanged
+  });
+
+  it('sets bypass-permissions command by default', () => {
+    _uiState.activeContextId = 'ws-1';
+
+    addClaudeCodeTab('ws-1');
+
+    const initCmdCall = mockSetSetting.mock.calls.find(
+      ([key]) => typeof key === 'string' && key.startsWith('init-cmd:'),
+    );
+    expect(initCmdCall![1]).toContain('--permission-mode bypassPermissions');
+  });
+
+  it('sets plan-mode command when mode is plan', () => {
+    _uiState.activeContextId = 'ws-1';
+
+    addClaudeCodeTab('ws-1', { mode: 'plan' });
+
+    const initCmdCall = mockSetSetting.mock.calls.find(
+      ([key]) => typeof key === 'string' && key.startsWith('init-cmd:'),
+    );
+    expect(initCmdCall![1]).toContain('--permission-mode plan');
+  });
+
+  it('appends prompt as single-quoted CLI arg', () => {
+    _uiState.activeContextId = 'ws-1';
+
+    addClaudeCodeTab('ws-1', { prompt: 'fix the tests' });
+
+    const initCmdCall = mockSetSetting.mock.calls.find(
+      ([key]) => typeof key === 'string' && key.startsWith('init-cmd:'),
+    );
+    expect(initCmdCall![1]).toMatch(/'fix the tests'$/);
+  });
+
+  it('escapes single quotes in the prompt', () => {
+    _uiState.activeContextId = 'ws-1';
+
+    addClaudeCodeTab('ws-1', { prompt: "it's broken" });
+
+    const initCmdCall = mockSetSetting.mock.calls.find(
+      ([key]) => typeof key === 'string' && key.startsWith('init-cmd:'),
+    );
+    expect(initCmdCall![1]).toContain("'it'\\''s broken'");
+  });
+
+  it('stores init-has-prompt flag when prompt is provided', () => {
+    _uiState.activeContextId = 'ws-1';
+
+    addClaudeCodeTab('ws-1', { prompt: 'hello' });
+
+    const hasPromptCall = mockSetSetting.mock.calls.find(
+      ([key]) => typeof key === 'string' && key.startsWith('init-has-prompt:'),
+    );
+    expect(hasPromptCall![1]).toBe('true');
+  });
+
+  it('does not store init-has-prompt when no prompt is given', () => {
+    _uiState.activeContextId = 'ws-1';
+
+    addClaudeCodeTab('ws-1');
+
+    const hasPromptCall = mockSetSetting.mock.calls.find(
+      ([key]) => typeof key === 'string' && key.startsWith('init-has-prompt:'),
+    );
+    expect(hasPromptCall).toBeUndefined();
+  });
+
+  it('is a no-op when no projectItemId and no activeContextId', () => {
+    _uiState.activeContextId = '';
+
+    addClaudeCodeTab();
+
+    expect(_tabs).toHaveLength(0);
+    expect(mockSetSetting).not.toHaveBeenCalled();
   });
 });

@@ -15,15 +15,37 @@ describe('buildWorktreePath', () => {
     mockGetSetting.mockReset();
     mockGetSettingCollection.mockReset();
     mockGetSettingCollection.mockReturnValue({ toArray: [] });
-  });
-
-  it('returns default path when no custom dir is set', () => {
     mockGetSetting.mockReturnValue('~/.superagent/worktrees');
-    expect(buildWorktreePath('my-repo', 'feat-x')).toBe('~/.superagent/worktrees/my-repo-feat-x');
   });
 
-  it('returns custom path when setting is configured', () => {
+  it('prefixes the leaf with the project directory basename', () => {
+    expect(buildWorktreePath('/repos/mon-projet', 'my-feature')).toBe(
+      '~/.superagent/worktrees/mon-projet.my-feature',
+    );
+  });
+
+  it('puts the directory portion of the wt name before the prefixed leaf', () => {
+    expect(buildWorktreePath('/repos/mon-projet', 'feat/my-feature')).toBe(
+      '~/.superagent/worktrees/feat/mon-projet.my-feature',
+    );
+  });
+
+  it('handles nested wt name directories', () => {
+    expect(buildWorktreePath('/repos/mon-projet', 'team/feat/my-feature')).toBe(
+      '~/.superagent/worktrees/team/feat/mon-projet.my-feature',
+    );
+  });
+
+  it('uses the custom base dir when configured', () => {
     mockGetSetting.mockReturnValue('/Users/me/worktrees');
-    expect(buildWorktreePath('my-repo', 'feat-x')).toBe('/Users/me/worktrees/my-repo-feat-x');
+    expect(buildWorktreePath('/repos/mon-projet', 'feat/my-feature')).toBe(
+      '/Users/me/worktrees/feat/mon-projet.my-feature',
+    );
+  });
+
+  it('strips trailing slash from project path', () => {
+    expect(buildWorktreePath('/repos/mon-projet/', 'my-feature')).toBe(
+      '~/.superagent/worktrees/mon-projet.my-feature',
+    );
   });
 });

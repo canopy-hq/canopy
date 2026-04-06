@@ -8,6 +8,7 @@ export { getProjectCollection } from './collections/projects';
 export {
   getTabCollection,
   insertTabAndActivate,
+  insertTabSilently,
   deleteTabAndUpdateActive,
 } from './collections/tabs';
 export { getSessionCollection } from './collections/sessions';

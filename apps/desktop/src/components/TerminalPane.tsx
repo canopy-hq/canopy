@@ -12,6 +12,7 @@ import { CircleX } from 'lucide-react';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
 import { setFocus, setPtyId, renameTab } from '../lib/tab-actions';
+import { ClaudeCodeIcon } from './ClaudeCodeIcon';
 import { PaneHeader } from './PaneHeader';
 
 import type { PaneNode } from '../lib/pane-tree-ops';
@@ -45,8 +46,18 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
 
   // Read once; only used for the initial spawn inside useTerminal.
   const savedCwd = useMemo(() => {
-    const v = getSetting(getSettingCollection().toArray, `cwd:${paneId}`, '') as string;
-    return v || undefined;
+    const s = getSettingCollection().toArray;
+    return (getSetting(s, `cwd:${paneId}`, '') as string) || undefined;
+  }, [paneId]);
+
+  const savedInitCmd = useMemo(() => {
+    const s = getSettingCollection().toArray;
+    return (getSetting(s, `init-cmd:${paneId}`, '') as string) || undefined;
+  }, [paneId]);
+
+  const savedHasPrompt = useMemo(() => {
+    const s = getSettingCollection().toArray;
+    return (getSetting(s, `init-has-prompt:${paneId}`, '') as string) === 'true';
   }, [paneId]);
 
   // Poll CWD from Rust side every 2 seconds and persist changes.
@@ -117,6 +128,8 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
       paneId={paneId}
       ptyId={realPtyId ?? ptyId}
       savedCwd={savedCwd}
+      savedInitCmd={savedInitCmd}
+      savedHasPrompt={savedHasPrompt}
       isFocused={isFocused}
       cwd={cwd}
       containerRef={containerRef}
@@ -155,6 +168,8 @@ function TerminalPaneInner({
   paneId,
   ptyId,
   savedCwd,
+  savedInitCmd,
+  savedHasPrompt,
   isFocused,
   cwd,
   containerRef,
@@ -164,6 +179,8 @@ function TerminalPaneInner({
   paneId: string;
   ptyId: number;
   savedCwd: string | undefined;
+  savedInitCmd: string | undefined;
+  savedHasPrompt: boolean;
   isFocused: boolean;
   cwd: string;
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -192,12 +209,57 @@ function TerminalPaneInner({
     isFocused,
     onPtySpawned,
     handleCommand,
+    savedInitCmd,
   );
 
   const agents = useAgents();
   const agent = agents.find((a) => a.ptyId === ptyId);
   const agentStatus = agent?.status ?? 'idle';
   const isWaiting = agentStatus === 'waiting';
+
+  // Hide the raw terminal output while Claude boots — avoids showing TUI escape
+  // sequences and flickering startup. Only applies to Claude auto-launch sessions
+  // (those with an init-cmd containing "claude"). Removed once the agent watcher
+  // detects the Claude process (agentStatus leaves 'idle'), or after 15s fallback.
+  // Lazy init — read the setting once on mount, never re-evaluated.
+  const [bootOverlay, setBootOverlay] = useState(() => !!savedInitCmd?.includes('claude'));
+
+  // One-time 15s fallback — scheduled once on mount, never restarted.
+  // Separate from the agent-detection effect to avoid timer stacking on each
+  // agentStatus change while still idle.
+  useEffect(() => {
+    if (!bootOverlay) return;
+    const t = setTimeout(() => setBootOverlay(false), 15_000);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Dismiss sooner once the agent is detected (or immediately if already detected).
+  // With a pre-prompt: wait for 'running' so the TUI is rendering the response.
+  // Without a prompt: reveal as soon as the process is detected ('waiting' or 'running').
+  useEffect(() => {
+    if (!bootOverlay) return;
+    const ready = savedHasPrompt ? agentStatus === 'running' : agentStatus !== 'idle';
+    if (!ready) return;
+    const t = setTimeout(() => setBootOverlay(false), 350);
+    return () => clearTimeout(t);
+  }, [agentStatus, bootOverlay, savedHasPrompt]);
+
+  // Sync the claude-code icon with the agent watcher: set when claude is running, clear on exit.
+  useEffect(() => {
+    if (ptyId <= 0) return;
+    const tab = getTabCollection().toArray.find((t) => containsPane(t.paneRoot, paneId));
+    if (!tab) return;
+    const claudeActive = agent?.agentName === 'claude' && agentStatus !== 'idle';
+    if (claudeActive && tab.icon !== 'claude-code') {
+      getTabCollection().update(tab.id, (draft) => {
+        draft.icon = 'claude-code';
+      });
+    } else if (!claudeActive && tab.icon === 'claude-code') {
+      getTabCollection().update(tab.id, (draft) => {
+        draft.icon = undefined;
+      });
+    }
+  }, [agent?.agentName, agentStatus, ptyId, paneId]);
 
   return (
     <div
@@ -221,9 +283,13 @@ function TerminalPaneInner({
         agentStatus={agentStatus}
         agentName={agent?.agentName}
       />
-      <div className="h-full w-full overflow-hidden pb-2 pl-2">
-        <div ref={containerRef} className="h-full w-full overflow-hidden" />
-      </div>
+      <div ref={containerRef} className="h-full w-full overflow-hidden" />
+      {bootOverlay && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-bg-primary select-none">
+          <ClaudeCodeIcon size={20} className="animate-pulse text-[#da7756]/60" />
+          <span className="font-mono text-sm text-text-faint">Starting Claude Code…</span>
+        </div>
+      )}
     </div>
   );
 }

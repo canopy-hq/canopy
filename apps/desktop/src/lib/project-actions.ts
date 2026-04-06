@@ -4,8 +4,8 @@ import {
   uiCollection,
   getUiState,
   getSetting,
-  setSetting,
   getSettingCollection,
+  setSetting,
   SIDEBAR_WIDTH_MIN,
   SIDEBAR_WIDTH_MAX,
 } from '@superagent/db';
@@ -13,7 +13,7 @@ import { closePty, closePtysForPanes, disposeCached } from '@superagent/terminal
 
 import * as gitApi from './git';
 import { collectAllLeafPaneIds, collectLeafPtyIds } from './pane-tree-ops';
-import { closeTab } from './tab-actions';
+import { addClaudeCodeTab, closeTab } from './tab-actions';
 import { showErrorToast, showInfoToast } from './toast';
 
 type NavigateFn = (opts: { to: string; params?: Record<string, string> }) => void;
@@ -34,7 +34,7 @@ export function getProjectItemIds(proj: Project): Set<string> {
   return ids;
 }
 
-export async function openImportDialog(): Promise<void> {
+export async function openImportDialog(navigate?: NavigateFn): Promise<void> {
   try {
     const { open } = await import('@tauri-apps/plugin-dialog');
     const selected = await open({
@@ -42,13 +42,13 @@ export async function openImportDialog(): Promise<void> {
       multiple: false,
       title: 'Select Git Repository',
     });
-    if (selected && typeof selected === 'string') await importRepo(selected);
+    if (selected && typeof selected === 'string') await importRepo(selected, navigate);
   } catch {
     // Dialog not available in test/dev environments
   }
 }
 
-export async function importRepo(path: string): Promise<void> {
+export async function importRepo(path: string, navigate?: NavigateFn): Promise<void> {
   try {
     const info = await gitApi.importRepo(path);
     const collection = getProjectCollection();
@@ -57,8 +57,9 @@ export async function importRepo(path: string): Promise<void> {
     if (existing) {
       showInfoToast(`"${existing.name}" is already imported`);
     } else {
+      const projectId = crypto.randomUUID();
       collection.insert({
-        id: crypto.randomUUID(),
+        id: projectId,
         path: info.path,
         name: info.name,
         branches: info.branches.filter((b) => b.is_head),
@@ -66,6 +67,12 @@ export async function importRepo(path: string): Promise<void> {
         expanded: true,
         position: collection.toArray.length,
       });
+
+      if (navigate) {
+        const headBranch = info.branches.find((b) => b.is_head);
+        const itemId = headBranch ? `${projectId}-branch-${headBranch.name}` : projectId;
+        selectProjectItem(itemId, navigate);
+      }
     }
 
     uiCollection.update('ui', (draft) => {
@@ -190,24 +197,33 @@ export function selectProjectItem(
   }
 }
 
+/** Returns the project that contains the current activeContextId. */
+function getActiveProject(): Project | undefined {
+  const { activeContextId } = getUiState();
+  if (!activeContextId) return undefined;
+  return getProjectCollection().toArray.find(
+    (p) =>
+      activeContextId === p.id ||
+      activeContextId.startsWith(`${p.id}-branch-`) ||
+      activeContextId.startsWith(`${p.id}-wt-`),
+  );
+}
+
+/** Safe modular step: when currentIndex is -1 (not found), clamp to 0 before stepping. */
+function stepIndex(currentIndex: number, direction: 'prev' | 'next', length: number): number {
+  const safe = Math.max(currentIndex, 0);
+  return direction === 'next' ? (safe + 1) % length : (safe - 1 + length) % length;
+}
+
 /**
  * Switch to the nth branch/worktree of the currently active project.
- * Index is 0-based (Cmd+1 → 0, Cmd+2 → 1, …).
- * Items are ordered: branches first (sidebar order), then worktrees.
+ * Index is 0-based. Items are ordered: branches first, then worktrees.
  */
 export function switchProjectItemByIndex(
   index: number,
   navigate: (opts: { to: string; params?: Record<string, string> }) => void,
 ): void {
-  const ui = getUiState();
-  if (!ui.activeContextId) return;
-
-  const proj = getProjectCollection().toArray.find(
-    (p) =>
-      ui.activeContextId === p.id ||
-      ui.activeContextId.startsWith(`${p.id}-branch-`) ||
-      ui.activeContextId.startsWith(`${p.id}-wt-`),
-  );
+  const proj = getActiveProject();
   if (!proj) return;
 
   const items = [
@@ -216,6 +232,53 @@ export function switchProjectItemByIndex(
   ];
 
   const itemId = items[index];
+  if (itemId) selectProjectItem(itemId, navigate);
+}
+
+/** Navigate to the previous or next project (sorted by position, wraps). */
+export function switchProjectRelative(
+  direction: 'prev' | 'next',
+  navigate: (opts: { to: string; params?: Record<string, string> }) => void,
+): void {
+  const projects = [...getProjectCollection().toArray].sort((a, b) => a.position - b.position);
+  if (projects.length === 0) return;
+
+  const { activeContextId } = getUiState();
+  const currentIndex = projects.findIndex(
+    (p) =>
+      activeContextId === p.id ||
+      activeContextId.startsWith(`${p.id}-branch-`) ||
+      activeContextId.startsWith(`${p.id}-wt-`),
+  );
+
+  const proj = projects[stepIndex(currentIndex, direction, projects.length)]!;
+  const head = proj.branches.find((b) => b.is_head);
+  const first = proj.branches[0];
+  const itemId = head
+    ? `${proj.id}-branch-${head.name}`
+    : first
+      ? `${proj.id}-branch-${first.name}`
+      : proj.id;
+  selectProjectItem(itemId, navigate);
+}
+
+/** Navigate to the previous or next branch/worktree within the active project. */
+export function switchProjectItemRelative(
+  direction: 'prev' | 'next',
+  navigate: (opts: { to: string; params?: Record<string, string> }) => void,
+): void {
+  const proj = getActiveProject();
+  if (!proj) return;
+
+  const { activeContextId } = getUiState();
+  const items = [
+    ...proj.branches.map((b) => `${proj.id}-branch-${b.name}`),
+    ...proj.worktrees.map((wt) => `${proj.id}-wt-${wt.name}`),
+  ];
+  if (items.length === 0) return;
+
+  const currentIndex = items.indexOf(activeContextId);
+  const itemId = items[stepIndex(currentIndex, direction, items.length)];
   if (itemId) selectProjectItem(itemId, navigate);
 }
 
@@ -304,6 +367,7 @@ export function startWorktreeCreation(
     if (!draft.creatingWorktreeIds.includes(wtItemId)) {
       draft.creatingWorktreeIds.push(wtItemId);
     }
+    draft.justStartedWorktreeId = wtItemId;
   });
 
   selectProjectItem(wtItemId, navigate);
@@ -318,10 +382,29 @@ export function startWorktreeCreation(
           entry.branch = wt.branch;
         }
       });
+      // Clear creating state before addClaudeCodeTab — that function creates a
+      // TanStack DB transaction that snapshots uiCollection. If we clear here first,
+      // the snapshot captures creatingWorktreeIds:[] and acceptMutations() won't
+      // restore the stale "creating" state when the async commit resolves.
+      uiCollection.update('ui', (draft) => {
+        draft.creatingWorktreeIds = draft.creatingWorktreeIds.filter((id) => id !== wtItemId);
+      });
+
+      // If the user scheduled a Claude Code session for this worktree, launch it now
+      const pending = getUiState().pendingClaudeSession;
+      if (pending?.worktreeId === wtItemId) {
+        addClaudeCodeTab(wtItemId, { mode: pending.mode, prompt: pending.prompt });
+        uiCollection.update('ui', (draft) => {
+          draft.pendingClaudeSession = null;
+        });
+      }
     } catch (err) {
       showErrorToast('Create worktree failed', String(err));
       getProjectCollection().update(projectId, (draft) => {
         draft.worktrees = draft.worktrees.filter((w) => w.name !== name);
+      });
+      uiCollection.update('ui', (draft) => {
+        draft.pendingClaudeSession = null;
       });
     } finally {
       uiCollection.update('ui', (draft) => {
@@ -329,6 +412,35 @@ export function startWorktreeCreation(
       });
     }
   })();
+}
+
+export function clearJustStartedWorktree(): void {
+  uiCollection.update('ui', (draft) => {
+    draft.justStartedWorktreeId = null;
+  });
+}
+
+export function setPendingClaudeSession(
+  worktreeId: string,
+  mode: 'bypass' | 'plan',
+  prompt?: string,
+): void {
+  // If the worktree finished creating before the user confirmed the dialog,
+  // launch Claude immediately — the async completion handler already ran and
+  // found no pending session, so we have to trigger it ourselves here.
+  if (!getUiState().creatingWorktreeIds.includes(worktreeId)) {
+    addClaudeCodeTab(worktreeId, { mode, prompt });
+    return;
+  }
+  uiCollection.update('ui', (draft) => {
+    draft.pendingClaudeSession = { worktreeId, mode, prompt };
+  });
+}
+
+export function cancelPendingClaudeSession(): void {
+  uiCollection.update('ui', (draft) => {
+    draft.pendingClaudeSession = null;
+  });
 }
 
 export async function removeWorktree(projectId: string, name: string): Promise<void> {

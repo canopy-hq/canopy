@@ -7,9 +7,9 @@ SQLite-backed persistent state + in-memory collections for the Superagent app. B
 Must run in this exact order before rendering:
 
 ```ts
-await initDb(dbPath);        // 1. connect SQLite
-await runMigrations();       // 2. create/migrate tables
-await hydrateCollections();  // 3. load state into memory (settings first, then parallel)
+await initDb(dbPath); // 1. connect SQLite
+await runMigrations(); // 2. create/migrate tables
+await hydrateCollections(); // 3. load state into memory (settings first, then parallel)
 ```
 
 Never skip or reorder. Hydration reads settings first (theme, sidebar width) before restoring UI state.
@@ -18,21 +18,23 @@ Never skip or reorder. Hydration reads settings first (theme, sidebar width) bef
 
 All collections are **module-level singletons** initialized during hydration. Access them via their getter:
 
-| Getter                   | Persisted | Description                                 |
-| ------------------------ | --------- | ------------------------------------------- |
-| `getProjectCollection()` | ✅        | Git projects, branches, worktrees           |
-| `getTabCollection()`     | ✅        | Tabs with pane trees                        |
-| `getSessionCollection()` | ✅        | PTY sessions (paneId → shell process)       |
-| `getSettingCollection()` | ✅        | Key-value settings (JSON-encoded values)    |
+| Getter                   | Persisted | Description                                  |
+| ------------------------ | --------- | -------------------------------------------- |
+| `getProjectCollection()` | ✅        | Git projects, branches, worktrees            |
+| `getTabCollection()`     | ✅        | Tabs with pane trees                         |
+| `getSessionCollection()` | ✅        | PTY sessions (paneId → shell process)        |
+| `getSettingCollection()` | ✅        | Key-value settings (JSON-encoded values)     |
 | `uiCollection`           | partial   | Navigation state — see dual-write rule below |
-| `agentCollection`        | ❌        | Running agents — ephemeral, in-memory only  |
+| `agentCollection`        | ❌        | Running agents — ephemeral, in-memory only   |
 
 **Reactive read** (inside components):
+
 ```ts
 const projects = useLiveQuery(() => getProjectCollection());
 ```
 
 **Imperative read** (inside action functions — no re-render triggered):
+
 ```ts
 const ui = getUiState();
 const tabs = getTabCollection().getAll();
@@ -61,6 +63,7 @@ settings   key (PK), value (TEXT/JSON)
 ```
 
 **`projectItemId` composite keys:**
+
 - `{proj.id}` — project root
 - `{proj.id}-branch-{name}` — branch
 - `{proj.id}-wt-{name}` — worktree
@@ -72,7 +75,7 @@ Tabs contain a recursive pane tree stored as JSON:
 ```ts
 type PaneNode =
   | { type: 'leaf'; id: string; ptyId: number | null }
-  | { type: 'branch'; id: string; direction: 'h' | 'v'; ratios: number[]; children: PaneNode[] }
+  | { type: 'branch'; id: string; direction: 'h' | 'v'; ratios: number[]; children: PaneNode[] };
 ```
 
 Supports arbitrary nesting for horizontal/vertical splits.
@@ -80,8 +83,8 @@ Supports arbitrary nesting for horizontal/vertical splits.
 ## Settings helpers
 
 ```ts
-getSetting(settings, 'key', fallback)   // typed read with fallback
-setSetting('key', value)                // upsert — writes to DB
+getSetting(settings, 'key', fallback); // typed read with fallback
+setSetting('key', value); // upsert — writes to DB
 ```
 
 ## Migrations

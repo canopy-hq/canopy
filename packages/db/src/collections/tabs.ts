@@ -12,6 +12,7 @@ function deserialize(row: typeof table.$inferSelect): Tab {
     ...row,
     paneRoot: JSON.parse(row.paneRoot) as Tab['paneRoot'],
     focusedPaneId: row.focusedPaneId ?? null,
+    icon: row.icon ?? undefined,
   };
 }
 
@@ -95,6 +96,16 @@ export function insertTabAndActivate(tab: Tab): void {
       uiCollection.update('ui', (draft) => {
         draft.activeTabId = tab.id;
       });
+    },
+  );
+}
+
+/** Insert a tab into the DB without switching to it. Used when the user is on a different context. */
+export function insertTabSilently(tab: Tab): void {
+  commitTabAndUi(
+    () => getDb().insert(table).values(serialize(tab)),
+    () => {
+      getTabCollection().insert(tab);
     },
   );
 }

@@ -52,6 +52,7 @@ export interface Tab {
   id: string;
   label: string;
   labelIsManual: boolean;
+  icon?: string;
   projectItemId: string;
   paneRoot: PaneNode;
   focusedPaneId: string | null;

@@ -5,6 +5,7 @@ Shared UI primitives used across `apps/desktop` and `packages/command-palette`. 
 ## Rule: when to add a component here
 
 Add to `packages/ui` when a component or utility is:
+
 - Used by **2+ packages** (desktop + command-palette, or future packages)
 - **Logic-bearing** — contains non-trivial behaviour (key splitting, state, a11y)
 - **Style-agnostic** — accepts a `variant` or `className` prop so each consumer can apply its own look
@@ -26,10 +27,10 @@ import { Kbd } from '@superagent/ui';
 
 **Variants:**
 
-| Variant | Style | Used in |
-| ------- | ----- | ------- |
-| `default` (default) | `bg-bg-secondary`, `text-xs` | `apps/desktop` tooltips, headers |
-| `menu` | `bg-bg-primary border border-border/60`, `text-[10px]` | command palette footer + palette hints |
+| Variant             | Style                                                  | Used in                                |
+| ------------------- | ------------------------------------------------------ | -------------------------------------- |
+| `default` (default) | `bg-bg-secondary`, `text-xs`                           | `apps/desktop` tooltips, headers       |
+| `menu`              | `bg-bg-primary border border-border/60`, `text-[10px]` | command palette footer + palette hints |
 
 ```tsx
 <Kbd variant="menu">⌘K</Kbd>
