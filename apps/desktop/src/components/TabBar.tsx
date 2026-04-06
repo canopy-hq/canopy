@@ -30,7 +30,7 @@ import {
 } from '../lib/tab-actions';
 import { ClaudeCodeIcon } from './ClaudeCodeIcon';
 import { StatusDot } from './StatusDot';
-import { Badge, Kbd, Tooltip } from './ui';
+import { Badge, Button, Kbd, Tooltip } from './ui';
 import { ContextMenu } from './ui/ContextMenu';
 
 import type { DotStatus } from './StatusDot';
@@ -410,12 +410,9 @@ export function TabBar() {
         </SortableContext>
       </DndContext>
       <MenuTrigger>
-        <AriaButton
-          aria-label="New tab"
-          className="flex h-full w-9 shrink-0 cursor-default items-center justify-center text-text-faint transition-colors hover:bg-bg-primary/50 hover:text-text-secondary pressed:bg-bg-primary/70"
-        >
+        <Button aria-label="New tab" variant="ghost" iconOnly>
           <Plus size={14} />
-        </AriaButton>
+        </Button>
         <Popover
           placement="bottom end"
           className="entering:animate-in entering:fade-in entering:zoom-in-95 exiting:animate-out exiting:fade-out exiting:zoom-out-95 w-max rounded-lg border border-border/60 bg-bg-secondary py-1 shadow-lg outline-none"
@@ -433,7 +430,7 @@ export function TabBar() {
             >
               <SquareTerminal size={12} className="shrink-0" />
               <span className="flex-1">New terminal</span>
-              <span className="ml-3 text-text-faint">⌘T</span>
+              <Kbd>⌘T</Kbd>
             </MenuItem>
             <MenuItem
               id="claude-code"
