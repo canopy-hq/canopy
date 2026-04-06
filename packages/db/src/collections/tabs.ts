@@ -12,6 +12,7 @@ function deserialize(row: typeof table.$inferSelect): Tab {
     ...row,
     paneRoot: JSON.parse(row.paneRoot) as Tab['paneRoot'],
     focusedPaneId: row.focusedPaneId ?? null,
+    icon: row.icon ?? undefined,
   };
 }
 

@@ -42,6 +42,7 @@ export function useTerminal(
   isFocused: boolean,
   onPtySpawned: (id: number) => void,
   onCommand?: (cmd: string) => void,
+  initialCommand?: string,
 ): React.MutableRefObject<Terminal | null> {
   const termRef = useRef<Terminal | null>(null);
   // Sync check: if WASM was pre-initialized (ensureGhosttyInit called at app startup),
@@ -353,6 +354,9 @@ export function useTerminal(
                   debouncedRemoveOverlay();
                   term.write(data);
                 });
+                if (initialCommand) {
+                  void writeToPty(newId, initialCommand + '\r');
+                }
               } else {
                 // Reconnect: Tauri Channel messages are queued before the invoke
                 // response, so the buffer is populated when setHandler is called.

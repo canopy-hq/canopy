@@ -49,6 +49,11 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
     return v || undefined;
   }, [paneId]);
 
+  const savedInitCmd = useMemo(() => {
+    const v = getSetting(getSettingCollection().toArray, `init-cmd:${paneId}`, '') as string;
+    return v || undefined;
+  }, [paneId]);
+
   // Poll CWD from Rust side every 2 seconds and persist changes.
   const refreshCwdRef = useRef<(() => void) | null>(null);
   useEffect(() => {
@@ -117,6 +122,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
       paneId={paneId}
       ptyId={realPtyId ?? ptyId}
       savedCwd={savedCwd}
+      savedInitCmd={savedInitCmd}
       isFocused={isFocused}
       cwd={cwd}
       containerRef={containerRef}
@@ -155,6 +161,7 @@ function TerminalPaneInner({
   paneId,
   ptyId,
   savedCwd,
+  savedInitCmd,
   isFocused,
   cwd,
   containerRef,
@@ -164,6 +171,7 @@ function TerminalPaneInner({
   paneId: string;
   ptyId: number;
   savedCwd: string | undefined;
+  savedInitCmd: string | undefined;
   isFocused: boolean;
   cwd: string;
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -192,6 +200,7 @@ function TerminalPaneInner({
     isFocused,
     onPtySpawned,
     handleCommand,
+    savedInitCmd,
   );
 
   const agents = useAgents();

@@ -8,7 +8,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Pencil, Plus, X, XCircle, XSquare } from 'lucide-react';
+import { Pencil, X, XCircle, XSquare } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
@@ -18,7 +18,6 @@ import { useFlipAnimation } from '../hooks/useFlipAnimation';
 import { restrictToHorizontalAxis, sortableTransition, useDragSensors } from '../lib/dnd';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import {
-  addTab,
   closeTab,
   switchTab,
   renameTab,
@@ -26,8 +25,9 @@ import {
   closeAllTabs,
   closeAllTabsExcept,
 } from '../lib/tab-actions';
+import { ClaudeCodeIcon } from './ClaudeCodeIcon';
 import { StatusDot } from './StatusDot';
-import { Badge, Button, Kbd, Tooltip } from './ui';
+import { Badge, Kbd, Tooltip } from './ui';
 import { ContextMenu } from './ui/ContextMenu';
 
 import type { DotStatus } from './StatusDot';
@@ -36,12 +36,6 @@ import type { Tab } from '@superagent/db';
 const closeTabLabel = (
   <>
     Close Tab <Kbd>⌘W</Kbd>
-  </>
-);
-
-const newTabLabel = (
-  <>
-    New tab <Kbd>⌘T</Kbd>
   </>
 );
 
@@ -210,15 +204,20 @@ const TabItemComponent = memo(
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
-            <span
-              className="flex-1 truncate text-left font-mono text-md"
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                startEditing();
-              }}
-            >
-              {tab.label}
-            </span>
+            <>
+              {tab.icon === 'claude-code' && (
+                <ClaudeCodeIcon size={12} className="shrink-0 text-[#da7756]" />
+              )}
+              <span
+                className="flex-1 truncate text-left font-mono text-md"
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  startEditing();
+                }}
+              >
+                {tab.label}
+              </span>
+            </>
           )}
           {agentStatus === 'waiting' && !editing && (
             <Badge pill color="warning" size="xs">
@@ -402,17 +401,6 @@ export function TabBar() {
           </div>
         </SortableContext>
       </DndContext>
-      <Tooltip label={newTabLabel} placement="bottom">
-        <Button
-          iconOnly
-          variant="ghost"
-          onPress={() => addTab()}
-          aria-label="New tab"
-          className="my-1 mr-3 ml-1 shrink-0"
-        >
-          <Plus size={14} />
-        </Button>
-      </Tooltip>
     </div>
   );
 }

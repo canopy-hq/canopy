@@ -21,6 +21,7 @@ export const tabs = sqliteTable('tabs', {
   // JSON: PaneNode (serialized recursive tree)
   paneRoot: text('pane_root').notNull(),
   focusedPaneId: text('focused_pane_id'),
+  icon: text('icon'),
   position: integer('position').notNull().default(0),
 });
 
