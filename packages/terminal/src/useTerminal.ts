@@ -101,6 +101,22 @@ export function useTerminal(
     let term: Terminal;
     let fitAddon: FitAddon;
 
+    // Establish a positioning context so absolute overlays/wrappers (inset:0)
+    // resolve against container — not the outer relative ancestor.
+    container.style.position = 'relative';
+
+    // Reveal helper: double-rAF ensures ghostty-web's WASM renderer has painted
+    // at least one frame before uncovering. Includes a re-fit so the terminal
+    // has its final dimensions when revealed.
+    function revealAfterPaint() {
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          fitAddon.fit();
+          removeOverlay();
+        }),
+      );
+    }
+
     if (cached) {
       // === CACHED PATH: remount after pane restructure — re-parent existing terminal ===
       term = cached.term;
@@ -111,9 +127,6 @@ export function useTerminal(
       // a child of el (term.element/wrapper): mutating el's children can trigger
       // ghostty-web's internal DOM observers and cause it to re-attach keyboard
       // listeners, producing visual duplication and double-typed characters.
-      // container.style.position = 'relative' establishes a positioning context so
-      // that position:absolute;inset:0 on the overlay resolves against container.
-      container.style.position = 'relative';
       const transitionOverlay = document.createElement('div');
       transitionOverlay.style.cssText = `position:absolute;inset:0;background:${themeBg};z-index:1;pointer-events:none`;
       container.appendChild(transitionOverlay);
@@ -130,14 +143,9 @@ export function useTerminal(
       // Unconditional resize IPC on cached remount — ptyId is the real pid,
       // proxy.sessions is already populated, so this call succeeds immediately.
       void resizePty(ptyId, term.rows, term.cols);
-      // Double rAF: first rAF queues after current frame's layout, second fires
-      // after ghostty-web's WASM renderer has completed at least one paint cycle.
-      requestAnimationFrame(() => requestAnimationFrame(() => removeOverlay()));
+      revealAfterPaint();
     } else {
       // === NEW TERMINAL: spawn (ptyId === -1) or reconnect (ptyId > 0) ===
-      // Establish a positioning context so the absolute wrapper (inset:0) resolves
-      // against container — not the outer relative ancestor — preserving pb-2/pl-2.
-      container.style.position = 'relative';
       const termFontSize = getSetting<number>(
         getSettingCollection().toArray,
         'terminalFontSize',
@@ -216,19 +224,14 @@ export function useTerminal(
         if (overlayFirstByte === 0) overlayFirstByte = Date.now();
         if (overlayTimer !== null) clearTimeout(overlayTimer);
         const elapsed = Date.now() - overlayFirstByte;
-        const minRemaining = Math.max(0, 300 - elapsed);
-        const delay = Math.min(Math.max(80, minRemaining), Math.max(0, 500 - elapsed));
+        // Wait at least 300ms from first byte (prompt render time), debounce 80ms
+        // per chunk, but never exceed 500ms total from first byte.
+        const untilMinimum = Math.max(80, 300 - elapsed);
+        const untilCap = Math.max(0, 500 - elapsed);
+        const delay = Math.min(untilMinimum, untilCap);
         overlayTimer = setTimeout(() => {
           overlayTimer = null;
-          requestAnimationFrame(() =>
-            requestAnimationFrame(() => {
-              // Re-fit before revealing: the container is guaranteed to have its
-              // final dimensions here (300ms+ after first byte), whereas the initial
-              // fit in fontReady.then() may have run before CSS layout settled.
-              fitAddon.fit();
-              removeOverlay();
-            }),
-          );
+          revealAfterPaint();
         }, delay);
       };
 
@@ -346,12 +349,7 @@ export function useTerminal(
           // wrong column count until the next tab-switch triggers a re-fit.
           connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
           setCached(ptyId, term, fitAddon);
-          requestAnimationFrame(() =>
-            requestAnimationFrame(() => {
-              fitAddon.fit();
-              removeOverlay();
-            }),
-          );
+          revealAfterPaint();
         } else {
           // Spawn: PTY started at exact fitted dimensions → lastSentSize = spawn dims
           // → dedup guard suppresses any subsequent fit at the same size → 0 SIGWINCH.

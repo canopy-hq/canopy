@@ -115,7 +115,7 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
     unmount();
   });
 
-  it('overlay removed 80ms after FIRST byte (one-shot) — subsequent bytes do NOT reset the timer', async () => {
+  it('overlay removed after debounce settles (300ms minimum from first byte, resets on each chunk)', async () => {
     vi.useFakeTimers();
     // happy-dom's rAF uses setImmediate which fake timers don't control;
     // replace with setTimeout(cb, 0) so vi.advanceTimersByTime flushes them.
@@ -135,24 +135,34 @@ describe('useTerminal — spawn path (ptyId === -1)', () => {
 
     const freshHandler = vi.mocked(connectPtyOutput).mock.calls[0]![1];
 
-    // First byte: starts the one-shot 80ms timer, overlay still present
+    // First byte: starts debounce timer (300ms from first byte), overlay still present
     act(() => {
       freshHandler(new Uint8Array([65]));
     });
     expect(overlay.parentNode).not.toBeNull();
 
-    // More output at 40ms: timer is NOT reset (one-shot), overlay still present
+    // More output at 100ms: timer resets, overlay still present
     act(() => {
-      vi.advanceTimersByTime(40);
+      vi.advanceTimersByTime(100);
       freshHandler(new Uint8Array([66]));
     });
     expect(overlay.parentNode).not.toBeNull();
 
-    // 80ms after FIRST byte: debounce fires, then double rAF removes overlay
+    // At 200ms from first byte: still not enough (300ms minimum)
     act(() => {
-      vi.advanceTimersByTime(40); // reaches 80ms from first byte → fires timer → rAF #1
-      vi.advanceTimersByTime(1); // fires rAF #1 → schedules rAF #2
-      vi.advanceTimersByTime(1); // fires rAF #2 → removeOverlay()
+      vi.advanceTimersByTime(100);
+    });
+    expect(overlay.parentNode).not.toBeNull();
+
+    // At 300ms from first byte: debounce fires, then double rAF removes overlay
+    act(() => {
+      vi.advanceTimersByTime(100); // reaches 300ms from first byte → fires timer
+      vi.advanceTimersByTime(1); // rAF #1
+      vi.advanceTimersByTime(1); // rAF #2 → removeOverlay() starts fade
+    });
+    // Overlay has opacity:0 with 80ms transition; DOM removal after 80ms
+    act(() => {
+      vi.advanceTimersByTime(80);
     });
     expect(overlay.parentNode).toBeNull();
 
@@ -226,7 +236,12 @@ describe('useTerminal — reconnect path (ptyId > 0)', () => {
     unmount();
   });
 
-  it('overlay removed synchronously after connectPtyOutput (buffer has scrollback, safe to reveal immediately)', async () => {
+  it('overlay removed after double-rAF (deferred reveal for correct dimensions)', async () => {
+    vi.useFakeTimers();
+    const origRAF = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = (cb: FrameRequestCallback) =>
+      setTimeout(() => cb(performance.now()), 0) as unknown as number;
+
     const container = makeContainer();
     const { unmount } = renderHook(() =>
       useTerminal({ current: container } as any, 'pane-1', undefined, 5, false, vi.fn()),
@@ -235,10 +250,23 @@ describe('useTerminal — reconnect path (ptyId > 0)', () => {
 
     expect(connectPtyOutput).toHaveBeenCalledWith(5, expect.any(Function));
 
-    // Overlay removed synchronously — no data needed
     const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
     const wrapper = termInstance.element as HTMLElement;
-    expect(wrapper.querySelector('[style*="z-index"]')).toBeNull();
+    const overlay = wrapper.firstElementChild as HTMLElement;
+
+    // Overlay still present before rAFs fire
+    expect(overlay.style.position).toBe('absolute');
+
+    // Double rAF + fade timeout removes overlay
+    act(() => {
+      vi.advanceTimersByTime(1); // rAF #1
+      vi.advanceTimersByTime(1); // rAF #2 → starts fade
+      vi.advanceTimersByTime(80); // fade completes → DOM removal
+    });
+    expect(overlay.parentNode).toBeNull();
+
+    globalThis.requestAnimationFrame = origRAF;
+    vi.useRealTimers();
     unmount();
   });
 });
@@ -451,7 +479,12 @@ describe('useTerminal — restored session (isNew=false) [PHASE 2]', () => {
     unmount();
   });
 
-  it('overlay removed synchronously for restored sessions (buffer has scrollback when setHandler runs)', async () => {
+  it('overlay removed immediately for restored sessions (buffer has scrollback when setHandler runs)', async () => {
+    vi.useFakeTimers();
+    const origRAF = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = (cb: FrameRequestCallback) =>
+      setTimeout(() => cb(performance.now()), 0) as unknown as number;
+
     vi.mocked(spawnTerminal).mockResolvedValueOnce({ ptyId: 42, isNew: false });
 
     const container = makeContainer();
@@ -462,10 +495,18 @@ describe('useTerminal — restored session (isNew=false) [PHASE 2]', () => {
 
     expect(connectPtyOutput).toHaveBeenCalledWith(42, expect.any(Function));
 
-    // Overlay removed synchronously after connectPtyOutput
+    // Overlay removed via removeOverlay() (no debounce) — fade + DOM removal
     const termInstance = vi.mocked(Terminal).mock.instances[0] as any;
     const wrapper = termInstance.element as HTMLElement;
-    expect(wrapper.querySelector('[style*="z-index"]')).toBeNull();
+    const overlay = wrapper.firstElementChild as HTMLElement;
+
+    act(() => {
+      vi.advanceTimersByTime(80); // fade completes → DOM removal
+    });
+    expect(overlay.parentNode).toBeNull();
+
+    globalThis.requestAnimationFrame = origRAF;
+    vi.useRealTimers();
     unmount();
   });
 
@@ -509,15 +550,17 @@ describe('useTerminal — restored session (isNew=false) [PHASE 2]', () => {
     const overlay = wrapper.firstElementChild as HTMLElement;
     expect(overlay.style.position).toBe('absolute');
 
-    // Simulate first byte → one-shot 80ms timer fires → overlay removed
+    // Simulate first byte → starts 300ms debounce timer
     const handler = vi.mocked(connectPtyOutput).mock.calls[0]![1];
     act(() => {
       handler(new Uint8Array([65]));
     });
+    // 300ms debounce fires, then double rAF, then fade
     act(() => {
-      vi.advanceTimersByTime(80);
-      vi.advanceTimersByTime(1);
-      vi.advanceTimersByTime(1);
+      vi.advanceTimersByTime(300); // debounce fires
+      vi.advanceTimersByTime(1); // rAF #1
+      vi.advanceTimersByTime(1); // rAF #2 → starts fade
+      vi.advanceTimersByTime(80); // fade completes → DOM removal
     });
     expect(overlay.parentNode).toBeNull();
 
