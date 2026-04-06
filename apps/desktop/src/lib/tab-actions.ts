@@ -15,6 +15,7 @@ import {
   closePty,
   closePtysForPanes,
   disposeCached,
+  initTerminalPool,
   spawnTerminal,
   writeToPty,
 } from '@superagent/terminal';
@@ -238,6 +239,11 @@ export function switchTabRelative(direction: 'prev' | 'next'): void {
 
 export function setActiveContext(contextId: string): void {
   const ui = getUiState();
+  // Re-init the terminal pool for the new context's cwd so claimed
+  // shells are already at the correct working directory (no cd flicker).
+  const newCwd = resolveProjectItemCwd(contextId);
+  if (newCwd) void initTerminalPool(newCwd);
+
   const col = getTabCollection();
 
   const updatedContextActiveTabIds = {

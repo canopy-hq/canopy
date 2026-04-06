@@ -250,7 +250,6 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
             "claim" => {
                 let rows = cmd["rows"].as_u64().unwrap_or(24) as u16;
                 let cols = cmd["cols"].as_u64().unwrap_or(80) as u16;
-
                 let claimed = {
                     let mut st = state.lock().unwrap();
                     // If a session already exists for this paneId, don't
