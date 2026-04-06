@@ -41,6 +41,10 @@ export function cloneRepo(url: string, dest: string): Promise<RepoInfo> {
   return invoke<RepoInfo>('clone_repo', { url, dest });
 }
 
+export function checkRemote(url: string): Promise<void> {
+  return invoke('check_remote', { url });
+}
+
 export function listBranches(repoPath: string): Promise<BranchInfo[]> {
   return invoke<BranchInfo[]>('list_branches', { repoPath });
 }

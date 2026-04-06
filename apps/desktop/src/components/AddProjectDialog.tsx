@@ -1,35 +1,49 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Dialog, Heading } from 'react-aria-components';
+import { Dialog, Heading, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 
+import { useForm } from '@tanstack/react-form';
 import { useNavigate } from '@tanstack/react-router';
 import { FolderOpen } from 'lucide-react';
-import { tv } from 'tailwind-variants';
+import * as v from 'valibot';
 
 import * as gitApi from '../lib/git';
 import { importLocalProject, startProjectClone } from '../lib/project-actions';
-import { Button } from './ui';
+import { Button, SectionLabel, Spinner } from './ui';
 
-type Tab = 'local' | 'clone';
+// ── Valibot schemas ───────────────────────────────────────────────────────────
 
-const tab = tv({
-  base: 'cursor-pointer rounded-md px-3 py-1.5 font-mono text-xs font-medium transition-colors',
-  variants: {
-    active: {
-      true: 'bg-bg-tertiary text-text-primary',
-      false: 'text-text-muted hover:text-text-secondary',
-    },
-  },
-});
+const pathSchema = v.pipe(v.string(), v.minLength(1, 'Repository path is required'));
+const urlSchema = v.pipe(v.string(), v.minLength(1, 'Repository URL is required'));
+const destSchema = v.pipe(v.string(), v.minLength(1, 'Destination directory is required'));
 
-const inputClass =
-  'w-full rounded-md border border-border/40 bg-bg-primary/60 px-3 py-2 font-mono text-sm text-text-primary outline-none placeholder:text-text-faint/50 focus:border-border/70 focus:bg-bg-primary';
+function parseSchema(schema: v.BaseSchema<string, string, v.BaseIssue<unknown>>, value: string) {
+  const result = v.safeParse(schema, value);
+  return result.success ? undefined : result.issues[0]?.message;
+}
 
-const errorClass = 'mt-1.5 font-mono text-xs text-destructive/80';
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-interface BranchStep {
-  path: string;
-  name: string;
-  branches: gitApi.BranchInfo[];
+function friendlyLocalError(msg: string): string {
+  const lower = msg.toLowerCase();
+  if (
+    lower.includes('no such file') ||
+    lower.includes('not found') ||
+    lower.includes("doesn't exist") ||
+    lower.includes('does not exist')
+  ) {
+    return 'This folder does not exist';
+  }
+  if (
+    lower.includes('not a git') ||
+    lower.includes('could not find repository') ||
+    lower.includes('no git')
+  ) {
+    return 'Not a git repository — select a folder containing a .git directory';
+  }
+  if (lower.includes('permission denied')) {
+    return 'Permission denied — check folder access';
+  }
+  return 'Could not open this repository';
 }
 
 async function pickDirectory(title: string): Promise<string | null> {
@@ -42,26 +56,36 @@ async function pickDirectory(title: string): Promise<string | null> {
   }
 }
 
+// ── Shared styles ─────────────────────────────────────────────────────────────
+
+const inputCls =
+  'w-full rounded-md border border-border/40 bg-bg-primary/60 px-3 py-2 font-mono text-sm text-text-primary outline-none placeholder:text-text-faint/50 focus:border-border/70 focus:bg-bg-primary';
+
+const errorCls = 'mt-1.5 font-mono text-xs text-destructive/80';
+
+const tabCls = ({ isSelected }: { isSelected: boolean }) =>
+  `cursor-pointer rounded-md px-3 py-1.5 font-mono text-xs font-medium outline-none transition-colors ${
+    isSelected ? 'bg-bg-tertiary text-text-primary' : 'text-text-muted hover:text-text-secondary'
+  }`;
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface BranchStep {
+  path: string;
+  name: string;
+  branches: gitApi.BranchInfo[];
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export function AddProjectDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<Tab>('local');
-
-  // Local tab state
-  const [localPath, setLocalPath] = useState('');
-  const [localError, setLocalError] = useState('');
-  const [localValidating, setLocalValidating] = useState(false);
-
-  // Clone tab state
-  const [cloneUrl, setCloneUrl] = useState('');
-  const [cloneDest, setCloneDest] = useState('');
-  const [cloneUrlError, setCloneUrlError] = useState('');
-  const [cloneDestError, setCloneDestError] = useState('');
-
-  // Branch/name step (shared)
   const [branchStep, setBranchStep] = useState<BranchStep | null>(null);
   const [selectedBranch, setSelectedBranch] = useState('');
   const [projectName, setProjectName] = useState('');
 
+  // Stores the validated git repo info, set inside onChangeAsync validator
+  const branchResultRef = useRef<BranchStep | null>(null);
   const localPathRef = useRef<HTMLInputElement>(null);
   const cloneUrlRef = useRef<HTMLInputElement>(null);
 
@@ -77,51 +101,31 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
     localPathRef.current?.focus();
   }, []);
 
-  useEffect(() => {
-    if (activeTab === 'clone') cloneUrlRef.current?.focus();
-  }, [activeTab]);
+  // ── Local form ────────────────────────────────────────────────────────────
 
-  const openBrowseForLocal = useCallback(async () => {
-    const path = await pickDirectory('Select Git Repository');
-    if (path) {
-      setLocalPath(path);
-      setLocalError('');
-    }
-  }, []);
-
-  const openBrowseForDest = useCallback(async () => {
-    const path = await pickDirectory('Choose destination directory');
-    if (path) {
-      setCloneDest(path);
-      setCloneDestError('');
-    }
-  }, []);
-
-  const validateLocalPath = useCallback(async (path: string) => {
-    if (!path.trim()) return;
-    setLocalValidating(true);
-    setLocalError('');
-    try {
-      const info = await gitApi.importRepo(path.trim());
-      const branches = await gitApi.listBranches(info.path);
-      const head = branches.find((b) => b.is_head)?.name ?? branches[0]?.name ?? '';
-      setBranchStep({ path: info.path, name: info.name, branches });
+  const localForm = useForm({
+    defaultValues: { path: '' },
+    onSubmit: () => {
+      const result = branchResultRef.current;
+      if (!result) return;
+      const head = result.branches.find((b) => b.is_head)?.name ?? result.branches[0]?.name ?? '';
+      setBranchStep(result);
       setSelectedBranch(head);
-      setProjectName(info.name);
-    } catch (err) {
-      setLocalError(
-        String(err).includes('not found') || String(err).includes('not a git')
-          ? 'Not a git repository'
-          : String(err),
-      );
-    } finally {
-      setLocalValidating(false);
-    }
-  }, []);
+      setProjectName(result.name);
+    },
+  });
 
-  const handleLocalSubmit = useCallback(async () => {
-    await validateLocalPath(localPath);
-  }, [localPath, validateLocalPath]);
+  // ── Clone form ────────────────────────────────────────────────────────────
+
+  const cloneForm = useForm({
+    defaultValues: { url: '', dest: '' },
+    onSubmit: ({ value }) => {
+      startProjectClone(value.url.trim(), value.dest.trim(), navigate);
+      onClose();
+    },
+  });
+
+  // ── Branch step confirm ───────────────────────────────────────────────────
 
   const handleConfirmLocal = useCallback(() => {
     if (!branchStep) return;
@@ -132,25 +136,7 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
     onClose();
   }, [branchStep, selectedBranch, projectName, navigate, onClose]);
 
-  const handleStartClone = useCallback(() => {
-    let valid = true;
-    if (!cloneUrl.trim()) {
-      setCloneUrlError('Repository URL is required');
-      valid = false;
-    } else {
-      setCloneUrlError('');
-    }
-    if (!cloneDest.trim()) {
-      setCloneDestError('Destination directory is required');
-      valid = false;
-    } else {
-      setCloneDestError('');
-    }
-    if (!valid) return;
-
-    startProjectClone(cloneUrl.trim(), cloneDest.trim(), navigate);
-    onClose();
-  }, [cloneUrl, cloneDest, navigate, onClose]);
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div
@@ -167,186 +153,292 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
           </Heading>
 
           {branchStep ? (
-            /* Step 2: branch + name */
-            <div>
-              <div className="mb-4">
-                <label className="mb-1.5 block font-mono text-xs font-medium tracking-widest text-text-faint uppercase">
-                  Branch
-                </label>
-                <select
-                  value={selectedBranch}
-                  onChange={(e) => setSelectedBranch(e.target.value)}
-                  className={inputClass}
-                >
-                  {branchStep.branches.map((b) => (
-                    <option key={b.name} value={b.name}>
-                      {b.name}
-                      {b.is_head ? ' (HEAD)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="mb-5">
-                <label className="mb-1.5 block font-mono text-xs font-medium tracking-widest text-text-faint uppercase">
-                  Project name
-                </label>
-                <input
-                  type="text"
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
-                  className={inputClass}
-                  autoComplete="off"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2">
-                <Button variant="secondary" onPress={() => setBranchStep(null)}>
-                  Back
-                </Button>
-                <Button
-                  variant="primary"
-                  onPress={handleConfirmLocal}
-                  isDisabled={!projectName.trim()}
-                >
-                  Add Project
-                </Button>
-              </div>
-            </div>
+            <BranchStepView
+              branchStep={branchStep}
+              selectedBranch={selectedBranch}
+              onBranchChange={setSelectedBranch}
+              projectName={projectName}
+              onNameChange={setProjectName}
+              onBack={() => setBranchStep(null)}
+              onConfirm={handleConfirmLocal}
+            />
           ) : (
-            /* Step 1: source selection */
-            <div>
-              {/* Tabs */}
-              <div className="mb-4 flex gap-1 rounded-lg bg-bg-primary/40 p-1">
-                <button
-                  type="button"
-                  className={tab({ active: activeTab === 'local' })}
-                  onClick={() => setActiveTab('local')}
-                >
+            <Tabs
+              onSelectionChange={(key) => {
+                if (key === 'clone') cloneUrlRef.current?.focus();
+              }}
+            >
+              <TabList className="mb-4 flex gap-1 rounded-lg bg-bg-primary/40 p-1">
+                <Tab id="local" className={tabCls}>
                   Local
-                </button>
-                <button
-                  type="button"
-                  className={tab({ active: activeTab === 'clone' })}
-                  onClick={() => setActiveTab('clone')}
-                >
+                </Tab>
+                <Tab id="clone" className={tabCls}>
                   Clone from URL
-                </button>
-              </div>
+                </Tab>
+              </TabList>
 
-              {activeTab === 'local' ? (
-                <div>
-                  <label className="mb-1.5 block font-mono text-xs font-medium tracking-widest text-text-faint uppercase">
-                    Repository path
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      ref={localPathRef}
-                      type="text"
-                      value={localPath}
-                      onChange={(e) => {
-                        setLocalPath(e.target.value);
-                        setLocalError('');
-                      }}
-                      onBlur={() => void validateLocalPath(localPath)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') void handleLocalSubmit();
-                      }}
-                      placeholder="/path/to/repo"
-                      className={inputClass}
-                      autoComplete="off"
-                      spellCheck={false}
-                    />
-                    <Button
-                      variant="secondary"
-                      onPress={() => void openBrowseForLocal()}
-                      aria-label="Browse"
-                    >
-                      <FolderOpen size={14} />
-                    </Button>
-                  </div>
-                  {localError && <p className={errorClass}>{localError}</p>}
-
-                  <div className="mt-5 flex justify-end gap-2">
-                    <Button variant="secondary" onPress={onClose}>
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="primary"
-                      onPress={() => void handleLocalSubmit()}
-                      isDisabled={!localPath.trim() || localValidating}
-                    >
-                      {localValidating ? 'Validating…' : 'Next'}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div className="mb-3">
-                    <label className="mb-1.5 block font-mono text-xs font-medium tracking-widest text-text-faint uppercase">
-                      Repository URL
-                    </label>
-                    <input
-                      ref={cloneUrlRef}
-                      type="text"
-                      value={cloneUrl}
-                      onChange={(e) => {
-                        setCloneUrl(e.target.value);
-                        setCloneUrlError('');
-                      }}
-                      placeholder="https://github.com/owner/repo.git"
-                      className={inputClass}
-                      autoComplete="off"
-                      spellCheck={false}
-                    />
-                    {cloneUrlError && <p className={errorClass}>{cloneUrlError}</p>}
-                  </div>
-
-                  <div className="mb-5">
-                    <label className="mb-1.5 block font-mono text-xs font-medium tracking-widest text-text-faint uppercase">
-                      Destination directory
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={cloneDest}
-                        onChange={(e) => {
-                          setCloneDest(e.target.value);
-                          setCloneDestError('');
-                        }}
-                        placeholder="~/Developer"
-                        className={inputClass}
-                        autoComplete="off"
-                        spellCheck={false}
-                      />
-                      <Button
-                        variant="secondary"
-                        onPress={() => void openBrowseForDest()}
-                        aria-label="Browse"
-                      >
-                        <FolderOpen size={14} />
-                      </Button>
+              <TabPanel id="local">
+                <localForm.Field
+                  name="path"
+                  validators={{
+                    onChange: ({ value }) => parseSchema(pathSchema, value),
+                    onChangeAsync: async ({ value }) => {
+                      const trimmed = value.trim();
+                      if (!trimmed) return undefined;
+                      branchResultRef.current = null;
+                      try {
+                        const info = await gitApi.importRepo(trimmed);
+                        const branches = await gitApi.listBranches(info.path);
+                        branchResultRef.current = { path: info.path, name: info.name, branches };
+                        return undefined;
+                      } catch (err) {
+                        return friendlyLocalError(String(err));
+                      }
+                    },
+                    onChangeAsyncDebounceMs: 600,
+                  }}
+                >
+                  {(field) => (
+                    <div>
+                      <SectionLabel className="mb-1.5">Repository path</SectionLabel>
+                      <div className="flex items-stretch gap-2">
+                        <input
+                          ref={localPathRef}
+                          type="text"
+                          value={field.state.value}
+                          onChange={(e) => {
+                            branchResultRef.current = null;
+                            field.handleChange(e.target.value);
+                          }}
+                          onBlur={field.handleBlur}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') void localForm.handleSubmit();
+                          }}
+                          placeholder="/path/to/repo"
+                          className={`${inputCls} flex-1`}
+                          autoComplete="off"
+                          spellCheck={false}
+                        />
+                        <Button
+                          variant="secondary"
+                          onPress={async () => {
+                            const path = await pickDirectory('Select Git Repository');
+                            if (path) {
+                              branchResultRef.current = null;
+                              field.handleChange(path);
+                            }
+                          }}
+                          aria-label="Browse"
+                          className="h-auto shrink-0 px-2.5"
+                        >
+                          <FolderOpen size={14} />
+                        </Button>
+                      </div>
+                      <FieldFeedback field={field} validatingLabel="Checking…" />
                     </div>
-                    {cloneDestError && <p className={errorClass}>{cloneDestError}</p>}
-                  </div>
+                  )}
+                </localForm.Field>
 
-                  <div className="flex items-center justify-end gap-2">
-                    <Button variant="secondary" onPress={onClose}>
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="primary"
-                      onPress={handleStartClone}
-                      isDisabled={!cloneUrl.trim() || !cloneDest.trim()}
-                    >
-                      Start Clone
-                    </Button>
-                  </div>
+                <div className="mt-5 flex justify-end gap-2">
+                  <Button variant="secondary" onPress={onClose}>
+                    Cancel
+                  </Button>
+                  <localForm.Subscribe selector={(s) => s.canSubmit && !s.isValidating}>
+                    {(canSubmit) => (
+                      <Button
+                        variant="primary"
+                        onPress={() => void localForm.handleSubmit()}
+                        isDisabled={!canSubmit}
+                      >
+                        Next
+                      </Button>
+                    )}
+                  </localForm.Subscribe>
                 </div>
-              )}
-            </div>
+              </TabPanel>
+
+              <TabPanel id="clone">
+                <div className="mb-3">
+                  <cloneForm.Field
+                    name="url"
+                    validators={{
+                      onChange: ({ value }) => parseSchema(urlSchema, value),
+                      onChangeAsync: async ({ value }) => {
+                        const trimmed = value.trim();
+                        if (!trimmed) return undefined;
+                        try {
+                          await gitApi.checkRemote(trimmed);
+                          return undefined;
+                        } catch (err) {
+                          return String(err);
+                        }
+                      },
+                      onChangeAsyncDebounceMs: 800,
+                    }}
+                  >
+                    {(field) => (
+                      <div>
+                        <SectionLabel className="mb-1.5">Repository URL</SectionLabel>
+                        <input
+                          ref={cloneUrlRef}
+                          type="text"
+                          value={field.state.value}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          onBlur={field.handleBlur}
+                          placeholder="https://github.com/owner/repo.git"
+                          className={inputCls}
+                          autoComplete="off"
+                          spellCheck={false}
+                        />
+                        <FieldFeedback field={field} validatingLabel="Checking repository…" />
+                      </div>
+                    )}
+                  </cloneForm.Field>
+                </div>
+
+                <div className="mb-5">
+                  <cloneForm.Field
+                    name="dest"
+                    validators={{ onChange: ({ value }) => parseSchema(destSchema, value) }}
+                  >
+                    {(field) => (
+                      <div>
+                        <SectionLabel className="mb-1.5">Destination directory</SectionLabel>
+                        <div className="flex items-stretch gap-2">
+                          <input
+                            type="text"
+                            value={field.state.value}
+                            onChange={(e) => field.handleChange(e.target.value)}
+                            onBlur={field.handleBlur}
+                            placeholder="~/Developer"
+                            className={`${inputCls} flex-1`}
+                            autoComplete="off"
+                            spellCheck={false}
+                          />
+                          <Button
+                            variant="secondary"
+                            onPress={async () => {
+                              const path = await pickDirectory('Choose destination directory');
+                              if (path) field.handleChange(path);
+                            }}
+                            aria-label="Browse"
+                            className="h-auto shrink-0 px-2.5"
+                          >
+                            <FolderOpen size={14} />
+                          </Button>
+                        </div>
+                        <FieldFeedback field={field} />
+                      </div>
+                    )}
+                  </cloneForm.Field>
+                </div>
+
+                <div className="flex items-center justify-end gap-2">
+                  <Button variant="secondary" onPress={onClose}>
+                    Cancel
+                  </Button>
+                  <cloneForm.Subscribe selector={(s) => s.canSubmit && !s.isValidating}>
+                    {(canSubmit) => (
+                      <Button
+                        variant="primary"
+                        onPress={() => void cloneForm.handleSubmit()}
+                        isDisabled={!canSubmit}
+                      >
+                        Start Clone
+                      </Button>
+                    )}
+                  </cloneForm.Subscribe>
+                </div>
+              </TabPanel>
+            </Tabs>
           )}
         </Dialog>
+      </div>
+    </div>
+  );
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function FieldFeedback({
+  field,
+  validatingLabel,
+}: {
+  field: {
+    state: {
+      meta: { isDirty: boolean; isTouched: boolean; isValidating: boolean; errors: unknown[] };
+    };
+  };
+  validatingLabel?: string;
+}) {
+  const { isDirty, isTouched, isValidating, errors } = field.state.meta;
+  const showError = (isDirty || isTouched) && !isValidating && errors.length > 0;
+  return (
+    <>
+      {isValidating && validatingLabel && (
+        <p className="mt-1.5 flex items-center gap-1.5 font-mono text-xs text-text-faint">
+          <Spinner size={10} />
+          {validatingLabel}
+        </p>
+      )}
+      {showError && <p className={errorCls}>{String(errors[0])}</p>}
+    </>
+  );
+}
+
+function BranchStepView({
+  branchStep,
+  selectedBranch,
+  onBranchChange,
+  projectName,
+  onNameChange,
+  onBack,
+  onConfirm,
+}: {
+  branchStep: BranchStep;
+  selectedBranch: string;
+  onBranchChange: (v: string) => void;
+  projectName: string;
+  onNameChange: (v: string) => void;
+  onBack: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div>
+      <div className="mb-4">
+        <SectionLabel className="mb-1.5">Branch</SectionLabel>
+        <select
+          value={selectedBranch}
+          onChange={(e) => onBranchChange(e.target.value)}
+          className={inputCls}
+        >
+          {branchStep.branches.map((b) => (
+            <option key={b.name} value={b.name}>
+              {b.name}
+              {b.is_head ? ' (HEAD)' : ''}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mb-5">
+        <SectionLabel className="mb-1.5">Project name</SectionLabel>
+        <input
+          type="text"
+          value={projectName}
+          onChange={(e) => onNameChange(e.target.value)}
+          className={inputCls}
+          autoComplete="off"
+        />
+      </div>
+
+      <div className="flex items-center justify-end gap-2">
+        <Button variant="secondary" onPress={onBack}>
+          Back
+        </Button>
+        <Button variant="primary" onPress={onConfirm} isDisabled={!projectName.trim()}>
+          Add Project
+        </Button>
       </div>
     </div>
   );

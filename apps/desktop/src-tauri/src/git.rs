@@ -374,6 +374,61 @@ pub async fn clone_repo(url: String, dest: String) -> Result<RepoInfo, String> {
     .map_err(|e| e.to_string())?
 }
 
+fn friendly_remote_error(msg: &str) -> String {
+    let lower = msg.to_lowercase();
+    if lower.contains("authentication")
+        || lower.contains("permission denied")
+        || lower.contains("credentials")
+        || lower.contains("authorization")
+    {
+        return "Authentication failed — check your SSH keys or credentials".to_string();
+    }
+    if lower.contains("not found")
+        || lower.contains("does not exist")
+        || lower.contains("repository not found")
+        || lower.contains("access denied")
+    {
+        return "Repository not found".to_string();
+    }
+    if lower.contains("unable to connect")
+        || lower.contains("could not resolve")
+        || lower.contains("name or service not known")
+        || lower.contains("connection refused")
+        || lower.contains("timed out")
+    {
+        return "Could not connect — check your network connection".to_string();
+    }
+    msg.to_string()
+}
+
+#[tauri::command]
+pub async fn check_remote(url: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let attempted = std::cell::Cell::new(false);
+        let config = git2::Config::open_default().ok();
+
+        let mut callbacks = git2::RemoteCallbacks::new();
+        callbacks.credentials(|remote_url, username_from_url, allowed_types| {
+            if attempted.get() {
+                return Err(git2::Error::from_str("no credentials available"));
+            }
+            attempted.set(true);
+            try_credentials(remote_url, username_from_url, allowed_types, config.as_ref())
+        });
+
+        let mut remote = git2::Remote::create_detached(url.as_str())
+            .map_err(|_| "Invalid repository URL".to_string())?;
+
+        let _conn = remote
+            .connect_auth(git2::Direction::Fetch, Some(callbacks), None)
+            .map_err(|e| friendly_remote_error(e.message()))?;
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 pub async fn create_branch(
     repo_path: String,
