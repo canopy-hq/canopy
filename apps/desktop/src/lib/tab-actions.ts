@@ -9,6 +9,7 @@ import {
   insertTabAndActivate,
   insertTabSilently,
   deleteTabAndUpdateActive,
+  syncNavStateToLocalStorage,
 } from '@superagent/db';
 import {
   closePty,
@@ -196,6 +197,7 @@ export function closeTab(tabId: string): void {
 
 export function switchTab(tabId: string): void {
   if (getTabCollection().toArray.some((t) => t.id === tabId)) {
+    syncNavStateToLocalStorage(tabId, getUiState().activeContextId);
     uiCollection.update('ui', (draft) => {
       draft.activeTabId = tabId;
     });
@@ -209,6 +211,7 @@ export function switchTabByIndex(index: number): void {
   );
   if (index >= 0 && index < contextTabs.length) {
     const tabId = contextTabs[index]!.id;
+    syncNavStateToLocalStorage(tabId, ui.activeContextId);
     uiCollection.update('ui', (draft) => {
       draft.activeTabId = tabId;
     });
@@ -227,6 +230,7 @@ export function switchTabRelative(direction: 'prev' | 'next'): void {
       ? (idx + 1) % contextTabs.length
       : (idx - 1 + contextTabs.length) % contextTabs.length;
   const tabId = contextTabs[newIdx]!.id;
+  syncNavStateToLocalStorage(tabId, ui.activeContextId);
   uiCollection.update('ui', (draft) => {
     draft.activeTabId = tabId;
   });
@@ -247,6 +251,7 @@ export function setActiveContext(contextId: string): void {
     const savedTabId = updatedContextActiveTabIds[contextId];
     const savedTab = savedTabId ? contextTabs.find((t) => t.id === savedTabId) : null;
     const newActiveTabId = savedTab ? savedTab.id : contextTabs[0]!.id;
+    syncNavStateToLocalStorage(newActiveTabId, contextId);
     uiCollection.update('ui', (draft) => {
       draft.contextActiveTabIds = updatedContextActiveTabIds;
       draft.activeContextId = contextId;
@@ -254,6 +259,7 @@ export function setActiveContext(contextId: string): void {
       draft.selectedItemId = contextId;
     });
   } else {
+    syncNavStateToLocalStorage('', contextId);
     uiCollection.update('ui', (draft) => {
       draft.contextActiveTabIds = updatedContextActiveTabIds;
       draft.activeContextId = contextId;

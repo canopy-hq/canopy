@@ -59,3 +59,21 @@ export const uiCollection = createCollection(
 export function getUiState(): UiState {
   return uiCollection.toArray[0] ?? INITIAL_UI_STATE;
 }
+
+/**
+ * Synchronously persist activeTabId + activeContextId to localStorage.
+ * Must be called at every call site that changes these values, because
+ * TanStack DB's onUpdate callbacks are async and may not flush to SQLite
+ * before a reload. Optionally snapshots tabs for the same reason.
+ */
+export function syncNavStateToLocalStorage(
+  tabId: string,
+  contextId: string,
+  tabSnapshot?: unknown[],
+): void {
+  localStorage.setItem('ui:activeTabId', tabId);
+  localStorage.setItem('ui:activeContextId', contextId);
+  if (tabSnapshot) {
+    localStorage.setItem('ui:tabs', JSON.stringify(tabSnapshot));
+  }
+}
