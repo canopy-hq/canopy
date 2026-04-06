@@ -394,7 +394,7 @@ export function TabBar() {
           <SquarePlus size={12} />
         </Button>
         <Popover
-          placement="bottom end"
+          placement="bottom start"
           className="entering:animate-in entering:fade-in entering:zoom-in-95 exiting:animate-out exiting:fade-out exiting:zoom-out-95 w-max rounded-lg border border-border/60 bg-bg-secondary py-1 shadow-lg outline-none"
         >
           <Menu
