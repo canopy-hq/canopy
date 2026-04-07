@@ -5,6 +5,14 @@ use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 
+/// Sanitize a worktree name for use as a git admin directory.
+/// git2 stores worktree metadata under `.git/worktrees/{name}/` and uses
+/// `mkdir` (not `mkdir -p`), so slashes in the name cause "No such file
+/// or directory" errors.
+fn sanitize_worktree_name(name: &str) -> String {
+    name.replace('/', "-")
+}
+
 #[derive(Serialize, Clone)]
 pub struct BranchInfo {
     pub name: String,
@@ -442,10 +450,7 @@ fn create_worktree_sync(
         opts.reference(Some(&_ref_holder));
     }
 
-    // git2 uses the worktree name as an admin directory under .git/worktrees/{name}/.
-    // Slashes in the name would require nested directories that git2 doesn't create,
-    // causing "No such file or directory" errors for branches like "feat/my-feature".
-    let safe_name = name.replace('/', "-");
+    let safe_name = sanitize_worktree_name(&name);
 
     // Expand ~ to home directory
     let expanded_path = if path.starts_with("~/") {
@@ -511,8 +516,9 @@ pub async fn create_worktree(
 
 fn remove_worktree_sync(repo_path: String, name: String) -> Result<(), String> {
     let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
+    let safe_name = sanitize_worktree_name(&name);
     let wt = repo
-        .find_worktree(&name)
+        .find_worktree(&safe_name)
         .map_err(|e| e.to_string())?;
     if wt.is_locked().ok().map_or(false, |status| {
         matches!(status, git2::WorktreeLockStatus::Locked(_))

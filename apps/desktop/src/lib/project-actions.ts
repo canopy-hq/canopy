@@ -376,6 +376,7 @@ export function startWorktreeCreation(
       getProjectCollection().update(projectId, (draft) => {
         const entry = draft.worktrees.find((w) => w.name === name);
         if (entry) {
+          entry.name = wt.name; // git admin name (slashes replaced with dashes)
           entry.path = wt.path;
           entry.branch = wt.branch;
         }
