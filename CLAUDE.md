@@ -26,21 +26,7 @@ Desktop app for managing AI coding agents across git workspaces. Tauri v2 (Rust 
 
 ## Dev commands
 
-```bash
-bun install                                        # install deps
-bun run desktop:dev                                # dev server
-bun run desktop:dev:rebuild                        # force-rebuild PTY daemon then dev server
-bun run desktop:build                              # production binary (used by CI/release)
-bun run desktop:build:local                        # unsigned local build + strips quarantine
-bun run desktop:open                               # open last local build
-bun run desktop:db:reset                           # reset dev DB for current worktree
-bun run desktop:db:reset:prod                      # reset prod DB
-bun --filter desktop test                          # frontend tests
-bun --filter @superagent/terminal test             # terminal tests
-cd apps/desktop/src-tauri && cargo test            # rust tests
-bun run lint                                       # oxlint (root)
-bun run format                                     # oxfmt (root)
-```
+See `README.md` for the full command reference (dev, build, release, DB reset).
 
 ## Key architectural rule
 
