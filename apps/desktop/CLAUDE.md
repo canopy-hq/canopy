@@ -137,6 +137,20 @@ See `packages/ui/CLAUDE.md` for what's available and when to add a component.
 - **Shallow comparison.** Never `JSON.stringify` for equality — use shallow key/value comparison or refs.
 - Profile the "40 workspaces expanded" scenario before shipping any polling feature.
 
+## Tauri plugin versioning
+
+Always pin Tauri plugins to a specific minor version with a caret — never use a bare major (`"^2"`):
+
+```json
+// BAD
+"@tauri-apps/plugin-updater": "^2"
+
+// GOOD
+"@tauri-apps/plugin-updater": "^2.10.1"
+```
+
+This applies to both JS (`package.json`) and Rust (`Cargo.toml`). Tauri plugin minor releases can introduce breaking changes in the JS/Rust bridge, and a bare `^2` would silently pull them in.
+
 ## Testing
 
 - **Vitest + React Testing Library.** Mock Tauri modules with `vi.mock('@tauri-apps/api/...')`.

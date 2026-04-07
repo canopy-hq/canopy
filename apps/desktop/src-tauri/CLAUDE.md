@@ -23,7 +23,7 @@ Never implement these in TypeScript and call them in a loop. Build a batched Rus
 | `pty.rs`           | Bridges daemon client + agent watcher. `spawn_terminal` → daemon spawn → attach Channel → start watcher.           |
 | `agent_watcher.rs` | libproc process-tree walk. Detects claude, codex, aider, gemini. 250 ms poll, emits events on state change only.   |
 | `daemon_client.rs` | Unix socket client for pty-daemon. Fresh connection per spawn/close; persistent for write/resize.                  |
-| `lib.rs`           | Tauri setup: plugins, menu, daemon lifecycle, window hide-on-close (PTY sessions survive restart).                 |
+| `lib.rs`           | Tauri setup: plugins, menu, daemon lifecycle, DB path, updater, window hide-on-close (PTY sessions survive restart). |
 
 ## PTY Daemon
 

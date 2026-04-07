@@ -32,18 +32,49 @@ This creates a "Superagent Dev" certificate in your login keychain, trusted only
 ## Commands
 
 ```bash
-bun install                  # Install dependencies
-bun run desktop:dev          # Start the app (auto-assigns port)
-bun run desktop:build        # Build the app
+bun install                      # Install dependencies
+bun run desktop:dev              # Start the app (auto-assigns port)
+bun run desktop:build:local      # Build unsigned .app locally, strips macOS quarantine
+bun run desktop:open             # Open the last local build
 ```
+
+> **Note:** `desktop:build` is for CI/release only (signed artifacts). Use `desktop:build:local` for local testing.
 
 ### Multiple worktrees simultaneously
 
-Each worktree picks a free port automatically. To pin a specific port:
+Each worktree picks a free port automatically and gets its own isolated DB. To pin a specific port:
 
 ```bash
 VITE_PORT=1422 bun run desktop:dev
 ```
+
+### Database
+
+Dev and prod builds use separate SQLite databases:
+
+- **Dev** → `~/Library/Application Support/com.superagent.dev-<hash>/superagent.db` (one per worktree)
+- **Prod** → `~/Library/Application Support/com.superagent.app/superagent.db`
+
+```bash
+bun run desktop:db:reset       # Reset dev DB for the current worktree
+bun run desktop:db:reset:prod  # Reset prod DB
+```
+
+### Releasing
+
+Push a semver tag to trigger the release pipeline:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+This builds the app, signs the update artifacts with the Tauri updater key, and creates a GitHub Release with the `.dmg` and `latest.json` attached. Apple code-signing is pre-wired in `.github/workflows/release.yml` — uncomment and add secrets when a Developer ID certificate is available.
+
+Required GitHub secrets before releasing:
+- `SUPERAGENT_GITHUB_CLIENT_ID`
+- `TAURI_SIGNING_PRIVATE_KEY` (content of `~/.tauri/superagent.key`)
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (empty string if key was generated without password)
 
 ### Other commands
 
