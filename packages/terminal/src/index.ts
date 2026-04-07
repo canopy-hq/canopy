@@ -19,6 +19,7 @@ export {
   type CachedEntry,
 } from './terminal-cache';
 export { applyFontSizeToAll, DEFAULT_TERMINAL_FONT_SIZE } from './terminal-font-size';
+export { applyThemeToAll } from './terminal-theme';
 export { ensureGhosttyInit, isGhosttyReady } from './ghostty-init';
 export {
   themes,

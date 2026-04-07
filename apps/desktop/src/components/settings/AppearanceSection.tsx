@@ -3,6 +3,7 @@ import {
   themes,
   themeNames,
   applyFontSizeToAll,
+  applyThemeToAll,
   DEFAULT_TERMINAL_FONT_SIZE,
   type ThemeName,
   type CssThemeProperties,
@@ -73,6 +74,7 @@ export function AppearanceSection() {
   const handleSelect = (name: ThemeName) => {
     setSetting('theme', name);
     document.documentElement.setAttribute('data-theme', name);
+    applyThemeToAll(name);
   };
 
   const handleFontSizeChange = (size: number) => {
