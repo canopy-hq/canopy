@@ -451,6 +451,7 @@ fn create_worktree_sync(
     }
 
     let safe_name = sanitize_worktree_name(&name);
+    eprintln!("[git] create_worktree: name={name:?} safe_name={safe_name:?} path={path:?}");
 
     // Expand ~ to home directory
     let expanded_path = if path.starts_with("~/") {
@@ -517,6 +518,7 @@ pub async fn create_worktree(
 fn remove_worktree_sync(repo_path: String, name: String) -> Result<(), String> {
     let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
     let safe_name = sanitize_worktree_name(&name);
+    eprintln!("[git] remove_worktree: name={name:?} safe_name={safe_name:?}");
     let wt = repo
         .find_worktree(&safe_name)
         .map_err(|e| e.to_string())?;
