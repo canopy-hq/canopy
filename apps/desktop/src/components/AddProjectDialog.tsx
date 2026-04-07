@@ -66,8 +66,8 @@ const labelCls =
 const errorCls = 'mt-1.5 font-mono text-xs text-destructive/80';
 
 const tabCls = ({ isSelected }: { isSelected: boolean }) =>
-  `cursor-pointer rounded-md px-3 py-1.5 font-mono text-xs font-medium outline-none transition-colors ${
-    isSelected ? 'bg-bg-tertiary text-text-primary' : 'text-text-muted hover:text-text-secondary'
+  `cursor-pointer rounded px-2 py-0.5 text-[11px] outline-none transition-colors ${
+    isSelected ? 'bg-accent/10 text-accent' : 'text-text-muted hover:text-text-primary'
   }`;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -173,7 +173,7 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
                 if (key === 'clone') cloneUrlRef.current?.focus();
               }}
             >
-              <TabList className="mb-4 flex gap-1 rounded-lg bg-bg-primary/40 p-1">
+              <TabList className="-mx-5 mb-4 flex items-center gap-1 border-b border-border px-5 py-1.5">
                 <Tab id="local" className={tabCls}>
                   Local
                 </Tab>
