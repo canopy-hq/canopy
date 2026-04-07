@@ -82,6 +82,7 @@ vi.mock('@superagent/db', () => ({
     _tabs = _tabs.filter((t) => t.id !== tabId);
     if (newActiveTabId !== null) _uiState.activeTabId = newActiveTabId;
   },
+  syncNavStateToLocalStorage: vi.fn(),
 }));
 
 vi.mock('@superagent/terminal', () => ({

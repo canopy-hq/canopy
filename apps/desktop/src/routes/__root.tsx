@@ -12,7 +12,7 @@ import {
   getSessionCollection,
 } from '@superagent/db';
 import { FpsOverlay } from '@superagent/fps';
-import { ensureGhosttyInit, spawnTerminal } from '@superagent/terminal';
+import { ensureGhosttyInit, spawnTerminal, initTerminalPool } from '@superagent/terminal';
 import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 import { LucideProvider } from 'lucide-react';
 
@@ -119,6 +119,16 @@ function RootLayout() {
         }
       }),
     );
+
+    // Pre-warm the PTY pool: use a saved pane CWD, or fall back to the first
+    // project's filesystem path.
+    const firstCwd =
+      paneEntries
+        .map(({ paneId }) => (getSetting(settings, `cwd:${paneId}`, '') as string) || '')
+        .find((cwd) => cwd.length > 0) || getProjectCollection().toArray[0]?.path;
+    if (firstCwd) {
+      void initTerminalPool(firstCwd);
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useTauriMenuEvent(

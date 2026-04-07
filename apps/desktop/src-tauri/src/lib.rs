@@ -10,18 +10,21 @@ use daemon_client::DaemonClient;
 use tauri::{Emitter, Manager};
 use tauri::window::Color;
 
-/// Returns the absolute path to the SQLite DB, creating ~/.superagent/ if needed.
+/// Returns the absolute path to the SQLite DB.
+/// Uses app_data_dir() so dev and prod builds get separate databases:
+///   prod  → ~/Library/Application Support/com.superagent.app/superagent.db
+///   dev   → ~/Library/Application Support/com.superagent.dev-<hash>/superagent.db
 #[tauri::command]
-fn get_db_path() -> Result<String, String> {
-    let home = std::env::var("HOME").map_err(|e| e.to_string())?;
-    let dir = std::path::Path::new(&home).join(".superagent");
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    Ok(dir.join("superagent.db").to_string_lossy().into_owned())
+fn get_db_path(app: tauri::AppHandle) -> Result<String, String> {
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&data_dir).map_err(|e| e.to_string())?;
+    Ok(data_dir.join("superagent.db").to_string_lossy().into_owned())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
@@ -85,6 +88,7 @@ pub fn run() {
             pty::close_ptys_for_panes,
             pty::get_pty_cwd,
             pty::list_pty_sessions,
+            pty::init_terminal_pool,
             git::import_repo,
             git::clone_repo,
             git::check_remote,
