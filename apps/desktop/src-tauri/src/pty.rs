@@ -63,6 +63,16 @@ pub async fn spawn_terminal(
     daemon: tauri::State<'_, DaemonClient>,
     watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
 ) -> Result<SpawnResult, String> {
+    // Validate CWD exists before passing to daemon — stale paths from session
+    // restore or deleted worktrees would cause silent failures.
+    let validated_cwd = cwd.filter(|p| {
+        let exists = std::path::Path::new(p.as_str()).is_dir();
+        if !exists {
+            eprintln!("[pty] spawn_terminal: cwd does not exist, using default: {p}");
+        }
+        exists
+    });
+
     let (pid, is_new) = {
         let r = rows.unwrap_or(24);
         let c = cols.unwrap_or(80);
@@ -78,7 +88,7 @@ pub async fn spawn_terminal(
             }
             other => {
                 eprintln!("[pool] FALLBACK to spawn for pane={pane_id} (claim result: {other:?})");
-                daemon.spawn(&pane_id, cwd.as_deref(), r, c).await?
+                daemon.spawn(&pane_id, validated_cwd.as_deref(), r, c).await?
             }
         }
     };
@@ -285,6 +295,10 @@ pub async fn init_terminal_pool(
     cwd: String,
     daemon: tauri::State<'_, DaemonClient>,
 ) -> Result<(), String> {
+    if !std::path::Path::new(&cwd).is_dir() {
+        eprintln!("[pool] init_terminal_pool skipped — cwd does not exist: {cwd}");
+        return Ok(());
+    }
     eprintln!("[pool] init_terminal_pool called with cwd={cwd}");
     let result = daemon.init_pool(&cwd, 2).await;
     eprintln!("[pool] init_terminal_pool result: {result:?}");

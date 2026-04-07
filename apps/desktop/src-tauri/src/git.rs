@@ -13,7 +13,7 @@ pub struct BranchInfo {
     pub behind: usize,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 pub struct WorktreeInfo {
     pub name: String,
     pub path: String,
@@ -442,9 +442,16 @@ fn create_worktree_sync(
         opts.reference(Some(&_ref_holder));
     }
 
+    // git2 uses the worktree name as an admin directory under .git/worktrees/{name}/.
+    // Slashes in the name would require nested directories that git2 doesn't create,
+    // causing "No such file or directory" errors for branches like "feat/my-feature".
+    let safe_name = name.replace('/', "-");
+
     // Expand ~ to home directory
     let expanded_path = if path.starts_with("~/") {
-        let home = std::env::var("HOME").map_err(|_| "HOME not set".to_string())?;
+        let home = std::env::var("HOME").map_err(|_| {
+            "Could not expand ~: HOME environment variable is not set".to_string()
+        })?;
         format!("{}{}", home, &path[1..])
     } else {
         path.clone()
@@ -453,7 +460,14 @@ fn create_worktree_sync(
 
     // Ensure parent directory exists
     if let Some(parent) = target.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
+        std::fs::create_dir_all(parent).map_err(|e| {
+            match e.kind() {
+                std::io::ErrorKind::PermissionDenied => {
+                    format!("Permission denied creating directory: {}", parent.display())
+                }
+                _ => format!("Cannot create directory {}: {}", parent.display(), e),
+            }
+        })?;
     }
 
     if target.exists() {
@@ -464,8 +478,8 @@ fn create_worktree_sync(
     }
 
     let wt = repo
-        .worktree(&name, target, Some(&opts))
-        .map_err(|e| e.to_string())?;
+        .worktree(&safe_name, target, Some(&opts))
+        .map_err(|e| format!("Git worktree failed ({:?}): {}", e.class(), e.message()))?;
 
     let wt_name = wt.name().unwrap_or("").to_string();
     let wt_path = wt.path().to_string_lossy().to_string();
@@ -876,6 +890,71 @@ mod tests {
         // After prune, the worktree dir may still exist but git won't list it
         let info = import_repo(path).await.unwrap();
         assert!(!info.worktrees.iter().any(|w| w.name == "test-wt"));
+    }
+
+    #[tokio::test]
+    async fn test_create_worktree_with_slashes_in_name() {
+        let tmp = TempDir::new().unwrap();
+        let _repo = init_repo_with_commit(tmp.path());
+        let path = tmp.path().to_string_lossy().to_string();
+
+        let wt_tmp = TempDir::new().unwrap();
+        let wt_path = wt_tmp.path().join("feat-my-feature");
+        let wt = create_worktree(
+            path.clone(),
+            "feat/my-feature".to_string(),
+            wt_path.to_string_lossy().to_string(),
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+        // Slashes replaced with dashes in the admin name
+        assert_eq!(wt.name, "feat-my-feature");
+        assert!(wt_path.exists());
+    }
+
+    #[tokio::test]
+    async fn test_create_worktree_with_deeply_nested_slashes() {
+        let tmp = TempDir::new().unwrap();
+        let _repo = init_repo_with_commit(tmp.path());
+        let path = tmp.path().to_string_lossy().to_string();
+
+        let wt_tmp = TempDir::new().unwrap();
+        let wt_path = wt_tmp.path().join("chore-5-setup-ci");
+        let wt = create_worktree(
+            path.clone(),
+            "chore/5/setup/ci".to_string(),
+            wt_path.to_string_lossy().to_string(),
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(wt.name, "chore-5-setup-ci");
+        assert!(wt_path.exists());
+    }
+
+    #[tokio::test]
+    async fn test_create_worktree_target_already_exists() {
+        let tmp = TempDir::new().unwrap();
+        let _repo = init_repo_with_commit(tmp.path());
+        let path = tmp.path().to_string_lossy().to_string();
+
+        let wt_tmp = TempDir::new().unwrap();
+        let wt_path = wt_tmp.path().join("existing-dir");
+        std::fs::create_dir_all(&wt_path).unwrap();
+
+        let err = create_worktree(
+            path,
+            "test-wt".to_string(),
+            wt_path.to_string_lossy().to_string(),
+            None,
+            None,
+        )
+        .await
+        .unwrap_err();
+        assert!(err.contains("already exists"), "expected 'already exists' error, got: {err}");
     }
 
     #[tokio::test]
