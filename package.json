@@ -14,7 +14,7 @@
     "lint": "oxlint apps/ packages/",
     "format": "oxfmt apps/ packages/",
     "postinstall": "lefthook install",
-    "db:reset": "rm -f \"$HOME\"/Library/Application\\ Support/com.superagent.dev-*/superagent.db && echo 'Dev DBs reset.'",
+    "db:reset": "bun --filter desktop db:reset",
     "db:reset:prod": "rm -f \"$HOME/Library/Application Support/com.superagent.app/superagent.db\" && echo 'Prod DB reset.'"
   },
   "catalog": {
