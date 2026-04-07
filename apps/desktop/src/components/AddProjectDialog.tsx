@@ -8,7 +8,7 @@ import * as v from 'valibot';
 
 import * as gitApi from '../lib/git';
 import { importLocalProject, startProjectClone } from '../lib/project-actions';
-import { Button, SectionLabel, Spinner } from './ui';
+import { Button, Spinner } from './ui';
 
 // ── Valibot schemas ───────────────────────────────────────────────────────────
 
@@ -61,6 +61,8 @@ async function pickDirectory(title: string): Promise<string | null> {
 const inputCls =
   'w-full rounded-md border border-border/40 bg-bg-primary/60 px-3 py-2 font-mono text-sm text-text-primary outline-none placeholder:text-text-faint/50 focus:border-border/70 focus:bg-bg-primary';
 
+const labelCls =
+  'mb-2 block font-mono text-xs font-medium tracking-widest text-text-faint uppercase';
 const errorCls = 'mt-1.5 font-mono text-xs text-destructive/80';
 
 const tabCls = ({ isSelected }: { isSelected: boolean }) =>
@@ -148,7 +150,10 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
     >
       <div className="w-[480px] rounded-lg border border-border/60 bg-bg-secondary p-5 shadow-xl">
         <Dialog className="outline-none" aria-label="Add Project">
-          <Heading slot="title" className="mb-4 font-mono text-base font-medium text-text-primary">
+          <Heading
+            slot="title"
+            className="mb-4 font-mono text-base leading-none font-medium text-text-primary"
+          >
             Add Project
           </Heading>
 
@@ -200,10 +205,13 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
                 >
                   {(field) => (
                     <div>
-                      <SectionLabel className="mb-1.5">Repository path</SectionLabel>
+                      <label htmlFor="local-path" className={labelCls}>
+                        Repository path
+                      </label>
                       <div className="flex items-stretch gap-2">
                         <input
                           ref={localPathRef}
+                          id="local-path"
                           type="text"
                           value={field.state.value}
                           onChange={(e) => {
@@ -239,7 +247,7 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
                   )}
                 </localForm.Field>
 
-                <div className="mt-5 flex justify-end gap-2">
+                <div className="mt-5 flex items-center justify-end gap-2">
                   <Button variant="secondary" onPress={onClose}>
                     Cancel
                   </Button>
@@ -278,9 +286,12 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
                   >
                     {(field) => (
                       <div>
-                        <SectionLabel className="mb-1.5">Repository URL</SectionLabel>
+                        <label htmlFor="clone-url" className={labelCls}>
+                          Repository URL
+                        </label>
                         <input
                           ref={cloneUrlRef}
+                          id="clone-url"
                           type="text"
                           value={field.state.value}
                           onChange={(e) => field.handleChange(e.target.value)}
@@ -303,9 +314,12 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
                   >
                     {(field) => (
                       <div>
-                        <SectionLabel className="mb-1.5">Destination directory</SectionLabel>
+                        <label htmlFor="clone-dest" className={labelCls}>
+                          Destination directory
+                        </label>
                         <div className="flex items-stretch gap-2">
                           <input
+                            id="clone-dest"
                             type="text"
                             value={field.state.value}
                             onChange={(e) => field.handleChange(e.target.value)}
@@ -406,8 +420,11 @@ function BranchStepView({
   return (
     <div>
       <div className="mb-4">
-        <SectionLabel className="mb-1.5">Branch</SectionLabel>
+        <label htmlFor="branch-select" className={labelCls}>
+          Branch
+        </label>
         <select
+          id="branch-select"
           value={selectedBranch}
           onChange={(e) => onBranchChange(e.target.value)}
           className={inputCls}
@@ -422,8 +439,11 @@ function BranchStepView({
       </div>
 
       <div className="mb-5">
-        <SectionLabel className="mb-1.5">Project name</SectionLabel>
+        <label htmlFor="project-name" className={labelCls}>
+          Project name
+        </label>
         <input
+          id="project-name"
           type="text"
           value={projectName}
           onChange={(e) => onNameChange(e.target.value)}
