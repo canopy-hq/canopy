@@ -9,7 +9,7 @@ function makePr(
   number: number,
   state: 'OPEN' | 'DRAFT' | 'MERGED' | 'CLOSED',
 ): PrInfo {
-  return { branch, number, state, url: `https://github.com/nept/superagent/pull/${number}` };
+  return { branch, number, state, url: `https://github.com/acme/widgets/pull/${number}` };
 }
 
 describe('getPrInterval', () => {

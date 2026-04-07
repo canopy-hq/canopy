@@ -75,6 +75,10 @@ pub struct PrInfo {
     pub number: u32,
     pub state: PrState,
     pub url: String,
+    /// HEAD SHA of the PR branch on GitHub. Used internally for ancestry validation;
+    /// not sent to the frontend.
+    #[serde(skip_serializing)]
+    pub head_oid: Option<String>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -86,34 +90,46 @@ pub struct PrStatusResult {
     pub inaccessible_paths: Vec<String>,
 }
 
-// ── Search query builder ─────────────────────────────────────────────
+// ── Repository PR query builder ─────────────────────────────────────
 
-/// Build GitHub search queries for PR lookup. Chunks branch lists to stay under
-/// the ~256-char search query limit. Branch names are always quoted.
-pub fn build_search_queries(owner_repo: &str, branches: &[String]) -> Vec<String> {
-    // Each branch must be a separate search query because GitHub search
-    // treats multiple `head:` qualifiers as AND (not OR).
-    branches
-        .iter()
-        .map(|branch| format!("is:pr repo:{owner_repo} head:\"{branch}\""))
-        .collect()
+/// Build a GraphQL query using `repository.pullRequests(headRefName: ...)` for exact matching.
+/// Each branch gets its own aliased field (b0, b1, ...) inside a single `repository` block.
+/// Returns the full query string ready for `execute_graphql`.
+pub fn build_repo_pr_query(owner: &str, repo: &str, branches: &[String]) -> String {
+    let owner = owner.replace('\\', "\\\\").replace('"', "\\\"");
+    let repo = repo.replace('\\', "\\\\").replace('"', "\\\"");
+    let mut fields = String::new();
+    for (i, branch) in branches.iter().enumerate() {
+        let escaped = branch.replace('\\', "\\\\").replace('"', "\\\"");
+        fields.push_str(&format!(
+            "b{i}: pullRequests(headRefName: \"{escaped}\", first: 5, orderBy: {{field: UPDATED_AT, direction: DESC}}) {{ nodes {{ number state headRefName url isDraft headRefOid }} }} "
+        ));
+    }
+    format!(
+        "{{ repository(owner: \"{owner}\", name: \"{repo}\") {{ {fields} }} }}"
+    )
 }
 
-/// Parse PR nodes from a GraphQL search response alias (e.g., "s0").
-pub fn parse_search_results(response: &serde_json::Value, alias: &str) -> Vec<PrInfo> {
-    let edges = match response.pointer(&format!("/data/{alias}/edges")) {
-        Some(serde_json::Value::Array(arr)) => arr,
-        _ => return Vec::new(),
+/// Parse all PR nodes from a `repository.pullRequests` aliased response (e.g., "b0").
+/// Returns up to `first` PRs per branch (OPEN, CLOSED, MERGED may coexist).
+pub fn parse_pr_nodes(repo_data: &serde_json::Value, alias: &str) -> Vec<PrInfo> {
+    let Some(nodes) = repo_data
+        .pointer(&format!("/{alias}/nodes"))
+        .and_then(|v| v.as_array())
+    else {
+        return Vec::new();
     };
 
-    edges
+    nodes
         .iter()
-        .filter_map(|edge| {
-            let node = edge.get("node")?;
+        .filter_map(|node| {
             let head_ref = node.get("headRefName")?.as_str()?;
             let number = node.get("number")?.as_u64()? as u32;
             let state_str = node.get("state")?.as_str()?;
-            let is_draft = node.get("isDraft").and_then(|v| v.as_bool()).unwrap_or(false);
+            let is_draft = node
+                .get("isDraft")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
             let url = node.get("url")?.as_str()?.to_string();
 
             let state = match (state_str, is_draft) {
@@ -124,31 +140,163 @@ pub fn parse_search_results(response: &serde_json::Value, alias: &str) -> Vec<Pr
                 _ => return None,
             };
 
+            let head_oid = node
+                .get("headRefOid")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+
             Some(PrInfo {
                 branch: head_ref.to_string(),
                 number,
                 state,
                 url,
+                head_oid,
             })
         })
         .collect()
+}
+
+// ── Branch collection ────────────────────────────────────────────────────────
+
+/// Collect branches to check for PRs: HEAD, worktree branches, and upstream-tracking branches.
+/// Returns (branch_name, local_head_sha) pairs.
+fn collect_tracked_branches(repo_path: &str) -> Vec<(String, String)> {
+    let Ok(repo) = git2::Repository::open(repo_path) else {
+        eprintln!("[github:branches] cannot open repo at {repo_path}");
+        return Vec::new();
+    };
+    let mut seen = std::collections::HashSet::new();
+    let mut result = Vec::new();
+
+    // Always include HEAD (the main repo's checked-out branch)
+    if let Some(name) = repo
+        .head()
+        .ok()
+        .filter(|h| h.is_branch())
+        .and_then(|h| h.shorthand().map(String::from))
+    {
+        if let Ok(branch) = repo.find_branch(&name, git2::BranchType::Local) {
+            if let Some(oid) = branch.get().target() {
+                seen.insert(name.clone());
+                result.push((name, oid.to_string()));
+            }
+        }
+    }
+
+    // Include branches checked out in worktrees
+    let wt_names = match repo.worktrees() {
+        Ok(names) => names,
+        Err(e) => {
+            eprintln!("[github:branches] repo.worktrees() failed: {e}");
+            return result; // Can't enumerate worktrees — return what we have so far
+        }
+    };
+    let names: Vec<_> = wt_names.iter().flatten().collect();
+    eprintln!(
+        "[github:branches] {repo_path}: {} worktree(s): {:?}",
+        names.len(),
+        names
+    );
+    for wt_name in &names {
+        let wt = match repo.find_worktree(wt_name) {
+            Ok(wt) => wt,
+            Err(e) => {
+                eprintln!("[github:branches] find_worktree({wt_name}) failed: {e}");
+                continue;
+            }
+        };
+        let wt_repo = match git2::Repository::open(wt.path()) {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("[github:branches] worktree {wt_name}: open({}) failed: {e}", wt.path().display());
+                continue;
+            }
+        };
+        let Some(name) = wt_repo
+            .head()
+            .ok()
+            .filter(|h| h.is_branch())
+            .and_then(|h| h.shorthand().map(String::from))
+        else {
+            eprintln!("[github:branches] worktree {wt_name}: no branch HEAD (detached?)");
+            continue;
+        };
+        if seen.contains(&name) {
+            eprintln!("[github:branches] worktree {wt_name}: branch {name} already seen");
+            continue;
+        }
+        match repo.find_branch(&name, git2::BranchType::Local) {
+            Ok(b) => {
+                if let Some(oid) = b.get().target() {
+                    seen.insert(name.clone());
+                    result.push((name, oid.to_string()));
+                }
+            }
+            Err(e) => eprintln!("[github:branches] worktree {wt_name}: find_branch failed: {e}"),
+        }
+    }
+
+    // Add remaining branches that track a remote upstream
+    if let Ok(iter) = repo.branches(Some(git2::BranchType::Local)) {
+        for entry in iter.filter_map(|b| b.ok()) {
+            let (b, _) = entry;
+            if let Some(name) = b.name().ok().flatten().map(String::from) {
+                if !seen.contains(&name) && b.upstream().is_ok() {
+                    if let Some(oid) = b.get().target() {
+                        seen.insert(name.clone());
+                        result.push((name, oid.to_string()));
+                    }
+                }
+            }
+        }
+    }
+
+    eprintln!(
+        "[github:branches] {repo_path}: collected {} branch(es): {:?}",
+        result.len(),
+        result.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>()
+    );
+    result
 }
 
 // ── PR Status command ────────────────────────────────────────────────────────
 
 const MAX_ALIASES_PER_REQUEST: usize = 30;
 
-/// Build one GraphQL query body containing multiple aliased search calls.
-fn build_aliased_graphql(alias_queries: &[(String, String)]) -> String {
-    let mut body = String::from("{ ");
-    for (alias, search_query) in alias_queries {
-        let escaped = search_query.replace('"', "\\\"");
-        body.push_str(&format!(
-            r#"{alias}: search(query: "{escaped}", type: ISSUE, first: 100) {{ edges {{ node {{ ... on PullRequest {{ number state headRefName url isDraft }} }} }} }} "#
-        ));
+/// Check if `ancestor_hex` is an ancestor of `descendant_hex` in the repo at `repo_path`.
+/// Returns false on any error (missing commit, bad OID, etc.) — treat as "not related".
+fn is_ancestor_of(repo_path: &str, ancestor_hex: &str, descendant_hex: &str) -> bool {
+    let Ok(repo) = git2::Repository::open(repo_path) else {
+        return false;
+    };
+    let Ok(ancestor) = git2::Oid::from_str(ancestor_hex) else {
+        return false;
+    };
+    let Ok(descendant) = git2::Oid::from_str(descendant_hex) else {
+        return false;
+    };
+    repo.graph_descendant_of(descendant, ancestor).unwrap_or(false)
+}
+
+/// Decide whether a PR should be shown for a local branch.
+/// OPEN/DRAFT: always shown. MERGED: ancestry check. CLOSED: exact SHA match.
+fn should_show_pr(pr: &PrInfo, local_oid: &str, repo_path: &str) -> bool {
+    if pr.state == PrState::Open || pr.state == PrState::Draft {
+        return true;
     }
-    body.push('}');
-    body
+    let Some(pr_oid) = pr.head_oid.as_deref() else {
+        // headRefOid is non-nullable in GitHub's schema, so this only happens
+        // with malformed data. MERGED: show (benefit of doubt). CLOSED: hide
+        // (can't validate, and showing stale closed PRs is worse than missing one).
+        return pr.state == PrState::Merged;
+    };
+    match pr.state {
+        PrState::Closed => pr_oid == local_oid,
+        // Exact match covers the common case where the local branch hasn't moved
+        // since the PR was merged. Ancestry covers rebases/additional commits.
+        PrState::Merged => pr_oid == local_oid || is_ancestor_of(repo_path, pr_oid, local_oid),
+        _ => unreachable!(),
+    }
 }
 
 async fn execute_graphql(
@@ -226,7 +374,8 @@ pub async fn github_get_pr_statuses(
     };
 
     // Phase 1: Parse remotes → group by owner/repo
-    let mut owner_repo_map: HashMap<String, Vec<(String, Vec<String>)>> = HashMap::new();
+    // Each branch carries its local HEAD SHA for ancestry validation in Phase 4.
+    let mut owner_repo_map: HashMap<String, Vec<(String, Vec<(String, String)>)>> = HashMap::new();
     let sem = Arc::new(Semaphore::new(6));
     let mut handles = Vec::new();
 
@@ -238,18 +387,7 @@ pub async fn github_get_pr_statuses(
             let p = path.clone();
             let result = tokio::task::spawn_blocking(move || {
                 let github_remote = crate::git::parse_github_remote(&p);
-                let branches: Vec<String> = if let Ok(repo) = git2::Repository::open(&p) {
-                    repo.branches(Some(git2::BranchType::Local))
-                        .ok()
-                        .map(|iter| {
-                            iter.filter_map(|b| b.ok())
-                                .filter_map(|(b, _)| b.name().ok()?.map(String::from))
-                                .collect()
-                        })
-                        .unwrap_or_default()
-                } else {
-                    Vec::new()
-                };
+                let branches = collect_tracked_branches(&p);
                 (github_remote, branches)
             })
             .await
@@ -285,42 +423,48 @@ pub async fn github_get_pr_statuses(
         owner_repo_map.keys().cloned().collect::<Vec<_>>().join(", ")
     );
 
-    // Phase 2: Build search queries per owner/repo (never mix repos in one batch)
-    // This ensures one inaccessible org doesn't poison queries for other repos.
+    // Phase 2: Build repository.pullRequests queries per owner/repo
     let gql_sem = Arc::new(Semaphore::new(2));
     let mut gql_handles = Vec::new();
-    let mut failed_owner_repos: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut failed_owner_repos: std::collections::HashSet<String> =
+        std::collections::HashSet::new();
 
     for (owner_repo, repo_entries) in &owner_repo_map {
         let mut all_branches: Vec<String> = repo_entries
             .iter()
-            .flat_map(|(_, branches)| branches.iter().cloned())
+            .flat_map(|(_, branches)| branches.iter().map(|(name, _)| name.clone()))
             .collect();
         all_branches.sort();
         all_branches.dedup();
 
-        let queries = build_search_queries(owner_repo, &all_branches);
-        eprintln!(
-            "[github:pr] {owner_repo}: {} branch(es), {} search query/queries",
-            all_branches.len(),
-            queries.len()
-        );
-        let mut aliases: Vec<(String, String)> = Vec::new();
-        for (i, query) in queries.into_iter().enumerate() {
-            aliases.push((format!("s{i}"), query));
+        if all_branches.is_empty() {
+            continue;
         }
 
-        // Batch aliases for this owner/repo only
-        for chunk in aliases.chunks(MAX_ALIASES_PER_REQUEST) {
-            let alias_queries: Vec<(String, String)> = chunk.to_vec();
+        let (owner, repo) = match owner_repo.split_once('/') {
+            Some(pair) => pair,
+            None => continue,
+        };
+
+        eprintln!(
+            "[github:pr] {owner_repo}: {} tracked branch(es)",
+            all_branches.len(),
+        );
+
+        // Chunk branches into batches of MAX_ALIASES_PER_REQUEST
+        for chunk in all_branches.chunks(MAX_ALIASES_PER_REQUEST) {
+            let chunk_branches: Vec<String> = chunk.to_vec();
+            let branch_count = chunk_branches.len();
             let client = http.0.clone();
             let token = token.clone();
             let sem = gql_sem.clone();
             let owner_repo = owner_repo.clone();
+            let owner = owner.to_string();
+            let repo = repo.to_string();
 
             gql_handles.push(tokio::spawn(async move {
                 let _permit = sem.acquire().await.map_err(|e| e.to_string())?;
-                let query = build_aliased_graphql(&alias_queries);
+                let query = build_repo_pr_query(&owner, &repo, &chunk_branches);
                 let response = execute_graphql_with_retry(&client, &token, &query).await?;
 
                 // Check for access errors (FORBIDDEN, NOT_FOUND) in the GraphQL response
@@ -338,8 +482,10 @@ pub async fn github_get_pr_statuses(
                     .unwrap_or(false);
 
                 let mut prs = Vec::new();
-                for (alias, _) in &alias_queries {
-                    prs.extend(parse_search_results(&response, alias));
+                if let Some(repo_data) = response.pointer("/data/repository") {
+                    for i in 0..branch_count {
+                        prs.extend(parse_pr_nodes(repo_data, &format!("b{i}")));
+                    }
                 }
                 Ok::<_, String>((owner_repo, prs, has_access_error))
             }));
@@ -365,32 +511,46 @@ pub async fn github_get_pr_statuses(
         }
     }
 
-    // Phase 4: Map back to repo_paths + collect inaccessible paths
-    let mut result: HashMap<String, Vec<PrInfo>> = HashMap::new();
-    let mut inaccessible_paths: Vec<String> = Vec::new();
+    // Phase 4: Map back to repo_paths + collect inaccessible paths.
+    // Runs in spawn_blocking because should_show_pr may call is_ancestor_of (git I/O).
+    let (result, inaccessible_paths) = tokio::task::spawn_blocking(move || {
+        let mut result: HashMap<String, Vec<PrInfo>> = HashMap::new();
+        let mut inaccessible_paths: Vec<String> = Vec::new();
 
-    for (owner_repo, repo_entries) in &owner_repo_map {
-        if failed_owner_repos.contains(owner_repo) {
-            for (repo_path, _) in repo_entries {
-                inaccessible_paths.push(repo_path.clone());
+        for (owner_repo, repo_entries) in &owner_repo_map {
+            if failed_owner_repos.contains(owner_repo) {
+                for (repo_path, _) in repo_entries {
+                    inaccessible_paths.push(repo_path.clone());
+                }
+                continue;
             }
-            continue;
-        }
-        if let Some(all_prs) = prs_by_owner_repo.get(owner_repo) {
-            for (repo_path, branches) in repo_entries {
-                let branch_set: std::collections::HashSet<&str> =
-                    branches.iter().map(|s| s.as_str()).collect();
-                let matching: Vec<PrInfo> = all_prs
-                    .iter()
-                    .filter(|pr| branch_set.contains(pr.branch.as_str()))
-                    .cloned()
-                    .collect();
-                if !matching.is_empty() {
-                    result.insert(repo_path.clone(), matching);
+            if let Some(all_prs) = prs_by_owner_repo.get(owner_repo) {
+                for (repo_path, branches) in repo_entries {
+                    let branch_oids: HashMap<&str, &str> = branches
+                        .iter()
+                        .map(|(name, oid)| (name.as_str(), oid.as_str()))
+                        .collect();
+
+                    let matching: Vec<PrInfo> = all_prs
+                        .iter()
+                        .filter(|pr| {
+                            branch_oids
+                                .get(pr.branch.as_str())
+                                .map_or(false, |oid| should_show_pr(pr, oid, repo_path))
+                        })
+                        .cloned()
+                        .collect();
+                    if !matching.is_empty() {
+                        result.insert(repo_path.clone(), matching);
+                    }
                 }
             }
         }
-    }
+
+        (result, inaccessible_paths)
+    })
+    .await
+    .map_err(|e| format!("PR status phase 4 failed: {e}"))?;
 
     let total_prs: usize = result.values().map(|v| v.len()).sum();
     eprintln!(
@@ -626,6 +786,26 @@ pub async fn github_disconnect() -> Result<(), String> {
 mod tests {
     use super::*;
 
+    /// Create a PrInfo with sensible defaults — only override what the test cares about.
+    fn test_pr(state: PrState, head_oid: Option<&str>) -> PrInfo {
+        PrInfo {
+            branch: "feat/x".into(),
+            number: 1,
+            state,
+            url: String::new(),
+            head_oid: head_oid.map(String::from),
+        }
+    }
+
+    /// Create a temp git repo with a signature and empty tree ready for commits.
+    fn init_test_repo() -> (tempfile::TempDir, git2::Repository, git2::Signature<'static>, git2::Oid) {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        let sig = git2::Signature::now("Test", "test@test.com").unwrap();
+        let tree_id = repo.index().unwrap().write_tree().unwrap();
+        (dir, repo, sig, tree_id)
+    }
+
     #[test]
     fn parse_device_code_response() {
         let json = r#"{
@@ -685,98 +865,179 @@ mod tests {
             branch: "feat/test".to_string(),
             number: 42,
             state: PrState::Open,
-            url: "https://github.com/nept/superagent/pull/42".to_string(),
+            url: "https://github.com/acme/widgets/pull/42".to_string(),
+            head_oid: Some("abc123".to_string()),
         };
         let json: serde_json::Value = serde_json::to_value(&info).unwrap();
         assert_eq!(json["branch"], "feat/test");
         assert_eq!(json["number"], 42);
         assert_eq!(json["state"], "OPEN");
-        assert_eq!(json["url"], "https://github.com/nept/superagent/pull/42");
+        assert_eq!(json["url"], "https://github.com/acme/widgets/pull/42");
+        // head_oid must NOT appear in serialized output (skip_serializing)
+        assert!(json.get("headOid").is_none());
     }
 
     #[test]
-    fn build_search_queries_single_branch() {
-        let queries = build_search_queries("nept/superagent", &["main".to_string()]);
-        assert_eq!(queries.len(), 1);
-        assert_eq!(queries[0], "is:pr repo:nept/superagent head:\"main\"");
+    fn build_repo_pr_query_single_branch() {
+        let query = build_repo_pr_query("acme", "widgets", &["sprint".to_string()]);
+        assert!(query.contains(r#"repository(owner: "acme", name: "widgets")"#));
+        assert!(query.contains(r#"b0: pullRequests(headRefName: "sprint""#));
+        assert!(query.contains("first: 5"));
+        assert!(query.contains("orderBy: {field: UPDATED_AT, direction: DESC}"));
+        assert!(query.contains("nodes { number state headRefName url isDraft headRefOid }"));
     }
 
     #[test]
-    fn build_search_queries_multiple_branches() {
-        let branches: Vec<String> = (0..5).map(|i| format!("branch-{i}")).collect();
-        let queries = build_search_queries("nept/superagent", &branches);
-        // Each branch gets its own query (GitHub AND's multiple head: qualifiers)
-        assert_eq!(queries.len(), 5);
-        for (i, q) in queries.iter().enumerate() {
-            assert_eq!(q, &format!("is:pr repo:nept/superagent head:\"branch-{i}\""));
-        }
+    fn build_repo_pr_query_multiple_branches() {
+        let branches: Vec<String> = vec!["main".into(), "feat/foo".into(), "fix/bar".into()];
+        let query = build_repo_pr_query("acme", "widgets", &branches);
+        assert!(query.contains(r#"b0: pullRequests(headRefName: "main""#));
+        assert!(query.contains(r#"b1: pullRequests(headRefName: "feat/foo""#));
+        assert!(query.contains(r#"b2: pullRequests(headRefName: "fix/bar""#));
     }
 
     #[test]
-    fn build_search_queries_quotes_special_chars() {
-        let branches = vec!["feat/my-branch".to_string(), "fix/issue#42".to_string()];
-        let queries = build_search_queries("nept/superagent", &branches);
-        assert_eq!(queries.len(), 2);
-        assert_eq!(queries[0], "is:pr repo:nept/superagent head:\"feat/my-branch\"");
-        assert_eq!(queries[1], "is:pr repo:nept/superagent head:\"fix/issue#42\"");
+    fn build_repo_pr_query_empty_branches() {
+        let query = build_repo_pr_query("acme", "widgets", &[]);
+        assert!(query.contains(r#"repository(owner: "acme", name: "widgets")"#));
+        assert!(!query.contains("b0:"));
     }
 
     #[test]
-    fn build_search_queries_empty_branches() {
-        let queries = build_search_queries("nept/superagent", &[]);
-        assert!(queries.is_empty());
-    }
-
-    #[test]
-    fn parse_graphql_pr_response() {
-        let json = r#"{
-            "data": {
-                "s0": {
-                    "edges": [
-                        {
-                            "node": {
-                                "number": 42,
-                                "state": "OPEN",
-                                "headRefName": "feat/dark-mode",
-                                "url": "https://github.com/nept/superagent/pull/42",
-                                "isDraft": false
-                            }
-                        },
-                        {
-                            "node": {
-                                "number": 43,
-                                "state": "OPEN",
-                                "headRefName": "feat/pr-badges",
-                                "url": "https://github.com/nept/superagent/pull/43",
-                                "isDraft": true
-                            }
-                        },
-                        {
-                            "node": {
-                                "number": 30,
-                                "state": "MERGED",
-                                "headRefName": "fix/sidebar",
-                                "url": "https://github.com/nept/superagent/pull/30",
-                                "isDraft": false
-                            }
-                        }
-                    ]
-                }
+    fn parse_pr_nodes_open() {
+        let json: serde_json::Value = serde_json::from_str(r#"{
+            "b0": {
+                "nodes": [{
+                    "number": 42,
+                    "state": "OPEN",
+                    "headRefName": "feat/dark-mode",
+                    "url": "https://github.com/acme/widgets/pull/42",
+                    "isDraft": false,
+                    "headRefOid": "abc123def456"
+                }]
             }
-        }"#;
-        let value: serde_json::Value = serde_json::from_str(json).unwrap();
-        let prs = parse_search_results(&value, "s0");
-        assert_eq!(prs.len(), 3);
-
+        }"#).unwrap();
+        let prs = parse_pr_nodes(&json, "b0");
+        assert_eq!(prs.len(), 1);
         assert_eq!(prs[0].branch, "feat/dark-mode");
         assert_eq!(prs[0].number, 42);
         assert_eq!(prs[0].state, PrState::Open);
+        assert_eq!(prs[0].head_oid.as_deref(), Some("abc123def456"));
+    }
 
-        assert_eq!(prs[1].branch, "feat/pr-badges");
-        assert_eq!(prs[1].state, PrState::Draft);
+    #[test]
+    fn parse_pr_nodes_draft() {
+        let json: serde_json::Value = serde_json::from_str(r#"{
+            "b0": {
+                "nodes": [{
+                    "number": 43,
+                    "state": "OPEN",
+                    "headRefName": "feat/wip",
+                    "url": "https://github.com/acme/widgets/pull/43",
+                    "isDraft": true,
+                    "headRefOid": "def789"
+                }]
+            }
+        }"#).unwrap();
+        let prs = parse_pr_nodes(&json, "b0");
+        assert_eq!(prs[0].state, PrState::Draft);
+    }
 
-        assert_eq!(prs[2].branch, "fix/sidebar");
-        assert_eq!(prs[2].state, PrState::Merged);
+    #[test]
+    fn parse_pr_nodes_closed() {
+        let json: serde_json::Value = serde_json::from_str(r#"{
+            "b0": {
+                "nodes": [{
+                    "number": 50,
+                    "state": "CLOSED",
+                    "headRefName": "feat/abandoned",
+                    "url": "https://github.com/acme/widgets/pull/50",
+                    "isDraft": false,
+                    "headRefOid": "closed123"
+                }]
+            }
+        }"#).unwrap();
+        let prs = parse_pr_nodes(&json, "b0");
+        assert_eq!(prs[0].state, PrState::Closed);
+    }
+
+    #[test]
+    fn parse_pr_nodes_without_head_oid() {
+        let json: serde_json::Value = serde_json::from_str(r#"{
+            "b0": {
+                "nodes": [{
+                    "number": 99,
+                    "state": "OPEN",
+                    "headRefName": "feat/old",
+                    "url": "https://github.com/acme/widgets/pull/99",
+                    "isDraft": false
+                }]
+            }
+        }"#).unwrap();
+        let prs = parse_pr_nodes(&json, "b0");
+        assert!(prs[0].head_oid.is_none());
+    }
+
+    #[test]
+    fn parse_pr_nodes_multiple_prs() {
+        let json: serde_json::Value = serde_json::from_str(r#"{
+            "b0": {
+                "nodes": [
+                    {
+                        "number": 10,
+                        "state": "CLOSED",
+                        "headRefName": "feat/x",
+                        "url": "https://github.com/o/r/pull/10",
+                        "isDraft": false,
+                        "headRefOid": "aaa"
+                    },
+                    {
+                        "number": 20,
+                        "state": "OPEN",
+                        "headRefName": "feat/x",
+                        "url": "https://github.com/o/r/pull/20",
+                        "isDraft": false,
+                        "headRefOid": "bbb"
+                    }
+                ]
+            }
+        }"#).unwrap();
+        let prs = parse_pr_nodes(&json, "b0");
+        assert_eq!(prs.len(), 2);
+        assert_eq!(prs[0].state, PrState::Closed);
+        assert_eq!(prs[1].state, PrState::Open);
+    }
+
+    #[test]
+    fn parse_pr_nodes_merged() {
+        let json: serde_json::Value = serde_json::from_str(r#"{
+            "b0": {
+                "nodes": [{
+                    "number": 30,
+                    "state": "MERGED",
+                    "headRefName": "fix/sidebar",
+                    "url": "https://github.com/acme/widgets/pull/30",
+                    "isDraft": false,
+                    "headRefOid": "merged123"
+                }]
+            }
+        }"#).unwrap();
+        let prs = parse_pr_nodes(&json, "b0");
+        assert_eq!(prs[0].state, PrState::Merged);
+    }
+
+    #[test]
+    fn parse_pr_nodes_empty() {
+        let json: serde_json::Value = serde_json::from_str(r#"{
+            "b0": { "nodes": [] }
+        }"#).unwrap();
+        assert!(parse_pr_nodes(&json, "b0").is_empty());
+    }
+
+    #[test]
+    fn parse_pr_nodes_missing_alias() {
+        let json: serde_json::Value = serde_json::from_str(r#"{}"#).unwrap();
+        assert!(parse_pr_nodes(&json, "b0").is_empty());
     }
 
     #[test]
@@ -787,5 +1048,149 @@ mod tests {
         } else {
             assert!(result.unwrap_err().contains("not set"));
         }
+    }
+
+    #[test]
+    fn is_ancestor_of_true_for_parent_commit() {
+        let (dir, repo, sig, tree_id) = init_test_repo();
+        let tree = repo.find_tree(tree_id).unwrap();
+        let parent_oid = repo
+            .commit(Some("HEAD"), &sig, &sig, "first", &tree, &[])
+            .unwrap();
+        let parent_commit = repo.find_commit(parent_oid).unwrap();
+        let child_oid = repo
+            .commit(Some("HEAD"), &sig, &sig, "second", &tree, &[&parent_commit])
+            .unwrap();
+
+        let path = dir.path().to_str().unwrap();
+        assert!(is_ancestor_of(path, &parent_oid.to_string(), &child_oid.to_string()));
+    }
+
+    #[test]
+    fn is_ancestor_of_false_for_unrelated_commit() {
+        let (dir, repo, sig, tree_id) = init_test_repo();
+        let tree = repo.find_tree(tree_id).unwrap();
+
+        // Two independent root commits — neither is ancestor of the other
+        let oid_a = repo
+            .commit(Some("HEAD"), &sig, &sig, "branch-a", &tree, &[])
+            .unwrap();
+        repo.set_head_detached(oid_a).unwrap();
+        let oid_b = repo
+            .commit(None, &sig, &sig, "branch-b", &tree, &[])
+            .unwrap();
+
+        let path = dir.path().to_str().unwrap();
+        assert!(!is_ancestor_of(path, &oid_a.to_string(), &oid_b.to_string()));
+        assert!(!is_ancestor_of(path, &oid_b.to_string(), &oid_a.to_string()));
+    }
+
+    #[test]
+    fn is_ancestor_of_false_for_bad_oid() {
+        let (dir, _, _, _) = init_test_repo();
+        let path = dir.path().to_str().unwrap();
+        assert!(!is_ancestor_of(path, "not-a-sha", "also-not-a-sha"));
+    }
+
+    #[test]
+    fn is_ancestor_of_same_commit_is_strict() {
+        // git2::graph_descendant_of is strict — a commit is NOT its own descendant.
+        // should_show_pr handles this with an explicit pr_oid == local_oid check.
+        let (dir, repo, sig, tree_id) = init_test_repo();
+        let tree = repo.find_tree(tree_id).unwrap();
+        let oid = repo
+            .commit(Some("HEAD"), &sig, &sig, "only", &tree, &[])
+            .unwrap();
+        let hex = oid.to_string();
+        assert!(!is_ancestor_of(dir.path().to_str().unwrap(), &hex, &hex));
+    }
+
+    #[test]
+    fn should_show_pr_merged_same_commit_shown() {
+        // Most common case: local branch still at the PR's head after merge.
+        let pr = test_pr(PrState::Merged, Some("same_sha"));
+        assert!(should_show_pr(&pr, "same_sha", "/nonexistent"));
+    }
+
+    #[test]
+    fn build_repo_pr_query_escapes_quotes_in_branch() {
+        let query = build_repo_pr_query("acme", "wdg", &["feat/\"quoted\"".to_string()]);
+        assert!(query.contains(r#"headRefName: "feat/\"quoted\"""#));
+    }
+
+    #[test]
+    fn should_show_pr_open_always_matches() {
+        let pr = test_pr(PrState::Open, Some("different_sha"));
+        assert!(should_show_pr(&pr, "local_sha", "/nonexistent"));
+    }
+
+    #[test]
+    fn should_show_pr_draft_always_matches() {
+        let pr = test_pr(PrState::Draft, Some("different_sha"));
+        assert!(should_show_pr(&pr, "local_sha", "/nonexistent"));
+    }
+
+    #[test]
+    fn should_show_pr_closed_exact_sha_match() {
+        let pr = test_pr(PrState::Closed, Some("abc123"));
+        assert!(should_show_pr(&pr, "abc123", "/nonexistent"));
+    }
+
+    #[test]
+    fn should_show_pr_closed_sha_mismatch_filtered() {
+        let pr = test_pr(PrState::Closed, Some("abc123"));
+        assert!(!should_show_pr(&pr, "def456", "/nonexistent"));
+    }
+
+    #[test]
+    fn should_show_pr_closed_no_head_oid_filtered() {
+        let pr = test_pr(PrState::Closed, None);
+        assert!(!should_show_pr(&pr, "any_sha", "/nonexistent"));
+    }
+
+    #[test]
+    fn should_show_pr_merged_no_head_oid_shown() {
+        let pr = test_pr(PrState::Merged, None);
+        assert!(should_show_pr(&pr, "any_sha", "/nonexistent"));
+    }
+
+    #[test]
+    fn should_show_pr_merged_ancestor_shown() {
+        let (dir, repo, sig, tree_id) = init_test_repo();
+        let tree = repo.find_tree(tree_id).unwrap();
+        let parent_oid = repo
+            .commit(Some("HEAD"), &sig, &sig, "first", &tree, &[])
+            .unwrap();
+        let parent = repo.find_commit(parent_oid).unwrap();
+        let child_oid = repo
+            .commit(Some("HEAD"), &sig, &sig, "second", &tree, &[&parent])
+            .unwrap();
+
+        let pr = test_pr(PrState::Merged, Some(&parent_oid.to_string()));
+        assert!(should_show_pr(
+            &pr,
+            &child_oid.to_string(),
+            dir.path().to_str().unwrap()
+        ));
+    }
+
+    #[test]
+    fn should_show_pr_merged_not_ancestor_filtered() {
+        let (dir, repo, sig, tree_id) = init_test_repo();
+        let tree = repo.find_tree(tree_id).unwrap();
+        let oid_a = repo
+            .commit(Some("HEAD"), &sig, &sig, "a", &tree, &[])
+            .unwrap();
+        repo.set_head_detached(oid_a).unwrap();
+        let oid_b = repo
+            .commit(None, &sig, &sig, "b", &tree, &[])
+            .unwrap();
+
+        let pr = test_pr(PrState::Merged, Some(&oid_a.to_string()));
+        assert!(!should_show_pr(
+            &pr,
+            &oid_b.to_string(),
+            dir.path().to_str().unwrap()
+        ));
     }
 }

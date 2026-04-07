@@ -1709,43 +1709,43 @@ mod tests {
     fn parse_github_remote_https() {
         let tmp = TempDir::new().unwrap();
         let repo = init_repo_with_commit(tmp.path());
-        repo.remote("origin", "https://github.com/nept/superagent").unwrap();
+        repo.remote("origin", "https://github.com/acme/widgets").unwrap();
         let result = parse_github_remote(&tmp.path().to_string_lossy());
-        assert_eq!(result, Some(("nept".to_string(), "superagent".to_string())));
+        assert_eq!(result, Some(("acme".to_string(), "widgets".to_string())));
     }
 
     #[test]
     fn parse_github_remote_https_with_git_suffix() {
         let tmp = TempDir::new().unwrap();
         let repo = init_repo_with_commit(tmp.path());
-        repo.remote("origin", "https://github.com/nept/superagent.git").unwrap();
+        repo.remote("origin", "https://github.com/acme/widgets.git").unwrap();
         let result = parse_github_remote(&tmp.path().to_string_lossy());
-        assert_eq!(result, Some(("nept".to_string(), "superagent".to_string())));
+        assert_eq!(result, Some(("acme".to_string(), "widgets".to_string())));
     }
 
     #[test]
     fn parse_github_remote_ssh() {
         let tmp = TempDir::new().unwrap();
         let repo = init_repo_with_commit(tmp.path());
-        repo.remote("origin", "git@github.com:nept/superagent.git").unwrap();
+        repo.remote("origin", "git@github.com:acme/widgets.git").unwrap();
         let result = parse_github_remote(&tmp.path().to_string_lossy());
-        assert_eq!(result, Some(("nept".to_string(), "superagent".to_string())));
+        assert_eq!(result, Some(("acme".to_string(), "widgets".to_string())));
     }
 
     #[test]
     fn parse_github_remote_ssh_no_suffix() {
         let tmp = TempDir::new().unwrap();
         let repo = init_repo_with_commit(tmp.path());
-        repo.remote("origin", "git@github.com:nept/superagent").unwrap();
+        repo.remote("origin", "git@github.com:acme/widgets").unwrap();
         let result = parse_github_remote(&tmp.path().to_string_lossy());
-        assert_eq!(result, Some(("nept".to_string(), "superagent".to_string())));
+        assert_eq!(result, Some(("acme".to_string(), "widgets".to_string())));
     }
 
     #[test]
     fn parse_github_remote_non_github_host() {
         let tmp = TempDir::new().unwrap();
         let repo = init_repo_with_commit(tmp.path());
-        repo.remote("origin", "https://gitlab.com/nept/superagent").unwrap();
+        repo.remote("origin", "https://gitlab.com/acme/widgets").unwrap();
         let result = parse_github_remote(&tmp.path().to_string_lossy());
         assert_eq!(result, None);
     }
