@@ -18,19 +18,6 @@ if (rebuild) {
 const worktreeHash = new Bun.CryptoHasher('md5').update(repoRoot).digest('hex').slice(0, 8);
 const devIdentifier = `com.superagent.dev-${worktreeHash}`;
 
-if (process.argv.includes('--reset-db')) {
-  const dbPath = join(
-    homedir(),
-    'Library',
-    'Application Support',
-    `com.superagent.dev-${worktreeHash}`,
-    'superagent.db',
-  );
-  spawnSync('rm', ['-f', dbPath], { stdio: 'ignore' });
-  console.log('[dev] DB reset:', dbPath);
-  process.exit(0);
-}
-
 // Shared data dir so all worktrees use the same DB, daemon socket, and settings.
 const sharedDataDir = join(homedir(), 'Library', 'Application Support', 'com.superagent.app');
 
