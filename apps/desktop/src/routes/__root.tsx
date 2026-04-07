@@ -26,11 +26,14 @@ import { useUiState } from '../hooks/useCollections';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { useTauriMenuEvent } from '../hooks/useTauriMenuEvent';
 import { initAgentListener } from '../lib/agent-actions';
+import { listWorktrees } from '../lib/git';
 import { getConnection, GITHUB_CONNECTION_KEY } from '../lib/github';
+import { logInfo } from '../lib/log';
 import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
 import {
   toggleSidebar,
   refreshRepo,
+  hideWorktree,
   switchProjectRelative,
   switchProjectItemRelative,
   openImportDialog,
@@ -73,6 +76,31 @@ function RootLayout() {
     for (const ws of getProjectCollection().toArray) {
       void refreshRepo(ws.id);
     }
+
+    // Validate worktrees at boot — prune entries that no longer exist on disk.
+    // Async IPC: never blocks UI rendering.
+    void (async () => {
+      let pruned = 0;
+      for (const ws of getProjectCollection().toArray) {
+        if (ws.worktrees.length === 0) continue;
+        try {
+          const live = await listWorktrees(ws.path);
+          const liveNames = new Set(live.map((w) => w.name));
+          for (const wt of ws.worktrees) {
+            if (!liveNames.has(wt.name)) {
+              logInfo(`[boot] pruning stale worktree "${wt.name}" from project "${ws.name}"`);
+              hideWorktree(ws.id, wt.name);
+              pruned++;
+            }
+          }
+        } catch {
+          // Repo moved or git unavailable — skip validation
+        }
+      }
+      if (pruned > 0) {
+        logInfo(`[boot] removed ${pruned} stale worktree(s)`);
+      }
+    })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Startup session restore: eagerly reconnect all panes across all tabs so they
