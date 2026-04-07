@@ -370,14 +370,13 @@ export function startWorktreeCreation(
     draft.justStartedWorktreeId = wtItemId;
   });
 
-  selectProjectItem(wtItemId, navigate);
-
   void (async () => {
     try {
       const wt = await gitApi.createWorktree(proj.path, name, path, baseBranch, newBranch);
       getProjectCollection().update(projectId, (draft) => {
         const entry = draft.worktrees.find((w) => w.name === name);
         if (entry) {
+          entry.name = wt.name; // git admin name (slashes replaced with dashes)
           entry.path = wt.path;
           entry.branch = wt.branch;
         }
@@ -389,6 +388,10 @@ export function startWorktreeCreation(
       uiCollection.update('ui', (draft) => {
         draft.creatingWorktreeIds = draft.creatingWorktreeIds.filter((id) => id !== wtItemId);
       });
+
+      // Navigate only after the worktree exists on disk — navigating before
+      // would race terminal spawn against worktree creation.
+      selectProjectItem(wtItemId, navigate);
 
       // If the user scheduled a Claude Code session for this worktree, launch it now
       const pending = getUiState().pendingClaudeSession;
