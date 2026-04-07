@@ -9,6 +9,7 @@
     "tauri:dev:rebuild": "bun run gen-icons && touch src-tauri/src/lib.rs && bun scripts/dev.ts --rebuild",
     "tauri:build:local": "bun scripts/build.ts",
     "db:reset": "bun scripts/dev.ts --reset-db",
+    "db:reset:prod": "rm -f \"$HOME/Library/Application Support/com.superagent.app/superagent.db\" && echo 'Prod DB reset.'",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run --reporter=verbose",

@@ -15,7 +15,7 @@
     "format": "oxfmt apps/ packages/",
     "postinstall": "lefthook install",
     "desktop:db:reset": "bun --filter desktop db:reset",
-    "desktop:db:reset:prod": "rm -f \"$HOME/Library/Application Support/com.superagent.app/superagent.db\" && echo 'Prod DB reset.'"
+    "desktop:db:reset:prod": "bun --filter desktop db:reset:prod"
   },
   "catalog": {
     "@tauri-apps/api": "^2.10.1",
