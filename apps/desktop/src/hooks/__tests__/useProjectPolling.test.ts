@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { getInterval, branchStateEqual } from '../useProjectPolling';
+import { getInterval, branchStateEqual, getStaleWorktreeNames } from '../useProjectPolling';
 
 import type { ProjectPollState } from '../../lib/git';
 
@@ -126,5 +126,35 @@ describe('branchStateEqual', () => {
       }),
     };
     expect(branchStateEqual(a, b)).toBe(true);
+  });
+});
+
+describe('getStaleWorktreeNames', () => {
+  it('returns names of worktrees missing from live git state', () => {
+    const db = [{ name: 'wt-a' }, { name: 'wt-b' }, { name: 'wt-c' }];
+    const live = { 'wt-a': 'main', 'wt-c': 'feature' };
+    expect(getStaleWorktreeNames(db, live, [], 'proj1')).toEqual(['wt-b']);
+  });
+
+  it('returns empty when all worktrees are live', () => {
+    const db = [{ name: 'wt-a' }, { name: 'wt-b' }];
+    const live = { 'wt-a': 'main', 'wt-b': 'feature' };
+    expect(getStaleWorktreeNames(db, live, [], 'proj1')).toEqual([]);
+  });
+
+  it('skips worktrees that are being created (in-flight)', () => {
+    const db = [{ name: 'wt-new' }];
+    const live = {};
+    const creating = ['proj1-wt-wt-new'];
+    expect(getStaleWorktreeNames(db, live, creating, 'proj1')).toEqual([]);
+  });
+
+  it('returns all names when no live worktrees exist', () => {
+    const db = [{ name: 'wt-a' }, { name: 'wt-b' }];
+    expect(getStaleWorktreeNames(db, {}, [], 'proj1')).toEqual(['wt-a', 'wt-b']);
+  });
+
+  it('returns empty for empty DB worktrees', () => {
+    expect(getStaleWorktreeNames([], { 'wt-a': 'main' }, [], 'proj1')).toEqual([]);
   });
 });
