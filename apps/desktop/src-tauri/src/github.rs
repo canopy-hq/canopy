@@ -205,20 +205,8 @@ fn collect_tracked_branches(repo_path: &str) -> Vec<(String, String)> {
                 continue;
             }
         };
-        let wt_repo = match git2::Repository::open(wt.path()) {
-            Ok(r) => r,
-            Err(e) => {
-                eprintln!("[github:branches] worktree {wt_name}: open({}) failed: {e}", wt.path().display());
-                continue;
-            }
-        };
-        let Some(name) = wt_repo
-            .head()
-            .ok()
-            .filter(|h| h.is_branch())
-            .and_then(|h| h.shorthand().map(String::from))
-        else {
-            eprintln!("[github:branches] worktree {wt_name}: no branch HEAD (detached?)");
+        let Some(name) = crate::git::resolve_worktree_branch(wt_name, wt.path(), &repo) else {
+            eprintln!("[github:branches] worktree {wt_name}: no branch resolved");
             continue;
         };
         if seen.contains(&name) {
