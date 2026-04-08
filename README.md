@@ -16,6 +16,16 @@ Monorepo for the Superagent desktop app.
 brew install sccache
 ```
 
+### GitHub Package Registry
+
+`ghostty-web` is hosted on GitHub Package Registry, which requires authentication even for public packages. Before running `bun install`, export a GitHub personal access token with the `read:packages` scope:
+
+```bash
+export GITHUB_TOKEN=your_token_here
+```
+
+To generate a token: GitHub → Settings → Developer settings → Personal access tokens → New token → select `read:packages`.
+
 sccache is configured in `.cargo/config.toml` and caches compiled artifacts across git worktrees, cutting rebuild times by ~50%. No extra setup needed — Cargo picks it up automatically.
 
 ### macOS Keychain (code signing)
