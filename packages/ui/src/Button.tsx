@@ -1,3 +1,4 @@
+import { type Ref } from 'react';
 import { Button as AriaButton, type ButtonProps as AriaButtonProps } from 'react-aria-components';
 
 import { tv, type VariantProps } from 'tailwind-variants';
@@ -35,10 +36,15 @@ export type ButtonVariants = VariantProps<typeof button>;
 
 export interface ButtonProps extends Omit<AriaButtonProps, 'className'>, ButtonVariants {
   className?: string;
+  ref?: Ref<HTMLButtonElement>;
 }
 
-export function Button({ variant, size, iconOnly, className, ...props }: ButtonProps) {
+export function Button({ variant, size, iconOnly, className, ref, ...props }: ButtonProps) {
   return (
-    <AriaButton className={button({ variant, size, iconOnly, class: className })} {...props} />
+    <AriaButton
+      ref={ref}
+      className={button({ variant, size, iconOnly, class: className })}
+      {...props}
+    />
   );
 }

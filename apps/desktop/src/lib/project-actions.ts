@@ -71,6 +71,17 @@ export function importLocalProject(
   selectProjectItem(`${projectId}-branch-${branch.name}`, navigate);
 }
 
+/** Abandon an in-progress clone: remove the optimistic project entry from the DB.
+ * The Rust clone_repo call continues in the background but its result is discarded
+ * since the project ID no longer exists. */
+export function cancelProjectClone(projectId: string): void {
+  getProjectCollection().delete(projectId);
+  uiCollection.update('ui', (draft) => {
+    draft.cloningProjectIds = draft.cloningProjectIds.filter((id) => id !== projectId);
+    delete draft.cloneProgress[projectId];
+  });
+}
+
 /** Optimistically insert a cloning project and run git clone in the background. */
 export function startProjectClone(
   url: string,

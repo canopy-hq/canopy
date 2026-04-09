@@ -129,6 +129,7 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
 
   const localPathRef = useRef<HTMLInputElement>(null);
   const cloneUrlRef = useRef<HTMLInputElement>(null);
+  const nextButtonRef = useRef<HTMLButtonElement>(null);
 
   const isStep2 = sourceResult !== null;
 
@@ -291,6 +292,7 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
                               name: info.name,
                               branches,
                             };
+                            setTimeout(() => nextButtonRef.current?.focus(), 0);
                             return undefined;
                           } catch (err) {
                             if (localGenRef.current !== gen) return undefined;
@@ -361,6 +363,9 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
                               const branches = await gitApi.listRemoteBranches(trimmed);
                               if (cloneGenRef.current !== gen) return undefined;
                               cloneResultRef.current = { name: repoNameFromUrl(trimmed), branches };
+                              if (cloneForm.getFieldValue('dest').trim()) {
+                                setTimeout(() => nextButtonRef.current?.focus(), 0);
+                              }
                               return undefined;
                             } catch (err) {
                               if (cloneGenRef.current !== gen) return undefined;
@@ -421,7 +426,12 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
                                 variant="secondary"
                                 onPress={async () => {
                                   const path = await pickDirectory('Choose destination directory');
-                                  if (path) field.handleChange(path);
+                                  if (path) {
+                                    field.handleChange(path);
+                                    if (cloneResultRef.current) {
+                                      setTimeout(() => nextButtonRef.current?.focus(), 0);
+                                    }
+                                  }
                                 }}
                                 aria-label="Browse"
                                 className="h-auto shrink-0 px-2.5"
@@ -483,6 +493,7 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
                 <localForm.Subscribe selector={(s) => s.canSubmit && !s.isValidating}>
                   {(canSubmit) => (
                     <Button
+                      ref={nextButtonRef}
                       variant="primary"
                       onPress={() => void localForm.handleSubmit()}
                       isDisabled={!canSubmit}
@@ -500,6 +511,7 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
                 <cloneForm.Subscribe selector={(s) => s.canSubmit && !s.isValidating}>
                   {(canSubmit) => (
                     <Button
+                      ref={nextButtonRef}
                       variant="primary"
                       onPress={() => void cloneForm.handleSubmit()}
                       isDisabled={!canSubmit}

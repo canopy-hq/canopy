@@ -43,6 +43,7 @@ import {
   Laptop,
   Pencil,
   Plus,
+  X,
 } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
@@ -60,6 +61,7 @@ import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import {
   toggleExpanded,
   selectProjectItem,
+  cancelProjectClone,
   closeProject,
   hideWorktree,
   removeWorktree,
@@ -1045,16 +1047,25 @@ function RepoTreeItem({
                   })),
                 ] satisfies ContextMenuItemDef[],
               },
-              {
-                label: 'Close project',
-                icon: <FolderX size={13} />,
-                destructive: true,
-                disabled: isCloning,
-                onSelect: () => {
-                  setMenuOpen(false);
-                  onRequestClose(ws);
-                },
-              },
+              isCloning
+                ? {
+                    label: 'Cancel clone',
+                    icon: <X size={13} />,
+                    destructive: true,
+                    onSelect: () => {
+                      setMenuOpen(false);
+                      cancelProjectClone(ws.id);
+                    },
+                  }
+                : {
+                    label: 'Close project',
+                    icon: <FolderX size={13} />,
+                    destructive: true,
+                    onSelect: () => {
+                      setMenuOpen(false);
+                      onRequestClose(ws);
+                    },
+                  },
             ] satisfies ContextMenuItemDef[]
           }
         />
