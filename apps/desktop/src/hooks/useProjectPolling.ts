@@ -143,6 +143,13 @@ export function useProjectPolling(
 
     function poll() {
       const current = projectsRef.current;
+
+      // Prune miss counts for projects that no longer exist
+      const currentIds = new Set(current.map((p) => p.id));
+      for (const id in missCountRef.current) {
+        if (!currentIds.has(id)) delete missCountRef.current[id];
+      }
+
       const cloningIds = new Set(getUiState().cloningProjectIds);
       const { paths, pathToId, expandedIds } = getExpandedProjectPaths(
         cloningIds.size > 0 ? current.filter((p) => !cloningIds.has(p.id)) : current,
