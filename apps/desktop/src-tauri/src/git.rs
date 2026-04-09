@@ -262,46 +262,167 @@ pub async fn list_all_branches(repo_path: String) -> Result<Vec<BranchDetail>, S
         .map_err(|e| e.to_string())?
 }
 
-/// Try SSH keys, then credential helpers. Shared by fetch and clone.
-fn try_credentials(
-    url: &str,
-    username_from_url: Option<&str>,
-    allowed_types: git2::CredentialType,
-    config: Option<&git2::Config>,
-) -> Result<git2::Cred, git2::Error> {
-    let username = username_from_url.unwrap_or("git");
+/// Extract the hostname from a git remote URL.
+/// Handles HTTPS (`https://github.com/...`), SCP-style SSH (`git@github.com:...`),
+/// and `ssh://` URLs.
+fn host_from_url(url: &str) -> &str {
+    if let Some(rest) = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://")) {
+        rest.split('/').next().unwrap_or("")
+    } else if let Some(rest) = url.strip_prefix("ssh://") {
+        // Strip optional user@ prefix, then take the host segment.
+        let rest = rest.splitn(2, '@').last().unwrap_or(rest);
+        rest.split('/').next().unwrap_or("")
+    } else if let Some(at) = url.find('@') {
+        // SCP-style: git@github.com:owner/repo.git
+        let after = &url[at + 1..];
+        after.split(':').next().unwrap_or("")
+    } else {
+        ""
+    }
+}
 
-    if allowed_types.contains(git2::CredentialType::SSH_KEY) {
-        if let Ok(cred) = git2::Cred::ssh_key_from_agent(username) {
-            return Ok(cred);
+/// Glob-style pattern matching for SSH `Host` entries (case-insensitive).
+/// Supports `*` (any sequence) and `?` (single character).
+fn ssh_host_matches(pattern: &str, host: &str) -> bool {
+    fn matches(p: &[u8], h: &[u8]) -> bool {
+        match p.first() {
+            None => h.is_empty(),
+            Some(&b'*') => (0..=h.len()).any(|i| matches(&p[1..], &h[i..])),
+            Some(&b'?') => !h.is_empty() && matches(&p[1..], &h[1..]),
+            Some(&c) => {
+                !h.is_empty()
+                    && c.to_ascii_lowercase() == h[0].to_ascii_lowercase()
+                    && matches(&p[1..], &h[1..])
+            }
         }
-        let home = std::env::var("HOME")
-            .map_err(|_| git2::Error::from_str("HOME not set"))?;
-        for key_name in &["id_ed25519", "id_rsa"] {
-            let key_path = std::path::Path::new(&home).join(".ssh").join(key_name);
-            if key_path.exists() {
-                let pub_path = key_path.with_extension("pub");
-                let pub_key = if pub_path.exists() {
-                    Some(pub_path.as_path())
+    }
+    matches(pattern.as_bytes(), host.as_bytes())
+}
+
+/// Parse `~/.ssh/config` and return `IdentityFile` paths for all `Host` blocks
+/// that match `host`, in config-file order. Expands `~/` in paths.
+fn ssh_identity_files_for_host(host: &str) -> Vec<std::path::PathBuf> {
+    let home = match std::env::var("HOME") {
+        Ok(h) => h,
+        Err(_) => return vec![],
+    };
+    let config_path = std::path::Path::new(&home).join(".ssh").join("config");
+    let content = match std::fs::read_to_string(&config_path) {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
+
+    let expand = |p: &str| -> std::path::PathBuf {
+        match p.strip_prefix("~/") {
+            Some(rest) => std::path::PathBuf::from(format!("{}/{}", home, rest)),
+            None => std::path::PathBuf::from(p),
+        }
+    };
+
+    let mut files: Vec<std::path::PathBuf> = vec![];
+    let mut in_matching_block = false;
+    let mut seen_host_directive = false;
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        // Split keyword from value on first whitespace or '='.
+        let Some(sep) = line.find(|c: char| c.is_whitespace() || c == '=') else {
+            continue;
+        };
+        let keyword = &line[..sep];
+        let value = line[sep..].trim_start_matches(|c: char| c.is_whitespace() || c == '=').trim();
+
+        if keyword.eq_ignore_ascii_case("Host") {
+            seen_host_directive = true;
+            // Patterns are space-separated; prefix `!` negates.
+            in_matching_block = value.split_whitespace().any(|p| {
+                if let Some(neg) = p.strip_prefix('!') {
+                    !ssh_host_matches(neg, host)
                 } else {
-                    None
-                };
-                if let Ok(cred) = git2::Cred::ssh_key(username, pub_key, &key_path, None) {
-                    return Ok(cred);
+                    ssh_host_matches(p, host)
                 }
+            });
+            continue;
+        }
+
+        if keyword.eq_ignore_ascii_case("Match") {
+            // Match blocks have complex semantics — skip conservatively.
+            seen_host_directive = true;
+            in_matching_block = false;
+            continue;
+        }
+
+        // Lines before any Host directive apply globally (implicit `Host *`).
+        let applies = !seen_host_directive || in_matching_block;
+        if applies && keyword.eq_ignore_ascii_case("IdentityFile") {
+            let path = expand(value);
+            if !files.contains(&path) {
+                files.push(path);
             }
         }
     }
 
-    if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
-        if let Some(cfg) = config {
-            if let Ok(cred) = git2::Cred::credential_helper(cfg, url, username_from_url) {
-                return Ok(cred);
-            }
+    files
+}
+
+/// Resolve the ordered list of SSH private key paths to try for a remote URL.
+/// Reads `~/.ssh/config` for host-specific keys; falls back to the standard
+/// default names (`id_ed25519`, `id_rsa`) when the config specifies nothing.
+/// Only returns paths that exist on disk.
+fn resolve_ssh_keys(url: &str) -> Vec<std::path::PathBuf> {
+    let host = host_from_url(url);
+    let mut keys = ssh_identity_files_for_host(host);
+
+    if keys.is_empty() {
+        let home = std::env::var("HOME").unwrap_or_default();
+        let ssh_dir = std::path::Path::new(&home).join(".ssh");
+        for name in &["id_ed25519", "id_rsa"] {
+            keys.push(ssh_dir.join(name));
         }
     }
 
-    Err(git2::Error::from_str("no credentials available"))
+    keys.into_iter().filter(|p| p.exists()).collect()
+}
+
+/// Build a stateful credential callback for libgit2.
+///
+/// Attempt 0 → SSH agent. Attempts 1..n → `ssh_keys[n-1]`. Falls back to
+/// the git credential helper for HTTPS. Returns `Err` when all options are
+/// exhausted, which tells libgit2 to stop retrying.
+fn build_credential_callback<'a>(
+    ssh_keys: &'a [std::path::PathBuf],
+    attempt: &'a std::cell::Cell<usize>,
+    config: Option<&'a git2::Config>,
+) -> impl FnMut(&str, Option<&str>, git2::CredentialType) -> Result<git2::Cred, git2::Error> + 'a
+{
+    move |remote_url, username_from_url, allowed_types| {
+        let username = username_from_url.unwrap_or("git");
+        let n = attempt.get();
+        attempt.set(n + 1);
+
+        if allowed_types.contains(git2::CredentialType::SSH_KEY) {
+            if n == 0 {
+                return git2::Cred::ssh_key_from_agent(username);
+            }
+            if let Some(key_path) = ssh_keys.get(n - 1) {
+                let pub_path = key_path.with_extension("pub");
+                let pub_key = if pub_path.exists() { Some(pub_path.as_path()) } else { None };
+                return git2::Cred::ssh_key(username, pub_key, key_path, None);
+            }
+            return Err(git2::Error::from_str("no SSH credentials available"));
+        }
+
+        if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
+            if let Some(cfg) = config {
+                return git2::Cred::credential_helper(cfg, remote_url, username_from_url);
+            }
+        }
+
+        Err(git2::Error::from_str("no credentials available"))
+    }
 }
 
 /// Extract the repository name from a remote URL (HTTPS or SSH).
@@ -321,17 +442,13 @@ fn fetch_remote_sync(repo_path: &str) -> Result<(), String> {
         .find_remote("origin")
         .map_err(|e| format!("no 'origin' remote: {e}"))?;
 
-    let attempted = std::cell::Cell::new(false);
+    let remote_url = remote.url().unwrap_or("").to_string();
+    let ssh_keys = resolve_ssh_keys(&remote_url);
+    let attempt = std::cell::Cell::new(0usize);
     let config = repo.config().ok();
 
     let mut callbacks = git2::RemoteCallbacks::new();
-    callbacks.credentials(|url, username_from_url, allowed_types| {
-        if attempted.get() {
-            return Err(git2::Error::from_str("no credentials available"));
-        }
-        attempted.set(true);
-        try_credentials(url, username_from_url, allowed_types, config.as_ref())
-    });
+    callbacks.credentials(build_credential_callback(&ssh_keys, &attempt, config.as_ref()));
 
     let mut fetch_opts = git2::FetchOptions::new();
     fetch_opts.remote_callbacks(callbacks);
@@ -360,17 +477,12 @@ pub async fn clone_repo(
     branch: Option<String>,
 ) -> Result<RepoInfo, String> {
     tokio::task::spawn_blocking(move || {
-        let attempted = std::cell::Cell::new(false);
+        let ssh_keys = resolve_ssh_keys(&url);
+        let attempt = std::cell::Cell::new(0usize);
         let config = git2::Config::open_default().ok();
 
         let mut callbacks = git2::RemoteCallbacks::new();
-        callbacks.credentials(|remote_url, username_from_url, allowed_types| {
-            if attempted.get() {
-                return Err(git2::Error::from_str("no credentials available"));
-            }
-            attempted.set(true);
-            try_credentials(remote_url, username_from_url, allowed_types, config.as_ref())
-        });
+        callbacks.credentials(build_credential_callback(&ssh_keys, &attempt, config.as_ref()));
 
         // Phase 0 = receiving, 1 = resolving — tracked to reset last_emitted on phase change
         let mut last_phase: u8 = 0;
@@ -511,17 +623,12 @@ fn friendly_remote_error(msg: &str) -> String {
 #[tauri::command]
 pub async fn check_remote(url: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
-        let attempted = std::cell::Cell::new(false);
+        let ssh_keys = resolve_ssh_keys(&url);
+        let attempt = std::cell::Cell::new(0usize);
         let config = git2::Config::open_default().ok();
 
         let mut callbacks = git2::RemoteCallbacks::new();
-        callbacks.credentials(|remote_url, username_from_url, allowed_types| {
-            if attempted.get() {
-                return Err(git2::Error::from_str("no credentials available"));
-            }
-            attempted.set(true);
-            try_credentials(remote_url, username_from_url, allowed_types, config.as_ref())
-        });
+        callbacks.credentials(build_credential_callback(&ssh_keys, &attempt, config.as_ref()));
 
         let mut remote = git2::Remote::create_detached(url.as_str())
             .map_err(|_| "Invalid repository URL".to_string())?;
@@ -539,17 +646,12 @@ pub async fn check_remote(url: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn list_remote_branches(url: String) -> Result<Vec<BranchInfo>, String> {
     tokio::task::spawn_blocking(move || {
-        let attempted = std::cell::Cell::new(false);
+        let ssh_keys = resolve_ssh_keys(&url);
+        let attempt = std::cell::Cell::new(0usize);
         let config = git2::Config::open_default().ok();
 
         let mut callbacks = git2::RemoteCallbacks::new();
-        callbacks.credentials(|remote_url, username_from_url, allowed_types| {
-            if attempted.get() {
-                return Err(git2::Error::from_str("no credentials available"));
-            }
-            attempted.set(true);
-            try_credentials(remote_url, username_from_url, allowed_types, config.as_ref())
-        });
+        callbacks.credentials(build_credential_callback(&ssh_keys, &attempt, config.as_ref()));
 
         let mut remote = git2::Remote::create_detached(url.as_str())
             .map_err(|_| "Invalid repository URL".to_string())?;
