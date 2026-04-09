@@ -11,6 +11,7 @@ export const projects = sqliteTable('projects', {
   expanded: integer('expanded', { mode: 'boolean' }).notNull().default(true),
   position: integer('position').notNull().default(0),
   color: text('color'),
+  invalid: integer('invalid', { mode: 'boolean' }).notNull().default(false),
 });
 
 export const tabs = sqliteTable('tabs', {

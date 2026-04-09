@@ -1,7 +1,6 @@
+import { StatusDot } from '@superagent/ui';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
-
-import { StatusDot } from '../ui';
 
 describe('StatusDot', () => {
   it('renders green dot with no animation when idle', () => {

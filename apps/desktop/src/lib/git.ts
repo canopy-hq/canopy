@@ -37,12 +37,21 @@ export function importRepo(path: string): Promise<RepoInfo> {
   return invoke<RepoInfo>('import_repo', { path });
 }
 
-export function cloneRepo(url: string, dest: string): Promise<RepoInfo> {
-  return invoke<RepoInfo>('clone_repo', { url, dest });
+export function cloneRepo(
+  projectId: string,
+  url: string,
+  dest: string,
+  branch?: string,
+): Promise<RepoInfo> {
+  return invoke<RepoInfo>('clone_repo', { projectId, url, dest, branch: branch ?? null });
 }
 
 export function checkRemote(url: string): Promise<void> {
   return invoke('check_remote', { url });
+}
+
+export function listRemoteBranches(url: string): Promise<BranchInfo[]> {
+  return invoke<BranchInfo[]>('list_remote_branches', { url });
 }
 
 export function listBranches(repoPath: string): Promise<BranchInfo[]> {
@@ -110,6 +119,11 @@ export function pollAllProjectStates(
   repoPaths: string[],
 ): Promise<Record<string, ProjectPollState>> {
   return invoke<Record<string, ProjectPollState>>('poll_all_project_states', { repoPaths });
+}
+
+/** Returns the subset of paths that are not valid directories (deleted / unmounted). */
+export function checkProjectPaths(paths: string[]): Promise<string[]> {
+  return invoke<string[]>('check_project_paths', { paths });
 }
 
 /** Normalize a branch/worktree name to a safe identifier (spaces, underscores, slashes → dashes). */

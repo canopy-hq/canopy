@@ -15,6 +15,8 @@ let _uiState: UiState = {
   contextActiveTabIds: {},
   creatingWorktreeIds: [],
   cloningProjectIds: [],
+  cloneProgress: {},
+  invalidProjectIds: [],
   justStartedWorktreeId: null,
   pendingClaudeSession: null,
 };
@@ -60,6 +62,10 @@ vi.mock('@superagent/db', () => ({
   getSetting: (_arr: unknown[], _key: string, fallback: unknown) => fallback,
 }));
 
+// ── Mock Tauri event API ──────────────────────────────────────────────────────
+
+vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn().mockResolvedValue(() => {}) }));
+
 // ── Mock git API ─────────────────────────────────────────────────────────────
 
 vi.mock('../git', () => ({ importRepo: vi.fn(), cloneRepo: vi.fn(), listBranches: vi.fn() }));
@@ -92,6 +98,7 @@ function makeProject(overrides: Partial<Project> & { id: string; path: string })
     worktrees: [],
     expanded: true,
     position: 0,
+    invalid: false,
     ...overrides,
   };
 }
@@ -111,6 +118,8 @@ describe('importRepo', () => {
       contextActiveTabIds: {},
       creatingWorktreeIds: [],
       cloningProjectIds: [],
+      cloneProgress: {},
+      invalidProjectIds: [],
       justStartedWorktreeId: null,
       pendingClaudeSession: null,
     };
@@ -224,7 +233,7 @@ describe('startProjectClone', () => {
 
   it('optimistically inserts the project and marks it as cloning', () => {
     vi.mocked(gitApi.cloneRepo).mockReturnValue(new Promise(() => {})); // never resolves
-    startProjectClone('https://github.com/o/r.git', '/tmp/dest', nav);
+    startProjectClone('https://github.com/o/r.git', '/tmp/dest', 'r', 'main', nav);
     expect(_projects).toHaveLength(1);
     expect(_projects[0]!.name).toBe('r');
     expect(_projects[0]!.branches).toEqual([]);
@@ -240,7 +249,7 @@ describe('startProjectClone', () => {
       worktrees: [],
     });
 
-    startProjectClone('https://github.com/o/r.git', '/tmp/dest', nav);
+    startProjectClone('https://github.com/o/r.git', '/tmp/dest', 'r', 'main', nav);
     await vi.waitFor(() => expect(_uiState.cloningProjectIds).toHaveLength(0));
 
     expect(_projects).toHaveLength(1);
@@ -249,7 +258,7 @@ describe('startProjectClone', () => {
 
   it('removes project and shows error toast on clone failure', async () => {
     vi.mocked(gitApi.cloneRepo).mockRejectedValue(new Error('clone failed'));
-    startProjectClone('https://github.com/o/r.git', '/tmp/dest', nav);
+    startProjectClone('https://github.com/o/r.git', '/tmp/dest', 'r', 'main', nav);
     await vi.waitFor(() => expect(_uiState.cloningProjectIds).toHaveLength(0));
 
     expect(_projects).toHaveLength(0);
@@ -258,7 +267,7 @@ describe('startProjectClone', () => {
 
   it('adds SSH hint when error mentions auth', async () => {
     vi.mocked(gitApi.cloneRepo).mockRejectedValue(new Error('authentication failed'));
-    startProjectClone('git@github.com:o/r.git', '/tmp/dest', nav);
+    startProjectClone('git@github.com:o/r.git', '/tmp/dest', 'r', 'main', nav);
     await vi.waitFor(() => expect(_uiState.cloningProjectIds).toHaveLength(0));
 
     expect(showErrorToast).toHaveBeenCalledWith(
@@ -289,6 +298,8 @@ function resetNav() {
     contextActiveTabIds: {},
     creatingWorktreeIds: [],
     cloningProjectIds: [],
+    cloneProgress: {},
+    invalidProjectIds: [],
     justStartedWorktreeId: null,
     pendingClaudeSession: null,
   };

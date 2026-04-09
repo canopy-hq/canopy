@@ -110,6 +110,14 @@ export async function runMigrations(): Promise<void> {
     await db.run(sql`ALTER TABLE tabs ADD COLUMN icon TEXT`);
   }
 
+  // Add invalid column to projects if missing.
+  const projInvalidCol = await db.get<{ cnt: number }>(
+    sql`SELECT COUNT(*) as cnt FROM pragma_table_info('projects') WHERE name = 'invalid'`,
+  );
+  if (!projInvalidCol || projInvalidCol.cnt === 0) {
+    await db.run(sql`ALTER TABLE projects ADD COLUMN invalid INTEGER NOT NULL DEFAULT 0`);
+  }
+
   // Silence unused import warnings — these are used by collections
   void projects;
   void tabs;

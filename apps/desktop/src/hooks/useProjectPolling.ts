@@ -1,6 +1,13 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 
-import { getSettingCollection, getSetting, getProjectCollection, setSetting } from '@superagent/db';
+import {
+  getSettingCollection,
+  getSetting,
+  getProjectCollection,
+  setSetting,
+  getUiState,
+  uiCollection,
+} from '@superagent/db';
 
 import { pollAllProjectStates } from '../lib/git';
 import { getExpandedProjectPaths } from '../lib/project-utils';
@@ -18,6 +25,7 @@ function loadCachedStatsMap(): StatsMap {
 }
 
 const POLL_MS = 3_000;
+const MISS_THRESHOLD = 2;
 
 export function getInterval(noChangeCount: number): number {
   if (noChangeCount >= 10) return 15_000;
@@ -105,6 +113,8 @@ export function useProjectPolling(
   const noChangeCountRef = useRef(0);
   const prevStatsRef = useRef(statsMap);
   const prevBranchStateRef = useRef<Record<string, ProjectPollState>>({});
+  // Track consecutive poll misses per project ID to detect deleted directories
+  const missCountRef = useRef<Record<string, number>>({});
   prevStatsRef.current = statsMap;
 
   useEffect(() => {
@@ -122,13 +132,21 @@ export function useProjectPolling(
     if (!enabled) return;
     noChangeCountRef.current = 0;
     prevBranchStateRef.current = {};
+    // Pre-fill miss counts so the very first failed poll immediately triggers invalid
+    const { expandedIds: initialIds } = getExpandedProjectPaths(projectsRef.current);
+    const initialMisses: Record<string, number> = {};
+    for (const id of initialIds) initialMisses[id] = MISS_THRESHOLD - 1;
+    missCountRef.current = initialMisses;
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
 
     function poll() {
       const current = projectsRef.current;
-      const { paths, pathToId, expandedIds } = getExpandedProjectPaths(current);
+      const cloningIds = new Set(getUiState().cloningProjectIds);
+      const { paths, pathToId, expandedIds } = getExpandedProjectPaths(
+        cloningIds.size > 0 ? current.filter((p) => !cloningIds.has(p.id)) : current,
+      );
       if (paths.length === 0) {
         timer = setTimeout(poll, getInterval(noChangeCountRef.current));
         return;
@@ -137,6 +155,8 @@ export function useProjectPolling(
       pollAllProjectStates(paths)
         .then(async (result) => {
           if (cancelled) return;
+
+          const invalidIds = new Set(getUiState().invalidProjectIds);
 
           // --- Diff stats ---
           const nextStats: Record<string, Record<string, DiffStat>> = {};
@@ -148,7 +168,9 @@ export function useProjectPolling(
           const prevStats = prevStatsRef.current;
           const mergedStats: Record<string, Record<string, DiffStat>> = {};
           for (const projId in prevStats) {
-            if (!expandedIds.has(projId)) mergedStats[projId] = prevStats[projId]!;
+            if (!expandedIds.has(projId) || invalidIds.has(projId)) {
+              mergedStats[projId] = prevStats[projId]!;
+            }
           }
           for (const projId in nextStats) {
             mergedStats[projId] = nextStats[projId]!;
@@ -166,7 +188,10 @@ export function useProjectPolling(
           const prevBranch = prevBranchStateRef.current;
           const mergedBranch: Record<string, ProjectPollState> = {};
           for (const projId in prevBranch) {
-            if (!expandedIds.has(projId)) mergedBranch[projId] = prevBranch[projId]!;
+            // Preserve state for: collapsed projects + invalid projects (frozen data)
+            if (!expandedIds.has(projId) || invalidIds.has(projId)) {
+              mergedBranch[projId] = prevBranch[projId]!;
+            }
           }
           for (const projId in nextBranchState) {
             mergedBranch[projId] = nextBranchState[projId]!;
@@ -200,6 +225,46 @@ export function useProjectPolling(
           }
 
           prevBranchStateRef.current = mergedBranch;
+
+          // --- Invalid project detection ---
+          // A project is "invalid" when its path consistently fails to poll
+          // (directory deleted, unmounted drive, etc.)
+          const misses = missCountRef.current;
+          let invalidChanged = false;
+          for (const projId of expandedIds) {
+            if (nextBranchState[projId]) {
+              // Path polled successfully → reset miss count and clear invalid if set
+              if (misses[projId]) {
+                delete misses[projId];
+                invalidChanged = true;
+              }
+            } else {
+              misses[projId] = (misses[projId] ?? 0) + 1;
+              if (misses[projId] === MISS_THRESHOLD) invalidChanged = true;
+            }
+          }
+          if (invalidChanged) {
+            const nowInvalidIds = new Set(
+              Object.entries(misses)
+                .filter(([, count]) => count >= MISS_THRESHOLD)
+                .map(([id]) => id),
+            );
+            uiCollection.update('ui', (draft) => {
+              draft.invalidProjectIds = [...nowInvalidIds];
+            });
+            // Persist invalid flag to DB so state survives app reload
+            const collection = getProjectCollection();
+            const allProjects = collection.toArray;
+            for (const proj of allProjects) {
+              if (!expandedIds.has(proj.id)) continue;
+              const shouldBeInvalid = nowInvalidIds.has(proj.id);
+              if (proj.invalid !== shouldBeInvalid) {
+                collection.update(proj.id, (draft) => {
+                  draft.invalid = shouldBeInvalid;
+                });
+              }
+            }
+          }
 
           if (diffStatsChanged || branchChanged) {
             noChangeCountRef.current = 0;

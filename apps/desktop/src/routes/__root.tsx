@@ -4,6 +4,7 @@ import { CommandMenu } from '@superagent/command-palette';
 import {
   agentCollection,
   getUiState,
+  uiCollection,
   getTabCollection,
   getProjectCollection,
   getSettingCollection,
@@ -28,6 +29,7 @@ import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegist
 import { useTauriMenuEvent } from '../hooks/useTauriMenuEvent';
 import { onOpenAddProjectDialog } from '../lib/add-project-bridge';
 import { initAgentListener } from '../lib/agent-actions';
+import { checkProjectPaths } from '../lib/git';
 import { getConnection, GITHUB_CONNECTION_KEY } from '../lib/github';
 import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
 import {
@@ -70,11 +72,45 @@ function RootLayout() {
     if (booted.current) return;
     booted.current = true;
     const { activeContextId } = getUiState();
-    if (activeContextId) {
+    const projects = getProjectCollection().toArray;
+    if (activeContextId && projects.some((p) => activeContextId.startsWith(p.id))) {
       void navigate({ to: '/projects/$projectId', params: { projectId: activeContextId } });
     }
-    for (const ws of getProjectCollection().toArray) {
+    for (const ws of projects) {
       void refreshRepo(ws.id);
+    }
+
+    // Restore persisted invalid state immediately (no poll round-trip needed).
+    const persistedInvalid = projects.filter((p) => p.invalid).map((p) => p.id);
+    if (persistedInvalid.length > 0) {
+      uiCollection.update('ui', (draft) => {
+        draft.invalidProjectIds = persistedInvalid;
+      });
+    }
+
+    // Run a fresh Rust path check — update DB + UiState if anything changed.
+    const allPaths = projects.map((p) => p.path);
+    if (allPaths.length > 0) {
+      void checkProjectPaths(allPaths).then((invalidPaths) => {
+        const invalidPathSet = new Set(invalidPaths);
+        const collection = getProjectCollection();
+        let changed = false;
+        for (const p of collection.toArray) {
+          const shouldBeInvalid = invalidPathSet.has(p.path);
+          if (p.invalid !== shouldBeInvalid) {
+            collection.update(p.id, (draft) => {
+              draft.invalid = shouldBeInvalid;
+            });
+            changed = true;
+          }
+        }
+        if (changed) {
+          const nowInvalid = collection.toArray.filter((p) => p.invalid).map((p) => p.id);
+          uiCollection.update('ui', (draft) => {
+            draft.invalidProjectIds = nowInvalid;
+          });
+        }
+      });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -121,11 +157,17 @@ function RootLayout() {
     );
 
     // Pre-warm the PTY pool: use a saved pane CWD, or fall back to the first
-    // project's filesystem path.
+    // project's filesystem path. Skip invalid (deleted) project paths.
+    const invalidPathSet = new Set(
+      getProjectCollection()
+        .toArray.filter((p) => p.invalid)
+        .map((p) => p.path),
+    );
     const firstCwd =
       paneEntries
         .map(({ paneId }) => (getSetting(settings, `cwd:${paneId}`, '') as string) || '')
-        .find((cwd) => cwd.length > 0) || getProjectCollection().toArray[0]?.path;
+        .find((cwd) => cwd.length > 0 && !invalidPathSet.has(cwd)) ||
+      getProjectCollection().toArray.find((p) => !p.invalid)?.path;
     if (firstCwd) {
       void initTerminalPool(firstCwd);
     }

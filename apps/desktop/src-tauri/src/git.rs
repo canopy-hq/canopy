@@ -1,9 +1,19 @@
 use git2::{BranchType, FetchPrune, Repository, WorktreeAddOptions, WorktreePruneOptions};
 use serde::Serialize;
+use tauri::Emitter;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CloneProgressPayload {
+    pub project_id: String,
+    pub received_objects: usize,
+    pub total_objects: usize,
+    pub received_bytes: usize,
+}
 
 /// Sanitize a worktree name for use as a git admin directory.
 /// git2 stores worktree metadata under `.git/worktrees/{name}/` and uses
@@ -340,7 +350,13 @@ pub async fn fetch_remote(repo_path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn clone_repo(url: String, dest: String) -> Result<RepoInfo, String> {
+pub async fn clone_repo(
+    app_handle: tauri::AppHandle,
+    project_id: String,
+    url: String,
+    dest: String,
+    branch: Option<String>,
+) -> Result<RepoInfo, String> {
     tokio::task::spawn_blocking(move || {
         let attempted = std::cell::Cell::new(false);
         let config = git2::Config::open_default().ok();
@@ -354,27 +370,57 @@ pub async fn clone_repo(url: String, dest: String) -> Result<RepoInfo, String> {
             try_credentials(remote_url, username_from_url, allowed_types, config.as_ref())
         });
 
+        let mut last_emitted: usize = 0;
+        let pid = project_id.clone();
+        callbacks.transfer_progress(move |stats| {
+            let received = stats.received_objects();
+            let total = stats.total_objects();
+            // Emit at most once per 1% of progress (min every 50 objects)
+            let threshold = (total / 100).max(50);
+            if received == total || received.saturating_sub(last_emitted) >= threshold {
+                last_emitted = received;
+                let _ = app_handle.emit("clone-progress", CloneProgressPayload {
+                    project_id: pid.clone(),
+                    received_objects: received,
+                    total_objects: total,
+                    received_bytes: stats.received_bytes(),
+                });
+            }
+            true
+        });
+
         let mut fetch_opts = git2::FetchOptions::new();
         fetch_opts.remote_callbacks(callbacks);
 
-        // Append repo name to dest directory (like `git clone` does by default)
         let repo_name = repo_name_from_url(&url)
             .ok_or_else(|| format!("cannot derive repository name from URL: {url}"))?;
-        let dest_path = Path::new(&dest).join(&repo_name);
+        let expanded_dest = if dest.starts_with("~/") {
+            let home = std::env::var("HOME")
+                .map_err(|_| "Could not expand ~: HOME is not set".to_string())?;
+            format!("{}{}", home, &dest[1..])
+        } else {
+            dest.clone()
+        };
+        let dest_path = Path::new(&expanded_dest).join(&repo_name);
 
-        let repo = git2::build::RepoBuilder::new()
-            .fetch_options(fetch_opts)
-            .clone(&url, &dest_path)
-            .map_err(|e| e.to_string())?;
+        let mut builder = git2::build::RepoBuilder::new();
+        builder.fetch_options(fetch_opts);
+        if let Some(ref b) = branch {
+            builder.branch(b);
+        }
+        let repo = builder.clone(&url, &dest_path).map_err(|e| e.to_string())?;
 
         let dest_str = dest_path.to_string_lossy().to_string();
-        let all_branches = enumerate_branches(&repo, true)?;
-        let head_only: Vec<BranchInfo> = all_branches.into_iter().filter(|b| b.is_head).collect();
+        let head_name = repo
+            .head()
+            .ok()
+            .and_then(|h| h.shorthand().map(|s| s.to_string()))
+            .unwrap_or_else(|| branch.unwrap_or_else(|| "main".to_string()));
 
         Ok(RepoInfo {
             path: dest_str,
             name: repo_name,
-            branches: head_only,
+            branches: vec![BranchInfo { name: head_name, is_head: true, ahead: 0, behind: 0 }],
             worktrees: Vec::new(),
         })
     })
@@ -432,6 +478,54 @@ pub async fn check_remote(url: String) -> Result<(), String> {
             .map_err(|e| friendly_remote_error(e.message()))?;
 
         Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn list_remote_branches(url: String) -> Result<Vec<BranchInfo>, String> {
+    tokio::task::spawn_blocking(move || {
+        let attempted = std::cell::Cell::new(false);
+        let config = git2::Config::open_default().ok();
+
+        let mut callbacks = git2::RemoteCallbacks::new();
+        callbacks.credentials(|remote_url, username_from_url, allowed_types| {
+            if attempted.get() {
+                return Err(git2::Error::from_str("no credentials available"));
+            }
+            attempted.set(true);
+            try_credentials(remote_url, username_from_url, allowed_types, config.as_ref())
+        });
+
+        let mut remote = git2::Remote::create_detached(url.as_str())
+            .map_err(|_| "Invalid repository URL".to_string())?;
+
+        let conn = remote
+            .connect_auth(git2::Direction::Fetch, Some(callbacks), None)
+            .map_err(|e| friendly_remote_error(e.message()))?;
+
+        let refs = conn.list().map_err(|e| e.to_string())?;
+
+        // HEAD symref points to the default branch (e.g. "refs/heads/main")
+        let default_branch = refs
+            .iter()
+            .find(|r| r.name() == "HEAD")
+            .and_then(|r| r.symref_target())
+            .and_then(|t| t.strip_prefix("refs/heads/"))
+            .map(|s| s.to_string());
+
+        let branches: Vec<BranchInfo> = refs
+            .iter()
+            .filter_map(|r| {
+                r.name().strip_prefix("refs/heads/").map(|name| {
+                    let is_head = default_branch.as_deref() == Some(name);
+                    BranchInfo { name: name.to_string(), is_head, ahead: 0, behind: 0 }
+                })
+            })
+            .collect();
+
+        Ok(branches)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -896,6 +990,16 @@ pub async fn poll_all_project_states(
         }
     }
     Ok(result)
+}
+
+/// Returns the subset of paths that are **not** valid git repository directories.
+/// Used at boot to detect projects whose directories have been deleted.
+#[tauri::command]
+pub async fn check_project_paths(paths: Vec<String>) -> Vec<String> {
+    paths
+        .into_iter()
+        .filter(|p| !Path::new(p).is_dir())
+        .collect()
 }
 
 #[cfg(test)]

@@ -1,13 +1,13 @@
 import { useEffect, useCallback } from 'react';
 
 import { getUiState } from '@superagent/db';
+import { Button } from '@superagent/ui';
 import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router';
 import { ChevronLeft, Palette, GitBranch } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { AppearanceSection } from '../components/settings/AppearanceSection';
 import { ConnectionSection } from '../components/settings/ConnectionSection';
-import { Button } from '../components/ui';
 
 type SectionId = 'appearance' | 'git';
 

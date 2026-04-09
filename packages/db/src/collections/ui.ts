@@ -13,6 +13,12 @@ export const SIDEBAR_WIDTH_MIN = 180;
 export const SIDEBAR_WIDTH_DEFAULT = 250;
 export const SIDEBAR_WIDTH_MAX = 400;
 
+export interface CloneProgress {
+  received: number;
+  total: number;
+  bytes: number;
+}
+
 export interface UiState {
   id: 'ui';
   // Sidebar
@@ -26,6 +32,8 @@ export interface UiState {
   // Ephemeral creation state (not persisted)
   creatingWorktreeIds: string[];
   cloningProjectIds: string[];
+  cloneProgress: Record<string, CloneProgress>;
+  invalidProjectIds: string[];
   justStartedWorktreeId: string | null;
   pendingClaudeSession: { worktreeId: string; mode: 'bypass' | 'plan'; prompt?: string } | null;
 }
@@ -40,6 +48,8 @@ const INITIAL_UI_STATE: UiState = {
   contextActiveTabIds: {},
   creatingWorktreeIds: [],
   cloningProjectIds: [],
+  cloneProgress: {},
+  invalidProjectIds: [],
   justStartedWorktreeId: null,
   pendingClaudeSession: null,
 };

@@ -10,6 +10,7 @@ import {
   SIDEBAR_WIDTH_MAX,
 } from '@superagent/db';
 import { closePty, closePtysForPanes, disposeCached } from '@superagent/terminal';
+import { listen } from '@tauri-apps/api/event';
 
 import { openAddProjectDialogViaBridge } from './add-project-bridge';
 import * as gitApi from './git';
@@ -62,6 +63,7 @@ export function importLocalProject(
     worktrees: [],
     expanded: true,
     position: collection.toArray.length,
+    invalid: false,
   });
   uiCollection.update('ui', (draft) => {
     draft.sidebarVisible = true;
@@ -69,17 +71,16 @@ export function importLocalProject(
   selectProjectItem(`${projectId}-branch-${branch.name}`, navigate);
 }
 
-function deriveNameFromUrl(url: string): string {
-  const trimmed = url.trim().replace(/\.git$/, '');
-  const parts = trimmed.split('/');
-  return parts[parts.length - 1] ?? '';
-}
-
 /** Optimistically insert a cloning project and run git clone in the background. */
-export function startProjectClone(url: string, dest: string, navigate: NavigateFn): void {
+export function startProjectClone(
+  url: string,
+  dest: string,
+  name: string,
+  branch: string,
+  navigate: NavigateFn,
+): void {
   const collection = getProjectCollection();
   const projectId = crypto.randomUUID();
-  const name = deriveNameFromUrl(url) || (dest.split('/').pop() ?? 'project');
 
   collection.insert({
     id: projectId,
@@ -89,6 +90,7 @@ export function startProjectClone(url: string, dest: string, navigate: NavigateF
     worktrees: [],
     expanded: true,
     position: collection.toArray.length,
+    invalid: false,
   });
   uiCollection.update('ui', (draft) => {
     draft.cloningProjectIds.push(projectId);
@@ -97,8 +99,24 @@ export function startProjectClone(url: string, dest: string, navigate: NavigateF
   selectProjectItem(projectId, navigate);
 
   void (async () => {
+    const unlisten = await listen<{
+      projectId: string;
+      receivedObjects: number;
+      totalObjects: number;
+      receivedBytes: number;
+    }>('clone-progress', ({ payload }) => {
+      if (payload.projectId !== projectId) return;
+      uiCollection.update('ui', (draft) => {
+        draft.cloneProgress[projectId] = {
+          received: payload.receivedObjects,
+          total: payload.totalObjects,
+          bytes: payload.receivedBytes,
+        };
+      });
+    });
+
     try {
-      const info = await gitApi.cloneRepo(url, dest);
+      const info = await gitApi.cloneRepo(projectId, url, dest, branch);
       const headBranch = info.branches.find((b) => b.is_head) ?? info.branches[0];
 
       collection.update(projectId, (draft) => {
@@ -125,6 +143,11 @@ export function startProjectClone(url: string, dest: string, navigate: NavigateF
           ? `${msg} — check your SSH key setup`
           : msg;
       showErrorToast('Clone failed', detail);
+    } finally {
+      unlisten();
+      uiCollection.update('ui', (draft) => {
+        delete draft.cloneProgress[projectId];
+      });
     }
   })();
 }
@@ -147,6 +170,7 @@ export async function importRepo(path: string, navigate?: NavigateFn): Promise<v
         worktrees: info.worktrees,
         expanded: true,
         position: collection.toArray.length,
+        invalid: false,
       });
 
       if (navigate) {
@@ -204,6 +228,9 @@ export async function closeProject(
   }
 
   getProjectCollection().delete(id);
+  uiCollection.update('ui', (draft) => {
+    draft.invalidProjectIds = draft.invalidProjectIds.filter((pid) => pid !== id);
+  });
 }
 
 export async function refreshRepo(id: string): Promise<void> {

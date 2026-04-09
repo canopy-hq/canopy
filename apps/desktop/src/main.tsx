@@ -11,8 +11,24 @@ import './index.css';
 
 async function boot() {
   const dbPath = await invoke<string>('get_db_path');
-  await initDb(`sqlite:${dbPath}`);
-  await runMigrations();
+
+  try {
+    await initDb(`sqlite:${dbPath}`);
+    await runMigrations();
+    sessionStorage.removeItem('boot_db_retry');
+  } catch (err) {
+    // Guard against infinite reload if delete_db itself can't fix the issue.
+    if (sessionStorage.getItem('boot_db_retry')) {
+      console.error('[boot] DB recovery failed twice — giving up:', err);
+      return;
+    }
+    console.error('[boot] DB init/migration failed, deleting DB and reloading:', err);
+    sessionStorage.setItem('boot_db_retry', '1');
+    await invoke('delete_db');
+    location.reload();
+    return;
+  }
+
   await hydrateCollections();
 
   createRoot(document.getElementById('root')!).render(

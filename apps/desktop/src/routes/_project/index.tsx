@@ -1,9 +1,9 @@
 import type { ComponentType } from 'react';
 
+import { Button, Kbd } from '@superagent/ui';
 import { createFileRoute } from '@tanstack/react-router';
 import { Bot, FolderPlus, GitBranch, PanelLeft, Terminal } from 'lucide-react';
 
-import { Button, Kbd } from '../../components/ui';
 import { useProjects } from '../../hooks/useCollections';
 import { openAddProjectDialog, toggleSidebar } from '../../lib/project-actions';
 

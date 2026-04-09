@@ -1,6 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const desktopDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -14,12 +13,8 @@ if (rebuild) {
   console.log('[dev] daemon killed and binary removed — will rebuild on start');
 }
 
-// Worktree-scoped identifier so each dev worktree gets its own single-instance lock.
-const worktreeHash = new Bun.CryptoHasher('md5').update(repoRoot).digest('hex').slice(0, 8);
-const devIdentifier = `com.superagent.dev-${worktreeHash}`;
-
-// Shared data dir so all worktrees use the same DB, daemon socket, and settings.
-const sharedDataDir = join(homedir(), 'Library', 'Application Support', 'com.superagent.app');
+// Fixed identifier — keeps dev/prod data dirs separate without creating per-worktree dirs.
+const devIdentifier = 'com.superagent.dev';
 
 // Start Vite directly so it picks its own port atomically — no probe/race condition.
 const vite = spawn('bun', ['run', 'dev'], {
@@ -60,7 +55,14 @@ const tauri = spawn(
     '--config',
     `{"identifier":"${devIdentifier}","build":{"devUrl":"http://localhost:${port}"}}`,
   ],
-  { stdio: 'inherit', env: { ...process.env, SUPERAGENT_DATA_DIR: sharedDataDir } },
+  {
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      RUST_LOG: process.env.RUST_LOG ?? 'debug',
+      RUST_BACKTRACE: process.env.RUST_BACKTRACE ?? '1',
+    },
+  },
 );
 
 const cleanup = () => {
