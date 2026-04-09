@@ -58,7 +58,9 @@ function ProjectLayout() {
       { key: 'ArrowDown', meta: true, alt: true, action: () => navigatePanes('down') },
       { key: 't', meta: true, action: () => addTab() },
       {
-        key: 'e',
+        // Use `code` instead of `key` — on macOS WebKit, e.key returns 'E'
+        // (uppercase) when Shift is held, which fails the exact-match check.
+        code: 'KeyE',
         meta: true,
         shift: true,
         condition: () => editors.length > 0 && !!uiState.activeContextId,
