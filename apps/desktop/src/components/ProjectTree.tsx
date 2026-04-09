@@ -854,6 +854,7 @@ function RepoTreeItem({
   const isActive = !!activeContextId?.startsWith(ws.id);
   const isRepoSelected = !!selectedItemId?.startsWith(ws.id) || isActive;
 
+  const localCreatingIds = [...creatingWorktreeIds].filter((id) => id.startsWith(`${ws.id}-wt-`));
   const draggingCls = isDragging || isDropping ? 'pointer-events-none relative z-50' : '';
   const blockCls =
     isDragging || isDropping
@@ -958,40 +959,38 @@ function RepoTreeItem({
             {ws.branches.length === 0 &&
               ws.worktrees.length === 0 &&
               !isCloning &&
-              ![...creatingWorktreeIds].some((id) => id.startsWith(`${ws.id}-wt-`)) && (
+              localCreatingIds.length === 0 && (
                 <div className="py-1.5 pr-3 pl-11 font-mono text-xs text-text-faint/40">
                   no branches
                 </div>
               )}
-            {[...creatingWorktreeIds]
-              .filter((id) => id.startsWith(`${ws.id}-wt-`))
-              .map((id) => {
-                const name = id.slice(`${ws.id}-wt-`.length);
-                const isSelected = selectedItemId === id;
-                const hasPendingClaude = pendingClaudeWorktreeId === id;
-                return (
-                  <div
-                    key={id}
-                    className={sidebarItem({ selected: isSelected })}
-                    onClick={() => onSelectItem(id)}
-                  >
-                    <div className="py-1.5 pr-3 pl-3">
-                      <div className="flex items-center gap-2">
-                        <div className="relative flex w-6 shrink-0 items-center justify-center">
-                          <Spinner size={14} className="text-accent/60" />
-                        </div>
-                        <span className="min-w-0 flex-1 truncate font-mono text-sm text-text-faint">
-                          {name}
-                        </span>
-                        {hasPendingClaude && (
-                          <ClaudeCodeIcon size={11} className="shrink-0 text-[#da7756]/60" />
-                        )}
-                        <span className="shrink-0 font-mono text-xs text-accent/50">creating…</span>
+            {localCreatingIds.map((id) => {
+              const name = id.slice(`${ws.id}-wt-`.length);
+              const isSelected = selectedItemId === id;
+              const hasPendingClaude = pendingClaudeWorktreeId === id;
+              return (
+                <div
+                  key={id}
+                  className={sidebarItem({ selected: isSelected })}
+                  onClick={() => onSelectItem(id)}
+                >
+                  <div className="py-1.5 pr-3 pl-3">
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex w-6 shrink-0 items-center justify-center">
+                        <Spinner size={14} className="text-accent/60" />
                       </div>
+                      <span className="min-w-0 flex-1 truncate font-mono text-sm text-text-faint">
+                        {name}
+                      </span>
+                      {hasPendingClaude && (
+                        <ClaudeCodeIcon size={11} className="shrink-0 text-[#da7756]/60" />
+                      )}
+                      <span className="shrink-0 font-mono text-xs text-accent/50">creating…</span>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              );
+            })}
           </>
         )}
       </div>

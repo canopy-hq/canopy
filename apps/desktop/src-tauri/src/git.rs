@@ -420,17 +420,16 @@ pub async fn clone_repo(
             dest.clone()
         };
         // If the target directory already exists, append -1, -2, … until free.
-        let (dest_path, final_name) = {
+        let dest_path = {
             let base = Path::new(&expanded_dest).join(&repo_name);
             if !base.exists() {
-                (base, repo_name.clone())
+                base
             } else {
                 let mut i = 1u32;
                 loop {
-                    let candidate_name = format!("{}-{}", repo_name, i);
-                    let candidate = Path::new(&expanded_dest).join(&candidate_name);
+                    let candidate = Path::new(&expanded_dest).join(format!("{}-{}", repo_name, i));
                     if !candidate.exists() {
-                        break (candidate, candidate_name);
+                        break candidate;
                     }
                     i += 1;
                 }

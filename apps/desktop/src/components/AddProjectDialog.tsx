@@ -150,6 +150,9 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
     localPathRef.current?.focus();
   }, []);
 
+  const pickHead = (branches: gitApi.BranchInfo[]) =>
+    branches.find((b) => b.is_head)?.name ?? branches[0]?.name ?? '';
+
   // ── Local form ────────────────────────────────────────────────────────────
 
   const localForm = useForm({
@@ -157,9 +160,8 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
     onSubmit: () => {
       const result = branchResultRef.current;
       if (!result) return;
-      const head = result.branches.find((b) => b.is_head)?.name ?? result.branches[0]?.name ?? '';
       setSourceResult({ kind: 'local', ...result });
-      setSelectedBranch(head);
+      setSelectedBranch(pickHead(result.branches));
       setProjectName(result.name);
     },
   });
@@ -176,9 +178,8 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
       if (!result) return;
       const url = value.url.trim();
       const dest = value.dest.trim();
-      const head = result.branches.find((b) => b.is_head)?.name ?? result.branches[0]?.name ?? '';
       setSourceResult({ kind: 'clone', url, dest, name: result.name, branches: result.branches });
-      setSelectedBranch(head);
+      setSelectedBranch(pickHead(result.branches));
       setProjectName(result.name);
     },
   });
