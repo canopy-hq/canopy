@@ -381,11 +381,9 @@ fn resolve_ssh_keys(url: &str) -> Vec<std::path::PathBuf> {
     let mut keys = ssh_identity_files_for_host(host, &home);
 
     if keys.is_empty() {
-        // Scan ~/.ssh/ for files that have a matching .pub sibling — the standard
-        // indicator of an SSH private key regardless of naming convention.
         let ssh_dir = std::path::Path::new(&home).join(".ssh");
         if let Ok(entries) = std::fs::read_dir(&ssh_dir) {
-            let mut candidates: Vec<std::path::PathBuf> = entries
+            keys = entries
                 .filter_map(|e| e.ok())
                 .map(|e| e.path())
                 .filter(|p| {
@@ -394,11 +392,10 @@ fn resolve_ssh_keys(url: &str) -> Vec<std::path::PathBuf> {
                 })
                 .collect();
             // ed25519 before rsa before others — more modern keys first.
-            candidates.sort_by_key(|p| {
+            keys.sort_unstable_by_key(|p| {
                 let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
                 if name.contains("ed25519") { 0u8 } else if name.contains("rsa") { 1 } else { 2 }
             });
-            keys = candidates;
         }
     }
 
