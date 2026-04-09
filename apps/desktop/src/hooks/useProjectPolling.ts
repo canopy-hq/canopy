@@ -4,12 +4,14 @@ import {
   getSettingCollection,
   getSetting,
   getProjectCollection,
-  setSetting,
   getUiState,
+  setSetting,
   uiCollection,
 } from '@superagent/db';
 
 import { pollAllProjectStates } from '../lib/git';
+import { logInfo } from '../lib/log';
+import { hideWorktree } from '../lib/project-actions';
 import { getExpandedProjectPaths } from '../lib/project-utils';
 
 import type { DiffStat, ProjectPollState } from '../lib/git';
@@ -87,6 +89,22 @@ function findChangedProjects(
     if (!a || !b) return true;
     return !projectStateEqual(a, b);
   });
+}
+
+/** Return names of DB worktrees that no longer exist in git (excluding in-flight creations). */
+export function getStaleWorktreeNames(
+  dbWorktrees: { name: string }[],
+  liveWorktreeBranches: Record<string, string>,
+  creatingWtIds: string[],
+  projId: string,
+): string[] {
+  return dbWorktrees
+    .filter((wt) => {
+      if (liveWorktreeBranches[wt.name] !== undefined) return false;
+      if (creatingWtIds.includes(`${projId}-wt-${wt.name}`)) return false;
+      return true;
+    })
+    .map((wt) => wt.name);
 }
 
 /** Compare branch poll states for change detection across projects. */
@@ -210,9 +228,26 @@ export function useProjectPolling(
           // Update branch data for changed projects
           if (branchChanged) {
             const collection = getProjectCollection();
+            const creatingIds = getUiState().creatingWorktreeIds;
             for (const projId of changedProjIds) {
               const state = mergedBranch[projId];
               if (!state) continue;
+
+              // Prune worktrees that no longer exist in git
+              const proj = collection.toArray.find((p) => p.id === projId);
+              if (proj) {
+                const stale = getStaleWorktreeNames(
+                  proj.worktrees,
+                  state.worktree_branches,
+                  creatingIds,
+                  projId,
+                );
+                for (const name of stale) {
+                  logInfo(`[poll] pruning stale worktree "${name}" from project "${proj.name}"`);
+                  hideWorktree(projId, name);
+                }
+              }
+
               const head = state.branches.find((b) => b.is_head);
               collection.update(projId, (draft) => {
                 // Replace branches with just the current HEAD

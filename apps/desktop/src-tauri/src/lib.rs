@@ -38,6 +38,11 @@ fn delete_db(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn log_info(message: String) {
+    eprintln!("[ui] {message}");
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -94,6 +99,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_db_path,
             delete_db,
+            log_info,
             pty::spawn_terminal,
             pty::write_to_pty,
             pty::resize_pty,
