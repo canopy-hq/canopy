@@ -35,6 +35,8 @@ export interface CommandItem {
   group?: string;
   /** Stable context ID used to filter root-section tabs to the active project. */
   contextId?: string;
+  /** When true, the item is shown but grayed out and non-interactive. */
+  disabled?: boolean;
   /** Lazy child items — presence enables drill-down for this item. */
   children?: () => CommandItem[];
   /**

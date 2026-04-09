@@ -9,7 +9,7 @@ import { addTab } from '../lib/tab-actions';
 import type { Nav, CommandItem, PanelContext } from '@superagent/command-palette';
 import type { Setting, Project } from '@superagent/db';
 
-export function makeProjectPaletteItem(proj: Project): CommandItem {
+export function makeProjectPaletteItem(proj: Project, disabled?: boolean): CommandItem {
   return {
     id: `project:${proj.id}:palette`,
     label: 'New worktree',
@@ -17,6 +17,7 @@ export function makeProjectPaletteItem(proj: Project): CommandItem {
     icon: 'plus',
     keywords: ['worktree', 'create', 'new', proj.name],
     contextId: proj.id,
+    disabled,
     renderPanel: (ctx: PanelContext) => createElement(ProjectPalettePanel, { project: proj, ctx }),
   };
 }
@@ -62,8 +63,8 @@ export function buildProjectCommands(
   const activeProj = activeContextId
     ? projects.find((proj) => activeContextId.startsWith(proj.id))
     : null;
-  if (activeProj && !cloningSet.has(activeProj.id) && !activeProj.invalid) {
-    items.push(makeProjectPaletteItem(activeProj));
+  if (activeProj && !cloningSet.has(activeProj.id)) {
+    items.push(makeProjectPaletteItem(activeProj, activeProj.invalid));
     items.push({
       id: `project:${activeProj.id}:new-tab`,
       label: 'New tab',
@@ -72,6 +73,7 @@ export function buildProjectCommands(
       shortcut: '⌘T',
       keywords: ['tab', 'terminal', 'open', 'new', activeProj.name],
       contextId: activeProj.id,
+      disabled: activeProj.invalid,
       action: ({ close }) => {
         addTab();
         close();
@@ -89,8 +91,9 @@ function buildProjectChildren(
 ): CommandItem[] {
   const items: CommandItem[] = [];
 
-  // Palette item — hidden while cloning or invalid
-  if (!cloningSet.has(proj.id) && !proj.invalid) items.push(makeProjectPaletteItem(proj));
+  if (!cloningSet.has(proj.id)) {
+    items.push(makeProjectPaletteItem(proj, proj.invalid));
+  }
 
   // HEAD branch first
   const branches = [...proj.branches].sort((a, b) => (b.is_head ? 1 : 0) - (a.is_head ? 1 : 0));
