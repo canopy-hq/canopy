@@ -394,7 +394,7 @@ pub async fn clone_repo(
             let at_threshold = step == total_step || step.saturating_sub(last_emitted) >= threshold;
 
             if phase_changed || at_threshold {
-                if phase_changed { last_emitted = 0; last_phase = phase_byte; }
+                if phase_changed { last_phase = phase_byte; }
                 last_emitted = step;
                 let _ = ah.emit("clone-progress", CloneProgressPayload {
                     project_id: pid.clone(),
