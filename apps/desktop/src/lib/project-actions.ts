@@ -84,9 +84,12 @@ export function startProjectClone(
   const collection = getProjectCollection();
   const projectId = crypto.randomUUID();
 
+  // Use a unique placeholder path — `dest` alone would violate the UNIQUE constraint on
+  // `path` if two clones are started to the same destination directory simultaneously.
+  // The real path is written back once the Rust clone completes.
   collection.insert({
     id: projectId,
-    path: dest,
+    path: `${dest}/.superagent_cloning_${projectId}`,
     name,
     branches: [],
     worktrees: [],
@@ -98,7 +101,6 @@ export function startProjectClone(
     draft.cloningProjectIds.push(projectId);
     draft.sidebarVisible = true;
   });
-  selectProjectItem(projectId, navigate);
 
   void (async () => {
     const unlisten = await listen<{
