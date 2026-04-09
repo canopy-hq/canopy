@@ -7,6 +7,12 @@ vi.mock('../../lib/project-actions', () => ({ toggleSidebar: vi.fn() }));
 vi.mock('../../hooks/useCollections', () => ({
   useProjects: vi.fn(() => [{ id: '1' }]),
   useSettings: vi.fn(() => []),
+  useUiState: vi.fn(() => ({ activeContextId: '' })),
+}));
+vi.mock('../../lib/editor', () => ({
+  detectEditors: vi.fn(() => Promise.resolve([])),
+  openInEditor: vi.fn(() => Promise.resolve()),
+  useDetectedEditors: vi.fn(() => []),
 }));
 
 describe('Header', () => {
