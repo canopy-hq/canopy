@@ -127,8 +127,21 @@ fn enumerate_branches(repo: &Repository, lightweight: bool) -> Result<Vec<Branch
     Ok(branches)
 }
 
-/// Open a worktree path and resolve which branch is checked out there.
-fn resolve_worktree_branch(wt_path: &Path) -> Option<String> {
+/// Resolve which branch a worktree belongs to.
+///
+/// Prefers the worktree admin name when a matching local branch exists — this
+/// survives `git checkout <other>` inside the worktree (e.g. after a merge)
+/// and keeps the worktree identity stable.  Falls back to HEAD for worktrees
+/// whose admin name was sanitized (slashes → dashes) and therefore doesn't
+/// match the branch name directly.
+pub fn resolve_worktree_branch(wt_name: &str, wt_path: &Path, repo: &Repository) -> Option<String> {
+    // 1. If a local branch matching the worktree name exists, prefer it.
+    if let Ok(b) = repo.find_branch(wt_name, BranchType::Local) {
+        if let Some(name) = b.name().ok().flatten() {
+            return Some(name.to_string());
+        }
+    }
+    // 2. Fallback: read HEAD from the worktree itself.
     let wt_repo = Repository::open(wt_path).ok()?;
     let head = wt_repo.head().ok()?;
     Some(head.shorthand()?.to_string())
@@ -143,7 +156,7 @@ fn enumerate_worktrees(repo: &Repository) -> Result<Vec<WorktreeInfo>, String> {
             Ok(wt) => {
                 if wt.validate().is_ok() {
                     let wt_path = wt.path().to_string_lossy().to_string();
-                    let branch = resolve_worktree_branch(wt.path())
+                    let branch = resolve_worktree_branch(name, wt.path(), repo)
                         .unwrap_or_else(|| name.to_string());
                     worktrees.push(WorktreeInfo {
                         name: name.to_string(),
@@ -209,7 +222,7 @@ fn list_all_branches_sync(repo_path: String) -> Result<Vec<BranchDetail>, String
         let wt_name = wt_name.ok_or("invalid worktree name")?;
         if let Ok(wt) = repo.find_worktree(wt_name) {
             if wt.validate().is_ok() {
-                if let Some(branch) = resolve_worktree_branch(wt.path()) {
+                if let Some(branch) = resolve_worktree_branch(wt_name, wt.path(), &repo) {
                     wt_branch_names.insert(branch);
                 }
             }
@@ -1051,7 +1064,7 @@ fn get_diff_stats_for_repo(
                         Ok(wt) if wt.validate().is_ok() => wt,
                         _ => continue,
                     };
-                    if let Some(branch) = resolve_worktree_branch(wt.path()) {
+                    if let Some(branch) = resolve_worktree_branch(wt_name, wt.path(), repo) {
                         tmp.insert(wt_name.to_string(), branch);
                     }
                 }
@@ -1112,7 +1125,7 @@ fn poll_project_state_sync(repo_path: &str) -> Result<ProjectPollState, String> 
         };
         if let Ok(wt) = repo.find_worktree(wt_name) {
             if wt.validate().is_ok() {
-                if let Some(branch) = resolve_worktree_branch(wt.path()) {
+                if let Some(branch) = resolve_worktree_branch(wt_name, wt.path(), &repo) {
                     worktree_branches.insert(wt_name.to_string(), branch);
                 }
             }
@@ -1370,6 +1383,63 @@ mod tests {
         assert!(!feat.is_head);
         assert!(feat.is_local);
         assert!(!feat.is_in_worktree);
+    }
+
+    #[test]
+    fn test_resolve_worktree_branch_prefers_matching_branch() {
+        // Setup: repo with initial commit
+        let tmp = TempDir::new().unwrap();
+        let repo = init_repo_with_commit(tmp.path());
+        let default_branch = repo.head().unwrap().shorthand().unwrap().to_string();
+
+        // Create a branch and a worktree for it
+        let base_commit = repo.head().unwrap().peel_to_commit().unwrap();
+        repo.branch("my-feature", &base_commit, false).unwrap();
+
+        let wt_tmp = TempDir::new().unwrap();
+        let wt_path = wt_tmp.path().join("my-feature");
+        let mut opts = WorktreeAddOptions::new();
+        let branch_ref = repo.find_branch("my-feature", BranchType::Local).unwrap().into_reference();
+        opts.reference(Some(&branch_ref));
+        repo.worktree("my-feature", &wt_path, Some(&opts)).unwrap();
+
+        // Verify: resolves to the branch name even though worktree HEAD is on it
+        let result = resolve_worktree_branch("my-feature", &wt_path, &repo);
+        assert_eq!(result, Some("my-feature".to_string()));
+
+        // Now checkout the default branch inside the worktree (simulating post-merge state)
+        let wt_repo = Repository::open(&wt_path).unwrap();
+        let default_oid = repo.find_branch(&default_branch, BranchType::Local)
+            .unwrap().get().target().unwrap();
+        wt_repo.set_head_detached(default_oid).unwrap();
+
+        // The worktree HEAD is now detached, but the branch "my-feature" still exists.
+        // resolve_worktree_branch should still return "my-feature".
+        let result = resolve_worktree_branch("my-feature", &wt_path, &repo);
+        assert_eq!(result, Some("my-feature".to_string()));
+    }
+
+    #[test]
+    fn test_resolve_worktree_branch_falls_back_to_head() {
+        // When the worktree admin name doesn't match any branch (e.g. sanitized slashes),
+        // fall back to reading HEAD.
+        let tmp = TempDir::new().unwrap();
+        let repo = init_repo_with_commit(tmp.path());
+
+        let base_commit = repo.head().unwrap().peel_to_commit().unwrap();
+        repo.branch("feat/cool", &base_commit, false).unwrap();
+
+        let wt_tmp = TempDir::new().unwrap();
+        let wt_path = wt_tmp.path().join("feat-cool");
+        let mut opts = WorktreeAddOptions::new();
+        let branch_ref = repo.find_branch("feat/cool", BranchType::Local).unwrap().into_reference();
+        opts.reference(Some(&branch_ref));
+        // Admin name "feat-cool" won't match branch "feat/cool"
+        repo.worktree("feat-cool", &wt_path, Some(&opts)).unwrap();
+
+        let result = resolve_worktree_branch("feat-cool", &wt_path, &repo);
+        // Falls back to HEAD which is "feat/cool"
+        assert_eq!(result, Some("feat/cool".to_string()));
     }
 
     #[tokio::test]
@@ -1709,43 +1779,43 @@ mod tests {
     fn parse_github_remote_https() {
         let tmp = TempDir::new().unwrap();
         let repo = init_repo_with_commit(tmp.path());
-        repo.remote("origin", "https://github.com/nept/superagent").unwrap();
+        repo.remote("origin", "https://github.com/acme/widgets").unwrap();
         let result = parse_github_remote(&tmp.path().to_string_lossy());
-        assert_eq!(result, Some(("nept".to_string(), "superagent".to_string())));
+        assert_eq!(result, Some(("acme".to_string(), "widgets".to_string())));
     }
 
     #[test]
     fn parse_github_remote_https_with_git_suffix() {
         let tmp = TempDir::new().unwrap();
         let repo = init_repo_with_commit(tmp.path());
-        repo.remote("origin", "https://github.com/nept/superagent.git").unwrap();
+        repo.remote("origin", "https://github.com/acme/widgets.git").unwrap();
         let result = parse_github_remote(&tmp.path().to_string_lossy());
-        assert_eq!(result, Some(("nept".to_string(), "superagent".to_string())));
+        assert_eq!(result, Some(("acme".to_string(), "widgets".to_string())));
     }
 
     #[test]
     fn parse_github_remote_ssh() {
         let tmp = TempDir::new().unwrap();
         let repo = init_repo_with_commit(tmp.path());
-        repo.remote("origin", "git@github.com:nept/superagent.git").unwrap();
+        repo.remote("origin", "git@github.com:acme/widgets.git").unwrap();
         let result = parse_github_remote(&tmp.path().to_string_lossy());
-        assert_eq!(result, Some(("nept".to_string(), "superagent".to_string())));
+        assert_eq!(result, Some(("acme".to_string(), "widgets".to_string())));
     }
 
     #[test]
     fn parse_github_remote_ssh_no_suffix() {
         let tmp = TempDir::new().unwrap();
         let repo = init_repo_with_commit(tmp.path());
-        repo.remote("origin", "git@github.com:nept/superagent").unwrap();
+        repo.remote("origin", "git@github.com:acme/widgets").unwrap();
         let result = parse_github_remote(&tmp.path().to_string_lossy());
-        assert_eq!(result, Some(("nept".to_string(), "superagent".to_string())));
+        assert_eq!(result, Some(("acme".to_string(), "widgets".to_string())));
     }
 
     #[test]
     fn parse_github_remote_non_github_host() {
         let tmp = TempDir::new().unwrap();
         let repo = init_repo_with_commit(tmp.path());
-        repo.remote("origin", "https://gitlab.com/nept/superagent").unwrap();
+        repo.remote("origin", "https://gitlab.com/acme/widgets").unwrap();
         let result = parse_github_remote(&tmp.path().to_string_lossy());
         assert_eq!(result, None);
     }
