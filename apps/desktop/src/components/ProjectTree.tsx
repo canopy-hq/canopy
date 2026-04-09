@@ -955,6 +955,13 @@ function RepoTreeItem({
                   </div>
                 );
               })}
+            {ws.branches.length === 0 &&
+              ws.worktrees.length === 0 &&
+              ![...creatingWorktreeIds].some((id) => id.startsWith(`${ws.id}-wt-`)) && (
+                <div className="py-1.5 pr-3 pl-11 font-mono text-xs text-text-faint/40">
+                  no branches
+                </div>
+              )}
             {[...creatingWorktreeIds]
               .filter((id) => id.startsWith(`${ws.id}-wt-`))
               .map((id) => {
