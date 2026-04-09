@@ -419,7 +419,23 @@ pub async fn clone_repo(
         } else {
             dest.clone()
         };
-        let dest_path = Path::new(&expanded_dest).join(&repo_name);
+        // If the target directory already exists, append -1, -2, … until free.
+        let (dest_path, final_name) = {
+            let base = Path::new(&expanded_dest).join(&repo_name);
+            if !base.exists() {
+                (base, repo_name.clone())
+            } else {
+                let mut i = 1u32;
+                loop {
+                    let candidate_name = format!("{}-{}", repo_name, i);
+                    let candidate = Path::new(&expanded_dest).join(&candidate_name);
+                    if !candidate.exists() {
+                        break (candidate, candidate_name);
+                    }
+                    i += 1;
+                }
+            }
+        };
 
         let ah2 = app_handle.clone();
         let pid2 = project_id.clone();
@@ -457,7 +473,7 @@ pub async fn clone_repo(
 
         Ok(RepoInfo {
             path: dest_str,
-            name: repo_name,
+            name: final_name,
             branches: vec![BranchInfo { name: head_name, is_head: true, ahead: 0, behind: 0 }],
             worktrees: Vec::new(),
         })
