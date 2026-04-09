@@ -371,18 +371,34 @@ fn ssh_identity_files_for_host(host: &str, home: &str) -> Vec<std::path::PathBuf
 }
 
 /// Resolve the ordered list of SSH private key paths to try for a remote URL.
-/// Reads `~/.ssh/config` for host-specific keys; falls back to the standard
-/// default names (`id_ed25519`, `id_rsa`) when the config specifies nothing.
-/// Only returns paths that exist on disk.
+/// Reads `~/.ssh/config` for host-specific keys; falls back to scanning
+/// `~/.ssh/` for any file that has a `.pub` counterpart (standard private-key
+/// heuristic), so custom key names like `~/.ssh/github` are picked up too.
+/// Only returns paths that exist on disk, ordered by preference (ed25519 first).
 fn resolve_ssh_keys(url: &str) -> Vec<std::path::PathBuf> {
     let home = std::env::var("HOME").unwrap_or_default();
     let host = host_from_url(url);
     let mut keys = ssh_identity_files_for_host(host, &home);
 
     if keys.is_empty() {
+        // Scan ~/.ssh/ for files that have a matching .pub sibling — the standard
+        // indicator of an SSH private key regardless of naming convention.
         let ssh_dir = std::path::Path::new(&home).join(".ssh");
-        for name in &["id_ed25519", "id_rsa"] {
-            keys.push(ssh_dir.join(name));
+        if let Ok(entries) = std::fs::read_dir(&ssh_dir) {
+            let mut candidates: Vec<std::path::PathBuf> = entries
+                .filter_map(|e| e.ok())
+                .map(|e| e.path())
+                .filter(|p| {
+                    p.extension().map_or(true, |ext| ext != "pub")
+                        && p.with_extension("pub").exists()
+                })
+                .collect();
+            // ed25519 before rsa before others — more modern keys first.
+            candidates.sort_by_key(|p| {
+                let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                if name.contains("ed25519") { 0u8 } else if name.contains("rsa") { 1 } else { 2 }
+            });
+            keys = candidates;
         }
     }
 
