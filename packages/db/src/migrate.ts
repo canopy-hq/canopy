@@ -20,7 +20,8 @@ export async function runMigrations(): Promise<void> {
       worktrees TEXT NOT NULL DEFAULT '[]',
       expanded INTEGER NOT NULL DEFAULT 1,
       position INTEGER NOT NULL DEFAULT 0,
-      color TEXT
+      color TEXT,
+      invalid INTEGER NOT NULL DEFAULT 0
     )
   `);
 
