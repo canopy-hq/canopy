@@ -552,7 +552,7 @@ const RepoHeader = memo(
     prev.dragListeners === next.dragListeners,
 );
 
-const groupHeaderRow = tv({ base: 'flex items-center gap-1 px-3 py-1 select-none' });
+const groupHeaderRow = tv({ base: 'flex items-center gap-2 py-1 pl-3 pr-2 select-none' });
 
 const GroupHeader = memo(
   function GroupHeader({
@@ -593,13 +593,19 @@ const GroupHeader = memo(
     return (
       <div
         className={groupHeaderRow()}
+        onClick={isRenaming ? undefined : () => onToggleCollapse()}
         onContextMenu={isRenaming ? undefined : onContextMenu}
         {...(isRenaming ? {} : dragListeners)}
       >
-        <GripVertical
-          size={11}
-          className="shrink-0 cursor-grab touch-none text-text-faint/30 active:cursor-grabbing"
-        />
+        <div
+          className="flex w-6 shrink-0 items-center justify-center"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical
+            size={11}
+            className="cursor-grab touch-none text-text-faint/30 active:cursor-grabbing"
+          />
+        </div>
         {isRenaming ? (
           <input
             ref={inputRef}
