@@ -30,7 +30,7 @@ export function useFlipAnimation(
     const container = containerRef.current;
     if (!container) return;
     const map = new Map<string, number>();
-    for (const el of container.querySelectorAll<HTMLElement>('[data-flip-id]')) {
+    for (const el of container.querySelectorAll<HTMLElement>(':scope > [data-flip-id]')) {
       map.set(el.dataset.flipId!, readPos(el));
     }
     saved.current = map;
@@ -57,7 +57,7 @@ export function useFlipAnimation(
 
     // Batch reads before writes to avoid layout thrashing.
     const moves: Array<{ el: HTMLElement; delta: number }> = [];
-    for (const el of container.querySelectorAll<HTMLElement>('[data-flip-id]')) {
+    for (const el of container.querySelectorAll<HTMLElement>(':scope > [data-flip-id]')) {
       const prevPos = saved.current.get(el.dataset.flipId!);
       if (prevPos === undefined) continue;
       const delta = prevPos - readPos(el);

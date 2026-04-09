@@ -634,16 +634,18 @@ const GroupHeader = memo(
             {projectCount}
           </span>
         )}
-        <Button
-          iconOnly
-          size="sm"
-          variant="ghost"
-          onPress={onToggleCollapse}
-          onClick={(e: React.MouseEvent) => e.stopPropagation()}
-          onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
-        >
-          {group.collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-        </Button>
+        {projectCount > 0 && (
+          <Button
+            iconOnly
+            size="sm"
+            variant="ghost"
+            onPress={onToggleCollapse}
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
+          >
+            {group.collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+          </Button>
+        )}
       </div>
     );
   },
@@ -721,6 +723,8 @@ function GroupTreeItem({
   const projectSensors = useDragSensors();
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   useDragStyle(activeProjectId !== null);
+  const projectListRef = useRef<HTMLDivElement>(null);
+  const { snapshot: projectFlipSnapshot } = useFlipAnimation(projectListRef, 'vertical');
 
   const sortedProjects = useMemo(
     () => [...groupProjects].sort((a, b) => a.position - b.position),
@@ -734,6 +738,7 @@ function GroupTreeItem({
 
   const handleProjectDragEnd = useCallback(
     ({ active, over }: DragEndEvent) => {
+      projectFlipSnapshot();
       setActiveProjectId(null);
       if (!over || active.id === over.id) return;
       const oldIndex = sortedProjects.findIndex((p) => p.id === active.id);
@@ -741,17 +746,18 @@ function GroupTreeItem({
       const reordered = arrayMove(sortedProjects, oldIndex, newIndex);
       reorderProjects(reordered.map((p) => p.id));
     },
-    [sortedProjects],
+    [sortedProjects, projectFlipSnapshot],
   );
 
   const draggingCls = isDragging || isDropping ? 'pointer-events-none relative z-50' : '';
+  const blockCls = isDragging || isDropping ? 'bg-bg-secondary' : '';
 
   return (
     <>
       <div
         ref={setNodeRef}
         data-flip-id={group.id}
-        className={draggingCls || undefined}
+        className={`${draggingCls} ${blockCls}`.trim() || undefined}
         style={{
           transform: CSS.Transform.toString(
             transform ? { ...transform, scaleX: 1, scaleY: 1 } : null,
@@ -792,7 +798,7 @@ function GroupTreeItem({
             onDragCancel={() => setActiveProjectId(null)}
           >
             <SortableContext items={projectIds} strategy={verticalListSortingStrategy}>
-              <div>
+              <div ref={projectListRef}>
                 {sortedProjects.map((ws) => (
                   <RepoTreeItem
                     key={ws.id}
@@ -993,6 +999,8 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
   const ungroupedSensors = useDragSensors();
   const [activeUngroupedId, setActiveUngroupedId] = useState<string | null>(null);
   useDragStyle(activeUngroupedId !== null);
+  const ungroupedProjectListRef = useRef<HTMLDivElement>(null);
+  const { snapshot: ungroupedFlipSnapshot } = useFlipAnimation(ungroupedProjectListRef, 'vertical');
   const ungroupedProjectIds = useMemo(
     () => ungroupedProjects.map((p) => p.id),
     [ungroupedProjects],
@@ -1004,6 +1012,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
 
   const handleUngroupedDragEnd = useCallback(
     ({ active, over }: DragEndEvent) => {
+      ungroupedFlipSnapshot();
       setActiveUngroupedId(null);
       if (!over || active.id === over.id) return;
       const oldIndex = ungroupedProjects.findIndex((p) => p.id === active.id);
@@ -1011,7 +1020,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
       const reordered = arrayMove(ungroupedProjects, oldIndex, newIndex);
       reorderProjects(reordered.map((p) => p.id));
     },
-    [ungroupedProjects],
+    [ungroupedProjects, ungroupedFlipSnapshot],
   );
 
   const handleRequestOpenPalette = useCallback((ws: Project) => {
@@ -1147,7 +1156,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
             onDragCancel={() => setActiveUngroupedId(null)}
           >
             <SortableContext items={ungroupedProjectIds} strategy={verticalListSortingStrategy}>
-              <div>
+              <div ref={ungroupedProjectListRef}>
                 {ungroupedProjects.map((ws) => (
                   <RepoTreeItem
                     key={ws.id}
