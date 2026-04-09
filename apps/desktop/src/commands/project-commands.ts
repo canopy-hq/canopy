@@ -62,7 +62,7 @@ export function buildProjectCommands(
   const activeProj = activeContextId
     ? projects.find((proj) => activeContextId.startsWith(proj.id))
     : null;
-  if (activeProj && !cloningSet.has(activeProj.id)) {
+  if (activeProj && !cloningSet.has(activeProj.id) && !activeProj.invalid) {
     items.push(makeProjectPaletteItem(activeProj));
     items.push({
       id: `project:${activeProj.id}:new-tab`,
@@ -89,8 +89,8 @@ function buildProjectChildren(
 ): CommandItem[] {
   const items: CommandItem[] = [];
 
-  // Palette item — hidden while cloning
-  if (!cloningSet.has(proj.id)) items.push(makeProjectPaletteItem(proj));
+  // Palette item — hidden while cloning or invalid
+  if (!cloningSet.has(proj.id) && !proj.invalid) items.push(makeProjectPaletteItem(proj));
 
   // HEAD branch first
   const branches = [...proj.branches].sort((a, b) => (b.is_head ? 1 : 0) - (a.is_head ? 1 : 0));
