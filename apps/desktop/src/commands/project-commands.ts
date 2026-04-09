@@ -63,6 +63,7 @@ export function buildProjectCommands(
     ? projects.find((proj) => activeContextId.startsWith(proj.id))
     : null;
   if (activeProj && !cloningSet.has(activeProj.id)) {
+    items.push(makeProjectPaletteItem(activeProj));
     items.push({
       id: `project:${activeProj.id}:new-tab`,
       label: 'New tab',
@@ -76,7 +77,6 @@ export function buildProjectCommands(
         close();
       },
     });
-    items.push(makeProjectPaletteItem(activeProj));
   }
 
   return items;
