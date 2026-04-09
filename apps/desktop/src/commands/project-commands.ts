@@ -26,8 +26,10 @@ export function buildProjectCommands(
   settings: Setting[],
   navigate: Nav,
   activeContextId?: string | null,
+  cloningProjectIds: string[] = [],
 ): CommandItem[] {
   const recentIds = getSetting<string[]>(settings, 'recentProjectIds', []);
+  const cloningSet = new Set(cloningProjectIds);
 
   const sorted = [...projects].sort((a, b) => {
     const ai = recentIds.indexOf(a.id);
@@ -47,7 +49,7 @@ export function buildProjectCommands(
       category: 'project',
       keywords: [proj.path, 'project', 'repo', 'repository'],
       icon: 'folder',
-      children: () => buildProjectChildren(proj, navigate),
+      children: () => buildProjectChildren(proj, navigate, cloningSet),
       action: ({ close }) => {
         if (headBranch) selectProjectItem(`${proj.id}-branch-${headBranch.name}`, navigate);
         close();
@@ -60,7 +62,7 @@ export function buildProjectCommands(
   const activeProj = activeContextId
     ? projects.find((proj) => activeContextId.startsWith(proj.id))
     : null;
-  if (activeProj) {
+  if (activeProj && !cloningSet.has(activeProj.id)) {
     items.push({
       id: `project:${activeProj.id}:new-tab`,
       label: 'New tab',
@@ -80,11 +82,15 @@ export function buildProjectCommands(
   return items;
 }
 
-function buildProjectChildren(proj: Project, navigate: Nav): CommandItem[] {
+function buildProjectChildren(
+  proj: Project,
+  navigate: Nav,
+  cloningSet: Set<string>,
+): CommandItem[] {
   const items: CommandItem[] = [];
 
-  // Palette item first
-  items.push(makeProjectPaletteItem(proj));
+  // Palette item — hidden while cloning
+  if (!cloningSet.has(proj.id)) items.push(makeProjectPaletteItem(proj));
 
   // HEAD branch first
   const branches = [...proj.branches].sort((a, b) => (b.is_head ? 1 : 0) - (a.is_head ? 1 : 0));

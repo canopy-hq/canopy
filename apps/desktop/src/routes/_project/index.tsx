@@ -4,6 +4,7 @@ import { Button, Kbd } from '@superagent/ui';
 import { createFileRoute } from '@tanstack/react-router';
 import { Bot, FolderPlus, GitBranch, PanelLeft, Terminal } from 'lucide-react';
 
+import logoSrc from '../../assets/logo.png';
 import { useProjects } from '../../hooks/useCollections';
 import { openAddProjectDialog, toggleSidebar } from '../../lib/project-actions';
 
@@ -17,7 +18,7 @@ function Onboarding() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-10 select-none">
       <div className="flex flex-col items-center gap-4">
-        <img src="/logo.png" alt="Superagent" className="h-14 w-14" />
+        <img src={logoSrc} alt="Superagent" className="h-14 w-14" />
         <div className="flex flex-col items-center gap-2 text-center">
           <h1 className="font-mono text-lg font-semibold tracking-tight text-text-primary">
             Welcome to Superagent

@@ -151,7 +151,10 @@
         "typescript": "catalog:",
       },
       "peerDependencies": {
+        "lucide-react": "^1.7.0",
         "react": "catalog:",
+        "react-aria-components": "^1.16.0",
+        "tailwind-variants": "^3.2.2",
       },
     },
   },
