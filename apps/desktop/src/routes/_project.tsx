@@ -1,10 +1,13 @@
 import { useCallback, useMemo } from 'react';
 
+import { getSetting } from '@superagent/db';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 
 import { Sidebar } from '../components/Sidebar';
+import { useSettings, useUiState } from '../hooks/useCollections';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { toggleManualOverride } from '../lib/agent-actions';
+import { openInEditor, useDetectedEditors } from '../lib/editor';
 import { findLeaf } from '../lib/pane-tree-ops';
 import {
   addTab,
@@ -14,6 +17,7 @@ import {
   navigate as navigatePanes,
   switchTabRelative,
   getActiveTab,
+  resolveProjectItemCwd,
 } from '../lib/tab-actions';
 import { showErrorToast } from '../lib/toast';
 
@@ -27,6 +31,10 @@ function ProjectLayout() {
       showErrorToast('Failed to split pane', String(err));
     }
   }, []);
+
+  const editors = useDetectedEditors();
+  const settings = useSettings();
+  const uiState = useUiState();
 
   const handleClose = useCallback(() => {
     const activeTab = getActiveTab();
@@ -49,6 +57,22 @@ function ProjectLayout() {
       { key: 'ArrowUp', meta: true, alt: true, action: () => navigatePanes('up') },
       { key: 'ArrowDown', meta: true, alt: true, action: () => navigatePanes('down') },
       { key: 't', meta: true, action: () => addTab() },
+      {
+        key: 'e',
+        meta: true,
+        shift: true,
+        condition: () => editors.length > 0 && !!uiState.activeContextId,
+        action: () => {
+          const defaultEditorId = getSetting<string>(settings, 'defaultEditor', '');
+          const editor = editors.find((e) => e.id === defaultEditorId) ?? editors[0];
+          if (!editor || !uiState.activeContextId) return;
+          const cwd = resolveProjectItemCwd(uiState.activeContextId);
+          if (!cwd) return;
+          openInEditor(editor.id, cwd).catch((err) => {
+            showErrorToast('Failed to open editor', String(err));
+          });
+        },
+      },
       { key: '[', meta: true, shift: true, action: () => switchTabRelative('prev') },
       { key: ']', meta: true, shift: true, action: () => switchTabRelative('next') },
       {
@@ -63,7 +87,7 @@ function ProjectLayout() {
         },
       },
     ],
-    [handleSplit, handleClose],
+    [handleSplit, handleClose, editors, settings, uiState],
   );
 
   useKeyboardRegistry(bindings);
