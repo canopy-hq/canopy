@@ -6,13 +6,13 @@ import {
 } from 'react-aria-components';
 
 import { getTabCollection } from '@superagent/db';
+import { Button, StatusDot } from '@superagent/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { X } from 'lucide-react';
 
 import { containsPtyId } from '../lib/pane-tree-ops';
 import { switchTab } from '../lib/tab-actions';
 import { agentToastQueue } from '../lib/toast';
-import { Button, StatusDot } from './ui';
 
 import type { AgentToastContent } from '../lib/toast';
 

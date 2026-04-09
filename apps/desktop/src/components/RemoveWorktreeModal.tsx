@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { ConfirmModal } from './ui';
+import { ConfirmModal } from '@superagent/ui';
 
 export interface RemoveWorktreeModalProps {
   isOpen: boolean;

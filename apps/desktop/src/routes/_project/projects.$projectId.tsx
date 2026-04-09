@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { ActionRow, Button, Spinner } from '@superagent/ui';
 import { createFileRoute } from '@tanstack/react-router';
 import { PanelLeft, SquareTerminal, X } from 'lucide-react';
 
@@ -7,7 +8,6 @@ import { ClaudeCodeIcon } from '../../components/ClaudeCodeIcon';
 import { ClaudeCodeSetupDialog } from '../../components/ClaudeCodeSetupDialog';
 import { PaneContainer } from '../../components/PaneContainer';
 import { TabBar } from '../../components/TabBar';
-import { ActionRow, Button, Spinner } from '../../components/ui';
 import { useUiState, useTabs } from '../../hooks/useCollections';
 import {
   toggleSidebar,

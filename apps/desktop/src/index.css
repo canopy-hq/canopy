@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 
+@source '../../../packages/ui/src/**/*.{ts,tsx}';
 @source '../../../packages/command-palette/src/**/*.{ts,tsx}';
 @source '../../../packages/fps/src/**/*.{ts,tsx}';
 

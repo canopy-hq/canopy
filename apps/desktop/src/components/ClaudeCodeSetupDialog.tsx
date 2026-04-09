@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
 
+import { Button, Kbd } from '@superagent/ui';
 import { tv } from 'tailwind-variants';
 
 import { getClaudeDefaultMode } from '../lib/tab-actions';
 import { ClaudeCodeIcon } from './ClaudeCodeIcon';
-import { Button, Kbd } from './ui';
 
 type Mode = 'bypass' | 'plan';
 

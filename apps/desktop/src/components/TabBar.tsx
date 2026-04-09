@@ -9,6 +9,8 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { Badge, Button, Kbd, StatusDot, Tooltip } from '@superagent/ui';
+import { ContextMenu } from '@superagent/ui';
 import { Pencil, SquarePlus, SquareTerminal, X, XCircle, XSquare } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
@@ -29,11 +31,9 @@ import {
   addClaudeCodeTab,
 } from '../lib/tab-actions';
 import { ClaudeCodeIcon } from './ClaudeCodeIcon';
-import { Badge, Button, Kbd, StatusDot, Tooltip } from './ui';
-import { ContextMenu } from './ui/ContextMenu';
 
-import type { DotStatus } from './ui';
 import type { Tab } from '@superagent/db';
+import type { DotStatus } from '@superagent/ui';
 
 const closeTabLabel = (
   <>

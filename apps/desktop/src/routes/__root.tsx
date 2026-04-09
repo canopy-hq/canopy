@@ -4,6 +4,7 @@ import { CommandMenu } from '@superagent/command-palette';
 import {
   agentCollection,
   getUiState,
+  uiCollection,
   getTabCollection,
   getProjectCollection,
   getSettingCollection,
@@ -17,6 +18,7 @@ import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 import { LucideProvider } from 'lucide-react';
 
 import { useAllCommands } from '../commands';
+import { AddProjectDialog } from '../components/AddProjectDialog';
 import { AgentOverlay } from '../components/AgentOverlay';
 import { AgentToastRegion } from '../components/AgentToastRegion';
 import { Header } from '../components/Header';
@@ -25,8 +27,9 @@ import { ErrorToastRegion } from '../components/ToastProvider';
 import { useUiState } from '../hooks/useCollections';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { useTauriMenuEvent } from '../hooks/useTauriMenuEvent';
+import { onOpenAddProjectDialog } from '../lib/add-project-bridge';
 import { initAgentListener } from '../lib/agent-actions';
-import { listWorktrees } from '../lib/git';
+import { checkProjectPaths, listWorktrees } from '../lib/git';
 import { getConnection, GITHUB_CONNECTION_KEY } from '../lib/github';
 import { logInfo } from '../lib/log';
 import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
@@ -36,7 +39,7 @@ import {
   hideWorktree,
   switchProjectRelative,
   switchProjectItemRelative,
-  openImportDialog,
+  openAddProjectDialog,
 } from '../lib/project-actions';
 import { onOpenProjectPalette } from '../lib/project-palette-bridge';
 import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
@@ -58,6 +61,7 @@ function RootLayout() {
   const [defaultPanelItem, setDefaultPanelItem] = useState<CommandItem | null>(null);
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [sessionManagerOpen, setSessionManagerOpen] = useState(false);
+  const [addProjectOpen, setAddProjectOpen] = useState(false);
   const [fpsVisible, setFpsVisible] = useState(false);
   const cmdItems = useAllCommands();
   const { activeContextId } = useUiState();
@@ -70,11 +74,55 @@ function RootLayout() {
     if (booted.current) return;
     booted.current = true;
     const { activeContextId } = getUiState();
-    if (activeContextId) {
+    const projects = getProjectCollection().toArray;
+    if (activeContextId && projects.some((p) => activeContextId.startsWith(p.id))) {
       void navigate({ to: '/projects/$projectId', params: { projectId: activeContextId } });
     }
-    for (const ws of getProjectCollection().toArray) {
+    for (const ws of projects) {
       void refreshRepo(ws.id);
+    }
+
+    // Projects with no branches are incomplete clones (app was closed mid-clone).
+    // Mark them invalid immediately so the user can remove them.
+    const collection = getProjectCollection();
+    for (const p of projects) {
+      if (p.branches.length === 0 && !p.invalid) {
+        collection.update(p.id, (draft) => {
+          draft.invalid = true;
+        });
+      }
+    }
+
+    // Restore persisted invalid state immediately (no poll round-trip needed).
+    const persistedInvalid = collection.toArray.filter((p) => p.invalid).map((p) => p.id);
+    if (persistedInvalid.length > 0) {
+      uiCollection.update('ui', (draft) => {
+        draft.invalidProjectIds = persistedInvalid;
+      });
+    }
+
+    // Run a fresh Rust path check — update DB + UiState if anything changed.
+    const allPaths = projects.map((p) => p.path);
+    if (allPaths.length > 0) {
+      void checkProjectPaths(allPaths).then((invalidPaths) => {
+        const invalidPathSet = new Set(invalidPaths);
+        let changed = false;
+        for (const p of collection.toArray) {
+          const shouldBeInvalid = invalidPathSet.has(p.path);
+          if (p.invalid !== shouldBeInvalid) {
+            collection.update(p.id, (draft) => {
+              draft.invalid = shouldBeInvalid;
+            });
+            changed = true;
+          }
+        }
+        if (changed) {
+          const nowInvalid = collection.toArray.filter((p) => p.invalid).map((p) => p.id);
+          uiCollection.update('ui', (draft) => {
+            draft.invalidProjectIds = nowInvalid;
+          });
+        }
+      });
     }
 
     // Validate worktrees at boot — prune entries that no longer exist on disk.
@@ -146,11 +194,17 @@ function RootLayout() {
     );
 
     // Pre-warm the PTY pool: use a saved pane CWD, or fall back to the first
-    // project's filesystem path.
+    // project's filesystem path. Skip invalid (deleted) project paths.
+    const invalidPathSet = new Set(
+      getProjectCollection()
+        .toArray.filter((p) => p.invalid)
+        .map((p) => p.path),
+    );
     const firstCwd =
       paneEntries
         .map(({ paneId }) => (getSetting(settings, `cwd:${paneId}`, '') as string) || '')
-        .find((cwd) => cwd.length > 0) || getProjectCollection().toArray[0]?.path;
+        .find((cwd) => cwd.length > 0 && !invalidPathSet.has(cwd)) ||
+      getProjectCollection().toArray.find((p) => !p.invalid)?.path;
     if (firstCwd) {
       void initTerminalPool(firstCwd);
     }
@@ -210,6 +264,10 @@ function RootLayout() {
     });
   }, []);
 
+  useEffect(() => {
+    return onOpenAddProjectDialog(() => setAddProjectOpen(true));
+  }, []);
+
   // Hydrate GitHub connection status into settings for the header icon
   useEffect(() => {
     void getConnection().then((conn) => setSetting(GITHUB_CONNECTION_KEY, conn));
@@ -232,7 +290,7 @@ function RootLayout() {
           }),
       },
       { key: 'b', meta: true, action: () => toggleSidebar() },
-      { key: 'n', meta: true, action: () => void openImportDialog(navigate) },
+      { key: 'n', meta: true, action: () => openAddProjectDialog() },
       { key: 'o', meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
       // ⌘⇧↑ / ⌘⇧↓: navigate to the prev/next project (sorted by position, wraps).
       {
@@ -274,6 +332,7 @@ function RootLayout() {
         />
         <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
         {sessionManagerOpen && <SessionManager onClose={() => setSessionManagerOpen(false)} />}
+        {addProjectOpen && <AddProjectDialog onClose={() => setAddProjectOpen(false)} />}
         <AgentToastRegion />
         {import.meta.env.DEV && <FpsOverlay visible={fpsVisible} />}
       </div>

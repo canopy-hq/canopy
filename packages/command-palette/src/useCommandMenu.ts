@@ -209,7 +209,10 @@ export function useCommandMenu(items: CommandItem[], activeContextId?: string | 
     // rawSelectedId excluded — section content is independent of which item is highlighted
   }, [query, section, drillStack, panelItem, items, activeContextId]);
 
-  const flatItems = useMemo(() => sections.flatMap((s) => s.items), [sections]);
+  const flatItems = useMemo(
+    () => sections.flatMap((s) => s.items).filter((i) => !i.disabled),
+    [sections],
+  );
 
   const selectedId = useMemo(() => {
     if (rawSelectedId !== null && flatItems.some((i) => i.id === rawSelectedId)) {

@@ -2,13 +2,13 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, Modal, ModalOverlay } from 'react-aria-components';
 
 import { closePty, listPtySessions } from '@superagent/terminal';
+import { Button, SectionLabel } from '@superagent/ui';
 import { useNavigate } from '@tanstack/react-router';
 
 import { useTabs, useProjects } from '../hooks/useCollections';
 import { containsPtyId } from '../lib/pane-tree-ops';
 import { getProjectItemIds } from '../lib/project-actions';
 import { killPaneInTab, jumpToPane } from '../lib/tab-actions';
-import { Button, SectionLabel } from './ui';
 
 import type { Tab, Project } from '@superagent/db';
 import type { PtySessionInfo } from '@superagent/terminal';

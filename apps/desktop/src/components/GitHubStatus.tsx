@@ -1,9 +1,9 @@
 import { getSetting } from '@superagent/db';
+import { Button, Tooltip } from '@superagent/ui';
 import { useNavigate } from '@tanstack/react-router';
 
 import { useSettings } from '../hooks/useCollections';
 import { GITHUB_CONNECTION_KEY, type GitHubConnection } from '../lib/github';
-import { Button, Tooltip } from './ui';
 
 function GitHubIcon() {
   return (

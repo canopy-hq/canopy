@@ -10,7 +10,8 @@
     "test": "vitest run --reporter=verbose"
   },
   "dependencies": {
-    "@superagent/ui": "workspace:*"
+    "@superagent/ui": "workspace:*",
+    "tailwind-variants": "^3.2.2"
   },
   "devDependencies": {
     "@superagent/tsconfig": "workspace:*",
