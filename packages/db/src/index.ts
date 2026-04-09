@@ -22,4 +22,4 @@ export {
   SIDEBAR_WIDTH_MIN,
   SIDEBAR_WIDTH_MAX,
 } from './collections/ui';
-export type { UiState } from './collections/ui';
+export type { UiState, CloneProgress } from './collections/ui';

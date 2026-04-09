@@ -8,9 +8,10 @@ export type ContextMenuAction = {
   type?: 'action';
   label: string;
   icon?: React.ReactNode;
-  onSelect: () => void;
+  onSelect?: () => void;
   destructive?: boolean;
   checked?: boolean;
+  disabled?: boolean;
 };
 
 export type ContextMenuSubmenuItem = {
@@ -69,7 +70,7 @@ export function ContextMenu({
               (it): it is ContextMenuAction =>
                 it.type !== 'submenu' && it.type !== 'separator' && it.label === String(key),
             );
-            if (item) item.onSelect();
+            if (item && !item.disabled) item.onSelect?.();
           }}
         >
           {items.map((item, i) => {
@@ -96,8 +97,8 @@ export function ContextMenu({
                             it.type !== 'separator' &&
                             it.label === String(key),
                         );
-                        if (sub) {
-                          sub.onSelect();
+                        if (sub && !sub.disabled) {
+                          sub.onSelect?.();
                           onClose();
                         }
                       }}
@@ -131,6 +132,7 @@ export function ContextMenu({
               <MenuItem
                 key={item.label}
                 id={item.label}
+                isDisabled={item.disabled}
                 className={menuItem({ destructive: item.destructive })}
               >
                 {item.icon != null && <span className="shrink-0">{item.icon}</span>}

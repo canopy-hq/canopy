@@ -5,7 +5,7 @@ import { getExpandedProjectPaths } from '../project-utils';
 import type { Project } from '@superagent/db';
 
 function makeProject(id: string, path: string, expanded: boolean): Project {
-  return { id, path, name: id, expanded, position: 0, branches: [], worktrees: [] } as Project;
+  return { id, path, name: id, expanded, position: 0, branches: [], worktrees: [], invalid: false };
 }
 
 describe('getExpandedProjectPaths', () => {

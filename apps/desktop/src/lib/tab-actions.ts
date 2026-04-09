@@ -241,8 +241,12 @@ export function setActiveContext(contextId: string): void {
   const ui = getUiState();
   // Re-init the terminal pool for the new context's cwd so claimed
   // shells are already at the correct working directory (no cd flicker).
+  // Skip invalid (deleted) project paths to avoid crash-loop logs.
   const newCwd = resolveProjectItemCwd(contextId);
-  if (newCwd) void initTerminalPool(newCwd);
+  const isInvalid = ui.invalidProjectIds.some(
+    (id) => contextId === id || contextId.startsWith(`${id}-`),
+  );
+  if (newCwd && !isInvalid) void initTerminalPool(newCwd);
 
   const col = getTabCollection();
 

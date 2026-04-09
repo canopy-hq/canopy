@@ -6,8 +6,8 @@
     "packages/*"
   ],
   "scripts": {
-    "desktop:dev": "bun --filter desktop tauri:dev",
-    "desktop:dev:rebuild": "bun --filter desktop tauri:dev:rebuild",
+    "desktop:dev": "bun run --cwd apps/desktop tauri:dev",
+    "desktop:dev:rebuild": "bun run --cwd apps/desktop tauri:dev:rebuild",
     "desktop:build": "bun --filter desktop tauri build",
     "desktop:build:local": "bun --filter desktop tauri:build:local",
     "desktop:open": "open apps/desktop/src-tauri/target/release/bundle/macos/Superagent.app",

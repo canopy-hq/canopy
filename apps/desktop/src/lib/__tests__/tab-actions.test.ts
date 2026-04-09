@@ -15,6 +15,9 @@ let _uiState: UiState = {
   activeContextId: '',
   contextActiveTabIds: {},
   creatingWorktreeIds: [],
+  cloningProjectIds: [],
+  cloneProgress: {},
+  invalidProjectIds: [],
   justStartedWorktreeId: null,
   pendingClaudeSession: null,
 };
@@ -28,6 +31,7 @@ const _projects: Project[] = [
     worktrees: [{ name: 'feature-x', path: '/worktrees/feature-x', branch: 'feature-x' }],
     expanded: true,
     position: 0,
+    invalid: false,
   },
 ];
 
@@ -134,6 +138,9 @@ function resetState() {
     activeContextId: '',
     contextActiveTabIds: {},
     creatingWorktreeIds: [],
+    cloningProjectIds: [],
+    cloneProgress: {},
+    invalidProjectIds: [],
     justStartedWorktreeId: null,
     pendingClaudeSession: null,
   };

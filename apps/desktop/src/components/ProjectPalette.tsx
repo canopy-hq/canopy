@@ -9,6 +9,7 @@ import {
   SectionHeader,
   useScrollSelectedIntoView,
 } from '@superagent/command-palette';
+import { Badge, Button } from '@superagent/ui';
 import {
   ArrowDown,
   ArrowUp,
@@ -23,7 +24,6 @@ import {
 } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
-import { Badge, Button } from './ui';
 import { useProjectPalette, type PaletteItem } from './useProjectPalette';
 
 import type { PanelContext } from '@superagent/command-palette';

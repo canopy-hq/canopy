@@ -36,6 +36,7 @@ const baseProject = {
   worktrees: [{ name: 'wt-sidebar', path: '/tmp/wt-sidebar', branch: 'feat/sidebar' }],
   expanded: true,
   position: 0,
+  invalid: false,
 };
 
 describe('ProjectPalettePanel', () => {

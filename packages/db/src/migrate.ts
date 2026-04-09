@@ -20,7 +20,8 @@ export async function runMigrations(): Promise<void> {
       worktrees TEXT NOT NULL DEFAULT '[]',
       expanded INTEGER NOT NULL DEFAULT 1,
       position INTEGER NOT NULL DEFAULT 0,
-      color TEXT
+      color TEXT,
+      invalid INTEGER NOT NULL DEFAULT 0
     )
   `);
 
@@ -108,6 +109,14 @@ export async function runMigrations(): Promise<void> {
   );
   if (!tabIconCol || tabIconCol.cnt === 0) {
     await db.run(sql`ALTER TABLE tabs ADD COLUMN icon TEXT`);
+  }
+
+  // Add invalid column to projects if missing.
+  const projInvalidCol = await db.get<{ cnt: number }>(
+    sql`SELECT COUNT(*) as cnt FROM pragma_table_info('projects') WHERE name = 'invalid'`,
+  );
+  if (!projInvalidCol || projInvalidCol.cnt === 0) {
+    await db.run(sql`ALTER TABLE projects ADD COLUMN invalid INTEGER NOT NULL DEFAULT 0`);
   }
 
   // Silence unused import warnings — these are used by collections

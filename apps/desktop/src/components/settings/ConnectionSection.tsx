@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 
 import { getSetting, getSettingCollection, setSetting } from '@superagent/db';
+import { Button, SectionLabel, Spinner } from '@superagent/ui';
 import { useLiveQuery } from '@tanstack/react-db';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { Check, GitBranch } from 'lucide-react';
 
+import { pickDirectory } from '../../lib/fs';
 import { DEFAULT_WORKTREE_BASE, WORKTREE_BASE_DIR_KEY } from '../../lib/git';
 import {
   getConnection,
@@ -18,7 +20,6 @@ import {
 } from '../../lib/github';
 import { CLAUDE_DEFAULT_MODE_KEY, getClaudeDefaultMode } from '../../lib/tab-actions';
 import { showErrorToast } from '../../lib/toast';
-import { Button, SectionLabel, Spinner } from '../ui';
 
 const sectionDesc = 'mb-4 text-base text-text-muted';
 const card = 'rounded-md border border-border/20 bg-bg-secondary';
@@ -172,13 +173,10 @@ function WorktreeBaseDir() {
   const currentDir = getSetting<string>(settings, WORKTREE_BASE_DIR_KEY, DEFAULT_WORKTREE_BASE);
 
   async function handleChoose() {
-    const { open } = await import('@tauri-apps/plugin-dialog');
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title: 'Select Worktree Base Directory',
-      defaultPath: currentDir.startsWith('~') ? undefined : currentDir,
-    });
+    const selected = await pickDirectory(
+      'Select Worktree Base Directory',
+      currentDir.startsWith('~') ? undefined : currentDir,
+    );
     if (selected) {
       setSetting(WORKTREE_BASE_DIR_KEY, selected.replace(/\/+$/, ''));
     }

@@ -9,7 +9,7 @@ import { addTab } from '../lib/tab-actions';
 import type { Nav, CommandItem, PanelContext } from '@superagent/command-palette';
 import type { Setting, Project } from '@superagent/db';
 
-export function makeProjectPaletteItem(proj: Project): CommandItem {
+export function makeProjectPaletteItem(proj: Project, disabled?: boolean): CommandItem {
   return {
     id: `project:${proj.id}:palette`,
     label: 'New worktree',
@@ -17,6 +17,7 @@ export function makeProjectPaletteItem(proj: Project): CommandItem {
     icon: 'plus',
     keywords: ['worktree', 'create', 'new', proj.name],
     contextId: proj.id,
+    disabled,
     renderPanel: (ctx: PanelContext) => createElement(ProjectPalettePanel, { project: proj, ctx }),
   };
 }
@@ -26,8 +27,10 @@ export function buildProjectCommands(
   settings: Setting[],
   navigate: Nav,
   activeContextId?: string | null,
+  cloningProjectIds: string[] = [],
 ): CommandItem[] {
   const recentIds = getSetting<string[]>(settings, 'recentProjectIds', []);
+  const cloningSet = new Set(cloningProjectIds);
 
   const sorted = [...projects].sort((a, b) => {
     const ai = recentIds.indexOf(a.id);
@@ -47,7 +50,7 @@ export function buildProjectCommands(
       category: 'project',
       keywords: [proj.path, 'project', 'repo', 'repository'],
       icon: 'folder',
-      children: () => buildProjectChildren(proj, navigate),
+      children: () => buildProjectChildren(proj, navigate, cloningSet),
       action: ({ close }) => {
         if (headBranch) selectProjectItem(`${proj.id}-branch-${headBranch.name}`, navigate);
         close();
@@ -60,7 +63,8 @@ export function buildProjectCommands(
   const activeProj = activeContextId
     ? projects.find((proj) => activeContextId.startsWith(proj.id))
     : null;
-  if (activeProj) {
+  if (activeProj && !cloningSet.has(activeProj.id)) {
+    items.push(makeProjectPaletteItem(activeProj, activeProj.invalid));
     items.push({
       id: `project:${activeProj.id}:new-tab`,
       label: 'New tab',
@@ -69,22 +73,27 @@ export function buildProjectCommands(
       shortcut: '⌘T',
       keywords: ['tab', 'terminal', 'open', 'new', activeProj.name],
       contextId: activeProj.id,
+      disabled: activeProj.invalid,
       action: ({ close }) => {
         addTab();
         close();
       },
     });
-    items.push(makeProjectPaletteItem(activeProj));
   }
 
   return items;
 }
 
-function buildProjectChildren(proj: Project, navigate: Nav): CommandItem[] {
+function buildProjectChildren(
+  proj: Project,
+  navigate: Nav,
+  cloningSet: Set<string>,
+): CommandItem[] {
   const items: CommandItem[] = [];
 
-  // Palette item first
-  items.push(makeProjectPaletteItem(proj));
+  if (!cloningSet.has(proj.id)) {
+    items.push(makeProjectPaletteItem(proj, proj.invalid));
+  }
 
   // HEAD branch first
   const branches = [...proj.branches].sort((a, b) => (b.is_head ? 1 : 0) - (a.is_head ? 1 : 0));

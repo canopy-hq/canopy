@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useNavigate } from '@tanstack/react-router';
-
 import { useUiState, useProjects } from '../hooks/useCollections';
-import { openImportDialog, setSidebarWidth } from '../lib/project-actions';
+import { openAddProjectDialog, setSidebarWidth } from '../lib/project-actions';
 import { ProjectTree } from './ProjectTree';
 
 export function Sidebar() {
@@ -11,13 +9,11 @@ export function Sidebar() {
   const visible = ui.sidebarVisible;
   const width = ui.sidebarWidth;
   const projects = useProjects();
-  const navigate = useNavigate();
-
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const dragAbortRef = useRef<AbortController | null>(null);
   const [isResizing, setIsResizing] = useState(false);
 
-  const handleImport = useCallback(() => void openImportDialog(navigate), [navigate]);
+  const handleImport = useCallback(() => openAddProjectDialog(), []);
 
   useEffect(() => {
     return () => {

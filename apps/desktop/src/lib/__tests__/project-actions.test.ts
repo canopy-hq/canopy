@@ -14,6 +14,9 @@ let _uiState: UiState = {
   activeContextId: '',
   contextActiveTabIds: {},
   creatingWorktreeIds: [],
+  cloningProjectIds: [],
+  cloneProgress: {},
+  invalidProjectIds: [],
   justStartedWorktreeId: null,
   pendingClaudeSession: null,
 };
@@ -59,9 +62,13 @@ vi.mock('@superagent/db', () => ({
   getSetting: (_arr: unknown[], _key: string, fallback: unknown) => fallback,
 }));
 
+// ── Mock Tauri event API ──────────────────────────────────────────────────────
+
+vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn().mockResolvedValue(() => {}) }));
+
 // ── Mock git API ─────────────────────────────────────────────────────────────
 
-vi.mock('../git', () => ({ importRepo: vi.fn() }));
+vi.mock('../git', () => ({ importRepo: vi.fn(), cloneRepo: vi.fn(), listBranches: vi.fn() }));
 
 // ── Mock toast ───────────────────────────────────────────────────────────────
 
@@ -73,8 +80,14 @@ vi.mock('@superagent/terminal', () => ({ closePty: vi.fn(), disposeCached: vi.fn
 
 import * as gitApi from '../git';
 // Import AFTER mocks are set up
-import { importRepo, switchProjectRelative, switchProjectItemRelative } from '../project-actions';
-import { showInfoToast } from '../toast';
+import {
+  importRepo,
+  importLocalProject,
+  startProjectClone,
+  switchProjectRelative,
+  switchProjectItemRelative,
+} from '../project-actions';
+import { showInfoToast, showErrorToast } from '../toast';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -85,6 +98,7 @@ function makeProject(overrides: Partial<Project> & { id: string; path: string })
     worktrees: [],
     expanded: true,
     position: 0,
+    invalid: false,
     ...overrides,
   };
 }
@@ -103,6 +117,9 @@ describe('importRepo', () => {
       activeContextId: '',
       contextActiveTabIds: {},
       creatingWorktreeIds: [],
+      cloningProjectIds: [],
+      cloneProgress: {},
+      invalidProjectIds: [],
       justStartedWorktreeId: null,
       pendingClaudeSession: null,
     };
@@ -170,6 +187,96 @@ describe('importRepo', () => {
   });
 });
 
+// ── importLocalProject ──────────────────────────────────────────────────────
+
+describe('importLocalProject', () => {
+  const nav = vi.fn();
+  const branch = { name: 'main', is_head: true, ahead: 0, behind: 0 };
+
+  beforeEach(() => {
+    _projects = [];
+    nav.mockClear();
+  });
+
+  it('inserts a new project with the chosen branch', () => {
+    importLocalProject('/repos/foo', 'foo', branch, nav);
+    expect(_projects).toHaveLength(1);
+    expect(_projects[0]!.name).toBe('foo');
+    expect(_projects[0]!.branches).toEqual([branch]);
+    expect(nav).toHaveBeenCalled();
+  });
+
+  it('shows info toast when path is already imported', () => {
+    _projects = [makeProject({ id: 'x', path: '/repos/foo', name: 'foo' })];
+    importLocalProject('/repos/foo', 'foo', branch, nav);
+    expect(_projects).toHaveLength(1);
+    expect(showInfoToast).toHaveBeenCalledWith('"foo" is already imported');
+  });
+
+  it('falls back to directory name when name is empty', () => {
+    importLocalProject('/repos/bar', '', branch, nav);
+    expect(_projects[0]!.name).toBe('bar');
+  });
+});
+
+// ── startProjectClone ──────────────────────────────────────────────────────
+
+describe('startProjectClone', () => {
+  const nav = vi.fn();
+
+  beforeEach(() => {
+    _projects = [];
+    _uiState.cloningProjectIds = [];
+    nav.mockClear();
+    vi.clearAllMocks();
+  });
+
+  it('optimistically inserts the project and marks it as cloning', () => {
+    vi.mocked(gitApi.cloneRepo).mockReturnValue(new Promise(() => {})); // never resolves
+    startProjectClone('https://github.com/o/r.git', '/tmp/dest', 'r', 'main', nav);
+    expect(_projects).toHaveLength(1);
+    expect(_projects[0]!.name).toBe('r');
+    expect(_projects[0]!.branches).toEqual([]);
+    expect(_uiState.cloningProjectIds).toHaveLength(1);
+  });
+
+  it('updates project on successful clone', async () => {
+    const headBranch = { name: 'main', is_head: true, ahead: 0, behind: 0 };
+    vi.mocked(gitApi.cloneRepo).mockResolvedValue({
+      path: '/tmp/dest/r',
+      name: 'r',
+      branches: [headBranch],
+      worktrees: [],
+    });
+
+    startProjectClone('https://github.com/o/r.git', '/tmp/dest', 'r', 'main', nav);
+    await vi.waitFor(() => expect(_uiState.cloningProjectIds).toHaveLength(0));
+
+    expect(_projects).toHaveLength(1);
+    expect(_projects[0]!.branches).toEqual([headBranch]);
+  });
+
+  it('removes project and shows error toast on clone failure', async () => {
+    vi.mocked(gitApi.cloneRepo).mockRejectedValue(new Error('clone failed'));
+    startProjectClone('https://github.com/o/r.git', '/tmp/dest', 'r', 'main', nav);
+    await vi.waitFor(() => expect(_uiState.cloningProjectIds).toHaveLength(0));
+
+    expect(_projects).toHaveLength(0);
+    expect(showErrorToast).toHaveBeenCalledWith('Clone failed', 'Error: clone failed');
+  });
+
+  it('adds SSH hint when error mentions auth', async () => {
+    vi.mocked(gitApi.cloneRepo).mockRejectedValue(new Error('authentication failed'));
+    startProjectClone('git@github.com:o/r.git', '/tmp/dest', 'r', 'main', nav);
+    await vi.waitFor(() => expect(_uiState.cloningProjectIds).toHaveLength(0));
+
+    expect(showErrorToast).toHaveBeenCalledWith(
+      'Clone failed',
+      expect.stringContaining('SSH key setup'),
+    );
+  });
+});
+
 // ── Navigation helpers ────────────────────────────────────────────────────────
 
 const mockNavigate = vi.fn();
@@ -190,6 +297,9 @@ function resetNav() {
     activeContextId: '',
     contextActiveTabIds: {},
     creatingWorktreeIds: [],
+    cloningProjectIds: [],
+    cloneProgress: {},
+    invalidProjectIds: [],
     justStartedWorktreeId: null,
     pendingClaudeSession: null,
   };

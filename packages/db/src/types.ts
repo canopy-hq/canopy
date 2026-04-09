@@ -26,6 +26,7 @@ export interface Project {
   expanded: boolean;
   position: number;
   color?: string | null;
+  invalid: boolean;
 }
 
 // ── Tab / Pane ───────────────────────────────────────────────────────────────

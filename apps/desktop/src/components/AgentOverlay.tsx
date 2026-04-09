@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
 
+import { StatusDot } from '@superagent/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { tv } from 'tailwind-variants';
 
 import { useAgents, useProjects, useTabs } from '../hooks/useCollections';
 import { containsPtyId } from '../lib/pane-tree-ops';
 import { jumpToPane } from '../lib/tab-actions';
-import { StatusDot } from './ui';
 
 import type { AgentInfo } from '@superagent/db';
 
