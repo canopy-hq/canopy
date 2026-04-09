@@ -14,8 +14,9 @@ export function buildEditorCommands(
   editors: DetectedEditor[],
   settings: Setting[],
   activeContextId: string | null | undefined,
+  activeProjectId: string | null | undefined,
 ): CommandItem[] {
-  if (editors.length === 0 || !activeContextId) return [];
+  if (editors.length === 0 || !activeContextId || !activeProjectId) return [];
 
   const defaultEditorId = getSetting<string>(settings, SETTING_KEY, '');
   const defaultEditor = editors.find((e) => e.id === defaultEditorId) ?? editors[0]!;
@@ -28,7 +29,7 @@ export function buildEditorCommands(
       icon: 'editor',
       shortcut: '⌘⇧E',
       keywords: ['editor', 'code', 'vscode', 'cursor', 'zed', 'open', 'ide'],
-      contextId: activeContextId.split('-')[0],
+      contextId: activeProjectId,
       action: ({ close }) => {
         const cwd = resolveProjectItemCwd(activeContextId);
         if (!cwd) {

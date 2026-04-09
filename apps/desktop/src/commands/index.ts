@@ -76,7 +76,14 @@ export function useAllCommands(): CommandItem[] {
       ...buildTabCommands(tabs, uiState, navigate, projects),
       ...buildAgentCommands(agents, tabs, projects, navigate),
       ...buildPtyCommands(ptySessions, tabs, projects, navigate),
-      ...buildEditorCommands(editors, settings, uiState.activeContextId),
+      ...buildEditorCommands(
+        editors,
+        settings,
+        uiState.activeContextId,
+        uiState.activeContextId
+          ? projects.find((p) => uiState.activeContextId!.startsWith(p.id))?.id
+          : undefined,
+      ),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [projects, tabs, agents, uiState, settings, ptySessions, editors],
