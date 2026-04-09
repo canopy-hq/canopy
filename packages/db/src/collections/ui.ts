@@ -14,7 +14,8 @@ export const SIDEBAR_WIDTH_DEFAULT = 250;
 export const SIDEBAR_WIDTH_MAX = 400;
 
 export interface CloneProgress {
-  received: number;
+  phase: 'receiving' | 'resolving' | 'checkout';
+  step: number;
   total: number;
   bytes: number;
 }

@@ -101,16 +101,18 @@ export function startProjectClone(
   void (async () => {
     const unlisten = await listen<{
       projectId: string;
-      receivedObjects: number;
-      totalObjects: number;
-      receivedBytes: number;
+      phase: string;
+      step: number;
+      total: number;
+      bytes: number;
     }>('clone-progress', ({ payload }) => {
       if (payload.projectId !== projectId) return;
       uiCollection.update('ui', (draft) => {
         draft.cloneProgress[projectId] = {
-          received: payload.receivedObjects,
-          total: payload.totalObjects,
-          bytes: payload.receivedBytes,
+          phase: payload.phase as 'receiving' | 'resolving' | 'checkout',
+          step: payload.step,
+          total: payload.total,
+          bytes: payload.bytes,
         };
       });
     });

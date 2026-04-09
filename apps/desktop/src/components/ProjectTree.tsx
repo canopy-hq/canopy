@@ -77,7 +77,7 @@ import { RemoveWorktreeModal } from './RemoveWorktreeModal';
 
 import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
 import type { PrInfo } from '../lib/github';
-import type { Project } from '@superagent/db';
+import type { Project, CloneProgress } from '@superagent/db';
 import type { ContextMenuItemDef, DotStatus } from '@superagent/ui';
 
 const WORKSPACE_COLORS: Array<{ value: string; label: string }> = [
@@ -360,7 +360,7 @@ const RepoHeader = memo(
     isSelected: boolean;
     isRenaming: boolean;
     isCloning: boolean;
-    cloneProgress?: { received: number; total: number; bytes: number };
+    cloneProgress?: CloneProgress;
     isInvalid: boolean;
     onPlusClick: () => void;
     onRowClick: () => void;
@@ -455,7 +455,7 @@ const RepoHeader = memo(
             {isCloning && (
               <span className="flex shrink-0 items-center gap-1 font-mono text-xs text-text-faint">
                 {cloneProgress && cloneProgress.total > 0
-                  ? `${Math.round((cloneProgress.received / cloneProgress.total) * 100)}%`
+                  ? `${cloneProgress.phase === 'resolving' ? 'resolving' : cloneProgress.phase === 'checkout' ? 'checking out' : 'receiving'} ${Math.round((cloneProgress.step / cloneProgress.total) * 100)}%`
                   : 'cloning…'}
                 <Spinner size={11} className="text-accent/60" />
               </span>
@@ -518,7 +518,8 @@ const RepoHeader = memo(
     prev.isSelected === next.isSelected &&
     prev.isRenaming === next.isRenaming &&
     prev.isCloning === next.isCloning &&
-    prev.cloneProgress?.received === next.cloneProgress?.received &&
+    prev.cloneProgress?.step === next.cloneProgress?.step &&
+    prev.cloneProgress?.phase === next.cloneProgress?.phase &&
     prev.isInvalid === next.isInvalid &&
     prev.onPlusClick === next.onPlusClick &&
     prev.onRowClick === next.onRowClick &&
@@ -814,7 +815,7 @@ function RepoTreeItem({
   deletingWtIds: Set<string>;
   creatingWorktreeIds: Set<string>;
   isCloning: boolean;
-  cloneProgress?: { received: number; total: number; bytes: number };
+  cloneProgress?: CloneProgress;
   isInvalid: boolean;
   pendingClaudeWorktreeId: string | null;
 }) {

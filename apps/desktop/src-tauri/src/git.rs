@@ -10,9 +10,11 @@ use tokio::sync::Semaphore;
 #[serde(rename_all = "camelCase")]
 pub struct CloneProgressPayload {
     pub project_id: String,
-    pub received_objects: usize,
-    pub total_objects: usize,
-    pub received_bytes: usize,
+    /// "receiving" | "resolving" | "checkout"
+    pub phase: String,
+    pub step: usize,
+    pub total: usize,
+    pub bytes: usize,
 }
 
 /// Sanitize a worktree name for use as a git admin directory.
@@ -370,20 +372,36 @@ pub async fn clone_repo(
             try_credentials(remote_url, username_from_url, allowed_types, config.as_ref())
         });
 
+        // Phase 0 = receiving, 1 = resolving — tracked to reset last_emitted on phase change
+        let mut last_phase: u8 = 0;
         let mut last_emitted: usize = 0;
         let pid = project_id.clone();
+        let ah = app_handle.clone();
         callbacks.transfer_progress(move |stats| {
             let received = stats.received_objects();
-            let total = stats.total_objects();
-            // Emit at most once per 1% of progress (min every 50 objects)
-            let threshold = (total / 100).max(50);
-            if received == total || received.saturating_sub(last_emitted) >= threshold {
-                last_emitted = received;
-                let _ = app_handle.emit("clone-progress", CloneProgressPayload {
+            let total_obj = stats.total_objects();
+            let indexed = stats.indexed_deltas();
+            let total_deltas = stats.total_deltas();
+
+            let (phase_byte, phase_str, step, total_step) = if received < total_obj {
+                (0u8, "receiving", received, total_obj)
+            } else {
+                (1u8, "resolving", indexed, total_deltas.max(1))
+            };
+
+            let threshold = (total_step / 100).max(50);
+            let phase_changed = phase_byte != last_phase;
+            let at_threshold = step == total_step || step.saturating_sub(last_emitted) >= threshold;
+
+            if phase_changed || at_threshold {
+                if phase_changed { last_emitted = 0; last_phase = phase_byte; }
+                last_emitted = step;
+                let _ = ah.emit("clone-progress", CloneProgressPayload {
                     project_id: pid.clone(),
-                    received_objects: received,
-                    total_objects: total,
-                    received_bytes: stats.received_bytes(),
+                    phase: phase_str.to_string(),
+                    step,
+                    total: total_step,
+                    bytes: stats.received_bytes(),
                 });
             }
             true
@@ -403,8 +421,28 @@ pub async fn clone_repo(
         };
         let dest_path = Path::new(&expanded_dest).join(&repo_name);
 
+        let ah2 = app_handle.clone();
+        let pid2 = project_id.clone();
+        let mut last_checkout: usize = 0;
+        let mut checkout_builder = git2::build::CheckoutBuilder::new();
+        checkout_builder.progress(move |_, cur, total| {
+            if total == 0 { return; }
+            let threshold = (total / 100).max(10);
+            if cur == total || cur.saturating_sub(last_checkout) >= threshold {
+                last_checkout = cur;
+                let _ = ah2.emit("clone-progress", CloneProgressPayload {
+                    project_id: pid2.clone(),
+                    phase: "checkout".to_string(),
+                    step: cur,
+                    total,
+                    bytes: 0,
+                });
+            }
+        });
+
         let mut builder = git2::build::RepoBuilder::new();
         builder.fetch_options(fetch_opts);
+        builder.with_checkout(checkout_builder);
         if let Some(ref b) = branch {
             builder.branch(b);
         }
