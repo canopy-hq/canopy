@@ -1038,7 +1038,7 @@ function RepoTreeItem({
                 label: 'Close project',
                 icon: <FolderX size={13} />,
                 destructive: true,
-                disabled: isCloning || isInvalid,
+                disabled: isCloning,
                 onSelect: () => {
                   setMenuOpen(false);
                   onRequestClose(ws);
