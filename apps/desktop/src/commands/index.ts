@@ -4,7 +4,9 @@ import { listPtySessions } from '@superagent/terminal';
 import { useNavigate } from '@tanstack/react-router';
 
 import { useAgents, useSettings, useTabs, useUiState, useProjects } from '../hooks/useCollections';
+import { useDetectedEditors } from '../lib/editor';
 import { buildAgentCommands } from './agent-commands';
+import { buildEditorCommands } from './editor-commands';
 import { buildProjectCommands } from './project-commands';
 import { buildPtyCommands } from './pty-commands';
 import { buildStaticCommands } from './static-commands';
@@ -20,6 +22,7 @@ export function useAllCommands(): CommandItem[] {
   const agents = useAgents();
   const uiState = useUiState();
   const settings = useSettings();
+  const editors = useDetectedEditors();
   const [ptySessions, setPtySessions] = useState<PtySessionInfo[]>([]);
 
   useEffect(() => {
@@ -73,8 +76,9 @@ export function useAllCommands(): CommandItem[] {
       ...buildTabCommands(tabs, uiState, navigate, projects),
       ...buildAgentCommands(agents, tabs, projects, navigate),
       ...buildPtyCommands(ptySessions, tabs, projects, navigate),
+      ...buildEditorCommands(editors, settings, uiState.activeContextId),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [projects, tabs, agents, uiState, settings, ptySessions],
+    [projects, tabs, agents, uiState, settings, ptySessions, editors],
   );
 }
