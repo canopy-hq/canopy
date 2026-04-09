@@ -634,18 +634,17 @@ const GroupHeader = memo(
             {projectCount}
           </span>
         )}
-        {projectCount > 0 && (
-          <Button
-            iconOnly
-            size="sm"
-            variant="ghost"
-            onPress={onToggleCollapse}
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
-            onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
-          >
-            {group.collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-          </Button>
-        )}
+        <Button
+          iconOnly
+          size="sm"
+          variant="ghost"
+          className={projectCount === 0 ? 'invisible' : undefined}
+          onPress={onToggleCollapse}
+          onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
+        >
+          {group.collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+        </Button>
       </div>
     );
   },
