@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 
 import { getDb } from './client';
-import { settings, projects, tabs, sessions } from './schema';
+import { settings, projects, tabs, sessions, groups } from './schema';
 
 /**
  * Run all migrations against the already-initialized SQLite database.
@@ -110,9 +110,28 @@ export async function runMigrations(): Promise<void> {
     await db.run(sql`ALTER TABLE tabs ADD COLUMN icon TEXT`);
   }
 
+  // ── Groups table ─────────────────────────────────────────────────────────────
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS groups (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      collapsed INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
+  // Add group_id column to projects if missing.
+  const projGroupCol = await db.get<{ cnt: number }>(
+    sql`SELECT COUNT(*) as cnt FROM pragma_table_info('projects') WHERE name = 'group_id'`,
+  );
+  if (!projGroupCol || projGroupCol.cnt === 0) {
+    await db.run(sql`ALTER TABLE projects ADD COLUMN group_id TEXT`);
+  }
+
   // Silence unused import warnings — these are used by collections
   void projects;
   void tabs;
   void sessions;
   void settings;
+  void groups;
 }

@@ -1,3 +1,4 @@
+import { hydrateGroupCollection } from './collections/groups';
 import { hydrateProjectCollection } from './collections/projects';
 import { hydrateSessionCollection } from './collections/sessions';
 import { hydrateSettingCollection, getSetting } from './collections/settings';
@@ -24,6 +25,7 @@ export async function hydrateCollections(): Promise<void> {
   // Settings must be hydrated first — restoreUiState reads from them
   await hydrateSettingCollection();
   await Promise.all([
+    hydrateGroupCollection(),
     hydrateProjectCollection(),
     hydrateTabCollection(),
     hydrateSessionCollection(),

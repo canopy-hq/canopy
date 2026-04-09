@@ -26,14 +26,23 @@ import {
   GitBranch,
   GitBranchMinus,
   GitPullRequest,
+  GripVertical,
   Laptop,
+  Layers,
   Pencil,
   Plus,
 } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
 import { makeProjectPaletteItem } from '../commands/project-commands';
-import { useProjects, useAgents, useTabs, useUiState, useSettings } from '../hooks/useCollections';
+import {
+  useGroups,
+  useProjects,
+  useAgents,
+  useTabs,
+  useUiState,
+  useSettings,
+} from '../hooks/useCollections';
 import { useDragStyle } from '../hooks/useDragStyle';
 import { useDropping } from '../hooks/useDropping';
 import { useFlipAnimation } from '../hooks/useFlipAnimation';
@@ -42,6 +51,14 @@ import { useProjectPolling } from '../hooks/useProjectPolling';
 import { usePrPolling } from '../hooks/usePrPolling';
 import { restrictToVerticalAxis, sortableTransition, useDragSensors } from '../lib/dnd';
 import { GITHUB_CONNECTION_KEY } from '../lib/github';
+import {
+  createGroup,
+  deleteGroup,
+  renameGroup,
+  toggleGroupCollapsed,
+  reorderGroups,
+  assignProjectToGroup,
+} from '../lib/group-actions';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import {
   toggleExpanded,
@@ -76,7 +93,7 @@ import {
 import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
 import type { PrInfo } from '../lib/github';
 import type { ContextMenuItemDef, DotStatus } from './ui';
-import type { Project } from '@superagent/db';
+import type { Group, Project } from '@superagent/db';
 
 const WORKSPACE_COLORS: Array<{ value: string; label: string }> = [
   { value: '#f59e0b', label: 'Amber' },
@@ -499,6 +516,301 @@ const RepoHeader = memo(
     prev.dragListeners === next.dragListeners,
 );
 
+const groupHeaderRow = tv({ base: 'flex items-center gap-1 px-3 py-1 select-none' });
+
+const GroupHeader = memo(
+  function GroupHeader({
+    group,
+    isRenaming,
+    projectCount,
+    onStartRename,
+    onToggleCollapse,
+    onContextMenu,
+    onRenameCommit,
+    onRenameCancel,
+    dragListeners,
+  }: {
+    group: Group;
+    isRenaming: boolean;
+    projectCount: number;
+    onStartRename: () => void;
+    onToggleCollapse: () => void;
+    onContextMenu: (e: React.MouseEvent) => void;
+    onRenameCommit: (name: string) => void;
+    onRenameCancel: () => void;
+    dragListeners?: DraggableSyntheticListeners;
+  }) {
+    const [editValue, setEditValue] = useState('');
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+      if (isRenaming) {
+        setEditValue(group.name);
+        requestAnimationFrame(() => inputRef.current?.select());
+      }
+    }, [isRenaming, group.name]);
+
+    function commitRename() {
+      onRenameCommit(editValue);
+    }
+
+    return (
+      <div
+        className={groupHeaderRow()}
+        onContextMenu={isRenaming ? undefined : onContextMenu}
+        {...(isRenaming ? {} : dragListeners)}
+      >
+        <GripVertical
+          size={11}
+          className="shrink-0 cursor-grab touch-none text-text-faint/30 active:cursor-grabbing"
+        />
+        {isRenaming ? (
+          <input
+            ref={inputRef}
+            value={editValue}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === 'Enter') commitRename();
+              if (e.key === 'Escape') onRenameCancel();
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="m-0 min-w-0 flex-1 border-none bg-transparent p-0 font-mono text-xs font-semibold tracking-widest text-text-faint uppercase outline-none"
+          />
+        ) : (
+          <span
+            className="flex-1 truncate font-mono text-xs font-semibold tracking-widest text-text-faint uppercase"
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              onStartRename();
+            }}
+          >
+            {group.name}
+          </span>
+        )}
+        {group.collapsed && projectCount > 0 && (
+          <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.25 py-px font-mono text-xs leading-none text-text-faint tabular-nums">
+            {projectCount}
+          </span>
+        )}
+        <Button
+          iconOnly
+          size="sm"
+          variant="ghost"
+          onPress={onToggleCollapse}
+          onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
+        >
+          {group.collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+        </Button>
+      </div>
+    );
+  },
+  (prev, next) =>
+    prev.group.id === next.group.id &&
+    prev.group.name === next.group.name &&
+    prev.group.collapsed === next.group.collapsed &&
+    prev.isRenaming === next.isRenaming &&
+    prev.projectCount === next.projectCount &&
+    prev.onStartRename === next.onStartRename &&
+    prev.onToggleCollapse === next.onToggleCollapse &&
+    prev.onContextMenu === next.onContextMenu &&
+    prev.onRenameCommit === next.onRenameCommit &&
+    prev.onRenameCancel === next.onRenameCancel &&
+    prev.dragListeners === next.dragListeners,
+);
+
+function GroupTreeItem({
+  group,
+  groupProjects,
+  isRenaming: isExternalRenaming,
+  onRenameEnd,
+  agentMap,
+  diffStatsMap,
+  prMap,
+  tabCounts,
+  onRequestOpenPalette,
+  onRequestClose,
+  onRequestRemoveWt,
+  selectedItemId,
+  activeContextId,
+  onSelectItem,
+  deletingWtIds,
+  creatingWorktreeIds,
+  pendingClaudeWorktreeId,
+  groups,
+}: {
+  group: Group;
+  groupProjects: Project[];
+  isRenaming?: boolean;
+  onRenameEnd?: () => void;
+  agentMap: Record<string, DotStatus>;
+  diffStatsMap: Record<string, Record<string, DiffStat>>;
+  prMap: Record<string, Record<string, PrInfo>>;
+  tabCounts: Record<string, number>;
+  onRequestOpenPalette: (ws: Project) => void;
+  onRequestClose: (ws: Project) => void;
+  onRequestRemoveWt: (projectId: string, name: string, branch: string) => void;
+  selectedItemId: string | null;
+  activeContextId: string | null;
+  onSelectItem: (itemId: string) => void;
+  deletingWtIds: Set<string>;
+  creatingWorktreeIds: Set<string>;
+  pendingClaudeWorktreeId: string | null;
+  groups: Group[];
+}) {
+  const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
+    id: group.id,
+    transition: sortableTransition,
+  });
+  const isDropping = useDropping(isDragging, 220);
+
+  const [renaming, setRenaming] = useState(false);
+  useEffect(() => {
+    if (isExternalRenaming && !renaming) setRenaming(true);
+  }, [isExternalRenaming]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuPos = useRef({ x: 0, y: 0 });
+
+  const projectSensors = useDragSensors();
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  useDragStyle(activeProjectId !== null);
+
+  const sortedProjects = useMemo(
+    () => [...groupProjects].sort((a, b) => a.position - b.position),
+    [groupProjects],
+  );
+  const projectIds = useMemo(() => sortedProjects.map((p) => p.id), [sortedProjects]);
+  const separatorIds = useMemo(
+    () => new Set(sortedProjects.slice(1).map((p) => p.id)),
+    [sortedProjects],
+  );
+
+  const handleProjectDragEnd = useCallback(
+    ({ active, over }: DragEndEvent) => {
+      setActiveProjectId(null);
+      if (!over || active.id === over.id) return;
+      const oldIndex = sortedProjects.findIndex((p) => p.id === active.id);
+      const newIndex = sortedProjects.findIndex((p) => p.id === over.id);
+      const reordered = arrayMove(sortedProjects, oldIndex, newIndex);
+      reorderProjects(reordered.map((p) => p.id));
+    },
+    [sortedProjects],
+  );
+
+  const draggingCls = isDragging || isDropping ? 'pointer-events-none relative z-50' : '';
+
+  return (
+    <>
+      <div
+        ref={setNodeRef}
+        data-flip-id={group.id}
+        className={draggingCls || undefined}
+        style={{
+          transform: CSS.Transform.toString(
+            transform ? { ...transform, scaleX: 1, scaleY: 1 } : null,
+          ),
+          transition,
+        }}
+      >
+        <GroupHeader
+          group={group}
+          isRenaming={renaming}
+          projectCount={sortedProjects.length}
+          onStartRename={() => setRenaming(true)}
+          onToggleCollapse={() => toggleGroupCollapsed(group.id)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            menuPos.current = { x: e.clientX, y: e.clientY };
+            setMenuOpen(true);
+          }}
+          onRenameCommit={(name) => {
+            if (name.trim()) renameGroup(group.id, name);
+            setRenaming(false);
+            onRenameEnd?.();
+          }}
+          onRenameCancel={() => {
+            setRenaming(false);
+            onRenameEnd?.();
+          }}
+          dragListeners={listeners}
+        />
+        {!group.collapsed && (
+          <DndContext
+            sensors={projectSensors}
+            collisionDetection={closestCenter}
+            modifiers={[restrictToVerticalAxis]}
+            onDragStart={({ active }) => setActiveProjectId(String(active.id))}
+            onDragEnd={handleProjectDragEnd}
+            onDragCancel={() => setActiveProjectId(null)}
+          >
+            <SortableContext items={projectIds} strategy={verticalListSortingStrategy}>
+              <div>
+                {sortedProjects.map((ws) => (
+                  <RepoTreeItem
+                    key={ws.id}
+                    ws={ws}
+                    agentMap={agentMap}
+                    diffStats={diffStatsMap[ws.id]}
+                    prStatuses={prMap[ws.id]}
+                    tabCounts={tabCounts}
+                    onRequestOpenPalette={onRequestOpenPalette}
+                    onRequestClose={onRequestClose}
+                    onRequestRemoveWt={(name, branch) => onRequestRemoveWt(ws.id, name, branch)}
+                    selectedItemId={selectedItemId}
+                    activeContextId={activeContextId}
+                    hasSeparator={separatorIds.has(ws.id)}
+                    onSelectItem={onSelectItem}
+                    deletingWtIds={deletingWtIds}
+                    creatingWorktreeIds={creatingWorktreeIds}
+                    pendingClaudeWorktreeId={pendingClaudeWorktreeId}
+                    groups={groups}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        )}
+      </div>
+      {menuOpen && (
+        <ContextMenu
+          x={menuPos.current.x}
+          y={menuPos.current.y}
+          onClose={() => setMenuOpen(false)}
+          items={
+            [
+              {
+                label: 'Rename',
+                icon: <Pencil size={13} />,
+                onSelect: () => {
+                  setMenuOpen(false);
+                  setRenaming(true);
+                },
+              },
+              {
+                label: 'Delete group',
+                icon: <FolderX size={13} />,
+                destructive: true,
+                onSelect: () => {
+                  setMenuOpen(false);
+                  deleteGroup(group.id);
+                },
+              },
+            ] satisfies ContextMenuItemDef[]
+          }
+        />
+      )}
+    </>
+  );
+}
+
 function useProjectAgentMap(): Record<string, DotStatus> {
   const agents = useAgents();
   const tabs = useTabs();
@@ -548,10 +860,31 @@ function getRepoAgentSummary(
 
 export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
   const rawProjects = useProjects();
-  const projects = useMemo(
-    () => [...rawProjects].sort((a, b) => a.position - b.position),
-    [rawProjects],
+  const rawGroups = useGroups();
+
+  const groups = useMemo(() => [...rawGroups].sort((a, b) => a.position - b.position), [rawGroups]);
+  const hasGroups = groups.length > 0;
+
+  // Bucket projects into groups (keyed by groupId) and ungrouped (null).
+  const projectsByGroup = useMemo(() => {
+    const map = new Map<string | null, Project[]>();
+    map.set(null, []);
+    for (const g of groups) map.set(g.id, []);
+    for (const p of rawProjects) {
+      const key = p.groupId && map.has(p.groupId) ? p.groupId : null;
+      map.get(key)!.push(p);
+    }
+    return map;
+  }, [rawProjects, groups]);
+
+  const ungroupedProjects = useMemo(
+    () => [...(projectsByGroup.get(null) ?? [])].sort((a, b) => a.position - b.position),
+    [projectsByGroup],
   );
+
+  // All projects flat — needed for polling.
+  const allProjects = useMemo(() => rawProjects, [rawProjects]);
+
   const {
     selectedItemId,
     activeContextId,
@@ -575,40 +908,65 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
     branch: string;
   } | null>(null);
   const [deletingWtIds, setDeletingWtIds] = useState<Set<string>>(() => new Set());
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [pendingRenameGroupId, setPendingRenameGroupId] = useState<string | null>(null);
+
   const agentMap = useProjectAgentMap();
   const pageVisible = usePageVisible();
   const diffStatsMap = useProjectPolling(
-    projects,
+    allProjects,
     sidebarVisible && pageVisible,
     activeContextId ?? undefined,
   );
   const settings = useSettings();
   const githubConnected = getSetting(settings, GITHUB_CONNECTION_KEY, null) !== null;
-  const prMap = usePrPolling(projects, sidebarVisible && pageVisible, githubConnected);
+  const prMap = usePrPolling(allProjects, sidebarVisible && pageVisible, githubConnected);
   const navigate = useNavigate();
-  const sensors = useDragSensors();
-  useDragStyle(activeId !== null);
-  const projectListRef = useRef<HTMLDivElement>(null);
-  const { snapshot: flipSnapshot } = useFlipAnimation(projectListRef, 'vertical');
 
-  // Stable separators — never update during drag to avoid layout shifts.
-  const separatorIds = useMemo(() => new Set(projects.slice(1).map((w) => w.id)), [projects]);
+  // Group-level DnD
+  const groupSensors = useDragSensors();
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  useDragStyle(activeGroupId !== null);
+  const groupListRef = useRef<HTMLDivElement>(null);
+  const { snapshot: groupFlipSnapshot } = useFlipAnimation(groupListRef, 'vertical');
+  const groupIds = useMemo(() => groups.map((g) => g.id), [groups]);
 
-  const handleDragEnd = useCallback(
+  const handleGroupDragEnd = useCallback(
     ({ active, over }: DragEndEvent) => {
-      flipSnapshot();
-      setActiveId(null);
+      groupFlipSnapshot();
+      setActiveGroupId(null);
       if (!over || active.id === over.id) return;
-      const oldIndex = projects.findIndex((w) => w.id === active.id);
-      const newIndex = projects.findIndex((w) => w.id === over.id);
-      const reordered = arrayMove(projects, oldIndex, newIndex);
-      reorderProjects(reordered.map((w) => w.id));
+      const oldIndex = groups.findIndex((g) => g.id === active.id);
+      const newIndex = groups.findIndex((g) => g.id === over.id);
+      const reordered = arrayMove(groups, oldIndex, newIndex);
+      reorderGroups(reordered.map((g) => g.id));
     },
-    [projects, flipSnapshot],
+    [groups, groupFlipSnapshot],
   );
 
-  const projectIds = useMemo(() => projects.map((w) => w.id), [projects]);
+  // Ungrouped DnD
+  const ungroupedSensors = useDragSensors();
+  const [activeUngroupedId, setActiveUngroupedId] = useState<string | null>(null);
+  useDragStyle(activeUngroupedId !== null);
+  const ungroupedProjectIds = useMemo(
+    () => ungroupedProjects.map((p) => p.id),
+    [ungroupedProjects],
+  );
+  const ungroupedSeparatorIds = useMemo(
+    () => new Set(ungroupedProjects.slice(1).map((p) => p.id)),
+    [ungroupedProjects],
+  );
+
+  const handleUngroupedDragEnd = useCallback(
+    ({ active, over }: DragEndEvent) => {
+      setActiveUngroupedId(null);
+      if (!over || active.id === over.id) return;
+      const oldIndex = ungroupedProjects.findIndex((p) => p.id === active.id);
+      const newIndex = ungroupedProjects.findIndex((p) => p.id === over.id);
+      const reordered = arrayMove(ungroupedProjects, oldIndex, newIndex);
+      reorderProjects(reordered.map((p) => p.id));
+    },
+    [ungroupedProjects],
+  );
 
   const handleRequestOpenPalette = useCallback((ws: Project) => {
     openProjectPalette(makeProjectPaletteItem(ws));
@@ -619,12 +977,57 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
     [navigate],
   );
 
+  const handleAddGroup = useCallback(() => {
+    const id = createGroup('New group');
+    setPendingRenameGroupId(id);
+  }, []);
+
+  // Shared props passed to every RepoTreeItem (whether inside a group or ungrouped).
+  const sharedRepoProps = useMemo(
+    () => ({
+      agentMap,
+      tabCounts: tabCountMap,
+      onRequestOpenPalette: handleRequestOpenPalette,
+      onRequestClose: setCloseTarget,
+      selectedItemId,
+      activeContextId,
+      onSelectItem: handleSelectItem,
+      deletingWtIds,
+      creatingWorktreeIds: creatingWorktreeIdSet,
+      pendingClaudeWorktreeId: pendingClaudeSession?.worktreeId ?? null,
+      groups,
+    }),
+    [
+      agentMap,
+      tabCountMap,
+      handleRequestOpenPalette,
+      selectedItemId,
+      activeContextId,
+      handleSelectItem,
+      deletingWtIds,
+      creatingWorktreeIdSet,
+      pendingClaudeSession,
+      groups,
+    ],
+  );
+
   return (
     <>
       <div className="flex h-10 items-center border-b border-border/20 pr-2 pl-3">
         <span className="flex-1 font-mono text-sm font-medium tracking-widest text-text-faint uppercase">
           Projects
         </span>
+        <Tooltip label="New group" placement="right">
+          <Button
+            iconOnly
+            size="sm"
+            variant="ghost"
+            onPress={handleAddGroup}
+            aria-label="Add group"
+          >
+            <Layers size={12} />
+          </Button>
+        </Tooltip>
         {onAddProject && (
           <Tooltip
             label={
@@ -646,41 +1049,76 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
           </Tooltip>
         )}
       </div>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        modifiers={[restrictToVerticalAxis]}
-        onDragStart={({ active }) => setActiveId(String(active.id))}
-        onDragEnd={handleDragEnd}
-        onDragCancel={() => setActiveId(null)}
-      >
-        <SortableContext items={projectIds} strategy={verticalListSortingStrategy}>
-          <div ref={projectListRef}>
-            {projects.map((ws) => (
-              <RepoTreeItem
-                key={ws.id}
-                ws={ws}
-                agentMap={agentMap}
-                diffStats={diffStatsMap[ws.id]}
-                prStatuses={prMap[ws.id]}
-                tabCounts={tabCountMap}
-                onRequestOpenPalette={handleRequestOpenPalette}
-                onRequestClose={setCloseTarget}
-                onRequestRemoveWt={(name, branch) =>
-                  setRemoveWtTarget({ projectId: ws.id, name, branch })
-                }
-                selectedItemId={selectedItemId}
-                activeContextId={activeContextId}
-                hasSeparator={separatorIds.has(ws.id)}
-                onSelectItem={handleSelectItem}
-                deletingWtIds={deletingWtIds}
-                creatingWorktreeIds={creatingWorktreeIdSet}
-                pendingClaudeWorktreeId={pendingClaudeSession?.worktreeId ?? null}
-              />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
+
+      {hasGroups && (
+        <DndContext
+          sensors={groupSensors}
+          collisionDetection={closestCenter}
+          modifiers={[restrictToVerticalAxis]}
+          onDragStart={({ active }) => setActiveGroupId(String(active.id))}
+          onDragEnd={handleGroupDragEnd}
+          onDragCancel={() => setActiveGroupId(null)}
+        >
+          <SortableContext items={groupIds} strategy={verticalListSortingStrategy}>
+            <div ref={groupListRef}>
+              {groups.map((group) => (
+                <GroupTreeItem
+                  key={group.id}
+                  group={group}
+                  groupProjects={projectsByGroup.get(group.id) ?? []}
+                  isRenaming={pendingRenameGroupId === group.id}
+                  onRenameEnd={() => setPendingRenameGroupId(null)}
+                  diffStatsMap={diffStatsMap}
+                  prMap={prMap}
+                  onRequestRemoveWt={(projectId, name, branch) =>
+                    setRemoveWtTarget({ projectId, name, branch })
+                  }
+                  {...sharedRepoProps}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+
+      {(!hasGroups || ungroupedProjects.length > 0) && (
+        <>
+          {hasGroups && (
+            <div className="flex h-7 items-center px-3">
+              <span className="font-mono text-xs font-semibold tracking-widest text-text-faint/50 uppercase">
+                Ungrouped
+              </span>
+            </div>
+          )}
+          <DndContext
+            sensors={ungroupedSensors}
+            collisionDetection={closestCenter}
+            modifiers={[restrictToVerticalAxis]}
+            onDragStart={({ active }) => setActiveUngroupedId(String(active.id))}
+            onDragEnd={handleUngroupedDragEnd}
+            onDragCancel={() => setActiveUngroupedId(null)}
+          >
+            <SortableContext items={ungroupedProjectIds} strategy={verticalListSortingStrategy}>
+              <div>
+                {ungroupedProjects.map((ws) => (
+                  <RepoTreeItem
+                    key={ws.id}
+                    ws={ws}
+                    diffStats={diffStatsMap[ws.id]}
+                    prStatuses={prMap[ws.id]}
+                    hasSeparator={ungroupedSeparatorIds.has(ws.id)}
+                    onRequestRemoveWt={(name, branch) =>
+                      setRemoveWtTarget({ projectId: ws.id, name, branch })
+                    }
+                    {...sharedRepoProps}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        </>
+      )}
+
       {closeTarget && (
         <CloseProjectModal
           isOpen
@@ -706,7 +1144,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
 
             // If the deleted wt is the active context, redirect to the first remaining item.
             if (activeContextId === itemId) {
-              const ws = projects.find((w) => w.id === projectId);
+              const ws = allProjects.find((w) => w.id === projectId);
               const fallback = ws
                 ? [
                     ...ws.branches.map((b) => `${ws.id}-branch-${b.name}`),
@@ -758,6 +1196,7 @@ function RepoTreeItem({
   deletingWtIds,
   creatingWorktreeIds,
   pendingClaudeWorktreeId,
+  groups,
 }: {
   ws: Project;
   agentMap: Record<string, DotStatus>;
@@ -774,6 +1213,7 @@ function RepoTreeItem({
   deletingWtIds: Set<string>;
   creatingWorktreeIds: Set<string>;
   pendingClaudeWorktreeId: string | null;
+  groups: Group[];
 }) {
   const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
     id: ws.id,
@@ -987,6 +1427,28 @@ function RepoTreeItem({
                   })),
                 ] satisfies ContextMenuItemDef[],
               },
+              ...(groups.length > 0
+                ? [
+                    {
+                      type: 'submenu' as const,
+                      label: 'Move to group',
+                      icon: <Layers size={13} />,
+                      items: [
+                        {
+                          label: 'No group',
+                          checked: !ws.groupId,
+                          onSelect: () => assignProjectToGroup(ws.id, null),
+                        },
+                        { type: 'separator' as const },
+                        ...groups.map((g) => ({
+                          label: g.name,
+                          checked: ws.groupId === g.id,
+                          onSelect: () => assignProjectToGroup(ws.id, g.id),
+                        })),
+                      ] satisfies ContextMenuItemDef[],
+                    },
+                  ]
+                : []),
               {
                 label: 'Close project',
                 icon: <FolderX size={13} />,

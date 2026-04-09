@@ -15,6 +15,15 @@ export interface WorktreeInfo {
   label?: string;
 }
 
+// ── Group ────────────────────────────────────────────────────────────────────
+
+export interface Group {
+  id: string;
+  name: string;
+  position: number;
+  collapsed: boolean;
+}
+
 // ── Project ──────────────────────────────────────────────────────────────────
 
 export interface Project {
@@ -26,6 +35,7 @@ export interface Project {
   expanded: boolean;
   position: number;
   color?: string | null;
+  groupId?: string | null;
 }
 
 // ── Tab / Pane ───────────────────────────────────────────────────────────────

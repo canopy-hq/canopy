@@ -1,5 +1,12 @@
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
+export const groups = sqliteTable('groups', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  position: integer('position').notNull().default(0),
+  collapsed: integer('collapsed', { mode: 'boolean' }).notNull().default(false),
+});
+
 export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
   path: text('path').notNull().unique(),
@@ -11,6 +18,7 @@ export const projects = sqliteTable('projects', {
   expanded: integer('expanded', { mode: 'boolean' }).notNull().default(true),
   position: integer('position').notNull().default(0),
   color: text('color'),
+  groupId: text('group_id'),
 });
 
 export const tabs = sqliteTable('tabs', {
