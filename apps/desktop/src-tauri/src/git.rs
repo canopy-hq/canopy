@@ -473,7 +473,7 @@ pub async fn clone_repo(
 
         Ok(RepoInfo {
             path: dest_str,
-            name: final_name,
+            name: repo_name,
             branches: vec![BranchInfo { name: head_name, is_head: true, ahead: 0, behind: 0 }],
             worktrees: Vec::new(),
         })
