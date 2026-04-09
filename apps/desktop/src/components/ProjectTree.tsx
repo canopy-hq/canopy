@@ -334,9 +334,12 @@ const sidebarItem = tv({
 });
 
 const repoHeader = tv({
-  base: 'sticky top-0 z-10 flex items-center gap-2 py-1.5 pr-2 pl-3 cursor-grab active:cursor-grabbing touch-none bg-bg-primary brightness-[1.6] transition-[filter]',
-  variants: { selected: { true: 'brightness-[1.0]', false: 'hover:brightness-[1.3]' } },
-  defaultVariants: { selected: false },
+  base: 'sticky top-0 z-10 flex items-center gap-2 py-1.5 pr-2 pl-3 touch-none bg-bg-primary brightness-[1.6] transition-[filter]',
+  variants: {
+    selected: { true: 'brightness-[1.0]', false: 'hover:brightness-[1.3]' },
+    cloning: { true: 'cursor-default', false: 'cursor-grab active:cursor-grabbing' },
+  },
+  defaultVariants: { selected: false, cloning: false },
 });
 
 const RepoHeader = memo(
@@ -412,10 +415,10 @@ const RepoHeader = memo(
 
     return (
       <div
-        className={repoHeader({ selected: isSelected })}
-        onClick={isRenaming ? undefined : onRowClick}
+        className={repoHeader({ selected: isSelected, cloning: isCloning })}
+        onClick={isRenaming || isCloning ? undefined : onRowClick}
         onContextMenu={isRenaming ? undefined : onContextMenu}
-        {...(isRenaming ? {} : dragListeners)}
+        {...(isRenaming || isCloning ? {} : dragListeners)}
       >
         <div
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded border text-sm leading-none font-medium transition-colors duration-150"
@@ -488,13 +491,14 @@ const RepoHeader = memo(
                 {project.expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
               </Button>
             )}
-            {!isCloning && !isInvalid && (
+            {!isCloning && (
               <Tooltip label="New worktree" placement="right">
                 <Button
                   iconOnly
                   size="sm"
                   variant="ghost"
                   aria-label="New branch or worktree"
+                  isDisabled={isInvalid}
                   onPress={onPlusClick}
                   onClick={(e: React.MouseEvent) => e.stopPropagation()}
                   onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
