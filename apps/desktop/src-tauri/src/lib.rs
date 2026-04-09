@@ -10,15 +10,32 @@ use daemon_client::DaemonClient;
 use tauri::{Emitter, Manager};
 use tauri::window::Color;
 
-/// Returns the absolute path to the SQLite DB.
-/// Uses app_data_dir() so dev and prod builds get separate databases:
-///   prod  → ~/Library/Application Support/com.superagent.app/superagent.db
-///   dev   → ~/Library/Application Support/com.superagent.dev-<hash>/superagent.db
+/// Returns the directory that holds the SQLite DB.
+/// - dev  → ~/Library/Application Support/com.superagent.dev/
+/// - prod → ~/Library/Application Support/com.superagent.app/
+/// The identifier is set per-environment: fixed in dev.ts, tauri.conf.json for prod.
+fn db_data_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    app.path().app_data_dir().map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn get_db_path(app: tauri::AppHandle) -> Result<String, String> {
-    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let data_dir = db_data_dir(&app)?;
     std::fs::create_dir_all(&data_dir).map_err(|e| e.to_string())?;
     Ok(data_dir.join("superagent.db").to_string_lossy().into_owned())
+}
+
+/// Deletes the SQLite DB file so the app can start fresh on next boot.
+/// Called by the frontend when DB init or migrations fail.
+#[tauri::command]
+fn delete_db(app: tauri::AppHandle) -> Result<(), String> {
+    let data_dir = db_data_dir(&app)?;
+    let db_path = data_dir.join("superagent.db");
+    if db_path.exists() {
+        std::fs::remove_file(&db_path).map_err(|e| e.to_string())?;
+        eprintln!("Deleted corrupt/invalid DB at {}", db_path.display());
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -56,12 +73,7 @@ pub fn run() {
             }
 
             // Locate daemon socket and binary.
-            // Always use the canonical app data dir so all dev worktrees (which may
-            // override the identifier for single-instance scoping) share one daemon.
-            let data_dir = match std::env::var("SUPERAGENT_DATA_DIR") {
-                Ok(dir) => std::path::PathBuf::from(dir),
-                Err(_) => app.path().app_data_dir()?,
-            };
+            let data_dir = app.path().app_data_dir()?;
             if let Err(e) = std::fs::create_dir_all(&data_dir) {
                 eprintln!("Warning: could not create data dir {}: {e}", data_dir.display());
             }
@@ -86,6 +98,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_db_path,
+            delete_db,
             log_info,
             pty::spawn_terminal,
             pty::write_to_pty,
@@ -96,6 +109,9 @@ pub fn run() {
             pty::list_pty_sessions,
             pty::init_terminal_pool,
             git::import_repo,
+            git::clone_repo,
+            git::check_remote,
+            git::list_remote_branches,
             git::list_branches,
             git::list_all_branches,
             git::fetch_remote,
@@ -107,6 +123,7 @@ pub fn run() {
             git::get_diff_stats,
             git::get_all_diff_stats,
             git::poll_all_project_states,
+            git::check_project_paths,
             agent_watcher::start_agent_watching,
             agent_watcher::stop_agent_watching,
             agent_watcher::toggle_agent_manual,

@@ -19,6 +19,7 @@ export const projects = sqliteTable('projects', {
   position: integer('position').notNull().default(0),
   color: text('color'),
   groupId: text('group_id'),
+  invalid: integer('invalid', { mode: 'boolean' }).notNull().default(false),
 });
 
 export const tabs = sqliteTable('tabs', {

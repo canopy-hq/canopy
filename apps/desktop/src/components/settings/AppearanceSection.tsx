@@ -8,10 +8,9 @@ import {
   type ThemeName,
   type CssThemeProperties,
 } from '@superagent/terminal';
+import { SectionLabel } from '@superagent/ui';
 import { useLiveQuery } from '@tanstack/react-db';
 import { tv } from 'tailwind-variants';
-
-import { SectionLabel } from '../ui';
 
 const themeCard = tv({
   base: 'flex cursor-pointer flex-col gap-2 rounded-md border p-2 transition-colors',

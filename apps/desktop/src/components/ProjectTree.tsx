@@ -14,13 +14,27 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { getSetting } from '@superagent/db';
-import { useNavigate } from '@tanstack/react-router';
-import { openUrl } from '@tauri-apps/plugin-opener';
 import {
+  Badge,
+  badge,
+  Button,
+  DiffPill,
+  IconWithBadge,
+  Kbd,
+  Spinner,
+  StatusDot,
+  Tooltip,
+  ContextMenu,
+} from '@superagent/ui';
+import { useNavigate } from '@tanstack/react-router';
+import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener';
+import {
+  AlertTriangle,
   ChevronDown,
   ChevronRight,
   Copy,
   FolderGit2,
+  FolderOpen,
   FolderPlus,
   FolderX,
   GitBranch,
@@ -77,23 +91,11 @@ import { closeAllTabs } from '../lib/tab-actions';
 import { ClaudeCodeIcon } from './ClaudeCodeIcon';
 import { CloseProjectModal } from './CloseProjectModal';
 import { RemoveWorktreeModal } from './RemoveWorktreeModal';
-import {
-  Badge,
-  badge,
-  Button,
-  DiffPill,
-  IconWithBadge,
-  Kbd,
-  Spinner,
-  StatusDot,
-  Tooltip,
-  ContextMenu,
-} from './ui';
 
 import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
 import type { PrInfo } from '../lib/github';
-import type { ContextMenuItemDef, DotStatus } from './ui';
-import type { Group, Project } from '@superagent/db';
+import type { Group, Project, CloneProgress } from '@superagent/db';
+import type { ContextMenuItemDef, DotStatus } from '@superagent/ui';
 
 const WORKSPACE_COLORS: Array<{ value: string; label: string }> = [
   { value: '#f59e0b', label: 'Amber' },
@@ -349,9 +351,12 @@ const sidebarItem = tv({
 });
 
 const repoHeader = tv({
-  base: 'sticky top-0 z-10 flex items-center gap-2 py-1.5 pr-2 pl-3 cursor-grab active:cursor-grabbing touch-none bg-bg-primary brightness-[1.6] transition-[filter]',
-  variants: { selected: { true: 'brightness-[1.0]', false: 'hover:brightness-[1.3]' } },
-  defaultVariants: { selected: false },
+  base: 'sticky top-0 z-10 flex items-center gap-2 py-1.5 pr-2 pl-3 touch-none bg-bg-primary brightness-[1.6] transition-[filter]',
+  variants: {
+    selected: { true: 'brightness-[1.0]', false: 'hover:brightness-[1.3]' },
+    cloning: { true: 'cursor-default', false: 'cursor-grab active:cursor-grabbing' },
+  },
+  defaultVariants: { selected: false, cloning: false },
 });
 
 const RepoHeader = memo(
@@ -360,6 +365,9 @@ const RepoHeader = memo(
     agentSummary,
     isSelected,
     isRenaming,
+    isCloning,
+    cloneProgress,
+    isInvalid,
     onPlusClick,
     onRowClick,
     onContextMenu,
@@ -371,6 +379,9 @@ const RepoHeader = memo(
     agentSummary?: Array<'running' | 'waiting'>;
     isSelected: boolean;
     isRenaming: boolean;
+    isCloning: boolean;
+    cloneProgress?: CloneProgress;
+    isInvalid: boolean;
     onPlusClick: () => void;
     onRowClick: () => void;
     onContextMenu: (e: React.MouseEvent) => void;
@@ -421,10 +432,10 @@ const RepoHeader = memo(
 
     return (
       <div
-        className={repoHeader({ selected: isSelected })}
-        onClick={isRenaming ? undefined : onRowClick}
+        className={repoHeader({ selected: isSelected, cloning: isCloning })}
+        onClick={isRenaming || isCloning ? undefined : onRowClick}
         onContextMenu={isRenaming ? undefined : onContextMenu}
-        {...(isRenaming ? {} : dragListeners)}
+        {...(isRenaming || isCloning ? {} : dragListeners)}
       >
         <div
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded border text-sm leading-none font-medium transition-colors duration-150"
@@ -451,9 +462,25 @@ const RepoHeader = memo(
             className="min-w-0 flex-1 border-none bg-transparent font-mono text-lg font-medium text-text-primary outline-none"
           />
         ) : (
-          <span className="flex-1 truncate font-mono text-lg font-medium text-text-primary">
-            {project.name}
-          </span>
+          <>
+            <span className="min-w-0 flex-1 truncate font-mono text-lg font-medium text-text-primary">
+              {project.name}
+            </span>
+            {isInvalid && (
+              <span className="flex shrink-0 items-center gap-1 font-mono text-xs text-destructive/70">
+                <AlertTriangle size={11} />
+                not found
+              </span>
+            )}
+            {isCloning && (
+              <span className="flex shrink-0 items-center gap-1 font-mono text-xs text-text-faint">
+                {cloneProgress && cloneProgress.total > 0
+                  ? `${cloneProgress.phase === 'resolving' ? 'resolving' : cloneProgress.phase === 'checkout' ? 'checking out' : 'receiving'} ${Math.round((cloneProgress.step / cloneProgress.total) * 100)}%`
+                  : 'cloning…'}
+                <Spinner size={11} className="text-accent/60" />
+              </span>
+            )}
+          </>
         )}
         {!isRenaming && !project.expanded && agentSummary && agentSummary.length > 0 && (
           <span className="ml-1 flex items-center gap-0.75">
@@ -469,29 +496,34 @@ const RepoHeader = memo(
         )}
         {!isRenaming && (
           <>
-            <Button
-              iconOnly
-              size="sm"
-              variant="ghost"
-              onPress={onRowClick}
-              onClick={(e: React.MouseEvent) => e.stopPropagation()}
-              onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
-            >
-              {project.expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            </Button>
-            <Tooltip label="New worktree" placement="right">
+            {!isCloning && (
               <Button
                 iconOnly
                 size="sm"
                 variant="ghost"
-                aria-label="New branch or worktree"
-                onPress={onPlusClick}
+                onPress={onRowClick}
                 onClick={(e: React.MouseEvent) => e.stopPropagation()}
                 onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
               >
-                <Plus size={12} />
+                {project.expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
               </Button>
-            </Tooltip>
+            )}
+            {!isCloning && (
+              <Tooltip label="New worktree" placement="right">
+                <Button
+                  iconOnly
+                  size="sm"
+                  variant="ghost"
+                  aria-label="New branch or worktree"
+                  isDisabled={isInvalid}
+                  onPress={onPlusClick}
+                  onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                  onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
+                >
+                  <Plus size={12} />
+                </Button>
+              </Tooltip>
+            )}
           </>
         )}
       </div>
@@ -506,6 +538,10 @@ const RepoHeader = memo(
     prev.project.worktrees.length === next.project.worktrees.length &&
     prev.isSelected === next.isSelected &&
     prev.isRenaming === next.isRenaming &&
+    prev.isCloning === next.isCloning &&
+    prev.cloneProgress?.step === next.cloneProgress?.step &&
+    prev.cloneProgress?.phase === next.cloneProgress?.phase &&
+    prev.isInvalid === next.isInvalid &&
     prev.onPlusClick === next.onPlusClick &&
     prev.onRowClick === next.onRowClick &&
     prev.onContextMenu === next.onContextMenu &&
@@ -642,6 +678,8 @@ function GroupTreeItem({
   onSelectItem,
   deletingWtIds,
   creatingWorktreeIds,
+  cloningProjectIdSet,
+  cloneProgressMap,
   pendingClaudeWorktreeId,
   groups,
 }: {
@@ -661,6 +699,8 @@ function GroupTreeItem({
   onSelectItem: (itemId: string) => void;
   deletingWtIds: Set<string>;
   creatingWorktreeIds: Set<string>;
+  cloningProjectIdSet: Set<string>;
+  cloneProgressMap: Record<string, CloneProgress>;
   pendingClaudeWorktreeId: string | null;
   groups: Group[];
 }) {
@@ -770,6 +810,9 @@ function GroupTreeItem({
                     onSelectItem={onSelectItem}
                     deletingWtIds={deletingWtIds}
                     creatingWorktreeIds={creatingWorktreeIds}
+                    isCloning={cloningProjectIdSet.has(ws.id)}
+                    cloneProgress={cloneProgressMap[ws.id]}
+                    isInvalid={ws.invalid}
                     pendingClaudeWorktreeId={pendingClaudeWorktreeId}
                     groups={groups}
                   />
@@ -890,9 +933,12 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
     activeContextId,
     sidebarVisible,
     creatingWorktreeIds,
+    cloningProjectIds,
+    cloneProgress,
     pendingClaudeSession,
   } = useUiState();
   const creatingWorktreeIdSet = useMemo(() => new Set(creatingWorktreeIds), [creatingWorktreeIds]);
+  const cloningProjectIdSet = useMemo(() => new Set(cloningProjectIds), [cloningProjectIds]);
   const tabs = useTabs();
   const tabCountMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -1070,6 +1116,8 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                   onRenameEnd={() => setPendingRenameGroupId(null)}
                   diffStatsMap={diffStatsMap}
                   prMap={prMap}
+                  cloningProjectIdSet={cloningProjectIdSet}
+                  cloneProgressMap={cloneProgress}
                   onRequestRemoveWt={(projectId, name, branch) =>
                     setRemoveWtTarget({ projectId, name, branch })
                   }
@@ -1107,6 +1155,9 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                     diffStats={diffStatsMap[ws.id]}
                     prStatuses={prMap[ws.id]}
                     hasSeparator={ungroupedSeparatorIds.has(ws.id)}
+                    isCloning={cloningProjectIdSet.has(ws.id)}
+                    cloneProgress={cloneProgress[ws.id]}
+                    isInvalid={ws.invalid}
                     onRequestRemoveWt={(name, branch) =>
                       setRemoveWtTarget({ projectId: ws.id, name, branch })
                     }
@@ -1195,6 +1246,9 @@ function RepoTreeItem({
   onSelectItem,
   deletingWtIds,
   creatingWorktreeIds,
+  isCloning,
+  cloneProgress,
+  isInvalid,
   pendingClaudeWorktreeId,
   groups,
 }: {
@@ -1212,6 +1266,9 @@ function RepoTreeItem({
   onSelectItem: (itemId: string) => void;
   deletingWtIds: Set<string>;
   creatingWorktreeIds: Set<string>;
+  isCloning: boolean;
+  cloneProgress?: CloneProgress;
+  isInvalid: boolean;
   pendingClaudeWorktreeId: string | null;
   groups: Group[];
 }) {
@@ -1224,11 +1281,13 @@ function RepoTreeItem({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuPos = useRef({ x: 0, y: 0 });
   const [renamingWs, setRenamingWs] = useState(false);
-  const [wtMenuTarget, setWtMenuTarget] = useState<string | null>(null);
-  const wtMenuPos = useRef({ x: 0, y: 0 });
   const [renamingWtName, setRenamingWtName] = useState<string | null>(null);
-  const [branchMenuTarget, setBranchMenuTarget] = useState<string | null>(null);
-  const branchMenuPos = useRef({ x: 0, y: 0 });
+  const [itemMenu, setItemMenu] = useState<{
+    kind: 'branch' | 'wt';
+    name: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const handlePlusClick = useCallback(() => {
     onRequestOpenPalette(ws);
@@ -1248,6 +1307,7 @@ function RepoTreeItem({
   const isActive = !!activeContextId?.startsWith(ws.id);
   const isRepoSelected = !!selectedItemId?.startsWith(ws.id) || isActive;
 
+  const localCreatingIds = [...creatingWorktreeIds].filter((id) => id.startsWith(`${ws.id}-wt-`));
   const draggingCls = isDragging || isDropping ? 'pointer-events-none relative z-50' : '';
   const blockCls =
     isDragging || isDropping
@@ -1275,6 +1335,9 @@ function RepoTreeItem({
           agentSummary={agentSummary}
           isSelected={isRepoSelected}
           isRenaming={renamingWs}
+          isCloning={isCloning}
+          cloneProgress={cloneProgress}
+          isInvalid={isInvalid}
           onPlusClick={handlePlusClick}
           onRowClick={handleRowClick}
           onContextMenu={handleContextMenu}
@@ -1297,8 +1360,7 @@ function RepoTreeItem({
                   onContextMenu={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    branchMenuPos.current = { x: e.clientX, y: e.clientY };
-                    setBranchMenuTarget(b.name);
+                    setItemMenu({ kind: 'branch', name: b.name, x: e.clientX, y: e.clientY });
                   }}
                 >
                   <BranchRow
@@ -1329,8 +1391,7 @@ function RepoTreeItem({
                       if (isDeleting) return;
                       e.preventDefault();
                       e.stopPropagation();
-                      wtMenuPos.current = { x: e.clientX, y: e.clientY };
-                      setWtMenuTarget(wt.name);
+                      setItemMenu({ kind: 'wt', name: wt.name, x: e.clientX, y: e.clientY });
                     }}
                   >
                     <WorktreeRow
@@ -1348,35 +1409,41 @@ function RepoTreeItem({
                   </div>
                 );
               })}
-            {[...creatingWorktreeIds]
-              .filter((id) => id.startsWith(`${ws.id}-wt-`))
-              .map((id) => {
-                const name = id.slice(`${ws.id}-wt-`.length);
-                const isSelected = selectedItemId === id;
-                const hasPendingClaude = pendingClaudeWorktreeId === id;
-                return (
-                  <div
-                    key={id}
-                    className={sidebarItem({ selected: isSelected })}
-                    onClick={() => onSelectItem(id)}
-                  >
-                    <div className="py-1.5 pr-3 pl-3">
-                      <div className="flex items-center gap-2">
-                        <div className="relative flex w-6 shrink-0 items-center justify-center">
-                          <Spinner size={14} className="text-accent/60" />
-                        </div>
-                        <span className="min-w-0 flex-1 truncate font-mono text-sm text-text-faint">
-                          {name}
-                        </span>
-                        {hasPendingClaude && (
-                          <ClaudeCodeIcon size={11} className="shrink-0 text-[#da7756]/60" />
-                        )}
-                        <span className="shrink-0 font-mono text-xs text-accent/50">creating…</span>
+            {ws.branches.length === 0 &&
+              ws.worktrees.length === 0 &&
+              !isCloning &&
+              localCreatingIds.length === 0 && (
+                <div className="py-1.5 pr-3 pl-11 font-mono text-xs text-text-faint/40">
+                  no branches
+                </div>
+              )}
+            {localCreatingIds.map((id) => {
+              const name = id.slice(`${ws.id}-wt-`.length);
+              const isSelected = selectedItemId === id;
+              const hasPendingClaude = pendingClaudeWorktreeId === id;
+              return (
+                <div
+                  key={id}
+                  className={sidebarItem({ selected: isSelected })}
+                  onClick={() => onSelectItem(id)}
+                >
+                  <div className="py-1.5 pr-3 pl-3">
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex w-6 shrink-0 items-center justify-center">
+                        <Spinner size={14} className="text-accent/60" />
                       </div>
+                      <span className="min-w-0 flex-1 truncate font-mono text-sm text-text-faint">
+                        {name}
+                      </span>
+                      {hasPendingClaude && (
+                        <ClaudeCodeIcon size={11} className="shrink-0 text-[#da7756]/60" />
+                      )}
+                      <span className="shrink-0 font-mono text-xs text-accent/50">creating…</span>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              );
+            })}
           </>
         )}
       </div>
@@ -1453,6 +1520,7 @@ function RepoTreeItem({
                 label: 'Close project',
                 icon: <FolderX size={13} />,
                 destructive: true,
+                disabled: isCloning,
                 onSelect: () => {
                   setMenuOpen(false);
                   onRequestClose(ws);
@@ -1462,89 +1530,77 @@ function RepoTreeItem({
           }
         />
       )}
-      {branchMenuTarget && (
-        <ContextMenu
-          x={branchMenuPos.current.x}
-          y={branchMenuPos.current.y}
-          onClose={() => setBranchMenuTarget(null)}
-          items={[
-            {
-              type: 'submenu',
-              label: 'Copy',
-              icon: <Copy size={13} />,
-              items: [
+      {itemMenu &&
+        (() => {
+          const isWt = itemMenu.kind === 'wt';
+          const wt = isWt ? ws.worktrees.find((w) => w.name === itemMenu.name) : null;
+          const path = isWt ? (wt?.path ?? ws.path) : ws.path;
+          const branchName = isWt ? (wt?.branch ?? '') : itemMenu.name;
+          const close = () => setItemMenu(null);
+          return (
+            <ContextMenu
+              x={itemMenu.x}
+              y={itemMenu.y}
+              onClose={close}
+              items={[
                 {
-                  label: 'Path',
+                  label: 'Reveal in Finder',
+                  icon: <FolderOpen size={13} />,
                   onSelect: () => {
-                    setBranchMenuTarget(null);
-                    void navigator.clipboard.writeText(ws.path);
+                    close();
+                    void revealItemInDir(path);
                   },
                 },
+                ...(isWt
+                  ? [
+                      {
+                        label: 'Rename',
+                        icon: <Pencil size={13} />,
+                        onSelect: () => {
+                          close();
+                          setRenamingWtName(itemMenu.name);
+                        },
+                      },
+                    ]
+                  : []),
                 {
-                  label: 'Branch',
-                  onSelect: () => {
-                    const name = branchMenuTarget;
-                    setBranchMenuTarget(null);
-                    if (name) void navigator.clipboard.writeText(name);
-                  },
+                  type: 'submenu' as const,
+                  label: 'Copy',
+                  icon: <Copy size={13} />,
+                  items: [
+                    {
+                      label: 'Path',
+                      onSelect: () => {
+                        close();
+                        void navigator.clipboard.writeText(path);
+                      },
+                    },
+                    {
+                      label: 'Branch',
+                      onSelect: () => {
+                        close();
+                        void navigator.clipboard.writeText(branchName);
+                      },
+                    },
+                  ],
                 },
-              ],
-            },
-          ]}
-        />
-      )}
-      {wtMenuTarget && (
-        <ContextMenu
-          x={wtMenuPos.current.x}
-          y={wtMenuPos.current.y}
-          onClose={() => setWtMenuTarget(null)}
-          items={[
-            {
-              label: 'Rename',
-              icon: <Pencil size={13} />,
-              onSelect: () => {
-                const name = wtMenuTarget;
-                setWtMenuTarget(null);
-                setRenamingWtName(name);
-              },
-            },
-            {
-              type: 'submenu',
-              label: 'Copy',
-              icon: <Copy size={13} />,
-              items: [
-                {
-                  label: 'Path',
-                  onSelect: () => {
-                    const wt = ws.worktrees.find((w) => w.name === wtMenuTarget);
-                    setWtMenuTarget(null);
-                    if (wt) void navigator.clipboard.writeText(wt.path);
-                  },
-                },
-                {
-                  label: 'Branch',
-                  onSelect: () => {
-                    const wt = ws.worktrees.find((w) => w.name === wtMenuTarget);
-                    setWtMenuTarget(null);
-                    if (wt) void navigator.clipboard.writeText(wt.branch);
-                  },
-                },
-              ],
-            },
-            {
-              label: 'Close worktree',
-              icon: <GitBranchMinus size={13} />,
-              destructive: true,
-              onSelect: () => {
-                const name = wtMenuTarget;
-                const wt = ws.worktrees.find((w) => w.name === name);
-                setWtMenuTarget(null);
-                onRequestRemoveWt(name, wt?.branch ?? '');
-              },
-            },
-          ]}
-        />
-      )}
+                ...(isWt
+                  ? [
+                      {
+                        label: 'Close worktree',
+                        icon: <GitBranchMinus size={13} />,
+                        destructive: true,
+                        onSelect: () => {
+                          close();
+                          onRequestRemoveWt(itemMenu.name, wt?.branch ?? '');
+                        },
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          );
+        })()}
     </>
   );
 }

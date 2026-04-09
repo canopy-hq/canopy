@@ -16,6 +16,7 @@ import {
   Settings,
   X,
 } from 'lucide-react';
+import { tv } from 'tailwind-variants';
 
 import {
   focusLater,
@@ -31,6 +32,18 @@ import { useCommandMenu, type MenuSection } from './useCommandMenu';
 import type { CommandContext, CommandItem, CommandMenuProps, PanelContext } from './types';
 
 const SECTION_CYCLE: MenuSection[] = ['root', 'projects', 'tabs', 'pty', 'agents'];
+
+const commandItem = tv({
+  base: 'flex h-9 items-center gap-2 px-3 text-[13px] outline-none',
+  variants: {
+    disabled: {
+      true: 'cursor-not-allowed text-text-faint',
+      false: 'cursor-pointer text-text-primary',
+    },
+    selected: { true: 'bg-bg-tertiary', false: 'hover:bg-bg-tertiary/50' },
+  },
+  defaultVariants: { disabled: false, selected: false },
+});
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
 
@@ -391,12 +404,16 @@ export function CommandMenu({
                                 key={item.id}
                                 role="option"
                                 aria-selected={isSelected}
+                                aria-disabled={item.disabled}
                                 data-id={item.id}
-                                onClick={() => handleAction(item)}
-                                onMouseEnter={() => dispatch({ type: 'SET_SELECTED', id: item.id })}
-                                className={`flex h-9 cursor-pointer items-center gap-2 px-3 text-[13px] text-text-primary outline-none ${
-                                  isSelected ? 'bg-bg-tertiary' : 'hover:bg-bg-tertiary/50'
-                                }`}
+                                onClick={() => !item.disabled && handleAction(item)}
+                                onMouseEnter={() =>
+                                  !item.disabled && dispatch({ type: 'SET_SELECTED', id: item.id })
+                                }
+                                className={commandItem({
+                                  disabled: item.disabled,
+                                  selected: isSelected && !item.disabled,
+                                })}
                               >
                                 <ItemIcon icon={item.icon} />
                                 <span className="flex-1 truncate">{item.label}</span>

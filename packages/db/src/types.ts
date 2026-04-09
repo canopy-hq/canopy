@@ -36,6 +36,7 @@ export interface Project {
   position: number;
   color?: string | null;
   groupId?: string | null;
+  invalid: boolean;
 }
 
 // ── Tab / Pane ───────────────────────────────────────────────────────────────

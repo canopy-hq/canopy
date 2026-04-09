@@ -1,10 +1,10 @@
+import { Button, Kbd, Tooltip } from '@superagent/ui';
 import { PanelLeft, Search, Shell } from 'lucide-react';
 
 import { useProjects } from '../hooks/useCollections';
 import { toggleSidebar } from '../lib/project-actions';
 import { DevBranchBadge } from './DevBranchBadge';
 import { GitHubStatus } from './GitHubStatus';
-import { Button, Kbd, Tooltip } from './ui';
 
 interface HeaderProps {
   onSessionsClick?: () => void;

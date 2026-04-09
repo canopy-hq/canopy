@@ -1,9 +1,21 @@
 use git2::{BranchType, FetchPrune, Repository, WorktreeAddOptions, WorktreePruneOptions};
 use serde::Serialize;
+use tauri::Emitter;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CloneProgressPayload {
+    pub project_id: String,
+    /// "receiving" | "resolving" | "checkout"
+    pub phase: String,
+    pub step: usize,
+    pub total: usize,
+    pub bytes: usize,
+}
 
 /// Sanitize a worktree name for use as a git admin directory.
 /// git2 stores worktree metadata under `.git/worktrees/{name}/` and uses
@@ -115,8 +127,21 @@ fn enumerate_branches(repo: &Repository, lightweight: bool) -> Result<Vec<Branch
     Ok(branches)
 }
 
-/// Open a worktree path and resolve which branch is checked out there.
-fn resolve_worktree_branch(wt_path: &Path) -> Option<String> {
+/// Resolve which branch a worktree belongs to.
+///
+/// Prefers the worktree admin name when a matching local branch exists — this
+/// survives `git checkout <other>` inside the worktree (e.g. after a merge)
+/// and keeps the worktree identity stable.  Falls back to HEAD for worktrees
+/// whose admin name was sanitized (slashes → dashes) and therefore doesn't
+/// match the branch name directly.
+pub fn resolve_worktree_branch(wt_name: &str, wt_path: &Path, repo: &Repository) -> Option<String> {
+    // 1. If a local branch matching the worktree name exists, prefer it.
+    if let Ok(b) = repo.find_branch(wt_name, BranchType::Local) {
+        if let Some(name) = b.name().ok().flatten() {
+            return Some(name.to_string());
+        }
+    }
+    // 2. Fallback: read HEAD from the worktree itself.
     let wt_repo = Repository::open(wt_path).ok()?;
     let head = wt_repo.head().ok()?;
     Some(head.shorthand()?.to_string())
@@ -131,7 +156,7 @@ fn enumerate_worktrees(repo: &Repository) -> Result<Vec<WorktreeInfo>, String> {
             Ok(wt) => {
                 if wt.validate().is_ok() {
                     let wt_path = wt.path().to_string_lossy().to_string();
-                    let branch = resolve_worktree_branch(wt.path())
+                    let branch = resolve_worktree_branch(name, wt.path(), repo)
                         .unwrap_or_else(|| name.to_string());
                     worktrees.push(WorktreeInfo {
                         name: name.to_string(),
@@ -197,7 +222,7 @@ fn list_all_branches_sync(repo_path: String) -> Result<Vec<BranchDetail>, String
         let wt_name = wt_name.ok_or("invalid worktree name")?;
         if let Ok(wt) = repo.find_worktree(wt_name) {
             if wt.validate().is_ok() {
-                if let Some(branch) = resolve_worktree_branch(wt.path()) {
+                if let Some(branch) = resolve_worktree_branch(wt_name, wt.path(), &repo) {
                     wt_branch_names.insert(branch);
                 }
             }
@@ -250,6 +275,193 @@ pub async fn list_all_branches(repo_path: String) -> Result<Vec<BranchDetail>, S
         .map_err(|e| e.to_string())?
 }
 
+/// Extract the hostname from a git remote URL.
+/// Handles HTTPS (`https://github.com/...`), SCP-style SSH (`git@github.com:...`),
+/// and `ssh://` URLs.
+fn host_from_url(url: &str) -> &str {
+    if let Some(rest) = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://")) {
+        rest.split('/').next().unwrap_or("")
+    } else if let Some(rest) = url.strip_prefix("ssh://") {
+        // Strip optional user@ prefix, then take the host segment.
+        let rest = rest.splitn(2, '@').last().unwrap_or(rest);
+        rest.split('/').next().unwrap_or("")
+    } else if let Some(at) = url.find('@') {
+        // SCP-style: git@github.com:owner/repo.git
+        let after = &url[at + 1..];
+        after.split(':').next().unwrap_or("")
+    } else {
+        ""
+    }
+}
+
+/// Glob-style pattern matching for SSH `Host` entries (case-insensitive).
+/// Supports `*` (any sequence) and `?` (single character).
+fn ssh_host_matches(pattern: &str, host: &str) -> bool {
+    fn matches(p: &[u8], h: &[u8]) -> bool {
+        match p.first() {
+            None => h.is_empty(),
+            Some(&b'*') => (0..=h.len()).any(|i| matches(&p[1..], &h[i..])),
+            Some(&b'?') => !h.is_empty() && matches(&p[1..], &h[1..]),
+            Some(&c) => {
+                !h.is_empty()
+                    && c.to_ascii_lowercase() == h[0].to_ascii_lowercase()
+                    && matches(&p[1..], &h[1..])
+            }
+        }
+    }
+    matches(pattern.as_bytes(), host.as_bytes())
+}
+
+/// Parse `~/.ssh/config` and return `IdentityFile` paths for all `Host` blocks
+/// that match `host`, in config-file order. Expands `~/` in paths.
+fn ssh_identity_files_for_host(host: &str, home: &str) -> Vec<std::path::PathBuf> {
+    let config_path = std::path::Path::new(home).join(".ssh").join("config");
+    let content = match std::fs::read_to_string(&config_path) {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
+
+    let expand = |p: &str| -> std::path::PathBuf {
+        match p.strip_prefix("~/") {
+            Some(rest) => std::path::PathBuf::from(format!("{}/{}", home, rest)),
+            None => std::path::PathBuf::from(p),
+        }
+    };
+
+    let mut files: Vec<std::path::PathBuf> = vec![];
+    let mut in_matching_block = false;
+    let mut seen_host_directive = false;
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        // Split keyword from value on first whitespace or '='.
+        let Some(sep) = line.find(|c: char| c.is_whitespace() || c == '=') else {
+            continue;
+        };
+        let keyword = &line[..sep];
+        let value = line[sep..].trim_start_matches(|c: char| c.is_whitespace() || c == '=').trim();
+
+        if keyword.eq_ignore_ascii_case("Host") {
+            seen_host_directive = true;
+            // A negated pattern (`!pat`) always overrides a positive match.
+            // Block matches iff at least one positive pattern matches AND no negated pattern matches.
+            let mut pos_match = false;
+            let mut neg_match = false;
+            let mut has_positive = false;
+            for p in value.split_whitespace() {
+                if let Some(neg) = p.strip_prefix('!') {
+                    if ssh_host_matches(neg, host) { neg_match = true; }
+                } else {
+                    has_positive = true;
+                    if ssh_host_matches(p, host) { pos_match = true; }
+                }
+            }
+            in_matching_block = (!has_positive || pos_match) && !neg_match;
+            continue;
+        }
+
+        if keyword.eq_ignore_ascii_case("Match") {
+            // Match blocks have complex semantics — skip conservatively.
+            seen_host_directive = true;
+            in_matching_block = false;
+            continue;
+        }
+
+        // Lines before any Host directive apply globally (implicit `Host *`).
+        let applies = !seen_host_directive || in_matching_block;
+        if applies && keyword.eq_ignore_ascii_case("IdentityFile") {
+            let path = expand(value);
+            if !files.contains(&path) {
+                files.push(path);
+            }
+        }
+    }
+
+    files
+}
+
+/// Resolve the ordered list of SSH private key paths to try for a remote URL.
+/// Reads `~/.ssh/config` for host-specific keys; falls back to scanning
+/// `~/.ssh/` for any file that has a `.pub` counterpart (standard private-key
+/// heuristic), so custom key names like `~/.ssh/github` are picked up too.
+/// Only returns paths that exist on disk, ordered by preference (ed25519 first).
+fn resolve_ssh_keys(url: &str) -> Vec<std::path::PathBuf> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let host = host_from_url(url);
+    let mut keys = ssh_identity_files_for_host(host, &home);
+
+    if keys.is_empty() {
+        let ssh_dir = std::path::Path::new(&home).join(".ssh");
+        if let Ok(entries) = std::fs::read_dir(&ssh_dir) {
+            keys = entries
+                .filter_map(|e| e.ok())
+                .map(|e| e.path())
+                .filter(|p| {
+                    p.extension().map_or(true, |ext| ext != "pub")
+                        && p.with_extension("pub").exists()
+                })
+                .collect();
+            // ed25519 before rsa before others — more modern keys first.
+            keys.sort_unstable_by_key(|p| {
+                let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                if name.contains("ed25519") { 0u8 } else if name.contains("rsa") { 1 } else { 2 }
+            });
+        }
+    }
+
+    keys.into_iter().filter(|p| p.exists()).collect()
+}
+
+/// Build a stateful credential callback for libgit2.
+///
+/// Attempt 0 → SSH agent. Attempts 1..n → `ssh_keys[n-1]`. Falls back to
+/// the git credential helper for HTTPS. Returns `Err` when all options are
+/// exhausted, which tells libgit2 to stop retrying.
+fn build_credential_callback<'a>(
+    ssh_keys: &'a [std::path::PathBuf],
+    attempt: &'a std::cell::Cell<usize>,
+    config: Option<&'a git2::Config>,
+) -> impl FnMut(&str, Option<&str>, git2::CredentialType) -> Result<git2::Cred, git2::Error> + 'a
+{
+    move |remote_url, username_from_url, allowed_types| {
+        let username = username_from_url.unwrap_or("git");
+        let n = attempt.get();
+        attempt.set(n + 1);
+
+        if allowed_types.contains(git2::CredentialType::SSH_KEY) {
+            if n == 0 {
+                return git2::Cred::ssh_key_from_agent(username);
+            }
+            if let Some(key_path) = ssh_keys.get(n - 1) {
+                // Pass None for the public key — libgit2 derives it from the private key automatically.
+                return git2::Cred::ssh_key(username, None, key_path, None);
+            }
+            return Err(git2::Error::from_str("no SSH credentials available"));
+        }
+
+        if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
+            if let Some(cfg) = config {
+                return git2::Cred::credential_helper(cfg, remote_url, username_from_url);
+            }
+        }
+
+        Err(git2::Error::from_str("no credentials available"))
+    }
+}
+
+/// Extract the repository name from a remote URL (HTTPS or SSH).
+fn repo_name_from_url(url: &str) -> Option<String> {
+    let trimmed = url.trim_end_matches('/');
+    let base = trimmed.rsplit('/').next()?;
+    // SSH URLs: git@host:owner/repo.git — take after the last '/'
+    let base = base.rsplit(':').next().unwrap_or(base);
+    let name = base.strip_suffix(".git").unwrap_or(base);
+    if name.is_empty() { None } else { Some(name.to_string()) }
+}
+
 fn fetch_remote_sync(repo_path: &str) -> Result<(), String> {
     let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
 
@@ -257,56 +469,13 @@ fn fetch_remote_sync(repo_path: &str) -> Result<(), String> {
         .find_remote("origin")
         .map_err(|e| format!("no 'origin' remote: {e}"))?;
 
-    // Track attempts to avoid infinite retry loops from libgit2
-    let attempted = std::cell::Cell::new(false);
+    let remote_url = remote.url().unwrap_or("").to_string();
+    let ssh_keys = resolve_ssh_keys(&remote_url);
+    let attempt = std::cell::Cell::new(0usize);
+    let config = repo.config().ok();
 
     let mut callbacks = git2::RemoteCallbacks::new();
-    callbacks.credentials(|url, username_from_url, allowed_types| {
-        if attempted.get() {
-            return Err(git2::Error::from_str("no credentials available"));
-        }
-        attempted.set(true);
-
-        let username = username_from_url.unwrap_or("git");
-
-        if allowed_types.contains(git2::CredentialType::SSH_KEY) {
-            if let Ok(cred) = git2::Cred::ssh_key_from_agent(username) {
-                return Ok(cred);
-            }
-            let home = match std::env::var("HOME") {
-                Ok(h) => h,
-                Err(_) => return Err(git2::Error::from_str("HOME not set")),
-            };
-            for key_name in &["id_ed25519", "id_rsa"] {
-                let key_path = std::path::Path::new(&home).join(".ssh").join(key_name);
-                if key_path.exists() {
-                    let pub_path = key_path.with_extension("pub");
-                    let pub_key = if pub_path.exists() {
-                        Some(pub_path.as_path())
-                    } else {
-                        None
-                    };
-                    if let Ok(cred) =
-                        git2::Cred::ssh_key(username, pub_key, &key_path, None)
-                    {
-                        return Ok(cred);
-                    }
-                }
-            }
-        }
-
-        if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
-            if let Ok(cfg) = repo.config() {
-                if let Ok(cred) =
-                    git2::Cred::credential_helper(&cfg, url, username_from_url)
-                {
-                    return Ok(cred);
-                }
-            }
-        }
-
-        Err(git2::Error::from_str("no credentials available"))
-    });
+    callbacks.credentials(build_credential_callback(&ssh_keys, &attempt, config.as_ref()));
 
     let mut fetch_opts = git2::FetchOptions::new();
     fetch_opts.remote_callbacks(callbacks);
@@ -324,6 +493,224 @@ pub async fn fetch_remote(repo_path: String) -> Result<(), String> {
     tokio::task::spawn_blocking(move || fetch_remote_sync(&repo_path))
         .await
         .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn clone_repo(
+    app_handle: tauri::AppHandle,
+    project_id: String,
+    url: String,
+    dest: String,
+    branch: Option<String>,
+) -> Result<RepoInfo, String> {
+    tokio::task::spawn_blocking(move || {
+        let ssh_keys = resolve_ssh_keys(&url);
+        let attempt = std::cell::Cell::new(0usize);
+        let config = git2::Config::open_default().ok();
+
+        let mut callbacks = git2::RemoteCallbacks::new();
+        callbacks.credentials(build_credential_callback(&ssh_keys, &attempt, config.as_ref()));
+
+        // Phase 0 = receiving, 1 = resolving — tracked to reset last_emitted on phase change
+        let mut last_phase: u8 = 0;
+        let mut last_emitted: usize = 0;
+        let pid = project_id.clone();
+        let ah = app_handle.clone();
+        callbacks.transfer_progress(move |stats| {
+            let received = stats.received_objects();
+            let total_obj = stats.total_objects();
+            let indexed = stats.indexed_deltas();
+            let total_deltas = stats.total_deltas();
+
+            let (phase_byte, phase_str, step, total_step) = if received < total_obj {
+                (0u8, "receiving", received, total_obj)
+            } else {
+                (1u8, "resolving", indexed, total_deltas.max(1))
+            };
+
+            let threshold = (total_step / 100).max(50);
+            let phase_changed = phase_byte != last_phase;
+            let at_threshold = step == total_step || step.saturating_sub(last_emitted) >= threshold;
+
+            if phase_changed || at_threshold {
+                if phase_changed { last_phase = phase_byte; }
+                last_emitted = step;
+                let _ = ah.emit("clone-progress", CloneProgressPayload {
+                    project_id: pid.clone(),
+                    phase: phase_str.to_string(),
+                    step,
+                    total: total_step,
+                    bytes: stats.received_bytes(),
+                });
+            }
+            true
+        });
+
+        let mut fetch_opts = git2::FetchOptions::new();
+        fetch_opts.remote_callbacks(callbacks);
+
+        let repo_name = repo_name_from_url(&url)
+            .ok_or_else(|| format!("cannot derive repository name from URL: {url}"))?;
+        let expanded_dest = if dest.starts_with("~/") {
+            let home = std::env::var("HOME")
+                .map_err(|_| "Could not expand ~: HOME is not set".to_string())?;
+            format!("{}{}", home, &dest[1..])
+        } else {
+            dest.clone()
+        };
+        // If the target directory already exists, append -1, -2, … until free.
+        let dest_path = {
+            let base = Path::new(&expanded_dest).join(&repo_name);
+            if !base.exists() {
+                base
+            } else {
+                let mut i = 1u32;
+                loop {
+                    let candidate = Path::new(&expanded_dest).join(format!("{}-{}", repo_name, i));
+                    if !candidate.exists() {
+                        break candidate;
+                    }
+                    i += 1;
+                }
+            }
+        };
+
+        let ah2 = app_handle.clone();
+        let pid2 = project_id.clone();
+        let mut last_checkout: usize = 0;
+        let mut checkout_builder = git2::build::CheckoutBuilder::new();
+        checkout_builder.progress(move |_, cur, total| {
+            if total == 0 { return; }
+            let threshold = (total / 100).max(10);
+            if cur == total || cur.saturating_sub(last_checkout) >= threshold {
+                last_checkout = cur;
+                let _ = ah2.emit("clone-progress", CloneProgressPayload {
+                    project_id: pid2.clone(),
+                    phase: "checkout".to_string(),
+                    step: cur,
+                    total,
+                    bytes: 0,
+                });
+            }
+        });
+
+        let mut builder = git2::build::RepoBuilder::new();
+        builder.fetch_options(fetch_opts);
+        builder.with_checkout(checkout_builder);
+        if let Some(ref b) = branch {
+            builder.branch(b);
+        }
+        let repo = builder.clone(&url, &dest_path).map_err(|e| e.to_string())?;
+
+        let dest_str = dest_path.to_string_lossy().to_string();
+        let head_name = repo
+            .head()
+            .ok()
+            .and_then(|h| h.shorthand().map(|s| s.to_string()))
+            .unwrap_or_else(|| branch.unwrap_or_else(|| "main".to_string()));
+
+        Ok(RepoInfo {
+            path: dest_str,
+            name: repo_name,
+            branches: vec![BranchInfo { name: head_name, is_head: true, ahead: 0, behind: 0 }],
+            worktrees: Vec::new(),
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn friendly_remote_error(msg: &str) -> String {
+    let lower = msg.to_lowercase();
+    if lower.contains("authentication")
+        || lower.contains("permission denied")
+        || lower.contains("credentials")
+        || lower.contains("authorization")
+    {
+        return "Authentication failed — check your SSH keys or credentials".to_string();
+    }
+    if lower.contains("not found")
+        || lower.contains("does not exist")
+        || lower.contains("repository not found")
+        || lower.contains("access denied")
+    {
+        return "Repository not found".to_string();
+    }
+    if lower.contains("unable to connect")
+        || lower.contains("could not resolve")
+        || lower.contains("name or service not known")
+        || lower.contains("connection refused")
+        || lower.contains("timed out")
+    {
+        return "Could not connect — check your network connection".to_string();
+    }
+    msg.to_string()
+}
+
+#[tauri::command]
+pub async fn check_remote(url: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        let ssh_keys = resolve_ssh_keys(&url);
+        let attempt = std::cell::Cell::new(0usize);
+        let config = git2::Config::open_default().ok();
+
+        let mut callbacks = git2::RemoteCallbacks::new();
+        callbacks.credentials(build_credential_callback(&ssh_keys, &attempt, config.as_ref()));
+
+        let mut remote = git2::Remote::create_detached(url.as_str())
+            .map_err(|_| "Invalid repository URL".to_string())?;
+
+        let _conn = remote
+            .connect_auth(git2::Direction::Fetch, Some(callbacks), None)
+            .map_err(|e| friendly_remote_error(e.message()))?;
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn list_remote_branches(url: String) -> Result<Vec<BranchInfo>, String> {
+    tokio::task::spawn_blocking(move || {
+        let ssh_keys = resolve_ssh_keys(&url);
+        let attempt = std::cell::Cell::new(0usize);
+        let config = git2::Config::open_default().ok();
+
+        let mut callbacks = git2::RemoteCallbacks::new();
+        callbacks.credentials(build_credential_callback(&ssh_keys, &attempt, config.as_ref()));
+
+        let mut remote = git2::Remote::create_detached(url.as_str())
+            .map_err(|_| "Invalid repository URL".to_string())?;
+
+        let conn = remote
+            .connect_auth(git2::Direction::Fetch, Some(callbacks), None)
+            .map_err(|e| friendly_remote_error(e.message()))?;
+
+        let refs = conn.list().map_err(|e| e.to_string())?;
+
+        // HEAD symref points to the default branch (e.g. "refs/heads/main")
+        let default_branch = refs
+            .iter()
+            .find(|r| r.name() == "HEAD")
+            .and_then(|r| r.symref_target())
+            .and_then(|t| t.strip_prefix("refs/heads/"))
+            .map(|s| s.to_string());
+
+        let branches: Vec<BranchInfo> = refs
+            .iter()
+            .filter_map(|r| {
+                r.name().strip_prefix("refs/heads/").map(|name| {
+                    let is_head = default_branch.as_deref() == Some(name);
+                    BranchInfo { name: name.to_string(), is_head, ahead: 0, behind: 0 }
+                })
+            })
+            .collect();
+
+        Ok(branches)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -677,7 +1064,7 @@ fn get_diff_stats_for_repo(
                         Ok(wt) if wt.validate().is_ok() => wt,
                         _ => continue,
                     };
-                    if let Some(branch) = resolve_worktree_branch(wt.path()) {
+                    if let Some(branch) = resolve_worktree_branch(wt_name, wt.path(), repo) {
                         tmp.insert(wt_name.to_string(), branch);
                     }
                 }
@@ -738,7 +1125,7 @@ fn poll_project_state_sync(repo_path: &str) -> Result<ProjectPollState, String> 
         };
         if let Ok(wt) = repo.find_worktree(wt_name) {
             if wt.validate().is_ok() {
-                if let Some(branch) = resolve_worktree_branch(wt.path()) {
+                if let Some(branch) = resolve_worktree_branch(wt_name, wt.path(), &repo) {
                     worktree_branches.insert(wt_name.to_string(), branch);
                 }
             }
@@ -785,6 +1172,16 @@ pub async fn poll_all_project_states(
         }
     }
     Ok(result)
+}
+
+/// Returns the subset of paths that are **not** valid git repository directories.
+/// Used at boot to detect projects whose directories have been deleted.
+#[tauri::command]
+pub async fn check_project_paths(paths: Vec<String>) -> Vec<String> {
+    paths
+        .into_iter()
+        .filter(|p| !Path::new(p).is_dir())
+        .collect()
 }
 
 #[cfg(test)]
@@ -986,6 +1383,63 @@ mod tests {
         assert!(!feat.is_head);
         assert!(feat.is_local);
         assert!(!feat.is_in_worktree);
+    }
+
+    #[test]
+    fn test_resolve_worktree_branch_prefers_matching_branch() {
+        // Setup: repo with initial commit
+        let tmp = TempDir::new().unwrap();
+        let repo = init_repo_with_commit(tmp.path());
+        let default_branch = repo.head().unwrap().shorthand().unwrap().to_string();
+
+        // Create a branch and a worktree for it
+        let base_commit = repo.head().unwrap().peel_to_commit().unwrap();
+        repo.branch("my-feature", &base_commit, false).unwrap();
+
+        let wt_tmp = TempDir::new().unwrap();
+        let wt_path = wt_tmp.path().join("my-feature");
+        let mut opts = WorktreeAddOptions::new();
+        let branch_ref = repo.find_branch("my-feature", BranchType::Local).unwrap().into_reference();
+        opts.reference(Some(&branch_ref));
+        repo.worktree("my-feature", &wt_path, Some(&opts)).unwrap();
+
+        // Verify: resolves to the branch name even though worktree HEAD is on it
+        let result = resolve_worktree_branch("my-feature", &wt_path, &repo);
+        assert_eq!(result, Some("my-feature".to_string()));
+
+        // Now checkout the default branch inside the worktree (simulating post-merge state)
+        let wt_repo = Repository::open(&wt_path).unwrap();
+        let default_oid = repo.find_branch(&default_branch, BranchType::Local)
+            .unwrap().get().target().unwrap();
+        wt_repo.set_head_detached(default_oid).unwrap();
+
+        // The worktree HEAD is now detached, but the branch "my-feature" still exists.
+        // resolve_worktree_branch should still return "my-feature".
+        let result = resolve_worktree_branch("my-feature", &wt_path, &repo);
+        assert_eq!(result, Some("my-feature".to_string()));
+    }
+
+    #[test]
+    fn test_resolve_worktree_branch_falls_back_to_head() {
+        // When the worktree admin name doesn't match any branch (e.g. sanitized slashes),
+        // fall back to reading HEAD.
+        let tmp = TempDir::new().unwrap();
+        let repo = init_repo_with_commit(tmp.path());
+
+        let base_commit = repo.head().unwrap().peel_to_commit().unwrap();
+        repo.branch("feat/cool", &base_commit, false).unwrap();
+
+        let wt_tmp = TempDir::new().unwrap();
+        let wt_path = wt_tmp.path().join("feat-cool");
+        let mut opts = WorktreeAddOptions::new();
+        let branch_ref = repo.find_branch("feat/cool", BranchType::Local).unwrap().into_reference();
+        opts.reference(Some(&branch_ref));
+        // Admin name "feat-cool" won't match branch "feat/cool"
+        repo.worktree("feat-cool", &wt_path, Some(&opts)).unwrap();
+
+        let result = resolve_worktree_branch("feat-cool", &wt_path, &repo);
+        // Falls back to HEAD which is "feat/cool"
+        assert_eq!(result, Some("feat/cool".to_string()));
     }
 
     #[tokio::test]
@@ -1325,43 +1779,43 @@ mod tests {
     fn parse_github_remote_https() {
         let tmp = TempDir::new().unwrap();
         let repo = init_repo_with_commit(tmp.path());
-        repo.remote("origin", "https://github.com/nept/superagent").unwrap();
+        repo.remote("origin", "https://github.com/acme/widgets").unwrap();
         let result = parse_github_remote(&tmp.path().to_string_lossy());
-        assert_eq!(result, Some(("nept".to_string(), "superagent".to_string())));
+        assert_eq!(result, Some(("acme".to_string(), "widgets".to_string())));
     }
 
     #[test]
     fn parse_github_remote_https_with_git_suffix() {
         let tmp = TempDir::new().unwrap();
         let repo = init_repo_with_commit(tmp.path());
-        repo.remote("origin", "https://github.com/nept/superagent.git").unwrap();
+        repo.remote("origin", "https://github.com/acme/widgets.git").unwrap();
         let result = parse_github_remote(&tmp.path().to_string_lossy());
-        assert_eq!(result, Some(("nept".to_string(), "superagent".to_string())));
+        assert_eq!(result, Some(("acme".to_string(), "widgets".to_string())));
     }
 
     #[test]
     fn parse_github_remote_ssh() {
         let tmp = TempDir::new().unwrap();
         let repo = init_repo_with_commit(tmp.path());
-        repo.remote("origin", "git@github.com:nept/superagent.git").unwrap();
+        repo.remote("origin", "git@github.com:acme/widgets.git").unwrap();
         let result = parse_github_remote(&tmp.path().to_string_lossy());
-        assert_eq!(result, Some(("nept".to_string(), "superagent".to_string())));
+        assert_eq!(result, Some(("acme".to_string(), "widgets".to_string())));
     }
 
     #[test]
     fn parse_github_remote_ssh_no_suffix() {
         let tmp = TempDir::new().unwrap();
         let repo = init_repo_with_commit(tmp.path());
-        repo.remote("origin", "git@github.com:nept/superagent").unwrap();
+        repo.remote("origin", "git@github.com:acme/widgets").unwrap();
         let result = parse_github_remote(&tmp.path().to_string_lossy());
-        assert_eq!(result, Some(("nept".to_string(), "superagent".to_string())));
+        assert_eq!(result, Some(("acme".to_string(), "widgets".to_string())));
     }
 
     #[test]
     fn parse_github_remote_non_github_host() {
         let tmp = TempDir::new().unwrap();
         let repo = init_repo_with_commit(tmp.path());
-        repo.remote("origin", "https://gitlab.com/nept/superagent").unwrap();
+        repo.remote("origin", "https://gitlab.com/acme/widgets").unwrap();
         let result = parse_github_remote(&tmp.path().to_string_lossy());
         assert_eq!(result, None);
     }
@@ -1381,5 +1835,42 @@ mod tests {
         repo.remote("origin", "/some/local/path").unwrap();
         let result = parse_github_remote(&tmp.path().to_string_lossy());
         assert_eq!(result, None);
+    }
+
+    #[test]
+    fn repo_name_from_https_url() {
+        assert_eq!(
+            repo_name_from_url("https://github.com/owner/repo.git"),
+            Some("repo".to_string()),
+        );
+    }
+
+    #[test]
+    fn repo_name_from_https_no_git_suffix() {
+        assert_eq!(
+            repo_name_from_url("https://github.com/owner/repo"),
+            Some("repo".to_string()),
+        );
+    }
+
+    #[test]
+    fn repo_name_from_ssh_url() {
+        assert_eq!(
+            repo_name_from_url("git@github.com:owner/repo.git"),
+            Some("repo".to_string()),
+        );
+    }
+
+    #[test]
+    fn repo_name_from_trailing_slash() {
+        assert_eq!(
+            repo_name_from_url("https://github.com/owner/repo/"),
+            Some("repo".to_string()),
+        );
+    }
+
+    #[test]
+    fn repo_name_from_empty_url() {
+        assert_eq!(repo_name_from_url(""), None);
     }
 }
