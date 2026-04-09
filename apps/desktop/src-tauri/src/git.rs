@@ -301,12 +301,8 @@ fn ssh_host_matches(pattern: &str, host: &str) -> bool {
 
 /// Parse `~/.ssh/config` and return `IdentityFile` paths for all `Host` blocks
 /// that match `host`, in config-file order. Expands `~/` in paths.
-fn ssh_identity_files_for_host(host: &str) -> Vec<std::path::PathBuf> {
-    let home = match std::env::var("HOME") {
-        Ok(h) => h,
-        Err(_) => return vec![],
-    };
-    let config_path = std::path::Path::new(&home).join(".ssh").join("config");
+fn ssh_identity_files_for_host(host: &str, home: &str) -> Vec<std::path::PathBuf> {
+    let config_path = std::path::Path::new(home).join(".ssh").join("config");
     let content = match std::fs::read_to_string(&config_path) {
         Ok(c) => c,
         Err(_) => return vec![],
@@ -337,14 +333,20 @@ fn ssh_identity_files_for_host(host: &str) -> Vec<std::path::PathBuf> {
 
         if keyword.eq_ignore_ascii_case("Host") {
             seen_host_directive = true;
-            // Patterns are space-separated; prefix `!` negates.
-            in_matching_block = value.split_whitespace().any(|p| {
+            // A negated pattern (`!pat`) always overrides a positive match.
+            // Block matches iff at least one positive pattern matches AND no negated pattern matches.
+            let mut pos_match = false;
+            let mut neg_match = false;
+            let mut has_positive = false;
+            for p in value.split_whitespace() {
                 if let Some(neg) = p.strip_prefix('!') {
-                    !ssh_host_matches(neg, host)
+                    if ssh_host_matches(neg, host) { neg_match = true; }
                 } else {
-                    ssh_host_matches(p, host)
+                    has_positive = true;
+                    if ssh_host_matches(p, host) { pos_match = true; }
                 }
-            });
+            }
+            in_matching_block = (!has_positive || pos_match) && !neg_match;
             continue;
         }
 
@@ -373,11 +375,11 @@ fn ssh_identity_files_for_host(host: &str) -> Vec<std::path::PathBuf> {
 /// default names (`id_ed25519`, `id_rsa`) when the config specifies nothing.
 /// Only returns paths that exist on disk.
 fn resolve_ssh_keys(url: &str) -> Vec<std::path::PathBuf> {
+    let home = std::env::var("HOME").unwrap_or_default();
     let host = host_from_url(url);
-    let mut keys = ssh_identity_files_for_host(host);
+    let mut keys = ssh_identity_files_for_host(host, &home);
 
     if keys.is_empty() {
-        let home = std::env::var("HOME").unwrap_or_default();
         let ssh_dir = std::path::Path::new(&home).join(".ssh");
         for name in &["id_ed25519", "id_rsa"] {
             keys.push(ssh_dir.join(name));
@@ -408,9 +410,8 @@ fn build_credential_callback<'a>(
                 return git2::Cred::ssh_key_from_agent(username);
             }
             if let Some(key_path) = ssh_keys.get(n - 1) {
-                let pub_path = key_path.with_extension("pub");
-                let pub_key = if pub_path.exists() { Some(pub_path.as_path()) } else { None };
-                return git2::Cred::ssh_key(username, pub_key, key_path, None);
+                // Pass None for the public key — libgit2 derives it from the private key automatically.
+                return git2::Cred::ssh_key(username, None, key_path, None);
             }
             return Err(git2::Error::from_str("no SSH credentials available"));
         }
