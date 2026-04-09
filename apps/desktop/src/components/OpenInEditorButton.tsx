@@ -3,7 +3,7 @@ import { Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
 
 import { getSetting, setSetting } from '@superagent/db';
 import { Button, Tooltip } from '@superagent/ui';
-import { ChevronDown, ExternalLink } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
 import { useSettings, useUiState } from '../hooks/useCollections';
 import { openInEditor, useDetectedEditors, type DetectedEditor } from '../lib/editor';
@@ -62,43 +62,42 @@ export function OpenInEditorButton() {
 
   if (!defaultEditor || !projectItemId) return null;
 
-  const tooltipLabel = `Open in ${defaultEditor.displayName}`;
+  const label = `Open in ${defaultEditor.displayName}`;
 
-  // Single editor — icon-only button with tooltip
+  // Single editor — text button, no dropdown
   if (editors.length === 1) {
     return (
-      <Tooltip label={tooltipLabel} placement="left">
+      <Tooltip label={label} placement="left">
         <Button
           variant="ghost"
-          iconOnly
           onPress={() => handleOpen(defaultEditor)}
-          aria-label={tooltipLabel}
+          aria-label={label}
+          className="h-7 px-2 text-xs font-medium text-text-secondary"
         >
-          <ExternalLink size={16} />
+          {label}
         </Button>
       </Tooltip>
     );
   }
 
-  // Multiple editors — icon button + chevron dropdown
+  // Multiple editors — text button + chevron dropdown
   return (
     <div className="inline-flex items-center">
-      <Tooltip label={tooltipLabel} placement="left">
+      <Tooltip label={label} placement="left">
         <Button
           variant="ghost"
-          iconOnly
           onPress={() => handleOpen(defaultEditor)}
-          aria-label={tooltipLabel}
-          className="rounded-r-none"
+          aria-label={label}
+          className="h-7 rounded-r-none px-2 text-xs font-medium text-text-secondary"
         >
-          <ExternalLink size={16} />
+          {label}
         </Button>
       </Tooltip>
       <MenuTrigger>
         <Button
           variant="ghost"
           aria-label="Choose editor"
-          className="h-7 w-4 rounded-l-none border-l border-border/30 p-0 text-text-faint"
+          className="h-7 w-5 rounded-l-none border-l border-border/30 p-0 text-text-faint"
         >
           <ChevronDown size={10} />
         </Button>

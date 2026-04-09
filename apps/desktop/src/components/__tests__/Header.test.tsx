@@ -49,4 +49,15 @@ describe('Header', () => {
     getByLabelText('Toggle sidebar').click();
     expect(toggleSidebar).toHaveBeenCalled();
   });
+
+  it('renders "Open in" button when an editor is detected', async () => {
+    const { useDetectedEditors } = await import('../../lib/editor');
+    const { useUiState } = await import('../../hooks/useCollections');
+    vi.mocked(useDetectedEditors).mockReturnValue([
+      { id: 'cursor', displayName: 'Cursor', cliPath: '/usr/bin/cursor' },
+    ]);
+    vi.mocked(useUiState).mockReturnValue({ activeContextId: 'proj1-branch-main' } as any);
+    const { getByText } = render(<Header />);
+    expect(getByText('Open in Cursor')).toBeInTheDocument();
+  });
 });
