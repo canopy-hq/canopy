@@ -79,6 +79,8 @@ export function startProjectClone(
   branch: string,
   navigate: NavigateFn,
 ): void {
+  setSetting('lastCloneDest', dest);
+
   const collection = getProjectCollection();
   const projectId = crypto.randomUUID();
 

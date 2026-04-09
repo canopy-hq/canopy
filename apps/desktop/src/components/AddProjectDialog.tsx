@@ -10,6 +10,7 @@ import {
   Button as AriaButton,
 } from 'react-aria-components';
 
+import { getSettingCollection, getSetting } from '@superagent/db';
 import { Button, Spinner, Tabs, TabList, Tab, TabPanel } from '@superagent/ui';
 import { useForm } from '@tanstack/react-form';
 import { useNavigate } from '@tanstack/react-router';
@@ -166,7 +167,10 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
   // ── Clone form ────────────────────────────────────────────────────────────
 
   const cloneForm = useForm({
-    defaultValues: { url: '', dest: '' },
+    defaultValues: {
+      url: '',
+      dest: getSetting<string>(getSettingCollection().toArray, 'lastCloneDest', ''),
+    },
     onSubmit: ({ value }: { value: { url: string; dest: string } }) => {
       const result = cloneResultRef.current;
       if (!result) return;
