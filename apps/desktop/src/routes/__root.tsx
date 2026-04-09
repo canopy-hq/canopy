@@ -80,8 +80,19 @@ function RootLayout() {
       void refreshRepo(ws.id);
     }
 
+    // Projects with no branches are incomplete clones (app was closed mid-clone).
+    // Mark them invalid immediately so the user can remove them.
+    const collection = getProjectCollection();
+    for (const p of projects) {
+      if (p.branches.length === 0 && !p.invalid) {
+        collection.update(p.id, (draft) => {
+          draft.invalid = true;
+        });
+      }
+    }
+
     // Restore persisted invalid state immediately (no poll round-trip needed).
-    const persistedInvalid = projects.filter((p) => p.invalid).map((p) => p.id);
+    const persistedInvalid = collection.toArray.filter((p) => p.invalid).map((p) => p.id);
     if (persistedInvalid.length > 0) {
       uiCollection.update('ui', (draft) => {
         draft.invalidProjectIds = persistedInvalid;
@@ -93,7 +104,6 @@ function RootLayout() {
     if (allPaths.length > 0) {
       void checkProjectPaths(allPaths).then((invalidPaths) => {
         const invalidPathSet = new Set(invalidPaths);
-        const collection = getProjectCollection();
         let changed = false;
         for (const p of collection.toArray) {
           const shouldBeInvalid = invalidPathSet.has(p.path);
