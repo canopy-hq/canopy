@@ -75,7 +75,7 @@ describe('github', () => {
             branch: 'feat/test',
             number: 42,
             state: 'OPEN',
-            url: 'https://github.com/nept/superagent/pull/42',
+            url: 'https://github.com/acme/widgets/pull/42',
           },
         ],
       },
