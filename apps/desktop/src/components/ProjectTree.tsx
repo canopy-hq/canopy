@@ -68,7 +68,12 @@ import { useFlipAnimation } from '../hooks/useFlipAnimation';
 import { usePageVisible } from '../hooks/usePageVisible';
 import { useProjectPolling } from '../hooks/useProjectPolling';
 import { usePrPolling } from '../hooks/usePrPolling';
-import { restrictToVerticalAxis, sortableTransition, useDragSensors } from '../lib/dnd';
+import {
+  restrictToMinTop,
+  restrictToVerticalAxis,
+  sortableTransition,
+  useDragSensors,
+} from '../lib/dnd';
 import { GITHUB_CONNECTION_KEY } from '../lib/github';
 import {
   createGroup,
@@ -525,7 +530,7 @@ const RepoHeader = memo(
                   onClick={(e: React.MouseEvent) => e.stopPropagation()}
                   onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
                 >
-                  <Plus size={12} />
+                  <Plus size={14} />
                 </Button>
               </Tooltip>
             )}
@@ -559,7 +564,7 @@ const RepoHeader = memo(
 
 const groupHeaderRow = tv({
   base: 'flex items-center gap-2 py-1 pl-3 pr-2 select-none transition-colors rounded-sm',
-  variants: { isDropTarget: { true: 'bg-accent/8 ring-1 ring-inset ring-accent/25' } },
+  variants: { isDropTarget: { true: 'rounded-none border-y border-accent/25 bg-accent/8' } },
 });
 
 const GroupHeader = memo(
@@ -758,14 +763,10 @@ function GroupTreeItem({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuPos = useRef({ x: 0, y: 0 });
 
-  const sortedProjects = useMemo(
-    () => [...groupProjects].sort((a, b) => a.position - b.position),
-    [groupProjects],
-  );
-  const projectIds = useMemo(() => sortedProjects.map((p) => p.id), [sortedProjects]);
+  const projectIds = useMemo(() => groupProjects.map((p) => p.id), [groupProjects]);
   const separatorIds = useMemo(
-    () => new Set(sortedProjects.slice(1).map((p) => p.id)),
-    [sortedProjects],
+    () => new Set(groupProjects.slice(1).map((p) => p.id)),
+    [groupProjects],
   );
 
   const draggingCls = isDragging || isDropping ? 'pointer-events-none relative z-50' : '';
@@ -789,7 +790,7 @@ function GroupTreeItem({
           group={group}
           isRenaming={renaming}
           isDropTarget={isDropTarget}
-          projectCount={sortedProjects.length}
+          projectCount={groupProjects.length}
           onStartRename={() => setRenaming(true)}
           onToggleCollapse={() => toggleGroupCollapsed(group.id)}
           onContextMenu={(e) => {
@@ -812,7 +813,7 @@ function GroupTreeItem({
         {!group.collapsed && (
           <SortableContext items={projectIds} strategy={verticalListSortingStrategy}>
             <div>
-              {sortedProjects.map((ws) => (
+              {groupProjects.map((ws) => (
                 <RepoTreeItem
                   key={ws.id}
                   ws={ws}
@@ -947,8 +948,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
     [projectsByGroup],
   );
 
-  // All projects flat — needed for polling.
-  const allProjects = useMemo(() => rawProjects, [rawProjects]);
+  const allProjects = rawProjects;
 
   const {
     selectedItemId,
@@ -995,6 +995,37 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
   const [activeDrag, setActiveDrag] = useState<ActiveDragInfo | null>(null);
   const activeDragRef = useRef<ActiveDragInfo | null>(null);
   const [overGroupId, setOverGroupId] = useState<string | null>(null);
+  // Live draft ordering during cross-group drags (null = use DB data)
+  const [draftGroupItems, setDraftGroupItems] = useState<Map<string | null, string[]> | null>(null);
+  const draftGroupItemsRef = useRef<Map<string | null, string[]> | null>(null);
+
+  // Ordered project lists — uses draft during drag for live cross-group preview
+  const effectiveSortedByGroup = useMemo(() => {
+    const result = new Map<string | null, Project[]>();
+    if (draftGroupItems) {
+      for (const [groupId, ids] of draftGroupItems) {
+        const projects = ids
+          .map((id) => allProjects.find((p) => p.id === id))
+          .filter(Boolean) as Project[];
+        result.set(groupId, projects);
+      }
+    } else {
+      result.set(null, ungroupedProjects);
+      for (const g of groups) {
+        result.set(
+          g.id,
+          [...(projectsByGroup.get(g.id) ?? [])].sort((a, b) => a.position - b.position),
+        );
+      }
+    }
+    return result;
+  }, [draftGroupItems, allProjects, ungroupedProjects, projectsByGroup, groups]);
+
+  const effectiveUngrouped = useMemo(
+    () => effectiveSortedByGroup.get(null) ?? [],
+    [effectiveSortedByGroup],
+  );
+
   const autoExpandTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useDragStyle(activeDrag !== null);
 
@@ -1002,14 +1033,20 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
   const groupListRef = useRef<HTMLDivElement>(null);
   const { snapshot: groupFlipSnapshot } = useFlipAnimation(groupListRef, 'vertical');
 
+  // Restrict drag overlay from going above the "Projects" header.
+  // Cache position at drag start to avoid getBoundingClientRect on every pointer move.
+  const headerRef = useRef<HTMLDivElement>(null);
+  const headerBottomRef = useRef(0);
+  const restrictAboveHeader = useMemo(() => restrictToMinTop(() => headerBottomRef.current), []);
+
   const groupIds = useMemo(() => groups.map((g) => g.id), [groups]);
   const ungroupedProjectIds = useMemo(
-    () => ungroupedProjects.map((p) => p.id),
-    [ungroupedProjects],
+    () => effectiveUngrouped.map((p) => p.id),
+    [effectiveUngrouped],
   );
   const ungroupedSeparatorIds = useMemo(
-    () => new Set(ungroupedProjects.slice(1).map((p) => p.id)),
-    [ungroupedProjects],
+    () => new Set(effectiveUngrouped.slice(1).map((p) => p.id)),
+    [effectiveUngrouped],
   );
 
   // Custom collision: when dragging a group, only collide with other groups.
@@ -1049,8 +1086,30 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
       }
       activeDragRef.current = info;
       setActiveDrag(info);
+      headerBottomRef.current = headerRef.current?.getBoundingClientRect().bottom ?? 0;
+
+      // Initialize draft ordering for cross-group live preview
+      if (info.type === 'project') {
+        const draft = new Map<string | null, string[]>();
+        draft.set(
+          null,
+          [...(projectsByGroup.get(null) ?? [])]
+            .sort((a, b) => a.position - b.position)
+            .map((p) => p.id),
+        );
+        for (const g of groups) {
+          draft.set(
+            g.id,
+            [...(projectsByGroup.get(g.id) ?? [])]
+              .sort((a, b) => a.position - b.position)
+              .map((p) => p.id),
+          );
+        }
+        draftGroupItemsRef.current = draft;
+        setDraftGroupItems(draft);
+      }
     },
-    [groups, allProjects],
+    [groups, allProjects, projectsByGroup],
   );
 
   const handleDragOver = useCallback(
@@ -1060,17 +1119,19 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
         setOverGroupId(null);
         return;
       }
-      // Check if hovering over a group (by id)
       const overId = over ? String(over.id) : null;
       const isOverGroup = overId ? groups.some((g) => g.id === overId) : false;
       const newOverGroupId = isOverGroup ? overId : null;
+      const isOverProject =
+        overId && !isOverGroup && overId !== 'ungrouped-drop'
+          ? allProjects.some((p) => p.id === overId)
+          : false;
 
       setOverGroupId((prev) => {
         if (prev !== newOverGroupId) {
           clearTimeout(autoExpandTimer.current);
           if (newOverGroupId) {
             autoExpandTimer.current = setTimeout(() => {
-              // Auto-expand the hovered group if it's collapsed
               const group = groups.find((g) => g.id === newOverGroupId);
               if (group?.collapsed) {
                 toggleGroupCollapsed(newOverGroupId);
@@ -1080,81 +1141,188 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
         }
         return newOverGroupId;
       });
+
+      // Update draft for live preview
+      if (isOverProject && overId && overId !== current.id) {
+        const overProject = allProjects.find((p) => p.id === overId);
+        if (!overProject) return;
+        const targetGroupId = overProject.groupId ?? null;
+        const activeId = current.id;
+        const prev = draftGroupItemsRef.current;
+        if (!prev) return;
+
+        // Find which group in the draft currently holds the active item
+        let currentDraftGroup: string | null | undefined;
+        for (const [gid, ids] of prev) {
+          if (ids.includes(activeId)) {
+            currentDraftGroup = gid;
+            break;
+          }
+        }
+
+        const draft = new Map(prev);
+
+        if (currentDraftGroup === targetGroupId) {
+          // Same group in draft: reposition using arrayMove (matches dnd-kit's transform logic)
+          const currentIds = [...(draft.get(targetGroupId) ?? [])];
+          const activeIdx = currentIds.indexOf(activeId);
+          const overIdx = currentIds.indexOf(overId);
+          if (activeIdx === -1 || overIdx === -1 || activeIdx === overIdx) return;
+          draft.set(targetGroupId, arrayMove(currentIds, activeIdx, overIdx));
+        } else {
+          // Cross-group: remove from current group, insert before overId
+          if (currentDraftGroup !== undefined) {
+            draft.set(
+              currentDraftGroup,
+              prev.get(currentDraftGroup)!.filter((id) => id !== activeId),
+            );
+          }
+          const targetIds = [...(draft.get(targetGroupId) ?? [])];
+          const insertIndex = targetIds.indexOf(overId);
+          if (insertIndex === -1) return;
+          targetIds.splice(insertIndex, 0, activeId);
+          draft.set(targetGroupId, targetIds);
+        }
+
+        draftGroupItemsRef.current = draft;
+        setDraftGroupItems(draft);
+      }
     },
-    [groups],
+    [groups, allProjects],
   );
 
   const handleDragEnd = useCallback(
     ({ active, over }: DragEndEvent) => {
       clearTimeout(autoExpandTimer.current);
       setOverGroupId(null);
+      const draft = draftGroupItemsRef.current;
+      draftGroupItemsRef.current = null;
+      setDraftGroupItems(null);
       const current = activeDragRef.current;
       activeDragRef.current = null;
       setActiveDrag(null);
 
       const activeId = String(active.id);
 
-      // Drop outside all droppables while dragging a grouped project → ungroup
-      if (!over) {
-        if (current?.type === 'project' && current.groupId !== null) {
-          assignProjectToGroup(activeId, null);
-        }
-        return;
-      }
-
-      const overId = String(over.id);
-
       if (current?.type === 'group') {
+        if (!over) return;
+        const overId = String(over.id);
         if (activeId === overId) return;
         groupFlipSnapshot();
         const oldIndex = groups.findIndex((g) => g.id === activeId);
         const newIndex = groups.findIndex((g) => g.id === overId);
         if (oldIndex === -1 || newIndex === -1) return;
-        const reordered = arrayMove(groups, oldIndex, newIndex);
-        reorderGroups(reordered.map((g) => g.id));
+        reorderGroups(arrayMove(groups, oldIndex, newIndex).map((g) => g.id));
         return;
       }
 
       if (current?.type === 'project') {
-        // Drop on "ungrouped" zone → remove from group
+        const overId = over ? String(over.id) : null;
+
+        // Explicit zone drop → ungroup
         if (overId === 'ungrouped-drop') {
           assignProjectToGroup(activeId, null);
           return;
         }
 
-        // Drop on a group header → assign to that group
-        const overGroup = groups.find((g) => g.id === overId);
-        if (overGroup) {
-          assignProjectToGroup(activeId, overId);
+        const activeProject = allProjects.find((p) => p.id === activeId);
+        if (!activeProject) return;
+        const originalGroupId = activeProject.groupId ?? null;
+
+        // Trust the draft for cross-group moves: the live preview IS the intended position.
+        // This means the user can drop anywhere (not just on a specific project title) and
+        // the project lands where the preview showed it.
+        if (draft) {
+          let finalGroupId: string | null | undefined;
+          let finalIds: string[] | undefined;
+          for (const [gid, ids] of draft) {
+            if (ids.includes(activeId)) {
+              finalGroupId = gid;
+              finalIds = ids;
+              break;
+            }
+          }
+          if (finalGroupId !== undefined && finalIds) {
+            if (finalGroupId !== originalGroupId) {
+              assignProjectToGroup(activeId, finalGroupId);
+              reorderProjects(finalIds);
+              return;
+            }
+            // Drop on a different group header (e.g. empty group) → assign to it
+            if (overId) {
+              const overGroup = groups.find((g) => g.id === overId);
+              if (overGroup && overGroup.id !== originalGroupId) {
+                assignProjectToGroup(activeId, overGroup.id);
+                return;
+              }
+            }
+            // Same group: if over a specific project use arrayMove, else commit draft order
+            if (overId && overId !== activeId) {
+              const overProject = allProjects.find((p) => p.id === overId);
+              if (overProject && (overProject.groupId ?? null) === originalGroupId) {
+                const list =
+                  originalGroupId === null
+                    ? ungroupedProjects
+                    : [...(projectsByGroup.get(originalGroupId) ?? [])].sort(
+                        (a, b) => a.position - b.position,
+                      );
+                const oldIndex = list.findIndex((p) => p.id === activeId);
+                const newIndex = list.findIndex((p) => p.id === overId);
+                if (oldIndex !== -1 && newIndex !== -1) {
+                  reorderProjects(arrayMove(list, oldIndex, newIndex).map((p) => p.id));
+                  return;
+                }
+              }
+            }
+            reorderProjects(finalIds);
+            return;
+          }
+        }
+
+        if (!over) {
+          // Drop outside all droppables — ungroup if was grouped
+          if (originalGroupId !== null) assignProjectToGroup(activeId, null);
           return;
         }
 
-        // Drop on another project → reorder within same scope
-        if (activeId === overId) return;
+        const overId2 = String(over.id);
 
-        // Determine scope: find which list the active project belongs to
-        const activeProject = allProjects.find((p) => p.id === activeId);
-        if (!activeProject) return;
+        // Drop on a group header → assign to that group
+        const overGroup = groups.find((g) => g.id === overId2);
+        if (overGroup) {
+          assignProjectToGroup(activeId, overId2);
+          return;
+        }
 
-        const activeGroupId = activeProject.groupId ?? null;
+        if (activeId === overId2) return;
+        const overProject = allProjects.find((p) => p.id === overId2);
+        if (!overProject) return;
+        const overGroupId = overProject.groupId ?? null;
 
-        if (activeGroupId === null) {
-          // Reorder in ungrouped list
-          const oldIndex = ungroupedProjects.findIndex((p) => p.id === activeId);
-          const newIndex = ungroupedProjects.findIndex((p) => p.id === overId);
+        if (originalGroupId === overGroupId) {
+          const list =
+            originalGroupId === null
+              ? ungroupedProjects
+              : [...(projectsByGroup.get(originalGroupId) ?? [])].sort(
+                  (a, b) => a.position - b.position,
+                );
+          const oldIndex = list.findIndex((p) => p.id === activeId);
+          const newIndex = list.findIndex((p) => p.id === overId2);
           if (oldIndex === -1 || newIndex === -1) return;
-          const reordered = arrayMove(ungroupedProjects, oldIndex, newIndex);
-          reorderProjects(reordered.map((p) => p.id));
+          reorderProjects(arrayMove(list, oldIndex, newIndex).map((p) => p.id));
         } else {
-          // Reorder within a group
-          const groupProjects = [...(projectsByGroup.get(activeGroupId) ?? [])].sort(
-            (a, b) => a.position - b.position,
-          );
-          const oldIndex = groupProjects.findIndex((p) => p.id === activeId);
-          const newIndex = groupProjects.findIndex((p) => p.id === overId);
-          if (oldIndex === -1 || newIndex === -1) return;
-          const reordered = arrayMove(groupProjects, oldIndex, newIndex);
-          reorderProjects(reordered.map((p) => p.id));
+          const targetList = (
+            overGroupId === null
+              ? ungroupedProjects
+              : [...(projectsByGroup.get(overGroupId) ?? [])].sort(
+                  (a, b) => a.position - b.position,
+                )
+          ).filter((p) => p.id !== activeId);
+          const insertIndex = targetList.findIndex((p) => p.id === overId2);
+          if (insertIndex === -1) return;
+          targetList.splice(insertIndex, 0, activeProject);
+          assignProjectToGroup(activeId, overGroupId);
+          reorderProjects(targetList.map((p) => p.id));
         }
       }
     },
@@ -1166,6 +1334,8 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
     activeDragRef.current = null;
     setActiveDrag(null);
     setOverGroupId(null);
+    draftGroupItemsRef.current = null;
+    setDraftGroupItems(null);
   }, []);
 
   const handleRequestOpenPalette = useCallback((ws: Project) => {
@@ -1216,7 +1386,10 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
 
   return (
     <>
-      <div className="flex h-10 items-center border-b border-border/20 pr-2 pl-3">
+      <div
+        ref={headerRef}
+        className="flex h-10 items-center gap-2 border-b border-border/20 pr-2 pl-3"
+      >
         <span className="flex-1 font-mono text-sm font-medium tracking-widest text-text-faint uppercase">
           Projects
         </span>
@@ -1228,7 +1401,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
             onPress={handleAddGroup}
             aria-label="Add group"
           >
-            <Layers size={12} />
+            <Layers size={14} />
           </Button>
         </Tooltip>
         {onAddProject && (
@@ -1247,7 +1420,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
               onPress={onAddProject}
               aria-label="Add project"
             >
-              <FolderPlus size={12} />
+              <FolderPlus size={14} />
             </Button>
           </Tooltip>
         )}
@@ -1256,7 +1429,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
       <DndContext
         sensors={sensors}
         collisionDetection={collisionDetection}
-        modifiers={[restrictToVerticalAxis]}
+        modifiers={[restrictToVerticalAxis, restrictAboveHeader]}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
@@ -1269,9 +1442,12 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                 <GroupTreeItem
                   key={group.id}
                   group={group}
-                  groupProjects={projectsByGroup.get(group.id) ?? []}
+                  groupProjects={effectiveSortedByGroup.get(group.id) ?? []}
                   isRenaming={pendingRenameGroupId === group.id}
-                  isDropTarget={overGroupId === group.id}
+                  isDropTarget={
+                    overGroupId === group.id &&
+                    (group.collapsed || (effectiveSortedByGroup.get(group.id) ?? []).length === 0)
+                  }
                   onRenameEnd={() => setPendingRenameGroupId(null)}
                   diffStatsMap={diffStatsMap}
                   prMap={prMap}
@@ -1287,7 +1463,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
           </SortableContext>
         )}
 
-        {(!hasGroups || ungroupedProjects.length > 0 || showUngroupedDropZone) && (
+        {(!hasGroups || effectiveUngrouped.length > 0 || showUngroupedDropZone) && (
           <>
             {hasGroups && (
               <div className="flex h-7 items-center px-3">
@@ -1299,7 +1475,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
             <UngroupedDropZone visible={showUngroupedDropZone} />
             <SortableContext items={ungroupedProjectIds} strategy={verticalListSortingStrategy}>
               <div>
-                {ungroupedProjects.map((ws) => (
+                {effectiveUngrouped.map((ws) => (
                   <RepoTreeItem
                     key={ws.id}
                     ws={ws}
@@ -1330,7 +1506,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                   )
                 : [];
               return (
-                <div className="rounded-sm bg-bg-secondary shadow-xl ring-1 ring-border/30">
+                <div className="border-y border-border/30 bg-bg-secondary shadow-xl">
                   {/* Group header */}
                   <div className="flex items-center gap-2 py-1 pr-2 pl-3">
                     <div className="flex w-6 shrink-0 items-center justify-center">
@@ -1348,22 +1524,35 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                         key={ws.id}
                         className="flex items-center gap-2 bg-bg-primary py-1.5 pr-2 pl-3 brightness-[1.6]"
                       >
-                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-transparent bg-bg-tertiary/60 text-sm leading-none font-medium text-text-faint">
+                        <div
+                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded border text-sm leading-none font-medium"
+                          style={
+                            ws.color
+                              ? {
+                                  color: `color-mix(in srgb, ${ws.color} 40%, var(--text-faint))`,
+                                  borderColor: 'transparent',
+                                  backgroundColor: `color-mix(in srgb, ${ws.color} 8%, var(--bg-secondary))`,
+                                }
+                              : {
+                                  color: 'var(--text-faint)',
+                                  borderColor: 'transparent',
+                                  backgroundColor:
+                                    'color-mix(in srgb, var(--bg-tertiary) 60%, var(--bg-secondary))',
+                                }
+                          }
+                        >
                           {ws.name.charAt(0).toUpperCase()}
                         </div>
                         <span className="min-w-0 flex-1 truncate font-mono text-lg font-medium text-text-primary">
                           {ws.name}
                         </span>
-                        {/* Invisible placeholders for chevron + plus buttons */}
-                        <div className="h-7 w-7 shrink-0" />
-                        <div className="h-7 w-7 shrink-0" />
                       </div>
                     ))}
                 </div>
               );
             })()}
           {activeDrag?.type === 'project' && (
-            <div className="flex items-center gap-2 rounded bg-bg-secondary px-3 py-1.5 shadow-lg ring-1 ring-border/20">
+            <div className="flex items-center gap-2 border-y border-border/20 bg-bg-secondary px-3 py-1.5 shadow-lg">
               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-transparent bg-bg-tertiary text-sm leading-none font-medium text-text-faint">
                 {activeDrag.firstLetter}
               </div>
