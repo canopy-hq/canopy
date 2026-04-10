@@ -2,9 +2,14 @@ import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
+  useDroppable,
   type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
   type DraggableSyntheticListeners,
+  type DroppableContainer,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -552,13 +557,17 @@ const RepoHeader = memo(
     prev.dragListeners === next.dragListeners,
 );
 
-const groupHeaderRow = tv({ base: 'flex items-center gap-2 py-1 pl-3 pr-2 select-none' });
+const groupHeaderRow = tv({
+  base: 'flex items-center gap-2 py-1 pl-3 pr-2 select-none transition-colors rounded-sm',
+  variants: { isDropTarget: { true: 'bg-accent/8 ring-1 ring-inset ring-accent/25' } },
+});
 
 const GroupHeader = memo(
   function GroupHeader({
     group,
     isRenaming,
     projectCount,
+    isDropTarget,
     onStartRename,
     onToggleCollapse,
     onContextMenu,
@@ -569,6 +578,7 @@ const GroupHeader = memo(
     group: Group;
     isRenaming: boolean;
     projectCount: number;
+    isDropTarget?: boolean;
     onStartRename: () => void;
     onToggleCollapse: () => void;
     onContextMenu: (e: React.MouseEvent) => void;
@@ -592,7 +602,7 @@ const GroupHeader = memo(
 
     return (
       <div
-        className={groupHeaderRow()}
+        className={groupHeaderRow({ isDropTarget })}
         onClick={isRenaming ? undefined : () => onToggleCollapse()}
         onContextMenu={isRenaming ? undefined : onContextMenu}
         {...(isRenaming ? {} : dragListeners)}
@@ -659,6 +669,7 @@ const GroupHeader = memo(
     prev.group.name === next.group.name &&
     prev.group.collapsed === next.group.collapsed &&
     prev.isRenaming === next.isRenaming &&
+    prev.isDropTarget === next.isDropTarget &&
     prev.projectCount === next.projectCount &&
     prev.onStartRename === next.onStartRename &&
     prev.onToggleCollapse === next.onToggleCollapse &&
@@ -668,10 +679,28 @@ const GroupHeader = memo(
     prev.dragListeners === next.dragListeners,
 );
 
+function UngroupedDropZone({ visible }: { visible: boolean }) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'ungrouped-drop' });
+
+  if (!visible) return null;
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`mx-2 mb-1 rounded border border-dashed px-3 py-2 font-mono text-xs text-text-faint/50 transition-colors ${
+        isOver ? 'border-accent/40 bg-accent/8 text-accent/60' : 'border-border/30 bg-transparent'
+      }`}
+    >
+      Drop here to remove from group
+    </div>
+  );
+}
+
 function GroupTreeItem({
   group,
   groupProjects,
   isRenaming: isExternalRenaming,
+  isDropTarget,
   onRenameEnd,
   agentMap,
   diffStatsMap,
@@ -693,6 +722,7 @@ function GroupTreeItem({
   group: Group;
   groupProjects: Project[];
   isRenaming?: boolean;
+  isDropTarget?: boolean;
   onRenameEnd?: () => void;
   agentMap: Record<string, DotStatus>;
   diffStatsMap: Record<string, Record<string, DiffStat>>;
@@ -713,6 +743,7 @@ function GroupTreeItem({
 }) {
   const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
     id: group.id,
+    data: { type: 'group' },
     transition: sortableTransition,
   });
   const isDropping = useDropping(isDragging, 220);
@@ -725,12 +756,6 @@ function GroupTreeItem({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuPos = useRef({ x: 0, y: 0 });
 
-  const projectSensors = useDragSensors();
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  useDragStyle(activeProjectId !== null);
-  const projectListRef = useRef<HTMLDivElement>(null);
-  const { snapshot: projectFlipSnapshot } = useFlipAnimation(projectListRef, 'vertical');
-
   const sortedProjects = useMemo(
     () => [...groupProjects].sort((a, b) => a.position - b.position),
     [groupProjects],
@@ -739,19 +764,6 @@ function GroupTreeItem({
   const separatorIds = useMemo(
     () => new Set(sortedProjects.slice(1).map((p) => p.id)),
     [sortedProjects],
-  );
-
-  const handleProjectDragEnd = useCallback(
-    ({ active, over }: DragEndEvent) => {
-      projectFlipSnapshot();
-      setActiveProjectId(null);
-      if (!over || active.id === over.id) return;
-      const oldIndex = sortedProjects.findIndex((p) => p.id === active.id);
-      const newIndex = sortedProjects.findIndex((p) => p.id === over.id);
-      const reordered = arrayMove(sortedProjects, oldIndex, newIndex);
-      reorderProjects(reordered.map((p) => p.id));
-    },
-    [sortedProjects, projectFlipSnapshot],
   );
 
   const draggingCls = isDragging || isDropping ? 'pointer-events-none relative z-50' : '';
@@ -773,6 +785,7 @@ function GroupTreeItem({
         <GroupHeader
           group={group}
           isRenaming={renaming}
+          isDropTarget={isDropTarget}
           projectCount={sortedProjects.length}
           onStartRename={() => setRenaming(true)}
           onToggleCollapse={() => toggleGroupCollapsed(group.id)}
@@ -794,43 +807,34 @@ function GroupTreeItem({
           dragListeners={listeners}
         />
         {!group.collapsed && (
-          <DndContext
-            sensors={projectSensors}
-            collisionDetection={closestCenter}
-            modifiers={[restrictToVerticalAxis]}
-            onDragStart={({ active }) => setActiveProjectId(String(active.id))}
-            onDragEnd={handleProjectDragEnd}
-            onDragCancel={() => setActiveProjectId(null)}
-          >
-            <SortableContext items={projectIds} strategy={verticalListSortingStrategy}>
-              <div ref={projectListRef}>
-                {sortedProjects.map((ws) => (
-                  <RepoTreeItem
-                    key={ws.id}
-                    ws={ws}
-                    agentMap={agentMap}
-                    diffStats={diffStatsMap[ws.id]}
-                    prStatuses={prMap[ws.id]}
-                    tabCounts={tabCounts}
-                    onRequestOpenPalette={onRequestOpenPalette}
-                    onRequestClose={onRequestClose}
-                    onRequestRemoveWt={(name, branch) => onRequestRemoveWt(ws.id, name, branch)}
-                    selectedItemId={selectedItemId}
-                    activeContextId={activeContextId}
-                    hasSeparator={separatorIds.has(ws.id)}
-                    onSelectItem={onSelectItem}
-                    deletingWtIds={deletingWtIds}
-                    creatingWorktreeIds={creatingWorktreeIds}
-                    isCloning={cloningProjectIdSet.has(ws.id)}
-                    cloneProgress={cloneProgressMap[ws.id]}
-                    isInvalid={ws.invalid}
-                    pendingClaudeWorktreeId={pendingClaudeWorktreeId}
-                    groups={groups}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+          <SortableContext items={projectIds} strategy={verticalListSortingStrategy}>
+            <div>
+              {sortedProjects.map((ws) => (
+                <RepoTreeItem
+                  key={ws.id}
+                  ws={ws}
+                  agentMap={agentMap}
+                  diffStats={diffStatsMap[ws.id]}
+                  prStatuses={prMap[ws.id]}
+                  tabCounts={tabCounts}
+                  onRequestOpenPalette={onRequestOpenPalette}
+                  onRequestClose={onRequestClose}
+                  onRequestRemoveWt={(name, branch) => onRequestRemoveWt(ws.id, name, branch)}
+                  selectedItemId={selectedItemId}
+                  activeContextId={activeContextId}
+                  hasSeparator={separatorIds.has(ws.id)}
+                  onSelectItem={onSelectItem}
+                  deletingWtIds={deletingWtIds}
+                  creatingWorktreeIds={creatingWorktreeIds}
+                  isCloning={cloningProjectIdSet.has(ws.id)}
+                  cloneProgress={cloneProgressMap[ws.id]}
+                  isInvalid={ws.invalid}
+                  pendingClaudeWorktreeId={pendingClaudeWorktreeId}
+                  groups={groups}
+                />
+              ))}
+            </div>
+          </SortableContext>
         )}
       </div>
       {menuOpen && (
@@ -912,6 +916,10 @@ function getRepoAgentSummary(
   return statuses;
 }
 
+type ActiveDragInfo =
+  | { type: 'group'; id: string; name: string }
+  | { type: 'project'; id: string; name: string; firstLetter: string; groupId: string | null };
+
 export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
   const rawProjects = useProjects();
   const rawGroups = useGroups();
@@ -979,33 +987,19 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
   const prMap = usePrPolling(allProjects, sidebarVisible && pageVisible, githubConnected);
   const navigate = useNavigate();
 
-  // Group-level DnD
-  const groupSensors = useDragSensors();
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-  useDragStyle(activeGroupId !== null);
+  // Single unified DnD state
+  const sensors = useDragSensors();
+  const [activeDrag, setActiveDrag] = useState<ActiveDragInfo | null>(null);
+  const activeDragRef = useRef<ActiveDragInfo | null>(null);
+  const [overGroupId, setOverGroupId] = useState<string | null>(null);
+  const autoExpandTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useDragStyle(activeDrag !== null);
+
+  // Group FLIP ref (keep group-level FLIP for smooth group reordering)
   const groupListRef = useRef<HTMLDivElement>(null);
   const { snapshot: groupFlipSnapshot } = useFlipAnimation(groupListRef, 'vertical');
+
   const groupIds = useMemo(() => groups.map((g) => g.id), [groups]);
-
-  const handleGroupDragEnd = useCallback(
-    ({ active, over }: DragEndEvent) => {
-      groupFlipSnapshot();
-      setActiveGroupId(null);
-      if (!over || active.id === over.id) return;
-      const oldIndex = groups.findIndex((g) => g.id === active.id);
-      const newIndex = groups.findIndex((g) => g.id === over.id);
-      const reordered = arrayMove(groups, oldIndex, newIndex);
-      reorderGroups(reordered.map((g) => g.id));
-    },
-    [groups, groupFlipSnapshot],
-  );
-
-  // Ungrouped DnD
-  const ungroupedSensors = useDragSensors();
-  const [activeUngroupedId, setActiveUngroupedId] = useState<string | null>(null);
-  useDragStyle(activeUngroupedId !== null);
-  const ungroupedProjectListRef = useRef<HTMLDivElement>(null);
-  const { snapshot: ungroupedFlipSnapshot } = useFlipAnimation(ungroupedProjectListRef, 'vertical');
   const ungroupedProjectIds = useMemo(
     () => ungroupedProjects.map((p) => p.id),
     [ungroupedProjects],
@@ -1015,18 +1009,154 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
     [ungroupedProjects],
   );
 
-  const handleUngroupedDragEnd = useCallback(
-    ({ active, over }: DragEndEvent) => {
-      ungroupedFlipSnapshot();
-      setActiveUngroupedId(null);
-      if (!over || active.id === over.id) return;
-      const oldIndex = ungroupedProjects.findIndex((p) => p.id === active.id);
-      const newIndex = ungroupedProjects.findIndex((p) => p.id === over.id);
-      const reordered = arrayMove(ungroupedProjects, oldIndex, newIndex);
-      reorderProjects(reordered.map((p) => p.id));
+  // Custom collision: when dragging a group, only collide with other groups.
+  // For project drags, use closestCenter normally.
+  const collisionDetection = useCallback(
+    (args: Parameters<typeof closestCenter>[0]) => {
+      const current = activeDragRef.current;
+      if (current?.type === 'group') {
+        const groupContainers = args.droppableContainers.filter((c: DroppableContainer) =>
+          groupIds.includes(String(c.id)),
+        );
+        return closestCenter({ ...args, droppableContainers: groupContainers });
+      }
+      return closestCenter(args);
     },
-    [ungroupedProjects, ungroupedFlipSnapshot],
+    [groupIds],
   );
+
+  const handleDragStart = useCallback(
+    ({ active }: DragStartEvent) => {
+      const data = active.data.current as
+        | { type: 'group' | 'project'; groupId?: string | null }
+        | undefined;
+      let info: ActiveDragInfo;
+      if (data?.type === 'group') {
+        const group = groups.find((g) => g.id === active.id);
+        info = { type: 'group', id: String(active.id), name: group?.name ?? '' };
+      } else {
+        const project = allProjects.find((p) => p.id === active.id);
+        info = {
+          type: 'project',
+          id: String(active.id),
+          name: project?.name ?? '',
+          firstLetter: (project?.name ?? '?').charAt(0).toUpperCase(),
+          groupId: data?.groupId ?? project?.groupId ?? null,
+        };
+      }
+      activeDragRef.current = info;
+      setActiveDrag(info);
+    },
+    [groups, allProjects],
+  );
+
+  const handleDragOver = useCallback(
+    ({ over }: DragOverEvent) => {
+      const current = activeDragRef.current;
+      if (current?.type !== 'project') {
+        setOverGroupId(null);
+        return;
+      }
+      // Check if hovering over a group (by id)
+      const overId = over ? String(over.id) : null;
+      const isOverGroup = overId ? groups.some((g) => g.id === overId) : false;
+      const newOverGroupId = isOverGroup ? overId : null;
+
+      setOverGroupId((prev) => {
+        if (prev !== newOverGroupId) {
+          clearTimeout(autoExpandTimer.current);
+          if (newOverGroupId) {
+            autoExpandTimer.current = setTimeout(() => {
+              // Auto-expand the hovered group if it's collapsed
+              const group = groups.find((g) => g.id === newOverGroupId);
+              if (group?.collapsed) {
+                toggleGroupCollapsed(newOverGroupId);
+              }
+            }, 600);
+          }
+        }
+        return newOverGroupId;
+      });
+    },
+    [groups],
+  );
+
+  const handleDragEnd = useCallback(
+    ({ active, over }: DragEndEvent) => {
+      clearTimeout(autoExpandTimer.current);
+      setOverGroupId(null);
+      const current = activeDragRef.current;
+      activeDragRef.current = null;
+      setActiveDrag(null);
+
+      if (!over) return;
+
+      const activeId = String(active.id);
+      const overId = String(over.id);
+
+      if (current?.type === 'group') {
+        if (activeId === overId) return;
+        groupFlipSnapshot();
+        const oldIndex = groups.findIndex((g) => g.id === activeId);
+        const newIndex = groups.findIndex((g) => g.id === overId);
+        if (oldIndex === -1 || newIndex === -1) return;
+        const reordered = arrayMove(groups, oldIndex, newIndex);
+        reorderGroups(reordered.map((g) => g.id));
+        return;
+      }
+
+      if (current?.type === 'project') {
+        // Drop on "ungrouped" zone → remove from group
+        if (overId === 'ungrouped-drop') {
+          assignProjectToGroup(activeId, null);
+          return;
+        }
+
+        // Drop on a group header → assign to that group
+        const overGroup = groups.find((g) => g.id === overId);
+        if (overGroup) {
+          assignProjectToGroup(activeId, overId);
+          return;
+        }
+
+        // Drop on another project → reorder within same scope
+        if (activeId === overId) return;
+
+        // Determine scope: find which list the active project belongs to
+        const activeProject = allProjects.find((p) => p.id === activeId);
+        if (!activeProject) return;
+
+        const activeGroupId = activeProject.groupId ?? null;
+
+        if (activeGroupId === null) {
+          // Reorder in ungrouped list
+          const oldIndex = ungroupedProjects.findIndex((p) => p.id === activeId);
+          const newIndex = ungroupedProjects.findIndex((p) => p.id === overId);
+          if (oldIndex === -1 || newIndex === -1) return;
+          const reordered = arrayMove(ungroupedProjects, oldIndex, newIndex);
+          reorderProjects(reordered.map((p) => p.id));
+        } else {
+          // Reorder within a group
+          const groupProjects = [...(projectsByGroup.get(activeGroupId) ?? [])].sort(
+            (a, b) => a.position - b.position,
+          );
+          const oldIndex = groupProjects.findIndex((p) => p.id === activeId);
+          const newIndex = groupProjects.findIndex((p) => p.id === overId);
+          if (oldIndex === -1 || newIndex === -1) return;
+          const reordered = arrayMove(groupProjects, oldIndex, newIndex);
+          reorderProjects(reordered.map((p) => p.id));
+        }
+      }
+    },
+    [groups, allProjects, ungroupedProjects, projectsByGroup, groupFlipSnapshot],
+  );
+
+  const handleDragCancel = useCallback(() => {
+    clearTimeout(autoExpandTimer.current);
+    activeDragRef.current = null;
+    setActiveDrag(null);
+    setOverGroupId(null);
+  }, []);
 
   const handleRequestOpenPalette = useCallback((ws: Project) => {
     openProjectPalette(makeProjectPaletteItem(ws));
@@ -1071,6 +1201,9 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
     ],
   );
 
+  // Show ungrouped drop zone when dragging a grouped project
+  const showUngroupedDropZone = activeDrag?.type === 'project' && activeDrag.groupId !== null;
+
   return (
     <>
       <div className="flex h-10 items-center border-b border-border/20 pr-2 pl-3">
@@ -1110,15 +1243,16 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
         )}
       </div>
 
-      {hasGroups && (
-        <DndContext
-          sensors={groupSensors}
-          collisionDetection={closestCenter}
-          modifiers={[restrictToVerticalAxis]}
-          onDragStart={({ active }) => setActiveGroupId(String(active.id))}
-          onDragEnd={handleGroupDragEnd}
-          onDragCancel={() => setActiveGroupId(null)}
-        >
+      <DndContext
+        sensors={sensors}
+        collisionDetection={collisionDetection}
+        modifiers={[restrictToVerticalAxis]}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+        {hasGroups && (
           <SortableContext items={groupIds} strategy={verticalListSortingStrategy}>
             <div ref={groupListRef}>
               {groups.map((group) => (
@@ -1127,6 +1261,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                   group={group}
                   groupProjects={projectsByGroup.get(group.id) ?? []}
                   isRenaming={pendingRenameGroupId === group.id}
+                  isDropTarget={overGroupId === group.id}
                   onRenameEnd={() => setPendingRenameGroupId(null)}
                   diffStatsMap={diffStatsMap}
                   prMap={prMap}
@@ -1140,28 +1275,20 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
               ))}
             </div>
           </SortableContext>
-        </DndContext>
-      )}
+        )}
 
-      {(!hasGroups || ungroupedProjects.length > 0) && (
-        <>
-          {hasGroups && (
-            <div className="flex h-7 items-center px-3">
-              <span className="font-mono text-xs font-semibold tracking-widest text-text-faint/50 uppercase">
-                Ungrouped
-              </span>
-            </div>
-          )}
-          <DndContext
-            sensors={ungroupedSensors}
-            collisionDetection={closestCenter}
-            modifiers={[restrictToVerticalAxis]}
-            onDragStart={({ active }) => setActiveUngroupedId(String(active.id))}
-            onDragEnd={handleUngroupedDragEnd}
-            onDragCancel={() => setActiveUngroupedId(null)}
-          >
+        {(!hasGroups || ungroupedProjects.length > 0 || showUngroupedDropZone) && (
+          <>
+            {hasGroups && (
+              <div className="flex h-7 items-center px-3">
+                <span className="font-mono text-xs font-semibold tracking-widest text-text-faint/50 uppercase">
+                  Ungrouped
+                </span>
+              </div>
+            )}
+            <UngroupedDropZone visible={showUngroupedDropZone} />
             <SortableContext items={ungroupedProjectIds} strategy={verticalListSortingStrategy}>
-              <div ref={ungroupedProjectListRef}>
+              <div>
                 {ungroupedProjects.map((ws) => (
                   <RepoTreeItem
                     key={ws.id}
@@ -1180,9 +1307,30 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                 ))}
               </div>
             </SortableContext>
-          </DndContext>
-        </>
-      )}
+          </>
+        )}
+
+        <DragOverlay>
+          {activeDrag?.type === 'group' && (
+            <div className="flex items-center gap-2 rounded bg-bg-secondary px-3 py-1.5 shadow-lg ring-1 ring-border/20">
+              <GripVertical size={11} className="shrink-0 text-text-faint/40" />
+              <span className="font-mono text-xs font-semibold tracking-widest text-text-faint uppercase">
+                {activeDrag.name}
+              </span>
+            </div>
+          )}
+          {activeDrag?.type === 'project' && (
+            <div className="flex items-center gap-2 rounded bg-bg-secondary px-3 py-1.5 shadow-lg ring-1 ring-border/20">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-transparent bg-bg-tertiary text-sm leading-none font-medium text-text-faint">
+                {activeDrag.firstLetter}
+              </div>
+              <span className="font-mono text-lg font-medium text-text-primary">
+                {activeDrag.name}
+              </span>
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
 
       {closeTarget && (
         <CloseProjectModal
@@ -1288,6 +1436,7 @@ function RepoTreeItem({
 }) {
   const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
     id: ws.id,
+    data: { type: 'project', groupId: ws.groupId ?? null },
     transition: sortableTransition,
   });
   const isDropping = useDropping(isDragging, 220);
@@ -1341,7 +1490,7 @@ function RepoTreeItem({
             transform ? { ...transform, scaleX: 1, scaleY: 1 } : null,
           ),
           transition,
-          opacity: 1,
+          opacity: isDragging ? 0.35 : 1,
         }}
       >
         <RepoHeader
