@@ -82,7 +82,7 @@ function agentDotColor(status: NonNullable<CommandItem['agentStatus']>): string 
     case 'waiting':
       return 'bg-(--agent-waiting)';
     default:
-      return 'bg-text-muted/40';
+      return 'bg-fg-muted/40';
   }
 }
 

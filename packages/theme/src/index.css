@@ -51,6 +51,15 @@
   --danger:  #ef4444;
   --ahead:   #4ade80;
   --behind:  #f87171;
+
+  /* Agent status — same across all themes */
+  --agent-running:        #f59e0b;
+  --agent-waiting:        #ef4444;
+  --agent-idle:           #4ade80;
+  --agent-running-pulse:  #d97706;
+  --agent-waiting-glow:   rgba(239, 68, 68, 0.15);
+  --agent-waiting-border: rgba(239, 68, 68, 0.4);
+  --agent-waiting-inset:  rgba(239, 68, 68, 0.06);
 }
 
 /* ─── Obsidian (default) ────────────────────────────────────────────────── */
@@ -69,13 +78,6 @@
   --branch:         #60a5fa;
   --worktree:       #a78bfa;
   --splitter-hover: #3e4068;
-  --agent-running:        #f59e0b;
-  --agent-waiting:        #ef4444;
-  --agent-idle:           #4ade80;
-  --agent-running-pulse:  #d97706;
-  --agent-waiting-glow:   rgba(239, 68, 68, 0.15);
-  --agent-waiting-border: rgba(239, 68, 68, 0.4);
-  --agent-waiting-inset:  rgba(239, 68, 68, 0.06);
 }
 
 /* ─── Carbon ────────────────────────────────────────────────────────────── */
@@ -93,13 +95,6 @@
   --branch:         #f5c244;
   --worktree:       #c084fc;
   --splitter-hover: #564e44;
-  --agent-running:        #f59e0b;
-  --agent-waiting:        #ef4444;
-  --agent-idle:           #4ade80;
-  --agent-running-pulse:  #d97706;
-  --agent-waiting-glow:   rgba(239, 68, 68, 0.15);
-  --agent-waiting-border: rgba(239, 68, 68, 0.4);
-  --agent-waiting-inset:  rgba(239, 68, 68, 0.06);
 }
 
 /* ─── Graphite ───────────────────────────────────────────────────────────── */
@@ -117,13 +112,6 @@
   --branch:         #a78bfa;
   --worktree:       #c084fc;
   --splitter-hover: #484860;
-  --agent-running:        #f59e0b;
-  --agent-waiting:        #ef4444;
-  --agent-idle:           #4ade80;
-  --agent-running-pulse:  #d97706;
-  --agent-waiting-glow:   rgba(239, 68, 68, 0.15);
-  --agent-waiting-border: rgba(239, 68, 68, 0.4);
-  --agent-waiting-inset:  rgba(239, 68, 68, 0.06);
 }
 
 /* ─── Slate ──────────────────────────────────────────────────────────────── */
@@ -141,13 +129,6 @@
   --branch:         #7dd3fc;
   --worktree:       #c084fc;
   --splitter-hover: #3c4868;
-  --agent-running:        #f59e0b;
-  --agent-waiting:        #ef4444;
-  --agent-idle:           #4ade80;
-  --agent-running-pulse:  #d97706;
-  --agent-waiting-glow:   rgba(239, 68, 68, 0.15);
-  --agent-waiting-border: rgba(239, 68, 68, 0.4);
-  --agent-waiting-inset:  rgba(239, 68, 68, 0.06);
 }
 
 /* ─── Midnight ───────────────────────────────────────────────────────────── */
@@ -165,13 +146,6 @@
   --branch:         #818cf8;
   --worktree:       #a78bfa;
   --splitter-hover: #2c3870;
-  --agent-running:        #f59e0b;
-  --agent-waiting:        #ef4444;
-  --agent-idle:           #4ade80;
-  --agent-running-pulse:  #d97706;
-  --agent-waiting-glow:   rgba(239, 68, 68, 0.15);
-  --agent-waiting-border: rgba(239, 68, 68, 0.4);
-  --agent-waiting-inset:  rgba(239, 68, 68, 0.06);
 }
 
 /* ─── Void ───────────────────────────────────────────────────────────────── */
@@ -189,13 +163,6 @@
   --branch:         #c084fc;
   --worktree:       #c084fc;
   --splitter-hover: #383840;
-  --agent-running:        #f59e0b;
-  --agent-waiting:        #ef4444;
-  --agent-idle:           #4ade80;
-  --agent-running-pulse:  #d97706;
-  --agent-waiting-glow:   rgba(239, 68, 68, 0.15);
-  --agent-waiting-border: rgba(239, 68, 68, 0.4);
-  --agent-waiting-inset:  rgba(239, 68, 68, 0.06);
 }
 
 /* ─── Smoke ──────────────────────────────────────────────────────────────── */
@@ -213,13 +180,6 @@
   --branch:         #fbbf24;
   --worktree:       #c084fc;
   --splitter-hover: #5a5048;
-  --agent-running:        #f59e0b;
-  --agent-waiting:        #ef4444;
-  --agent-idle:           #4ade80;
-  --agent-running-pulse:  #d97706;
-  --agent-waiting-glow:   rgba(239, 68, 68, 0.15);
-  --agent-waiting-border: rgba(239, 68, 68, 0.4);
-  --agent-waiting-inset:  rgba(239, 68, 68, 0.06);
 }
 
 /* ─── Ash ────────────────────────────────────────────────────────────────── */
@@ -237,11 +197,4 @@
   --branch:         #34d399;
   --worktree:       #c084fc;
   --splitter-hover: #3e5444;
-  --agent-running:        #f59e0b;
-  --agent-waiting:        #ef4444;
-  --agent-idle:           #4ade80;
-  --agent-running-pulse:  #d97706;
-  --agent-waiting-glow:   rgba(239, 68, 68, 0.15);
-  --agent-waiting-border: rgba(239, 68, 68, 0.4);
-  --agent-waiting-inset:  rgba(239, 68, 68, 0.06);
 }
