@@ -1296,6 +1296,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                 </span>
               </div>
             )}
+            <UngroupedDropZone visible={showUngroupedDropZone} />
             <SortableContext items={ungroupedProjectIds} strategy={verticalListSortingStrategy}>
               <div>
                 {ungroupedProjects.map((ws) => (
@@ -1316,7 +1317,6 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                 ))}
               </div>
             </SortableContext>
-            <UngroupedDropZone visible={showUngroupedDropZone} />
           </>
         )}
 
