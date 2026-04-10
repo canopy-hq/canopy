@@ -118,7 +118,7 @@ export function AppearanceSection() {
             step={1}
             value={currentFontSize}
             onChange={(e) => handleFontSizeChange(Number(e.target.value))}
-            className="bg-border h-1 w-40 cursor-pointer appearance-none rounded-full accent-accent"
+            className="h-1 w-40 cursor-pointer appearance-none rounded-full bg-edge accent-accent"
             aria-label="Terminal font size"
           />
           <span className="min-w-[3ch] text-center font-mono text-base text-fg tabular-nums">

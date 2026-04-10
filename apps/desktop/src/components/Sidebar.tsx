@@ -66,7 +66,7 @@ export function Sidebar() {
           </div>
         </div>
         <div className="group relative w-px shrink-0">
-          <div className="bg-border/20 pointer-events-none absolute inset-y-0 left-1/2 z-[200] w-px -translate-x-1/2 transition-all group-hover:w-[3px] group-hover:bg-accent" />
+          <div className="pointer-events-none absolute inset-y-0 left-1/2 z-[200] w-px -translate-x-1/2 bg-edge/20 transition-all group-hover:w-[3px] group-hover:bg-accent" />
           <div
             className="absolute inset-0 -right-[4px] -left-[4px] z-50"
             style={{ cursor: 'col-resize' }}

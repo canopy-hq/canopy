@@ -367,15 +367,15 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                           style={
                             ws.color
                               ? {
-                                  color: `color-mix(in srgb, ${ws.color} 40%, var(--text-faint))`,
+                                  color: `color-mix(in srgb, ${ws.color} 40%, var(--fg-faint))`,
                                   borderColor: 'transparent',
-                                  backgroundColor: `color-mix(in srgb, ${ws.color} 8%, var(--bg-secondary))`,
+                                  backgroundColor: `color-mix(in srgb, ${ws.color} 8%, var(--raised))`,
                                 }
                               : {
-                                  color: 'var(--text-faint)',
+                                  color: 'var(--fg-faint)',
                                   borderColor: 'transparent',
                                   backgroundColor:
-                                    'color-mix(in srgb, var(--bg-tertiary) 60%, var(--bg-secondary))',
+                                    'color-mix(in srgb, var(--surface) 60%, var(--raised))',
                                 }
                           }
                         >

@@ -74,7 +74,7 @@ export function ContextMenu({
         >
           {items.map((item, i) => {
             if (item.type === 'separator') {
-              return <Separator key={`sep-${i}`} className="my-1 h-px bg-border/40" />;
+              return <Separator key={`sep-${i}`} className="my-1 h-px bg-edge/40" />;
             }
             if (item.type === 'submenu') {
               return (
@@ -104,7 +104,7 @@ export function ContextMenu({
                     >
                       {item.items.map((sub, i) => {
                         if (sub.type === 'separator') {
-                          return <Separator key={`sep-${i}`} className="my-1 h-px bg-border/40" />;
+                          return <Separator key={`sep-${i}`} className="my-1 h-px bg-edge/40" />;
                         }
                         if (sub.type === 'submenu') return null;
                         return (
