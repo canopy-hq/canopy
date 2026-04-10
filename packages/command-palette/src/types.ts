@@ -2,6 +2,7 @@ export type CommandCategory = 'project' | 'tab' | 'pty' | 'agent' | 'action' | '
 
 export type CommandIcon =
   | 'branch'
+  | 'editor'
   | 'worktree'
   | 'tab'
   | 'agent'

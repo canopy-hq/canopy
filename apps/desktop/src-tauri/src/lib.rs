@@ -1,5 +1,6 @@
 mod daemon_client;
 mod agent_watcher;
+mod editor;
 mod git;
 mod github;
 mod menu;
@@ -133,6 +134,8 @@ pub fn run() {
             github::github_cancel_poll,
             github::github_disconnect,
             github::github_get_pr_statuses,
+            editor::detect_editors,
+            editor::open_in_editor,
         ])
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();

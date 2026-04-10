@@ -5,6 +5,7 @@ import {
   ArrowDown,
   ArrowUp,
   ChevronRight,
+  CodeXml,
   CornerDownLeft,
   Cpu,
   Delete,
@@ -50,6 +51,8 @@ const commandItem = tv({
 function ItemIcon({ icon }: { icon: CommandItem['icon'] }) {
   const props = { size: 12, strokeWidth: 1.5, className: 'shrink-0 text-text-muted' } as const;
   switch (icon) {
+    case 'editor':
+      return <CodeXml {...props} />;
     case 'folder':
       return <FolderGit2 {...props} />;
     case 'branch':

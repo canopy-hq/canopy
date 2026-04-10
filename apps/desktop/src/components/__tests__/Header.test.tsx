@@ -7,6 +7,14 @@ vi.mock('../../lib/project-actions', () => ({ toggleSidebar: vi.fn() }));
 vi.mock('../../hooks/useCollections', () => ({
   useProjects: vi.fn(() => [{ id: '1' }]),
   useSettings: vi.fn(() => []),
+  useUiState: vi.fn(() => ({ activeContextId: '' })),
+}));
+vi.mock('../../lib/editor', () => ({
+  DEFAULT_EDITOR_SETTING_KEY: 'defaultEditor',
+  detectEditors: vi.fn(() => Promise.resolve([])),
+  openInEditor: vi.fn(() => Promise.resolve()),
+  resolveDefaultEditor: vi.fn(() => undefined),
+  useDetectedEditors: vi.fn(() => []),
 }));
 
 describe('Header', () => {
@@ -42,5 +50,16 @@ describe('Header', () => {
     const { getByLabelText } = render(<Header />);
     getByLabelText('Toggle sidebar').click();
     expect(toggleSidebar).toHaveBeenCalled();
+  });
+
+  it('renders "Open in" button when an editor is detected', async () => {
+    const { useDetectedEditors, resolveDefaultEditor } = await import('../../lib/editor');
+    const { useUiState } = await import('../../hooks/useCollections');
+    const cursor = { id: 'cursor', displayName: 'Cursor', cliPath: '/usr/bin/cursor' };
+    vi.mocked(useDetectedEditors).mockReturnValue([cursor]);
+    vi.mocked(resolveDefaultEditor).mockReturnValue(cursor);
+    vi.mocked(useUiState).mockReturnValue({ activeContextId: 'proj1-branch-main' } as any);
+    const { getByText } = render(<Header />);
+    expect(getByText('Open in Cursor')).toBeInTheDocument();
   });
 });
