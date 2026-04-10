@@ -12,7 +12,7 @@ Single source of truth for all design tokens. Consumed by `apps/desktop` via `@i
 
 **Computed tokens** (`--selected`, `--input`, `--placeholder`) are defined once in `:root` and auto-adapt to each theme because they reference per-theme primitives (`--accent`, `--base`, `--fg-muted`).
 
-**Global constants** (`--hover`, `--claude`, `--danger`, `--ahead`, `--behind`) are identical across all dark themes — do not redefine them in per-theme blocks.
+**Global constants** (`--hover`, `--claude`, `--danger`, `--ahead`, `--behind`, all `--agent-*`) are identical across all dark themes — do not redefine them in per-theme blocks.
 
 ## Token reference
 
@@ -87,7 +87,7 @@ All themes were designed to meet:
    --agent-running-pulse, --agent-waiting-glow,
    --agent-waiting-border, --agent-waiting-inset
    ```
-3. Do **not** redefine: `--hover`, `--claude`, `--danger`, `--ahead`, `--behind`, `--selected`, `--selected-hover`, `--input`, `--placeholder` — these are global
+3. Do **not** redefine: `--hover`, `--claude`, `--danger`, `--ahead`, `--behind`, `--selected`, `--selected-hover`, `--input`, `--placeholder`, `--agent-*` — these are global
 4. Verify contrast: `base`→`raised` avg RGB diff ≥ 12, `fg`/`base` ≥ 14:1
 5. Add the theme name to `apps/desktop/src/components/settings/AppearanceSection.tsx`
 
