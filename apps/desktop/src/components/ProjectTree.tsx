@@ -780,6 +780,7 @@ function GroupTreeItem({
             transform ? { ...transform, scaleX: 1, scaleY: 1 } : null,
           ),
           transition,
+          opacity: isDragging ? 0 : 1,
         }}
       >
         <GroupHeader
@@ -1311,14 +1312,41 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
         )}
 
         <DragOverlay>
-          {activeDrag?.type === 'group' && (
-            <div className="flex items-center gap-2 rounded bg-bg-secondary px-3 py-1.5 shadow-lg ring-1 ring-border/20">
-              <GripVertical size={11} className="shrink-0 text-text-faint/40" />
-              <span className="font-mono text-xs font-semibold tracking-widest text-text-faint uppercase">
-                {activeDrag.name}
-              </span>
-            </div>
-          )}
+          {activeDrag?.type === 'group' &&
+            (() => {
+              const overlayGroup = groups.find((g) => g.id === activeDrag.id);
+              const overlayProjects = overlayGroup
+                ? [...(projectsByGroup.get(activeDrag.id) ?? [])].sort(
+                    (a, b) => a.position - b.position,
+                  )
+                : [];
+              return (
+                <div className="rounded-sm bg-bg-secondary shadow-xl ring-1 ring-border/30">
+                  {/* Group header */}
+                  <div className="flex items-center gap-2 py-1 pr-2 pl-3">
+                    <div className="flex w-6 shrink-0 items-center justify-center">
+                      <GripVertical size={11} className="text-text-faint/30" />
+                    </div>
+                    <span className="flex-1 font-mono text-xs font-semibold tracking-widest text-text-faint uppercase">
+                      {activeDrag.name}
+                    </span>
+                    <div className="h-7 w-7" />
+                  </div>
+                  {/* Project rows */}
+                  {!overlayGroup?.collapsed &&
+                    overlayProjects.map((ws) => (
+                      <div key={ws.id} className="flex items-center gap-2 py-1.5 pr-2 pl-3">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-transparent bg-bg-tertiary/60 text-sm leading-none font-medium text-text-faint">
+                          {ws.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="flex-1 truncate font-mono text-base font-medium text-text-primary/80">
+                          {ws.name}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              );
+            })()}
           {activeDrag?.type === 'project' && (
             <div className="flex items-center gap-2 rounded bg-bg-secondary px-3 py-1.5 shadow-lg ring-1 ring-border/20">
               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-transparent bg-bg-tertiary text-sm leading-none font-medium text-text-faint">
