@@ -37,7 +37,7 @@ export interface ProjectPalettePanelProps {
 // ── Icon ───────────────────────────────────────────────────────────────────────
 
 function PaletteIcon({ item }: { item: PaletteItem }) {
-  const props = { size: 12, className: 'shrink-0 text-text-muted' } as const;
+  const props = { size: 12, className: 'shrink-0 text-fg-muted' } as const;
   if (item.kind === 'create') return <Plus {...props} className="shrink-0 text-accent" />;
   if (item.kind === 'branch') return <GitBranch {...props} />;
   if (item.kind === 'quick-base')
@@ -307,7 +307,7 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
   return (
     <div className="flex flex-col">
       {/* Search input — same layout as CommandMenu */}
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
+      <div className="flex items-center gap-2 border-b border-edge px-3 py-2.5">
         <input
           ref={inputRef}
           type="text"
@@ -318,7 +318,7 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="flex-1 bg-transparent text-base text-text-primary outline-none placeholder:text-text-muted/60"
+          className="flex-1 bg-transparent text-base text-fg outline-none placeholder:text-placeholder"
           placeholder={
             pickingBase ? `Select base for "${sanitizedName}"…` : 'Search or create worktree…'
           }
@@ -342,7 +342,7 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
 
       {/* Command preview — shown when naming a new worktree */}
       {isCreateMode && !quickBase && !pickingBase && (
-        <div className="flex min-w-0 items-center gap-1 border-b border-border px-3 py-1.5 font-mono text-sm text-text-muted/60">
+        <div className="flex min-w-0 items-center gap-1 border-b border-edge px-3 py-1.5 font-mono text-sm text-placeholder">
           <span className="shrink-0">git worktree add -b</span>
           <span className="max-w-[140px] min-w-0 truncate text-accent">{sanitizedName}</span>
           <span className="shrink-0">…</span>
@@ -352,7 +352,7 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
 
       {/* Tab chips — only shown in normal (non-picker) mode */}
       {!quickBase && !pickingBase && !isCreateMode && (
-        <div className="flex items-center gap-1 border-b border-border px-3 py-1.5">
+        <div className="flex items-center gap-1 border-b border-edge px-3 py-1.5">
           {(['all', 'worktrees'] as const).map((t) => (
             <button
               key={t}
@@ -361,7 +361,7 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => setTab(t)}
               className={`cursor-pointer rounded px-2 py-0.5 text-sm capitalize transition-colors ${
-                tab === t ? 'bg-accent/10 text-accent' : 'text-text-muted hover:text-text-primary'
+                tab === t ? 'bg-accent/10 text-accent' : 'text-fg-muted hover:text-fg'
               }`}
             >
               {t === 'all' ? `All · ${branches.length}` : `Worktrees · ${diskWorktrees.length}`}
@@ -372,7 +372,7 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
 
       {/* Quick base / full base picker header */}
       {(quickBase || pickingBase) && (
-        <div className="flex items-center gap-1.5 border-b border-border px-3 py-1.5">
+        <div className="flex items-center gap-1.5 border-b border-edge px-3 py-1.5">
           <Button
             variant="link"
             onMouseDown={(e: React.MouseEvent) => e.preventDefault()}
@@ -389,8 +389,8 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
             <ChevronLeft size={11} />
             back
           </Button>
-          <span className="text-sm text-text-muted opacity-40">/</span>
-          <span className="text-sm text-text-primary">
+          <span className="text-sm text-fg-muted opacity-40">/</span>
+          <span className="text-sm text-fg">
             base for <span className="text-accent">{sanitizedName}</span>
           </span>
         </div>
@@ -399,7 +399,7 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
       {/* List — same structure and styling as CommandMenu */}
       <div ref={listRef} className="max-h-[340px] min-h-0 overflow-y-auto py-1">
         {sections.length === 0 ? (
-          <div className="flex items-center justify-center py-8 font-mono text-sm text-text-faint">
+          <div className="flex items-center justify-center py-8 font-mono text-sm text-fg-faint">
             {query ? `No results for "${query}"` : 'No branches'}
           </div>
         ) : (
@@ -431,9 +431,9 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
 // ── Row ───────────────────────────────────────────────────────────────────────
 
 const paletteRow = tv({
-  base: 'flex h-9 cursor-pointer items-center gap-2 px-3 text-base text-text-primary',
+  base: 'flex h-9 cursor-pointer items-center gap-2 px-3 text-base text-fg',
   variants: {
-    selected: { true: 'bg-bg-tertiary', false: 'hover:bg-bg-tertiary/50' },
+    selected: { true: 'bg-surface', false: 'hover:bg-surface/50' },
     disabled: { true: 'opacity-50' },
   },
 });
@@ -495,7 +495,7 @@ const PaletteRow = memo(
 
         {/* Right side: badges + status */}
         {item.kind === 'create' && (
-          <span className="shrink-0 text-sm text-text-muted">from {baseBranch}</span>
+          <span className="shrink-0 text-sm text-fg-muted">from {baseBranch}</span>
         )}
 
         {item.kind === 'branch' && item.branch && (
@@ -505,7 +505,7 @@ const PaletteRow = memo(
         )}
 
         {item.kind === 'worktree' && item.worktree && (
-          <span className="shrink-0 text-sm text-text-muted">
+          <span className="shrink-0 text-sm text-fg-muted">
             {item.worktree.isInSidebar ? 'opened' : item.worktree.branch}
           </span>
         )}

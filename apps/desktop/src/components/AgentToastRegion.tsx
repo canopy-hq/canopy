@@ -40,7 +40,7 @@ export function AgentToastRegion() {
       {({ toast }) => (
         <Toast
           toast={toast}
-          className="rounded-lg border border-border bg-bg-tertiary p-4 font-mono shadow-[0_4px_16px_rgba(0,0,0,0.4)]"
+          className="rounded-lg border border-edge bg-surface p-4 font-mono shadow-[0_4px_16px_rgba(0,0,0,0.4)]"
         >
           <ToastContentSlot>
             <div className="flex items-center gap-2">
@@ -48,10 +48,10 @@ export function AgentToastRegion() {
                 status={toast.content.type === 'agent-waiting' ? 'waiting' : 'idle'}
                 size={8}
               />
-              <Text slot="title" className="text-base font-semibold text-text-primary">
+              <Text slot="title" className="font-semibold text-base text-fg">
                 {toast.content.agentName}
               </Text>
-              <span className="min-w-0 flex-1 truncate text-right text-sm text-text-muted">
+              <span className="min-w-0 flex-1 truncate text-right text-sm text-fg-muted">
                 {toast.content.project}/{toast.content.branch}
               </span>
               <Button
@@ -65,7 +65,7 @@ export function AgentToastRegion() {
               </Button>
             </div>
 
-            <Text slot="description" className="mt-1 block text-sm text-text-muted">
+            <Text slot="description" className="mt-1 block text-sm text-fg-muted">
               {eventDescription(toast.content.type)}
             </Text>
 
@@ -80,7 +80,7 @@ export function AgentToastRegion() {
               <Button
                 variant="link"
                 size="sm"
-                className="text-text-muted"
+                className="text-fg-muted"
                 onPress={() => toast.onClose?.()}
               >
                 Dismiss

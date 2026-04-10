@@ -14,9 +14,7 @@ import { tv } from 'tailwind-variants';
 
 const themeCard = tv({
   base: 'flex cursor-pointer flex-col gap-2 rounded-md border p-2 transition-colors',
-  variants: {
-    selected: { true: 'border-accent/60', false: 'border-border/40 hover:border-border' },
-  },
+  variants: { selected: { true: 'border-accent/60', false: 'border-edge/40 hover:border-edge' } },
 });
 
 function capitalize(s: string): string {
@@ -104,7 +102,7 @@ export function AppearanceSection() {
               tabIndex={0}
             >
               <ThemePreview css={themes[name].css} />
-              <span className="font-mono text-base text-text-secondary">{capitalize(name)}</span>
+              <span className="font-mono text-base text-fg-dim">{capitalize(name)}</span>
             </div>
           ))}
         </div>
@@ -120,10 +118,10 @@ export function AppearanceSection() {
             step={1}
             value={currentFontSize}
             onChange={(e) => handleFontSizeChange(Number(e.target.value))}
-            className="h-1 w-40 cursor-pointer appearance-none rounded-full bg-border accent-accent"
+            className="bg-border h-1 w-40 cursor-pointer appearance-none rounded-full accent-accent"
             aria-label="Terminal font size"
           />
-          <span className="min-w-[3ch] text-center font-mono text-base text-text-primary tabular-nums">
+          <span className="min-w-[3ch] text-center font-mono text-base text-fg tabular-nums">
             {currentFontSize}
           </span>
         </div>

@@ -36,13 +36,13 @@ export function ConfirmModal({
       onKeyDown={handleKeyDown}
       role="presentation"
     >
-      <div className="w-[420px] rounded-lg border border-border/60 bg-bg-secondary p-5">
+      <div className="w-[420px] rounded-lg border border-edge/60 bg-raised p-5">
         <Dialog className="outline-none" aria-label={title}>
-          <Heading slot="title" className="font-mono text-base font-medium text-text-primary">
+          <Heading slot="title" className="font-mono text-base font-medium text-fg">
             {title}
           </Heading>
           {description != null && (
-            <p className="mt-2 text-sm leading-relaxed text-text-muted">{description}</p>
+            <p className="mt-2 text-sm leading-relaxed text-fg-muted">{description}</p>
           )}
           {children}
           <div className="mt-5 flex justify-end gap-2">

@@ -50,17 +50,17 @@ const tabItem = tv({
   base: 'group relative flex h-full max-w-[240px] min-w-[120px] shrink items-center gap-2 px-3.5 transition-colors touch-none',
   variants: {
     active: {
-      true: 'bg-bg-primary text-text-primary',
-      false: 'bg-transparent text-text-muted hover:bg-bg-primary/50 hover:text-text-secondary',
+      true: 'bg-base text-fg',
+      false: 'bg-transparent text-fg-muted hover:bg-base/50 hover:text-fg-dim',
     },
     agentWaiting: { true: 'bg-(--agent-waiting-glow)' },
-    dragging: { true: 'pointer-events-none z-50 bg-bg-primary' },
+    dragging: { true: 'pointer-events-none z-50 bg-base' },
   },
   defaultVariants: { active: false, agentWaiting: false, dragging: false },
 });
 
 const closeButton = tv({
-  base: 'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm hover:bg-bg-tertiary [will-change:opacity]',
+  base: 'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm hover:bg-surface [will-change:opacity]',
   variants: {
     active: {
       true: 'opacity-60 hover:opacity-100',
@@ -190,7 +190,7 @@ const TabItemComponent = memo(
           {editing ? (
             <input
               ref={inputRef}
-              className="w-full min-w-0 bg-transparent font-mono text-md text-text-primary outline-none"
+              className="w-full min-w-0 bg-transparent font-mono text-md text-fg outline-none"
               value={draft}
               maxLength={20}
               autoComplete="off"
@@ -217,7 +217,7 @@ const TabItemComponent = memo(
           ) : (
             <>
               {tab.icon === 'claude-code' && (
-                <ClaudeCodeIcon size={12} className="shrink-0 text-[#da7756]" />
+                <ClaudeCodeIcon size={12} className="shrink-0 text-claude" />
               )}
               <span
                 className="flex-1 truncate text-left font-mono text-md"
@@ -400,7 +400,7 @@ export function TabBar() {
   const projectId = activeContextId ?? '';
 
   return (
-    <div className="flex h-10 shrink-0 items-center border-b border-border/20 bg-bg-secondary">
+    <div className="flex h-10 shrink-0 items-center border-b border-edge/20 bg-raised">
       <div ref={addButtonRef}>
         <MenuTrigger>
           <Button aria-label="New tab" size="sm" variant="ghost" iconOnly className="mx-2">
@@ -409,7 +409,7 @@ export function TabBar() {
           <Popover
             placement="bottom start"
             offset={4}
-            className="entering:animate-in entering:fade-in entering:zoom-in-95 exiting:animate-out exiting:fade-out exiting:zoom-out-95 w-max rounded-lg border border-border/60 bg-bg-secondary py-1 shadow-lg outline-none"
+            className="entering:animate-in entering:fade-in entering:zoom-in-95 exiting:animate-out exiting:fade-out exiting:zoom-out-95 w-max rounded-lg border border-edge/60 bg-raised py-1 shadow-lg outline-none"
           >
             <Menu
               className="outline-none"
@@ -420,7 +420,7 @@ export function TabBar() {
             >
               <MenuItem
                 id="terminal"
-                className="flex cursor-default items-center gap-2 px-3 py-1.5 font-mono text-base text-text-secondary outline-none data-[focused]:bg-bg-tertiary"
+                className="flex cursor-default items-center gap-2 px-3 py-1.5 font-mono text-base text-fg-dim outline-none data-[focused]:bg-surface"
               >
                 <SquareTerminal size={12} className="shrink-0" />
                 <span className="flex-1">New terminal</span>
@@ -428,9 +428,9 @@ export function TabBar() {
               </MenuItem>
               <MenuItem
                 id="claude-code"
-                className="flex cursor-default items-center gap-2 px-3 py-1.5 font-mono text-base text-text-secondary outline-none data-[focused]:bg-bg-tertiary"
+                className="flex cursor-default items-center gap-2 px-3 py-1.5 font-mono text-base text-fg-dim outline-none data-[focused]:bg-surface"
               >
-                <ClaudeCodeIcon size={12} className="shrink-0 text-[#da7756]" />
+                <ClaudeCodeIcon size={12} className="shrink-0 text-claude" />
                 <span className="flex-1">Claude Code</span>
               </MenuItem>
             </Menu>

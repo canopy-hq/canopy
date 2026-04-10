@@ -8,7 +8,7 @@ export function SectionLabel({
   return (
     <div
       className={[
-        'font-mono text-xs font-medium tracking-widest text-text-faint uppercase',
+        'font-mono text-xs font-medium tracking-widest text-fg-faint uppercase',
         className,
       ]
         .filter(Boolean)

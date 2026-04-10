@@ -7,7 +7,7 @@ import type { DotStatus } from '@canopy/ui';
 
 const wrapper = tv({
   base: 'absolute top-0 right-0 z-10 rounded-bl-[6px] px-4 py-1 font-mono text-md leading-none flex items-center gap-1 backdrop-blur-[4px] cursor-pointer select-none',
-  variants: { focused: { true: 'text-text-primary', false: 'text-text-muted' } },
+  variants: { focused: { true: 'text-fg', false: 'text-fg-muted' } },
 });
 
 function isCwdTruncated(cwd: string): boolean {
@@ -37,12 +37,9 @@ export function PaneHeader({
   if (!showAgent) return null;
 
   const content = (
-    <div
-      className={wrapper({ focused: isFocused, class: 'bg-bg-tertiary/85' })}
-      onClick={handleCopy}
-    >
+    <div className={wrapper({ focused: isFocused, class: 'bg-surface/85' })} onClick={handleCopy}>
       <StatusDot status={agentStatus} size={8} />
-      {agentName && <span className="text-sm text-text-primary">{agentName}</span>}
+      {agentName && <span className="text-sm text-fg">{agentName}</span>}
     </div>
   );
 

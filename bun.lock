@@ -13,6 +13,7 @@
         "@canopy/db": "workspace:*",
         "@canopy/fps": "workspace:*",
         "@canopy/terminal": "workspace:*",
+        "@canopy/theme": "workspace:*",
         "@canopy/ui": "workspace:*",
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/sortable": "^10.0.0",
@@ -140,6 +141,10 @@
         "react": "catalog:",
       },
     },
+    "packages/theme": {
+      "name": "@canopy/theme",
+      "version": "0.0.1",
+    },
     "packages/tsconfig": {
       "name": "@canopy/tsconfig",
     },
@@ -227,6 +232,8 @@
     "@canopy/fps": ["@canopy/fps@workspace:packages/fps"],
 
     "@canopy/terminal": ["@canopy/terminal@workspace:packages/terminal"],
+
+    "@canopy/theme": ["@canopy/theme@workspace:packages/theme"],
 
     "@canopy/tsconfig": ["@canopy/tsconfig@workspace:packages/tsconfig"],
 
