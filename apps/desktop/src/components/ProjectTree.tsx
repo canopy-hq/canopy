@@ -1524,7 +1524,7 @@ function RepoTreeItem({
             transform ? { ...transform, scaleX: 1, scaleY: 1 } : null,
           ),
           transition,
-          opacity: isDragging ? 0.35 : 1,
+          opacity: isDragging ? 0 : 1,
         }}
       >
         <RepoHeader
