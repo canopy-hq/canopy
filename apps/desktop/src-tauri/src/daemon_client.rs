@@ -53,31 +53,38 @@ impl DaemonClient {
     }
 
     /// Ensure daemon process is running. Synchronous — safe to call from Tauri setup.
-    pub fn ensure_daemon_sync(socket: &Path, bin: &Path) -> Result<(), String> {
+    /// Returns `Some(pid)` when a new daemon was spawned, `None` when one was already running.
+    pub fn ensure_daemon_sync(socket: &Path, bin: &Path) -> Result<Option<u32>, String> {
         // Try to connect first (daemon may already be running)
         if StdUnixStream::connect(socket).is_ok() {
-            return Ok(());
+            return Ok(None);
         }
 
-        // Spawn daemon in its own process group so it survives app exit
+        // Spawn daemon in its own process group so it survives app restart
         use std::os::unix::process::CommandExt;
-        std::process::Command::new(bin)
+        let child = std::process::Command::new(bin)
             .arg(socket)
+            .arg(std::process::id().to_string())
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .process_group(0)
             .spawn()
             .map_err(|e| format!("spawn daemon: {e}"))?;
+        let pid = child.id();
+        // Leak the Child so it isn't waited on — the daemon runs independently.
+        std::mem::forget(child);
 
         // Retry up to 5×50ms = 250ms total
         for _ in 0..5 {
             std::thread::sleep(std::time::Duration::from_millis(50));
             if StdUnixStream::connect(socket).is_ok() {
-                return Ok(());
+                return Ok(Some(pid));
             }
         }
 
+        // Daemon started but never accepted connections — kill the stray process.
+        let _ = std::process::Command::new("kill").args(["-TERM", &pid.to_string()]).output();
         Err("daemon did not start within timeout".to_string())
     }
 

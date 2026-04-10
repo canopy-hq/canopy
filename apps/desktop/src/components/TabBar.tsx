@@ -18,7 +18,12 @@ import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
 import { useDragStyle } from '../hooks/useDragStyle';
 import { useDropping } from '../hooks/useDropping';
 import { useFlipAnimation } from '../hooks/useFlipAnimation';
-import { restrictToHorizontalAxis, sortableTransition, useDragSensors } from '../lib/dnd';
+import {
+  restrictToHorizontalAxis,
+  restrictToMinLeft,
+  sortableTransition,
+  useDragSensors,
+} from '../lib/dnd';
 import { collectLeafPtyIds } from '../lib/pane-tree-ops';
 import {
   closeTab,
@@ -311,6 +316,7 @@ export function TabBar() {
   const activeTabId = ui.activeTabId;
   const [dragging, setDragging] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const addButtonRef = useRef<HTMLDivElement>(null);
   const sensors = useDragSensors();
   useDragStyle(dragging);
   const { snapshot: flipSnapshot } = useFlipAnimation(scrollRef, 'horizontal');
@@ -330,6 +336,13 @@ export function TabBar() {
   );
 
   const tabIds = useMemo(() => tabs.map((t) => t.id), [tabs]);
+  const tabModifiers = useMemo(
+    () => [
+      restrictToHorizontalAxis,
+      restrictToMinLeft(() => addButtonRef.current?.getBoundingClientRect().right ?? 0),
+    ],
+    [],
+  );
   const [scrollState, setScrollState] = useState<{ left: boolean; right: boolean }>({
     left: false,
     right: false,
@@ -388,44 +401,46 @@ export function TabBar() {
 
   return (
     <div className="flex h-10 shrink-0 items-center border-b border-border/20 bg-bg-secondary">
-      <MenuTrigger>
-        <Button aria-label="New tab" size="sm" variant="ghost" iconOnly className="mx-2">
-          <SquarePlus size={14} />
-        </Button>
-        <Popover
-          placement="bottom start"
-          offset={4}
-          className="entering:animate-in entering:fade-in entering:zoom-in-95 exiting:animate-out exiting:fade-out exiting:zoom-out-95 w-max rounded-lg border border-border/60 bg-bg-secondary py-1 shadow-lg outline-none"
-        >
-          <Menu
-            className="outline-none"
-            onAction={(key) => {
-              if (key === 'terminal') addTab(projectId);
-              if (key === 'claude-code') addClaudeCodeTab(projectId);
-            }}
+      <div ref={addButtonRef}>
+        <MenuTrigger>
+          <Button aria-label="New tab" size="sm" variant="ghost" iconOnly className="mx-2">
+            <SquarePlus size={14} />
+          </Button>
+          <Popover
+            placement="bottom start"
+            offset={4}
+            className="entering:animate-in entering:fade-in entering:zoom-in-95 exiting:animate-out exiting:fade-out exiting:zoom-out-95 w-max rounded-lg border border-border/60 bg-bg-secondary py-1 shadow-lg outline-none"
           >
-            <MenuItem
-              id="terminal"
-              className="flex cursor-default items-center gap-2 px-3 py-1.5 font-mono text-base text-text-secondary outline-none data-[focused]:bg-bg-tertiary"
+            <Menu
+              className="outline-none"
+              onAction={(key) => {
+                if (key === 'terminal') addTab(projectId);
+                if (key === 'claude-code') addClaudeCodeTab(projectId);
+              }}
             >
-              <SquareTerminal size={12} className="shrink-0" />
-              <span className="flex-1">New terminal</span>
-              <Kbd>⌘T</Kbd>
-            </MenuItem>
-            <MenuItem
-              id="claude-code"
-              className="flex cursor-default items-center gap-2 px-3 py-1.5 font-mono text-base text-text-secondary outline-none data-[focused]:bg-bg-tertiary"
-            >
-              <ClaudeCodeIcon size={12} className="shrink-0 text-[#da7756]" />
-              <span className="flex-1">Claude Code</span>
-            </MenuItem>
-          </Menu>
-        </Popover>
-      </MenuTrigger>
+              <MenuItem
+                id="terminal"
+                className="flex cursor-default items-center gap-2 px-3 py-1.5 font-mono text-base text-text-secondary outline-none data-[focused]:bg-bg-tertiary"
+              >
+                <SquareTerminal size={12} className="shrink-0" />
+                <span className="flex-1">New terminal</span>
+                <Kbd>⌘T</Kbd>
+              </MenuItem>
+              <MenuItem
+                id="claude-code"
+                className="flex cursor-default items-center gap-2 px-3 py-1.5 font-mono text-base text-text-secondary outline-none data-[focused]:bg-bg-tertiary"
+              >
+                <ClaudeCodeIcon size={12} className="shrink-0 text-[#da7756]" />
+                <span className="flex-1">Claude Code</span>
+              </MenuItem>
+            </Menu>
+          </Popover>
+        </MenuTrigger>
+      </div>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
-        modifiers={[restrictToHorizontalAxis]}
+        modifiers={tabModifiers}
         onDragStart={() => setDragging(true)}
         onDragEnd={handleDragEnd}
         onDragCancel={() => setDragging(false)}

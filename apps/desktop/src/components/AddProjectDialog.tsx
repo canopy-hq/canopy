@@ -74,18 +74,18 @@ const labelCls =
 const errorCls = 'font-mono text-xs text-destructive/80';
 
 const stepCircle = tv({
-  base: 'flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-[background-color,border-color,color] duration-300',
+  base: 'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-[background-color,border-color,color] duration-300',
   variants: {
     status: {
-      active: 'border-transparent bg-accent/15 font-mono text-[10px] text-accent',
+      active: 'border-transparent bg-accent/15 font-mono text-xs text-accent',
       valid: 'border-transparent bg-accent/20 text-accent',
-      pending: 'border-border/30 bg-transparent font-mono text-[10px] text-text-faint',
+      pending: 'border-border/30 bg-transparent font-mono text-xs text-text-faint',
     },
   },
 });
 
 const stepLabel = tv({
-  base: 'font-mono text-xs transition-colors duration-300',
+  base: 'font-mono text-sm transition-colors duration-300',
   variants: { active: { true: 'text-text-primary', false: 'text-text-faint' } },
 });
 
@@ -447,7 +447,7 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
                       <span className="shrink-0 font-mono text-[10px] tracking-widest text-text-faint uppercase">
                         {step2Source.kind === 'local' ? 'Repo' : 'URL'}
                       </span>
-                      <span className="min-w-0 truncate font-mono text-[11px] text-text-secondary">
+                      <span className="min-w-0 truncate font-mono text-sm text-text-secondary">
                         {step2Source.kind === 'local' ? step2Source.path : step2Source.url}
                       </span>
                     </div>

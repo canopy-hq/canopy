@@ -11,6 +11,10 @@ use daemon_client::DaemonClient;
 use tauri::{Emitter, Manager};
 use tauri::window::Color;
 
+/// PID of the daemon process this app spawned. `None` if we attached to an
+/// already-running daemon (e.g. after a crash). Used to SIGTERM on clean exit.
+struct DaemonPid(Mutex<Option<u32>>);
+
 /// Returns the directory that holds the SQLite DB.
 /// - dev  → ~/Library/Application Support/com.superagent.dev/
 /// - prod → ~/Library/Application Support/com.superagent.app/
@@ -85,10 +89,12 @@ pub fn run() {
                 .unwrap_or_else(|| std::path::PathBuf::from("superagent-pty-daemon"));
 
             // Start or connect to the daemon (synchronous)
-            if let Err(e) = DaemonClient::ensure_daemon_sync(&socket, &bin) {
-                eprintln!("Warning: could not start PTY daemon: {e}");
-            }
+            let daemon_pid = match DaemonClient::ensure_daemon_sync(&socket, &bin) {
+                Ok(pid) => pid,
+                Err(e) => { eprintln!("Warning: could not start PTY daemon: {e}"); None }
+            };
 
+            app.manage(DaemonPid(Mutex::new(daemon_pid)));
             app.manage(DaemonClient::new(socket));
             app.manage(Mutex::new(pty::PtyState::new()));
             app.manage(Mutex::new(agent_watcher::AgentWatcherState::new()));
@@ -171,6 +177,19 @@ pub fn run() {
                     if let Some(window) = app.get_webview_window("main") {
                         let _ = window.show();
                         let _ = window.set_focus();
+                    }
+                }
+            }
+            // Clean quit (Cmd+Q): kill the daemon we spawned so it doesn't linger.
+            // Not reached on force-kill (kill -9) — that's acceptable.
+            tauri::RunEvent::Exit => {
+                if let Some(state) = app.try_state::<DaemonPid>() {
+                    if let Ok(guard) = state.0.lock() {
+                        if let Some(pid) = *guard {
+                            let _ = std::process::Command::new("kill")
+                                .args(["-TERM", &pid.to_string()])
+                                .output();
+                        }
                     }
                 }
             }

@@ -158,8 +158,8 @@ describe('pty', () => {
   describe('getPtyCwd', () => {
     it('invokes get_pty_cwd and returns the string result', async () => {
       invokeFn.mockResolvedValueOnce('/tmp/work');
-      const cwd = await pty.getPtyCwd(3);
-      expect(invokeFn).toHaveBeenCalledWith('get_pty_cwd', { ptyId: 3 });
+      const cwd = await pty.getPtyCwd('pane-abc');
+      expect(invokeFn).toHaveBeenCalledWith('get_pty_cwd', { paneId: 'pane-abc' });
       expect(cwd).toBe('/tmp/work');
     });
   });

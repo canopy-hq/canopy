@@ -22,6 +22,16 @@ const groupHeaderRow = tv({
   variants: { isDropTarget: { true: 'border-accent/25 bg-accent/8' } },
 });
 
+const ungroupedDropZoneCls = tv({
+  base: 'mx-4 mt-1 mb-3 flex items-center justify-center rounded border border-dashed font-mono text-xs transition-all duration-150',
+  variants: {
+    active: {
+      true: 'border-accent/40 bg-accent/8 py-3 text-accent/60',
+      false: 'border-border/25 py-1.5 text-text-faint/35',
+    },
+  },
+});
+
 const GroupHeader = memo(
   function GroupHeader({
     group,
@@ -92,7 +102,7 @@ const GroupHeader = memo(
               if (e.key === 'Escape') onRenameCancel();
             }}
             onClick={(e) => e.stopPropagation()}
-            className="m-0 min-w-0 flex-1 border-none bg-transparent p-0 font-mono text-xs font-semibold tracking-widest text-text-faint uppercase outline-none"
+            className="m-0 min-w-0 flex-1 appearance-none border-none bg-transparent p-0 font-mono text-xs font-semibold tracking-widest text-text-faint uppercase outline-none"
           />
         ) : (
           <span
@@ -106,7 +116,7 @@ const GroupHeader = memo(
           </span>
         )}
         {group.collapsed && projectCount > 0 && (
-          <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.25 py-px font-mono text-xs leading-none text-text-faint tabular-nums">
+          <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.5 py-px font-mono text-sm leading-none text-text-faint tabular-nums">
             {projectCount}
           </span>
         )}
@@ -145,14 +155,7 @@ export function UngroupedDropZone({ visible, isActive }: { visible: boolean; isA
   if (!visible) return null;
 
   return (
-    <div
-      ref={setNodeRef}
-      className={`mx-2 my-1 rounded border border-dashed px-3 font-mono text-xs transition-all duration-150 ${
-        isOver || isActive
-          ? 'border-accent/40 bg-accent/8 py-3 text-accent/60'
-          : 'border-border/25 py-1.5 text-text-faint/35'
-      }`}
-    >
+    <div ref={setNodeRef} className={ungroupedDropZoneCls({ active: isOver || isActive })}>
       Drop here to remove from group
     </div>
   );
