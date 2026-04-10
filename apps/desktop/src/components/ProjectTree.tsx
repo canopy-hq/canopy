@@ -96,8 +96,6 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
     [projectsByGroup],
   );
 
-  const allProjects = rawProjects;
-
   const {
     selectedItemId,
     activeContextId,
@@ -129,13 +127,13 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
   const agentMap = useProjectAgentMap();
   const pageVisible = usePageVisible();
   const diffStatsMap = useProjectPolling(
-    allProjects,
+    rawProjects,
     sidebarVisible && pageVisible,
     activeContextId ?? undefined,
   );
   const settings = useSettings();
   const githubConnected = getSetting(settings, GITHUB_CONNECTION_KEY, null) !== null;
-  const prMap = usePrPolling(allProjects, sidebarVisible && pageVisible, githubConnected);
+  const prMap = usePrPolling(rawProjects, sidebarVisible && pageVisible, githubConnected);
   const navigate = useNavigate();
 
   const sensors = useDragSensors();
@@ -156,7 +154,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
     handleDragCancel,
   } = useProjectTreeDnD({
     groups,
-    allProjects,
+    allProjects: rawProjects,
     projectsByGroup,
     ungroupedProjects,
     headerRef,
@@ -169,6 +167,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
     () => effectiveSortedByGroup.get(null) ?? [],
     [effectiveSortedByGroup],
   );
+  const groupSortableIds = useMemo(() => groups.map((g) => g.id), [groups]);
   const ungroupedProjectIds = useMemo(
     () => effectiveUngrouped.map((p) => p.id),
     [effectiveUngrouped],
@@ -275,29 +274,31 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
         onDragCancel={handleDragCancel}
       >
         {hasGroups && (
-          <SortableContext items={groups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
+          <SortableContext items={groupSortableIds} strategy={verticalListSortingStrategy}>
             <div ref={groupListRef}>
-              {groups.map((group) => (
-                <GroupTreeItem
-                  key={group.id}
-                  group={group}
-                  groupProjects={effectiveSortedByGroup.get(group.id) ?? []}
-                  isRenaming={pendingRenameGroupId === group.id}
-                  isDropTarget={
-                    overGroupId === group.id &&
-                    (group.collapsed || (effectiveSortedByGroup.get(group.id) ?? []).length === 0)
-                  }
-                  onRenameEnd={() => setPendingRenameGroupId(null)}
-                  diffStatsMap={diffStatsMap}
-                  prMap={prMap}
-                  cloningProjectIdSet={cloningProjectIdSet}
-                  cloneProgressMap={cloneProgress}
-                  onRequestRemoveWt={(projectId, name, branch) =>
-                    setRemoveWtTarget({ projectId, name, branch })
-                  }
-                  {...sharedRepoProps}
-                />
-              ))}
+              {groups.map((group) => {
+                const groupProjects = effectiveSortedByGroup.get(group.id) ?? [];
+                return (
+                  <GroupTreeItem
+                    key={group.id}
+                    group={group}
+                    groupProjects={groupProjects}
+                    isRenaming={pendingRenameGroupId === group.id}
+                    isDropTarget={
+                      overGroupId === group.id && (group.collapsed || groupProjects.length === 0)
+                    }
+                    onRenameEnd={() => setPendingRenameGroupId(null)}
+                    diffStatsMap={diffStatsMap}
+                    prMap={prMap}
+                    cloningProjectIdSet={cloningProjectIdSet}
+                    cloneProgressMap={cloneProgress}
+                    onRequestRemoveWt={(projectId, name, branch) =>
+                      setRemoveWtTarget({ projectId, name, branch })
+                    }
+                    {...sharedRepoProps}
+                  />
+                );
+              })}
             </div>
           </SortableContext>
         )}
@@ -426,7 +427,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
 
             // If the deleted wt is the active context, redirect to the first remaining item.
             if (activeContextId === itemId) {
-              const ws = allProjects.find((w) => w.id === projectId);
+              const ws = rawProjects.find((w) => w.id === projectId);
               const fallback = ws
                 ? [
                     ...ws.branches.map((b) => `${ws.id}-branch-${b.name}`),

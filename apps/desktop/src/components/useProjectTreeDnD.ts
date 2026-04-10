@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import type { RefObject } from 'react';
 
 import {
@@ -59,7 +59,10 @@ export function useProjectTreeDnD({
   // Cached at drag-start to avoid getBoundingClientRect on every pointer move.
   const headerBottomRef = useRef(0);
 
-  const groupIds = useMemo(() => groups.map((g) => g.id), [groups]);
+  useEffect(() => () => clearTimeout(autoExpandTimer.current), []);
+
+  const groupIdSet = useMemo(() => new Set(groups.map((g) => g.id)), [groups]);
+  const allProjectsById = useMemo(() => new Map(allProjects.map((p) => [p.id, p])), [allProjects]);
 
   const restrictAboveHeader = useMemo(() => restrictToMinTop(() => headerBottomRef.current), []);
   const modifiers = useMemo<Modifier[]>(
@@ -72,9 +75,7 @@ export function useProjectTreeDnD({
     const result = new Map<string | null, Project[]>();
     if (draftGroupItems) {
       for (const [groupId, ids] of draftGroupItems) {
-        const projects = ids
-          .map((id) => allProjects.find((p) => p.id === id))
-          .filter(Boolean) as Project[];
+        const projects = ids.map((id) => allProjectsById.get(id)).filter(Boolean) as Project[];
         result.set(groupId, projects);
       }
     } else {
@@ -87,7 +88,7 @@ export function useProjectTreeDnD({
       }
     }
     return result;
-  }, [draftGroupItems, allProjects, ungroupedProjects, projectsByGroup, groups]);
+  }, [draftGroupItems, allProjectsById, ungroupedProjects, projectsByGroup, groups]);
 
   const collisionDetection: CollisionDetection = useCallback(
     (args) => {
@@ -95,13 +96,13 @@ export function useProjectTreeDnD({
       const current = activeDragRef.current;
       if (current?.type === 'group') {
         const groupContainers = args.droppableContainers.filter((c: DroppableContainer) =>
-          groupIds.includes(String(c.id)),
+          groupIdSet.has(String(c.id)),
         );
         return closestCenter({ ...args, droppableContainers: groupContainers });
       }
       return closestCenter(args);
     },
-    [groupIds],
+    [groupIdSet],
   );
 
   const handleDragStart = useCallback(
@@ -114,7 +115,7 @@ export function useProjectTreeDnD({
         const group = groups.find((g) => g.id === active.id);
         info = { type: 'group', id: String(active.id), name: group?.name ?? '' };
       } else {
-        const project = allProjects.find((p) => p.id === active.id);
+        const project = allProjectsById.get(String(active.id));
         info = {
           type: 'project',
           id: String(active.id),
@@ -147,7 +148,7 @@ export function useProjectTreeDnD({
         setDraftGroupItems(draft);
       }
     },
-    [groups, allProjects, projectsByGroup, headerRef],
+    [groups, allProjectsById, projectsByGroup, headerRef],
   );
 
   const handleDragOver = useCallback(
@@ -187,7 +188,7 @@ export function useProjectTreeDnD({
       });
 
       if (isOverProject && overId && overId !== current.id) {
-        const overProject = allProjects.find((p) => p.id === overId);
+        const overProject = allProjectsById.get(overId);
         if (!overProject) return;
         const targetGroupId = overProject.groupId ?? null;
         const activeId = current.id;
@@ -229,7 +230,7 @@ export function useProjectTreeDnD({
         setDraftGroupItems(draft);
       }
     },
-    [groups, allProjects],
+    [groups, allProjectsById],
   );
 
   const handleDragEnd = useCallback(
@@ -266,7 +267,7 @@ export function useProjectTreeDnD({
           return;
         }
 
-        const activeProject = allProjects.find((p) => p.id === activeId);
+        const activeProject = allProjectsById.get(activeId);
         if (!activeProject) return;
         const originalGroupId = activeProject.groupId ?? null;
 
@@ -299,7 +300,7 @@ export function useProjectTreeDnD({
             }
             // Same group: if over a specific project use arrayMove, else commit draft order
             if (overId && overId !== activeId) {
-              const overProject = allProjects.find((p) => p.id === overId);
+              const overProject = overId ? allProjectsById.get(overId) : undefined;
               if (overProject && (overProject.groupId ?? null) === originalGroupId) {
                 const list =
                   originalGroupId === null
@@ -333,7 +334,7 @@ export function useProjectTreeDnD({
         }
 
         if (activeId === overId2) return;
-        const overProject = allProjects.find((p) => p.id === overId2);
+        const overProject = allProjectsById.get(overId2);
         if (!overProject) return;
         const overGroupId = overProject.groupId ?? null;
 
@@ -364,7 +365,7 @@ export function useProjectTreeDnD({
         }
       }
     },
-    [groups, allProjects, ungroupedProjects, projectsByGroup, groupFlipSnapshot],
+    [groups, allProjectsById, ungroupedProjects, projectsByGroup, groupFlipSnapshot],
   );
 
   const handleDragCancel = useCallback(() => {
