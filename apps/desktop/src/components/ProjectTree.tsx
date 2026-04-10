@@ -693,7 +693,7 @@ function UngroupedDropZone({ visible }: { visible: boolean }) {
           : 'border-border/25 py-1.5 text-text-faint/35'
       }`}
     >
-      No group
+      Drop here to remove from group
     </div>
   );
 }
