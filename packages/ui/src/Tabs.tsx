@@ -31,7 +31,7 @@ export function Tab({ className, ...props }: Omit<TabProps, 'className'> & { cla
   return (
     <RACTab
       className={[
-        'cursor-pointer rounded px-2 py-0.5 font-mono text-[11px] outline-none transition-colors',
+        'cursor-pointer rounded px-2 py-0.5 font-mono text-sm outline-none transition-colors',
         'text-text-muted hover:text-text-primary',
         'data-[selected]:bg-accent/10 data-[selected]:text-accent data-[selected]:hover:text-accent',
         className,

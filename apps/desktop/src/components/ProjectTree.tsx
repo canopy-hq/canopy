@@ -228,7 +228,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
         ref={headerRef}
         className="flex h-10 items-center gap-2 border-b border-border/20 pr-2 pl-3"
       >
-        <span className="flex-1 font-mono text-sm font-medium tracking-widest text-text-faint uppercase">
+        <span className="flex-1 font-mono text-sm leading-none font-medium tracking-widest text-text-faint uppercase">
           Projects
         </span>
         <Tooltip label="New group" placement="right">
@@ -307,7 +307,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
           <>
             {hasGroups && (
               <div className="flex h-7 items-center px-3">
-                <span className="font-mono text-xs font-semibold tracking-widest text-text-faint/50 uppercase">
+                <span className="font-mono text-xs leading-none font-semibold tracking-widest text-text-faint/50 uppercase">
                   Ungrouped
                 </span>
               </div>

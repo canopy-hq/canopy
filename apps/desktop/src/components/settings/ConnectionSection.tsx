@@ -158,7 +158,7 @@ function ClaudeDefaultMode() {
             <span className="font-medium">
               {m === 'bypass' ? 'Bypass permissions' : 'Plan mode'}
             </span>
-            <span className="mt-0.5 block text-xs text-text-faint">
+            <span className="mt-0.5 block text-sm text-text-faint">
               {m === 'bypass' ? 'Skip permission prompts' : 'Review before executing'}
             </span>
           </button>

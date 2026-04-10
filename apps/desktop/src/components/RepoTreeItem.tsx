@@ -70,9 +70,10 @@ const PR_COLOR: Record<PrInfo['state'], 'success' | 'neutral' | 'merged' | 'erro
   CLOSED: 'error',
 };
 
-const branchName = tv({
+const itemName = tv({
   base: 'min-w-0 flex-1 truncate font-mono text-sm leading-none',
-  variants: { head: { true: 'text-text-secondary', false: 'text-text-muted' } },
+  variants: { color: { secondary: 'text-text-secondary', muted: 'text-text-muted' } },
+  defaultVariants: { color: 'muted' },
 });
 
 const worktreeRow = tv({
@@ -91,13 +92,98 @@ const PrBadge = memo(function PrBadge({ pr }: { pr: PrInfo }) {
       className={badge({
         color: PR_COLOR[pr.state],
         size: 'sm',
-        class: 'gap-1 font-mono text-[11px] font-normal hover:brightness-125',
+        class: 'gap-1 font-mono text-sm font-normal hover:brightness-125',
       })}
     >
       <GitPullRequest size={10} className="shrink-0" />#{pr.number}
     </button>
   );
 });
+
+function ItemRow({
+  icon,
+  name,
+  nameColor = 'muted',
+  onNameDoubleClick,
+  editing = false,
+  editRef,
+  editValue,
+  onEditChange,
+  onEditBlur,
+  onEditKeyDown,
+  tabCount,
+  isDeleting = false,
+  badge,
+  diffStat,
+  prInfo,
+}: {
+  icon: React.ReactNode;
+  name: string;
+  nameColor?: 'secondary' | 'muted';
+  onNameDoubleClick?: () => void;
+  editing?: boolean;
+  editRef?: React.Ref<HTMLInputElement>;
+  editValue?: string;
+  onEditChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onEditBlur?: () => void;
+  onEditKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  tabCount?: number;
+  isDeleting?: boolean;
+  badge?: React.ReactNode;
+  diffStat?: DiffStat;
+  prInfo?: PrInfo;
+}) {
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        {icon}
+        {editing ? (
+          <input
+            ref={editRef}
+            value={editValue}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            onChange={onEditChange}
+            onBlur={onEditBlur}
+            onKeyDown={onEditKeyDown}
+            className="m-0 min-w-0 flex-1 appearance-none border-none bg-transparent p-0 font-mono text-sm leading-none text-text-secondary outline-none"
+          />
+        ) : (
+          <span className={itemName({ color: nameColor })} onDoubleClick={onNameDoubleClick}>
+            {name}
+          </span>
+        )}
+        {isDeleting ? (
+          <span className="shrink-0 font-mono text-xs text-destructive/50">removing…</span>
+        ) : (
+          !editing &&
+          tabCount != null &&
+          tabCount > 0 && (
+            <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.5 py-px font-mono text-sm leading-none text-text-faint tabular-nums">
+              {tabCount}
+            </span>
+          )
+        )}
+      </div>
+      {badge != null && !isDeleting && (
+        <div className="mt-1 flex min-w-0 items-center gap-2 pl-[32px]">{badge}</div>
+      )}
+      {!isDeleting && (diffStat || prInfo) && (
+        <div className="mt-1 flex items-center gap-1 pl-[32px]">
+          {diffStat &&
+            (diffStat.additions > 0 || diffStat.deletions > 0 ? (
+              <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />
+            ) : (
+              <span className="font-mono text-xs text-text-faint">—</span>
+            ))}
+          {prInfo && <PrBadge pr={prInfo} />}
+        </div>
+      )}
+    </>
+  );
+}
 
 const BranchRow = memo(
   function BranchRow({
@@ -117,28 +203,18 @@ const BranchRow = memo(
   }) {
     return (
       <div className="py-1.5 pr-3 pl-3">
-        <div className="flex items-center gap-2">
-          <IconWithBadge agentStatus={agentStatus}>
-            <Laptop size={14} stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'} />
-          </IconWithBadge>
-          <span className={branchName({ head: branch.is_head })}>{branch.name}</span>
-          {tabCount != null && tabCount > 0 && (
-            <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.25 py-px font-mono text-xs leading-none text-text-faint tabular-nums">
-              {tabCount}
-            </span>
-          )}
-        </div>
-        {(diffStat || prInfo) && (
-          <div className="mt-1 flex items-center gap-2 pl-[32px]">
-            {diffStat &&
-              (diffStat.additions > 0 || diffStat.deletions > 0 ? (
-                <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />
-              ) : (
-                <span className="font-mono text-xs text-text-faint">—</span>
-              ))}
-            {prInfo && <PrBadge pr={prInfo} />}
-          </div>
-        )}
+        <ItemRow
+          icon={
+            <IconWithBadge agentStatus={agentStatus}>
+              <Laptop size={14} stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'} />
+            </IconWithBadge>
+          }
+          name={branch.name}
+          nameColor={branch.is_head ? 'secondary' : 'muted'}
+          tabCount={tabCount}
+          diffStat={diffStat}
+          prInfo={prInfo}
+        />
       </div>
     );
   },
@@ -204,76 +280,45 @@ const WorktreeRow = memo(
 
     return (
       <div className={worktreeRow({ deleting: isDeleting })}>
-        <div className="flex items-center gap-2">
-          {isDeleting ? (
-            <div className="relative flex w-6 shrink-0 items-center justify-center">
-              <Spinner size={14} className="text-destructive/60" />
-            </div>
-          ) : (
-            <IconWithBadge agentStatus={agentStatus}>
-              <FolderGit2 size={14} stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'} />
-            </IconWithBadge>
-          )}
-          {editing ? (
-            <input
-              ref={inputRef}
-              value={editValue}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              onChange={(e) => setEditValue(e.target.value)}
-              onBlur={commitEdit}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === 'Enter') commitEdit();
-                if (e.key === 'Escape') {
-                  setEditing(false);
-                  onRenameEnd?.();
-                }
-              }}
-              className="m-0 min-w-0 flex-1 border-none bg-transparent p-0 font-mono text-sm leading-none text-[var(--text-secondary)] outline-none"
-            />
-          ) : (
-            <span
-              className="min-w-0 flex-1 truncate font-mono text-sm leading-none text-text-secondary"
-              onDoubleClick={startEditing}
-            >
-              {displayName}
-            </span>
-          )}
-          {isDeleting ? (
-            <span className="shrink-0 font-mono text-xs text-destructive/50">removing…</span>
-          ) : (
-            !editing &&
-            tabCount != null &&
-            tabCount > 0 && (
-              <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.25 py-px font-mono text-xs leading-none text-text-faint tabular-nums">
-                {tabCount}
-              </span>
+        <ItemRow
+          icon={
+            isDeleting ? (
+              <div className="relative flex w-6 shrink-0 items-center justify-center">
+                <Spinner size={14} className="text-destructive/60" />
+              </div>
+            ) : (
+              <IconWithBadge agentStatus={agentStatus}>
+                <FolderGit2 size={14} stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'} />
+              </IconWithBadge>
             )
-          )}
-        </div>
-        {!isDeleting && (
-          <div className="mt-1 flex min-w-0 items-center gap-2 pl-[32px]">
-            <Badge size="sm" className="min-w-0 shrink gap-1 font-mono text-[11px]">
+          }
+          name={displayName}
+          nameColor="secondary"
+          onNameDoubleClick={startEditing}
+          editing={editing}
+          editRef={inputRef}
+          editValue={editValue}
+          onEditChange={(e) => setEditValue(e.target.value)}
+          onEditBlur={commitEdit}
+          onEditKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter') commitEdit();
+            if (e.key === 'Escape') {
+              setEditing(false);
+              onRenameEnd?.();
+            }
+          }}
+          tabCount={tabCount}
+          isDeleting={isDeleting}
+          badge={
+            <Badge size="md" className="min-w-0 shrink gap-1 font-mono">
               <GitBranch size={10} className="shrink-0 opacity-60" />
               <span className="min-w-0 truncate">{worktree.branch || worktree.name}</span>
             </Badge>
-          </div>
-        )}
-        {!isDeleting && (diffStat || prInfo) && (
-          <div className="mt-1 flex items-center gap-1 pl-[32px]">
-            {diffStat ? (
-              diffStat.additions > 0 || diffStat.deletions > 0 ? (
-                <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />
-              ) : (
-                <span className="font-mono text-xs text-text-faint">—</span>
-              )
-            ) : null}
-            {prInfo && <PrBadge pr={prInfo} />}
-          </div>
-        )}
+          }
+          diffStat={diffStat}
+          prInfo={prInfo}
+        />
       </div>
     );
   },
@@ -412,11 +457,11 @@ const RepoHeader = memo(
               if (e.key === 'Escape') onRenameCancel();
             }}
             onClick={(e) => e.stopPropagation()}
-            className="min-w-0 flex-1 border-none bg-transparent font-mono text-lg font-medium text-text-primary outline-none"
+            className="min-w-0 flex-1 appearance-none border-none bg-transparent font-mono text-lg leading-none font-medium text-text-primary outline-none"
           />
         ) : (
           <>
-            <span className="min-w-0 flex-1 truncate font-mono text-lg font-medium text-text-primary">
+            <span className="min-w-0 flex-1 truncate font-mono text-lg leading-none font-medium text-text-primary">
               {project.name}
             </span>
             {isInvalid && (
@@ -443,7 +488,7 @@ const RepoHeader = memo(
           </span>
         )}
         {!isRenaming && !project.expanded && childCount > 0 && (
-          <span className="rounded-sm bg-bg-tertiary/60 px-1.25 py-px font-mono text-xs leading-none text-text-faint tabular-nums">
+          <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.5 py-px font-mono text-sm leading-none text-text-faint tabular-nums">
             {childCount}
           </span>
         )}

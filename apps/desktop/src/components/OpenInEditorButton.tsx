@@ -65,9 +65,10 @@ export function OpenInEditorButton() {
       <Tooltip label={label} placement="left">
         <Button
           variant="ghost"
+          size="sm"
           onPress={() => handleOpen(defaultEditor)}
           aria-label={label}
-          className="h-7 px-2 text-xs font-medium text-text-secondary"
+          className="font-medium text-text-secondary"
         >
           {label}
         </Button>
@@ -81,9 +82,10 @@ export function OpenInEditorButton() {
       <Tooltip label={label} placement="left">
         <Button
           variant="ghost"
+          size="sm"
           onPress={() => handleOpen(defaultEditor)}
           aria-label={label}
-          className="h-7 rounded-r-none px-2 text-xs font-medium text-text-secondary"
+          className="rounded-r-none font-medium text-text-secondary"
         >
           {label}
         </Button>

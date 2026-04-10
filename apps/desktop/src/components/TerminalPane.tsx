@@ -63,7 +63,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
 
     const poll = async () => {
       try {
-        const newCwd = await getPtyCwd(realPtyId);
+        const newCwd = await getPtyCwd(paneId);
         if (!cancelled && newCwd) {
           setCwd((prev) => {
             if (prev === newCwd) return prev;

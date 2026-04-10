@@ -24,5 +24,21 @@ export function restrictToMinTop(getMinY: () => number): Modifier {
   };
 }
 
+/**
+ * Returns a modifier that prevents the drag overlay from moving left of `getMinX()`.
+ * Pass a stable getter (e.g. reading from a ref) — it is called on every pointer move.
+ */
+export function restrictToMinLeft(getMinX: () => number): Modifier {
+  return ({ transform, draggingNodeRect }) => {
+    if (!draggingNodeRect) return transform;
+    const minX = getMinX();
+    const projectedLeft = draggingNodeRect.left + transform.x;
+    if (projectedLeft < minX) {
+      return { ...transform, x: minX - draggingNodeRect.left };
+    }
+    return transform;
+  };
+}
+
 /** Transition for displaced items during sort — ease-out feels more natural than linear ease. */
 export const sortableTransition = { duration: 200, easing: 'ease-out' } as const;

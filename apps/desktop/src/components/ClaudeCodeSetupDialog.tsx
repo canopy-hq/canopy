@@ -31,7 +31,7 @@ function ModeCard({ selected, onSelect, title, description }: ModeCardProps) {
   return (
     <button type="button" onClick={onSelect} className={modeCard({ selected })}>
       <span className="font-mono text-sm leading-none font-medium">{title}</span>
-      <span className="font-mono text-xs leading-relaxed text-text-faint">{description}</span>
+      <span className="font-mono text-sm leading-relaxed text-text-faint">{description}</span>
     </button>
   );
 }
@@ -86,7 +86,7 @@ export function ClaudeCodeSetupDialog({
               >
                 Launch Claude Code
               </Heading>
-              <p className="mt-1 font-mono text-xs text-text-faint">{worktreeName} is ready</p>
+              <p className="mt-1 font-mono text-sm text-text-faint">{worktreeName} is ready</p>
             </div>
           </div>
 
