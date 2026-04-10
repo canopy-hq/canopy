@@ -4753,6 +4753,7 @@ dependencies = [
 name = "superagent-pty-daemon"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "portable-pty",
  "serde_json",
  "tempfile",

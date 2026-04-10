@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from 'react';
 
 import { getUiState } from '@superagent/db';
-import { Button } from '@superagent/ui';
+import { Button, SectionLabel } from '@superagent/ui';
 import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router';
 import { ChevronLeft, Palette, GitBranch } from 'lucide-react';
 import { tv } from 'tailwind-variants';
@@ -82,9 +82,7 @@ function SettingsRoute() {
         <nav className="flex-1 space-y-4 px-3 pt-3">
           {NAV.map((group) => (
             <div key={group.label}>
-              <div className="mb-1 px-2 font-mono text-2xs font-medium tracking-widest text-text-faint uppercase">
-                {group.label}
-              </div>
+              <SectionLabel className="mb-1 px-2">{group.label}</SectionLabel>
               <div className="space-y-0.5">
                 {group.items.map((item) => (
                   <Button

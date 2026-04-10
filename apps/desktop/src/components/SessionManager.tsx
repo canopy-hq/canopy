@@ -4,6 +4,7 @@ import { Dialog, Modal, ModalOverlay } from 'react-aria-components';
 import { closePty, listPtySessions } from '@superagent/terminal';
 import { Button, SectionLabel } from '@superagent/ui';
 import { useNavigate } from '@tanstack/react-router';
+import { tv } from 'tailwind-variants';
 
 import { useTabs, useProjects } from '../hooks/useCollections';
 import { containsPtyId } from '../lib/pane-tree-ops';
@@ -34,6 +35,16 @@ interface SessionRow {
   projectName: string;
   projectItemId: string;
 }
+
+const sessionRowCls = tv({
+  base: 'flex h-9 items-center gap-3 px-3 text-base text-text-primary outline-none',
+  variants: {
+    interactive: {
+      true: 'cursor-pointer hover:bg-bg-tertiary/50',
+      false: 'cursor-default opacity-50',
+    },
+  },
+});
 
 /**
  * Mounted only when the panel is open — polling starts on mount, stops on unmount.
@@ -172,9 +183,9 @@ export function SessionManager({ onClose }: SessionManagerProps) {
         <Dialog className="flex min-h-0 flex-col outline-none" aria-label="PTY Session Manager">
           {/* Header */}
           <div className="flex shrink-0 items-center gap-2 border-b border-border/40 px-3 py-2.5">
-            <span className="flex-1 text-[13px] text-text-primary">PTY Sessions</span>
+            <span className="flex-1 text-base text-text-primary">PTY Sessions</span>
             {rows.length > 0 && (
-              <span className="font-mono text-[11px] text-text-faint tabular-nums">
+              <span className="font-mono text-sm text-text-faint tabular-nums">
                 {rows.length} {rows.length === 1 ? 'session' : 'sessions'}
               </span>
             )}
@@ -221,14 +232,10 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') handleJump(row);
                       }}
-                      className={`flex h-9 items-center gap-3 px-3 text-[13px] text-text-primary outline-none ${
-                        row.tab
-                          ? 'cursor-pointer hover:bg-bg-tertiary/50'
-                          : 'cursor-default opacity-50'
-                      }`}
+                      className={sessionRowCls({ interactive: !!row.tab })}
                     >
                       <span className="min-w-0 flex-1 truncate">{row.tab?.label ?? '—'}</span>
-                      <span className="shrink-0 font-mono text-[11px] text-text-faint tabular-nums">
+                      <span className="shrink-0 font-mono text-sm text-text-faint tabular-nums">
                         {row.info.cpuPercent.toFixed(1)}% · {row.info.memoryMb}MB
                       </span>
                       <div onClick={(e) => e.stopPropagation()}>

@@ -22,7 +22,7 @@ function splitKeys(str: string): string[] {
 
 const VARIANT_CLASS = {
   default:
-    'inline-flex items-center rounded bg-bg-secondary px-1 py-0.5 text-[11px] leading-none text-text-muted',
+    'inline-flex items-center rounded bg-bg-secondary px-1 py-0.5 text-sm leading-none text-text-muted',
   menu: 'inline-flex items-center rounded border border-border/60 bg-bg-primary px-1 py-0.5 text-[10px] leading-none text-text-muted',
 } as const;
 

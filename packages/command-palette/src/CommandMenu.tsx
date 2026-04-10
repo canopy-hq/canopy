@@ -35,7 +35,7 @@ import type { CommandContext, CommandItem, CommandMenuProps, PanelContext } from
 const SECTION_CYCLE: MenuSection[] = ['root', 'projects', 'tabs', 'pty', 'agents'];
 
 const commandItem = tv({
-  base: 'flex h-9 items-center gap-2 px-3 text-[13px] outline-none',
+  base: 'flex h-9 items-center gap-2 px-3 text-base outline-none',
   variants: {
     disabled: {
       true: 'cursor-not-allowed text-text-faint',
@@ -243,7 +243,7 @@ export function CommandMenu({
           {panelItem ? (
             <>
               {/* Panel breadcrumb — shows drillStack context + panel item */}
-              <div className="flex items-center gap-1 border-b border-border px-3 py-2 text-[11px] text-text-muted">
+              <div className="flex items-center gap-1 border-b border-border px-3 py-2 text-sm text-text-muted">
                 <button
                   type="button"
                   tabIndex={-1}
@@ -295,7 +295,7 @@ export function CommandMenu({
           ) : (
             <>
               {/* Breadcrumb — always visible */}
-              <div className="flex items-center gap-1 border-b border-border px-3 py-2 text-[11px] text-text-muted">
+              <div className="flex items-center gap-1 border-b border-border px-3 py-2 text-sm text-text-muted">
                 {drillStack.length === 0 ? (
                   <span className="text-text-primary">root</span>
                 ) : (
@@ -339,7 +339,7 @@ export function CommandMenu({
                   value={query}
                   onChange={(e) => dispatch({ type: 'SET_QUERY', query: e.target.value })}
                   onKeyDown={handleKeyDown}
-                  className="flex-1 bg-transparent text-[13px] text-text-primary outline-none placeholder:text-text-muted/60"
+                  className="flex-1 bg-transparent text-base text-text-primary outline-none placeholder:text-text-muted/60"
                   placeholder={
                     drillStack.length > 0
                       ? `Search in ${drillStack[drillStack.length - 1]!.label}…`
@@ -376,7 +376,7 @@ export function CommandMenu({
                         dispatch({ type: 'SET_SECTION', section: s });
                         inputRef.current?.focus();
                       }}
-                      className={`cursor-pointer rounded px-2 py-0.5 text-[11px] capitalize transition-colors ${
+                      className={`cursor-pointer rounded px-2 py-0.5 text-sm capitalize transition-colors ${
                         section === s
                           ? 'bg-accent/10 text-accent'
                           : 'text-text-muted hover:text-text-primary'
@@ -391,7 +391,7 @@ export function CommandMenu({
               {/* Command list */}
               <div className="min-h-0 flex-1 overflow-y-auto">
                 {sections.length === 0 ? (
-                  <div className="flex items-center justify-center py-8 text-[13px] text-text-muted">
+                  <div className="flex items-center justify-center py-8 text-base text-text-muted">
                     No results
                   </div>
                 ) : (

@@ -45,7 +45,7 @@ export function SectionHeader({ label }: { label: string }) {
 
 export function FooterBar({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex shrink-0 items-center gap-2.5 border-t border-border bg-bg-primary/40 px-3 py-2 text-[11px] text-text-muted/60">
+    <div className="flex shrink-0 items-center gap-2.5 border-t border-border bg-bg-primary/40 px-3 py-2 text-sm text-text-muted/60">
       {children}
     </div>
   );

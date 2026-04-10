@@ -1,6 +1,18 @@
 import { useState } from 'react';
 
 import { ConfirmModal } from '@superagent/ui';
+import { Check } from 'lucide-react';
+import { tv } from 'tailwind-variants';
+
+const checkbox = tv({
+  base: 'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors',
+  variants: {
+    checked: {
+      true: 'border-destructive/50 bg-destructive/10',
+      false: 'border-border/50 bg-bg-primary/50',
+    },
+  },
+});
 
 export interface RemoveWorktreeModalProps {
   isOpen: boolean;
@@ -30,14 +42,17 @@ export function RemoveWorktreeModal({
       onConfirm={() => onConfirm(deleteGit)}
       onClose={onClose}
     >
-      <label className="mt-4 flex cursor-pointer items-center gap-2">
+      <label className="mt-4 flex cursor-pointer items-start gap-2.5">
+        <div className={checkbox({ checked: deleteGit })}>
+          {deleteGit && <Check size={10} strokeWidth={2.5} className="text-destructive" />}
+        </div>
         <input
           type="checkbox"
           checked={deleteGit}
           onChange={(e) => setDeleteGit(e.target.checked)}
-          className="accent-destructive"
+          className="sr-only"
         />
-        <span className="text-sm text-text-muted">
+        <span className="text-sm leading-relaxed text-text-muted">
           Also delete the working directory and local branch{branch ? ` (${branch})` : ''}
         </span>
       </label>
