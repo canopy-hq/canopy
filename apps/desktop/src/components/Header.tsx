@@ -18,7 +18,7 @@ export function Header({ onSessionsClick, onSearchClick }: HeaderProps = {}) {
   return (
     <header
       data-tauri-drag-region
-      className="relative flex h-12 shrink-0 items-center border-b border-border/20 bg-bg-secondary pl-[78px]"
+      className="relative flex h-12 shrink-0 items-center border-b border-edge/20 bg-raised pl-[78px]"
     >
       {/* Left zone — sidebar toggle + PTY sessions */}
       <div data-tauri-drag-region className="flex h-full items-center px-1">
@@ -54,7 +54,7 @@ export function Header({ onSessionsClick, onSearchClick }: HeaderProps = {}) {
         <button
           type="button"
           onClick={onSearchClick}
-          className="pointer-events-auto flex w-full max-w-[320px] cursor-pointer items-center gap-2 rounded-md border border-border/30 bg-bg-primary/40 px-3 py-1.5 text-base text-text-faint transition-colors hover:border-border/50 hover:bg-bg-primary/70 hover:text-text-muted"
+          className="pointer-events-auto flex w-full max-w-[320px] cursor-pointer items-center gap-2 rounded-md border border-edge/30 bg-base/40 px-3 py-1.5 text-base text-fg-faint transition-colors hover:border-edge/50 hover:bg-base/70 hover:text-fg-muted"
         >
           <Search size={12} className="shrink-0" />
           <span className="flex-1 text-left leading-none">Search or run a command…</span>

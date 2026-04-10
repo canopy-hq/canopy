@@ -21,8 +21,8 @@ import {
 import { CLAUDE_DEFAULT_MODE_KEY, getClaudeDefaultMode } from '../../lib/tab-actions';
 import { showErrorToast } from '../../lib/toast';
 
-const sectionDesc = 'mb-4 text-base text-text-muted';
-const card = 'rounded-md border border-border/20 bg-bg-secondary';
+const sectionDesc = 'mb-4 text-base text-fg-muted';
+const card = 'rounded-md border border-edge/20 bg-raised';
 
 function friendlyError(raw: string): string {
   if (raw.includes('keychain')) return 'Could not access the system keychain.';
@@ -139,10 +139,10 @@ function ClaudeDefaultMode() {
   return (
     <section>
       <SectionLabel className="mb-3">Claude Code Default Mode</SectionLabel>
-      <p className="mb-3 text-base text-text-muted">
+      <p className="mb-3 text-base text-fg-muted">
         Default permission mode when launching a Claude Code session.
       </p>
-      <fieldset className={`flex gap-px overflow-hidden rounded-md border border-border/20 p-0`}>
+      <fieldset className={`flex gap-px overflow-hidden rounded-md border border-edge/20 p-0`}>
         <legend className="sr-only">Claude Code default mode</legend>
         {(['bypass', 'plan'] as const).map((m) => (
           <button
@@ -152,13 +152,13 @@ function ClaudeDefaultMode() {
             className={`flex-1 cursor-pointer px-4 py-2.5 text-left text-base transition-colors ${
               mode === m
                 ? 'bg-accent/10 text-accent'
-                : 'bg-bg-secondary text-text-muted hover:bg-bg-tertiary hover:text-text-primary'
+                : 'bg-raised text-fg-muted hover:bg-surface hover:text-fg'
             }`}
           >
             <span className="font-medium">
               {m === 'bypass' ? 'Bypass permissions' : 'Plan mode'}
             </span>
-            <span className="mt-0.5 block text-sm text-text-faint">
+            <span className="mt-0.5 block text-sm text-fg-faint">
               {m === 'bypass' ? 'Skip permission prompts' : 'Review before executing'}
             </span>
           </button>
@@ -191,13 +191,11 @@ function WorktreeBaseDir() {
   return (
     <section>
       <SectionLabel className="mb-3">Worktree Base Directory</SectionLabel>
-      <p className="mb-3 text-base text-text-muted">
+      <p className="mb-3 text-base text-fg-muted">
         New worktrees will be created inside this directory.
       </p>
       <div className={`flex items-center gap-2 px-4 py-3 ${card}`}>
-        <span className="min-w-0 flex-1 truncate font-mono text-base text-text-primary">
-          {currentDir}
-        </span>
+        <span className="min-w-0 flex-1 truncate font-mono text-base text-fg">{currentDir}</span>
         <Button variant="ghost" size="sm" onPress={handleChoose}>
           Browse...
         </Button>
@@ -237,11 +235,11 @@ function ConnectingCard({
 
   return (
     <div className={`px-4 py-4 ${card}`}>
-      <p className="mb-3 text-sm text-text-muted">
+      <p className="mb-3 text-sm text-fg-muted">
         Enter this code on GitHub to authorize Superagent:
       </p>
       <div className="mb-3 flex items-center justify-between gap-4">
-        <span className="font-mono text-2xl font-bold tracking-widest text-text-primary select-all">
+        <span className="font-mono text-2xl font-bold tracking-widest text-fg select-all">
           {deviceCode.userCode}
         </span>
         <Button variant="ghost" size="sm" onPress={handleCopy}>
@@ -255,7 +253,7 @@ function ConnectingCard({
         </Button>
       </div>
       <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-sm text-text-muted">
+        <span className="flex items-center gap-1.5 text-sm text-fg-muted">
           <Spinner size={12} />
           Waiting for authorization…
         </span>
@@ -293,11 +291,11 @@ function GitHubAuth({
           className="h-7 w-7 rounded-full"
         />
       ) : (
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-bg-tertiary">
-          <GitBranch size={14} className="text-text-faint" />
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-surface">
+          <GitBranch size={14} className="text-fg-faint" />
         </div>
       )}
-      <span className="flex-1 font-mono text-base text-text-primary">
+      <span className="flex-1 font-mono text-base text-fg">
         {isConnected ? auth.connection.username : 'Not connected'}
       </span>
       {isConnected ? (

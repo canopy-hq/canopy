@@ -110,9 +110,9 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
 
   if (ptyId === -2) {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-bg-primary select-none">
-        <CircleX size={20} className="text-text-faint opacity-60" aria-hidden="true" />
-        <span className="font-mono text-sm text-text-faint">Session terminated</span>
+      <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-base select-none">
+        <CircleX size={20} className="text-fg-faint opacity-60" aria-hidden="true" />
+        <span className="font-mono text-sm text-fg-faint">Session terminated</span>
       </div>
     );
   }
@@ -279,9 +279,9 @@ function TerminalPaneInner({
       />
       <div ref={containerRef} className="h-full w-full overflow-hidden" />
       {bootOverlay && (
-        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-bg-primary select-none">
-          <ClaudeCodeIcon size={20} className="animate-pulse text-[#da7756]/60" />
-          <span className="font-mono text-sm text-text-faint">Starting Claude Code…</span>
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-base select-none">
+          <ClaudeCodeIcon size={20} className="animate-pulse text-claude/60" />
+          <span className="font-mono text-sm text-fg-faint">Starting Claude Code…</span>
         </div>
       )}
     </div>

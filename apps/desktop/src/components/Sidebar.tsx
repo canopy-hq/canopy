@@ -59,14 +59,14 @@ export function Sidebar() {
     <>
       {/* Full-screen overlay during resize — locks cursor and blocks hover on other elements */}
       {isResizing && <div className="fixed inset-0 z-[9999]" style={{ cursor: 'col-resize' }} />}
-      <div className="flex shrink-0 flex-row bg-bg-secondary" style={{ width: `${width}px` }}>
+      <div className="flex shrink-0 flex-row bg-raised" style={{ width: `${width}px` }}>
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex-1 overflow-y-auto pb-3">
             <ProjectTree onAddProject={handleImport} />
           </div>
         </div>
         <div className="group relative w-px shrink-0">
-          <div className="pointer-events-none absolute inset-y-0 left-1/2 z-[200] w-px -translate-x-1/2 bg-border/20 transition-all group-hover:w-[3px] group-hover:bg-accent" />
+          <div className="bg-border/20 pointer-events-none absolute inset-y-0 left-1/2 z-[200] w-px -translate-x-1/2 transition-all group-hover:w-[3px] group-hover:bg-accent" />
           <div
             className="absolute inset-0 -right-[4px] -left-[4px] z-50"
             style={{ cursor: 'col-resize' }}

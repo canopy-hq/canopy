@@ -13,13 +13,13 @@ import { toastQueue } from '../lib/toast';
 const toastVariants = tv({
   slots: {
     container:
-      'flex max-w-[420px] min-w-[320px] items-start gap-3 rounded-lg border bg-bg-tertiary px-4 py-3 shadow-lg',
+      'flex max-w-[420px] min-w-[320px] items-start gap-3 rounded-lg border bg-surface px-4 py-3 shadow-lg',
     title: 'block text-lg font-medium',
   },
   variants: {
     severity: {
-      info: { container: 'border-blue-500/30 shadow-blue-500/10', title: 'text-blue-400' },
-      error: { container: 'border-red-500/30 shadow-red-500/10', title: 'text-red-400' },
+      info: { container: 'border-focus/30 shadow-focus/10', title: 'text-focus' },
+      error: { container: 'border-danger/30 shadow-danger/10', title: 'text-danger' },
     },
   },
 });
@@ -37,12 +37,12 @@ export function ErrorToastRegion() {
                 {toast.content.title}
               </Text>
               {toast.content.description && (
-                <Text slot="description" className="mt-1 block text-md text-gray-400">
+                <Text slot="description" className="mt-1 block text-md text-fg-muted">
                   {toast.content.description}
                 </Text>
               )}
             </ToastContent>
-            <Button slot="close" className="text-md text-gray-500 hover:text-gray-300">
+            <Button slot="close" className="text-md text-fg-faint hover:text-fg-muted">
               Dismiss
             </Button>
           </Toast>

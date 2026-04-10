@@ -1,0 +1,247 @@
+@theme {
+  /* Surfaces */
+  --color-base:           var(--base);
+  --color-raised:         var(--raised);
+  --color-surface:        var(--surface);
+
+  /* Interactive surfaces */
+  --color-hover:          var(--hover);
+  --color-selected:       var(--selected);
+  --color-selected-hover: var(--selected-hover);
+
+  /* Forms */
+  --color-input:          var(--input);
+  --color-placeholder:    var(--placeholder);
+
+  /* Foreground / text */
+  --color-fg:             var(--fg);
+  --color-fg-dim:         var(--fg-dim);
+  --color-fg-muted:       var(--fg-muted);
+  --color-fg-faint:       var(--fg-faint);
+
+  /* Borders */
+  --color-edge:           var(--edge);
+  --color-focus:          var(--focus);
+
+  /* Semantic */
+  --color-accent:         var(--accent);
+  --color-danger:         var(--danger);
+
+  /* Icons */
+  --color-branch:         var(--branch);
+  --color-worktree:       var(--worktree);
+  --color-claude:         var(--claude);
+
+  /* Git status */
+  --color-ahead:          var(--ahead);
+  --color-behind:         var(--behind);
+}
+
+/* Global constants — same across all dark themes, defined once */
+:root {
+  /* Computed tokens — auto-adapt via per-theme --accent, --base, --fg-muted */
+  --selected:       color-mix(in srgb, var(--accent) 12%, var(--base));
+  --selected-hover: color-mix(in srgb, var(--accent) 20%, var(--base));
+  --input:          color-mix(in srgb, var(--base) 60%, transparent);
+  --placeholder:    color-mix(in srgb, var(--fg-muted) 60%, transparent);
+
+  /* Fixed — identical in all dark themes */
+  --hover:   rgba(255, 255, 255, 0.10);
+  --claude:  #da7756;
+  --danger:  #ef4444;
+  --ahead:   #4ade80;
+  --behind:  #f87171;
+}
+
+/* ─── Obsidian (default) ────────────────────────────────────────────────── */
+:root,
+[data-theme='obsidian'] {
+  --base:           #07081a;
+  --raised:         #111428;
+  --surface:        #1c1e3c;
+  --edge:           #323458;
+  --focus:          #3b82f6;
+  --fg:             #e4e4f2;
+  --fg-dim:         #b8bcd0;
+  --fg-muted:       #8890ae;
+  --fg-faint:       #5e6680;
+  --accent:         #3b82f6;
+  --branch:         #60a5fa;
+  --worktree:       #a78bfa;
+  --splitter-hover: #3e4068;
+  --agent-running:        #f59e0b;
+  --agent-waiting:        #ef4444;
+  --agent-idle:           #4ade80;
+  --agent-running-pulse:  #d97706;
+  --agent-waiting-glow:   rgba(239, 68, 68, 0.15);
+  --agent-waiting-border: rgba(239, 68, 68, 0.4);
+  --agent-waiting-inset:  rgba(239, 68, 68, 0.06);
+}
+
+/* ─── Carbon ────────────────────────────────────────────────────────────── */
+[data-theme='carbon'] {
+  --base:           #0e0c09;
+  --raised:         #1e1914;
+  --surface:        #2c2520;
+  --edge:           #443c34;
+  --focus:          #e69d2a;
+  --fg:             #f0ebe3;
+  --fg-dim:         #ccc6bc;
+  --fg-muted:       #a89e94;
+  --fg-faint:       #7e7870;
+  --accent:         #e69d2a;
+  --branch:         #f5c244;
+  --worktree:       #c084fc;
+  --splitter-hover: #564e44;
+  --agent-running:        #f59e0b;
+  --agent-waiting:        #ef4444;
+  --agent-idle:           #4ade80;
+  --agent-running-pulse:  #d97706;
+  --agent-waiting-glow:   rgba(239, 68, 68, 0.15);
+  --agent-waiting-border: rgba(239, 68, 68, 0.4);
+  --agent-waiting-inset:  rgba(239, 68, 68, 0.06);
+}
+
+/* ─── Graphite ───────────────────────────────────────────────────────────── */
+[data-theme='graphite'] {
+  --base:           #080810;
+  --raised:         #131320;
+  --surface:        #202030;
+  --edge:           #343448;
+  --focus:          #8b5cf6;
+  --fg:             #e8e8f4;
+  --fg-dim:         #c0c0cc;
+  --fg-muted:       #9898a8;
+  --fg-faint:       #68687a;
+  --accent:         #8b5cf6;
+  --branch:         #a78bfa;
+  --worktree:       #c084fc;
+  --splitter-hover: #484860;
+  --agent-running:        #f59e0b;
+  --agent-waiting:        #ef4444;
+  --agent-idle:           #4ade80;
+  --agent-running-pulse:  #d97706;
+  --agent-waiting-glow:   rgba(239, 68, 68, 0.15);
+  --agent-waiting-border: rgba(239, 68, 68, 0.4);
+  --agent-waiting-inset:  rgba(239, 68, 68, 0.06);
+}
+
+/* ─── Slate ──────────────────────────────────────────────────────────────── */
+[data-theme='slate'] {
+  --base:           #080c16;
+  --raised:         #101828;
+  --surface:        #1c2638;
+  --edge:           #2e3c52;
+  --focus:          #38bdf8;
+  --fg:             #dce4f0;
+  --fg-dim:         #b4c0d4;
+  --fg-muted:       #8898b4;
+  --fg-faint:       #607080;
+  --accent:         #38bdf8;
+  --branch:         #7dd3fc;
+  --worktree:       #c084fc;
+  --splitter-hover: #3c4868;
+  --agent-running:        #f59e0b;
+  --agent-waiting:        #ef4444;
+  --agent-idle:           #4ade80;
+  --agent-running-pulse:  #d97706;
+  --agent-waiting-glow:   rgba(239, 68, 68, 0.15);
+  --agent-waiting-border: rgba(239, 68, 68, 0.4);
+  --agent-waiting-inset:  rgba(239, 68, 68, 0.06);
+}
+
+/* ─── Midnight ───────────────────────────────────────────────────────────── */
+[data-theme='midnight'] {
+  --base:           #040818;
+  --raised:         #0c1230;
+  --surface:        #182040;
+  --edge:           #263464;
+  --focus:          #6366f1;
+  --fg:             #d8dff0;
+  --fg-dim:         #acb4d0;
+  --fg-muted:       #8088b4;
+  --fg-faint:       #566084;
+  --accent:         #6366f1;
+  --branch:         #818cf8;
+  --worktree:       #a78bfa;
+  --splitter-hover: #2c3870;
+  --agent-running:        #f59e0b;
+  --agent-waiting:        #ef4444;
+  --agent-idle:           #4ade80;
+  --agent-running-pulse:  #d97706;
+  --agent-waiting-glow:   rgba(239, 68, 68, 0.15);
+  --agent-waiting-border: rgba(239, 68, 68, 0.4);
+  --agent-waiting-inset:  rgba(239, 68, 68, 0.06);
+}
+
+/* ─── Void ───────────────────────────────────────────────────────────────── */
+[data-theme='void'] {
+  --base:           #040406;
+  --raised:         #101018;
+  --surface:        #1c1c28;
+  --edge:           #303040;
+  --focus:          #a855f7;
+  --fg:             #d8d8e4;
+  --fg-dim:         #a8a8b8;
+  --fg-muted:       #787888;
+  --fg-faint:       #5c5c6a;
+  --accent:         #a855f7;
+  --branch:         #c084fc;
+  --worktree:       #c084fc;
+  --splitter-hover: #383840;
+  --agent-running:        #f59e0b;
+  --agent-waiting:        #ef4444;
+  --agent-idle:           #4ade80;
+  --agent-running-pulse:  #d97706;
+  --agent-waiting-glow:   rgba(239, 68, 68, 0.15);
+  --agent-waiting-border: rgba(239, 68, 68, 0.4);
+  --agent-waiting-inset:  rgba(239, 68, 68, 0.06);
+}
+
+/* ─── Smoke ──────────────────────────────────────────────────────────────── */
+[data-theme='smoke'] {
+  --base:           #0e0b08;
+  --raised:         #1e1912;
+  --surface:        #2e261e;
+  --edge:           #463c34;
+  --focus:          #f59e0b;
+  --fg:             #f0e8dc;
+  --fg-dim:         #ccc4b8;
+  --fg-muted:       #a8a09a;
+  --fg-faint:       #807870;
+  --accent:         #f59e0b;
+  --branch:         #fbbf24;
+  --worktree:       #c084fc;
+  --splitter-hover: #5a5048;
+  --agent-running:        #f59e0b;
+  --agent-waiting:        #ef4444;
+  --agent-idle:           #4ade80;
+  --agent-running-pulse:  #d97706;
+  --agent-waiting-glow:   rgba(239, 68, 68, 0.15);
+  --agent-waiting-border: rgba(239, 68, 68, 0.4);
+  --agent-waiting-inset:  rgba(239, 68, 68, 0.06);
+}
+
+/* ─── Ash ────────────────────────────────────────────────────────────────── */
+[data-theme='ash'] {
+  --base:           #070e08;
+  --raised:         #111c14;
+  --surface:        #1c2a1e;
+  --edge:           #2c3e30;
+  --focus:          #10b981;
+  --fg:             #dce8e0;
+  --fg-dim:         #aec4b8;
+  --fg-muted:       #88a898;
+  --fg-faint:       #607870;
+  --accent:         #10b981;
+  --branch:         #34d399;
+  --worktree:       #c084fc;
+  --splitter-hover: #3e5444;
+  --agent-running:        #f59e0b;
+  --agent-waiting:        #ef4444;
+  --agent-idle:           #4ade80;
+  --agent-running-pulse:  #d97706;
+  --agent-waiting-glow:   rgba(239, 68, 68, 0.15);
+  --agent-waiting-border: rgba(239, 68, 68, 0.4);
+  --agent-waiting-inset:  rgba(239, 68, 68, 0.06);
+}

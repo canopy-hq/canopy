@@ -24,6 +24,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@superagent/command-palette": "workspace:*",
+    "@superagent/theme": "workspace:*",
     "@superagent/db": "workspace:*",
     "@superagent/fps": "workspace:*",
     "@superagent/terminal": "workspace:*",

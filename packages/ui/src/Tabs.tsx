@@ -19,7 +19,7 @@ export function TabList<T extends object>({
 }: Omit<TabListProps<T>, 'className'> & { className?: string; border?: boolean }) {
   return (
     <RACTabList
-      className={['flex items-center gap-1', border && 'border-b border-border/50', className]
+      className={['flex items-center gap-1', border && 'border-b border-edge/50', className]
         .filter(Boolean)
         .join(' ')}
       {...props}
@@ -31,8 +31,8 @@ export function Tab({ className, ...props }: Omit<TabProps, 'className'> & { cla
   return (
     <RACTab
       className={[
-        'cursor-pointer rounded px-2 py-0.5 font-mono text-sm outline-none transition-colors',
-        'text-text-muted hover:text-text-primary',
+        'cursor-pointer rounded px-2 py-0.5 font-mono text-sm outline-none transition-colors data-[focused]:ring-2 data-[focused]:ring-focus',
+        'text-fg-muted hover:text-fg',
         'data-[selected]:bg-accent/10 data-[selected]:text-accent data-[selected]:hover:text-accent',
         className,
       ]

@@ -27,7 +27,7 @@ const ungroupedDropZoneCls = tv({
   variants: {
     active: {
       true: 'border-accent/40 bg-accent/8 py-3 text-accent/60',
-      false: 'border-border/25 py-1.5 text-text-faint/35',
+      false: 'border-edge/25 py-1.5 text-fg-faint/35',
     },
   },
 });
@@ -83,7 +83,7 @@ const GroupHeader = memo(
         >
           <GripVertical
             size={11}
-            className="cursor-grab touch-none text-text-faint/30 active:cursor-grabbing"
+            className="cursor-grab touch-none text-fg-faint/30 active:cursor-grabbing"
           />
         </div>
         {isRenaming ? (
@@ -102,11 +102,11 @@ const GroupHeader = memo(
               if (e.key === 'Escape') onRenameCancel();
             }}
             onClick={(e) => e.stopPropagation()}
-            className="m-0 min-w-0 flex-1 appearance-none border-none bg-transparent p-0 font-mono text-xs font-semibold tracking-widest text-text-faint uppercase outline-none"
+            className="m-0 min-w-0 flex-1 appearance-none border-none bg-transparent p-0 font-mono text-xs font-semibold tracking-widest text-fg-faint uppercase outline-none"
           />
         ) : (
           <span
-            className="flex-1 truncate font-mono text-xs font-semibold tracking-widest text-text-faint uppercase"
+            className="flex-1 truncate font-mono text-xs font-semibold tracking-widest text-fg-faint uppercase"
             onDoubleClick={(e) => {
               e.stopPropagation();
               onStartRename();
@@ -116,7 +116,7 @@ const GroupHeader = memo(
           </span>
         )}
         {group.collapsed && projectCount > 0 && (
-          <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.5 py-px font-mono text-sm leading-none text-text-faint tabular-nums">
+          <span className="shrink-0 rounded-sm bg-surface/60 px-1.5 py-px font-mono text-sm leading-none text-fg-faint tabular-nums">
             {projectCount}
           </span>
         )}
@@ -228,7 +228,7 @@ export function GroupTreeItem({
   );
 
   const draggingCls = isDragging || isDropping ? 'pointer-events-none relative z-50' : '';
-  const blockCls = isDragging || isDropping ? 'bg-bg-secondary' : '';
+  const blockCls = isDragging || isDropping ? 'bg-raised' : '';
 
   return (
     <>

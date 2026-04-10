@@ -316,7 +316,7 @@ function RootLayout() {
 
   return (
     <LucideProvider strokeWidth={1}>
-      <div className="flex h-screen w-screen flex-col overflow-hidden bg-bg-primary">
+      <div className="flex h-screen w-screen flex-col overflow-hidden bg-base">
         <Header
           onSessionsClick={() => setSessionManagerOpen((prev) => !prev)}
           onSearchClick={() => setCmdMenuOpen(true)}

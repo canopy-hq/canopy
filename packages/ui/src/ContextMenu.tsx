@@ -26,12 +26,11 @@ export type ContextMenuSeparator = { type: 'separator' };
 export type ContextMenuItemDef = ContextMenuAction | ContextMenuSubmenuItem | ContextMenuSeparator;
 
 const menuItem = tv({
-  base: 'flex cursor-default items-center gap-2 px-3 py-1.5 text-base text-text-secondary outline-none data-[focused]:bg-bg-tertiary data-[disabled]:opacity-40',
-  variants: { destructive: { true: 'text-destructive data-[focused]:text-destructive' } },
+  base: 'flex cursor-default items-center gap-2 px-3 py-1.5 text-base text-fg-dim outline-none data-[focused]:bg-surface data-[disabled]:opacity-40',
+  variants: { destructive: { true: 'text-danger data-[focused]:text-danger' } },
 });
 
-const panelCls =
-  'w-max rounded-lg border border-border/60 bg-bg-secondary py-1 shadow-lg outline-none';
+const panelCls = 'w-max rounded-lg border border-edge/60 bg-raised py-1 shadow-lg outline-none';
 
 export function ContextMenu({
   x,
@@ -83,7 +82,7 @@ export function ContextMenu({
                   <MenuItem className={menuItem()}>
                     {item.icon != null && <span className="shrink-0">{item.icon}</span>}
                     <span className="flex-1">{item.label}</span>
-                    <ChevronRight size={12} className="text-text-faint" />
+                    <ChevronRight size={12} className="text-fg-faint" />
                   </MenuItem>
                   {/* offset=-4 pulls submenu flush with parent panel edge; crossOffset=-4 aligns top with trigger row */}
                   <Popover className={panelCls} placement="end top" offset={-4} crossOffset={-4}>
@@ -117,7 +116,7 @@ export function ContextMenu({
                             {sub.icon != null && <span className="shrink-0">{sub.icon}</span>}
                             <span className="flex-1">{sub.label}</span>
                             {sub.checked && (
-                              <span className="ml-auto text-[10px] text-text-faint">✓</span>
+                              <span className="ml-auto text-[10px] text-fg-faint">✓</span>
                             )}
                           </MenuItem>
                         );
@@ -137,7 +136,7 @@ export function ContextMenu({
               >
                 {item.icon != null && <span className="shrink-0">{item.icon}</span>}
                 <span className="flex-1">{item.label}</span>
-                {item.checked && <span className="ml-auto text-[10px] text-text-faint">✓</span>}
+                {item.checked && <span className="ml-auto text-[10px] text-fg-faint">✓</span>}
               </MenuItem>
             );
           })}

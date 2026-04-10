@@ -37,12 +37,9 @@ interface SessionRow {
 }
 
 const sessionRowCls = tv({
-  base: 'flex h-9 items-center gap-3 px-3 text-base text-text-primary outline-none',
+  base: 'flex h-9 items-center gap-3 px-3 text-base text-fg outline-none',
   variants: {
-    interactive: {
-      true: 'cursor-pointer hover:bg-bg-tertiary/50',
-      false: 'cursor-default opacity-50',
-    },
+    interactive: { true: 'cursor-pointer hover:bg-surface/50', false: 'cursor-default opacity-50' },
   },
 });
 
@@ -177,15 +174,15 @@ export function SessionManager({ onClose }: SessionManagerProps) {
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[120px]"
     >
       <Modal
-        className="flex max-h-[70vh] w-[600px] flex-col overflow-hidden rounded-xl border border-border/60 bg-bg-secondary/85 font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-[12px]"
+        className="flex max-h-[70vh] w-[600px] flex-col overflow-hidden rounded-xl border border-edge/60 bg-raised/85 font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-[12px]"
         style={{ WebkitBackdropFilter: 'blur(12px)' }}
       >
         <Dialog className="flex min-h-0 flex-col outline-none" aria-label="PTY Session Manager">
           {/* Header */}
-          <div className="flex shrink-0 items-center gap-2 border-b border-border/40 px-3 py-2.5">
-            <span className="flex-1 text-base text-text-primary">PTY Sessions</span>
+          <div className="flex shrink-0 items-center gap-2 border-b border-edge/40 px-3 py-2.5">
+            <span className="flex-1 text-base text-fg">PTY Sessions</span>
             {rows.length > 0 && (
-              <span className="font-mono text-sm text-text-faint tabular-nums">
+              <span className="font-mono text-sm text-fg-faint tabular-nums">
                 {rows.length} {rows.length === 1 ? 'session' : 'sessions'}
               </span>
             )}
@@ -204,7 +201,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
           {/* Body */}
           <div className="min-h-0 flex-1 overflow-y-auto py-1">
             {rows.length === 0 ? (
-              <div className="flex items-center justify-center py-8 font-mono text-sm text-text-faint">
+              <div className="flex items-center justify-center py-8 font-mono text-sm text-fg-faint">
                 No active sessions
               </div>
             ) : (
@@ -235,7 +232,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                       className={sessionRowCls({ interactive: !!row.tab })}
                     >
                       <span className="min-w-0 flex-1 truncate">{row.tab?.label ?? '—'}</span>
-                      <span className="shrink-0 font-mono text-sm text-text-faint tabular-nums">
+                      <span className="shrink-0 font-mono text-sm text-fg-faint tabular-nums">
                         {row.info.cpuPercent.toFixed(1)}% · {row.info.memoryMb}MB
                       </span>
                       <div onClick={(e) => e.stopPropagation()}>

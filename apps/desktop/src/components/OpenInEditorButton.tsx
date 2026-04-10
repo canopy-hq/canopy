@@ -16,10 +16,9 @@ import {
 import { resolveProjectItemCwd } from '../lib/tab-actions';
 import { showErrorToast } from '../lib/toast';
 
-const panelCls =
-  'w-max rounded-lg border border-border/60 bg-bg-secondary py-1 shadow-lg outline-none';
+const panelCls = 'w-max rounded-lg border border-edge/60 bg-raised py-1 shadow-lg outline-none';
 const itemCls =
-  'flex cursor-default items-center gap-2 px-3 py-1.5 text-base text-text-secondary outline-none data-[focused]:bg-bg-tertiary';
+  'flex cursor-default items-center gap-2 px-3 py-1.5 text-base text-fg-dim outline-none data-[focused]:bg-surface';
 
 /**
  * Header button — opens active project/worktree in editor.
@@ -68,7 +67,7 @@ export function OpenInEditorButton() {
           size="sm"
           onPress={() => handleOpen(defaultEditor)}
           aria-label={label}
-          className="font-medium text-text-secondary"
+          className="font-medium text-fg-dim"
         >
           {label}
         </Button>
@@ -85,7 +84,7 @@ export function OpenInEditorButton() {
           size="sm"
           onPress={() => handleOpen(defaultEditor)}
           aria-label={label}
-          className="rounded-r-none font-medium text-text-secondary"
+          className="rounded-r-none font-medium text-fg-dim"
         >
           {label}
         </Button>
@@ -94,7 +93,7 @@ export function OpenInEditorButton() {
         <Button
           variant="ghost"
           aria-label="Choose editor"
-          className="h-7 w-5 rounded-l-none border-l border-border/30 p-0 text-text-faint"
+          className="h-7 w-5 rounded-l-none border-l border-edge/30 p-0 text-fg-faint"
         >
           <ChevronDown size={10} />
         </Button>
@@ -104,7 +103,7 @@ export function OpenInEditorButton() {
               <MenuItem key={editor.id} id={editor.id} className={itemCls}>
                 <span className="flex-1">{editor.displayName}</span>
                 {editor.id === defaultEditor.id && (
-                  <span className="ml-auto text-[10px] text-text-faint">✓</span>
+                  <span className="ml-auto text-[10px] text-fg-faint">✓</span>
                 )}
               </MenuItem>
             ))}

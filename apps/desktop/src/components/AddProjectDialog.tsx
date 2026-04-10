@@ -67,11 +67,10 @@ function repoNameFromUrl(url: string): string {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const inputCls =
-  'w-full rounded-md border border-border/40 bg-bg-primary/60 px-3 py-2 font-mono text-sm text-text-primary outline-none placeholder:text-text-faint/50 focus:border-border/70 focus:bg-bg-primary';
+  'w-full rounded-md border border-edge/40 bg-base/60 px-3 py-2 font-mono text-sm text-fg outline-none placeholder:text-placeholder focus:border-edge/70 focus:bg-base';
 
-const labelCls =
-  'mb-2 block font-mono text-xs font-medium tracking-widest text-text-faint uppercase';
-const errorCls = 'font-mono text-xs text-destructive/80';
+const labelCls = 'mb-2 block font-mono text-xs font-medium tracking-widest text-fg-faint uppercase';
+const errorCls = 'font-mono text-xs text-danger/80';
 
 const stepCircle = tv({
   base: 'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-[background-color,border-color,color] duration-300',
@@ -79,14 +78,14 @@ const stepCircle = tv({
     status: {
       active: 'border-transparent bg-accent/15 font-mono text-xs text-accent',
       valid: 'border-transparent bg-accent/20 text-accent',
-      pending: 'border-border/30 bg-transparent font-mono text-xs text-text-faint',
+      pending: 'border-edge/30 bg-transparent font-mono text-xs text-fg-faint',
     },
   },
 });
 
 const stepLabel = tv({
   base: 'font-mono text-sm transition-colors duration-300',
-  variants: { active: { true: 'text-text-primary', false: 'text-text-faint' } },
+  variants: { active: { true: 'text-fg', false: 'text-fg-faint' } },
 });
 
 // Only the entering panel fades in — the leaving panel vanishes instantly to avoid crossfade flicker.
@@ -209,14 +208,11 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
       }}
       role="presentation"
     >
-      <div className="w-[480px] rounded-lg border border-border/60 bg-bg-secondary shadow-xl">
+      <div className="w-[480px] rounded-lg border border-edge/60 bg-raised shadow-xl">
         <Dialog className="outline-none" aria-label="Add Project">
           {/* Header */}
           <div className="flex items-center justify-between px-5 pt-5 pb-4">
-            <Heading
-              slot="title"
-              className="font-mono text-base leading-none font-medium text-text-primary"
-            >
+            <Heading slot="title" className="font-mono leading-none font-medium text-base text-fg">
               Add Project
             </Heading>
           </div>
@@ -225,7 +221,7 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
             {/* Funnel step indicator — always rendered */}
             <div className="mb-5 flex items-center">
               {/* Left edge line */}
-              <div className="flex-1 border-t border-dashed border-border/20" />
+              <div className="flex-1 border-t border-dashed border-edge/20" />
 
               {/* Step 1 */}
               <div className="flex items-center gap-2 px-3">
@@ -237,7 +233,7 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
 
               {/* Progress line */}
               <div className="relative flex-[2]">
-                <div className="absolute inset-0 border-t border-dashed border-border/20" />
+                <div className="absolute inset-0 border-t border-dashed border-edge/20" />
                 <div
                   className="absolute top-0 left-0 border-t border-accent/40 transition-[width] duration-500 ease-in-out"
                   style={{ width: isStep2 ? '100%' : '0%' }}
@@ -251,7 +247,7 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
               </div>
 
               {/* Right edge line */}
-              <div className="flex-1 border-t border-dashed border-border/20" />
+              <div className="flex-1 border-t border-dashed border-edge/20" />
             </div>
 
             {/* Fixed-height panel container — both steps always mounted, slides between them */}
@@ -444,10 +440,10 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
                 {step2Source && (
                   <>
                     <div className="mb-4 flex min-w-0 items-baseline gap-2">
-                      <span className="shrink-0 font-mono text-[10px] tracking-widest text-text-faint uppercase">
+                      <span className="shrink-0 font-mono text-[10px] tracking-widest text-fg-faint uppercase">
                         {step2Source.kind === 'local' ? 'Repo' : 'URL'}
                       </span>
-                      <span className="min-w-0 truncate font-mono text-sm text-text-secondary">
+                      <span className="min-w-0 truncate font-mono text-sm text-fg-dim">
                         {step2Source.kind === 'local' ? step2Source.path : step2Source.url}
                       </span>
                     </div>
@@ -465,7 +461,7 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-2 border-t border-border/20 px-5 py-4">
+          <div className="flex items-center justify-end gap-2 border-t border-edge/20 px-5 py-4">
             {isStep2 ? (
               <>
                 <Button variant="secondary" onPress={() => setSourceResult(null)}>
@@ -534,7 +530,7 @@ function FieldFeedback({
   const showError = (isDirty || isTouched) && !isValidating && errors.length > 0;
   if (isValidating && validatingLabel) {
     return (
-      <p className="flex items-center gap-1.5 font-mono text-xs text-text-faint">
+      <p className="flex items-center gap-1.5 font-mono text-xs text-fg-faint">
         <Spinner size={10} />
         {validatingLabel}
       </p>
@@ -590,29 +586,29 @@ function BranchComboBox({
     >
       <div className="relative flex items-center">
         <Input className={`${inputCls} pr-8`} autoComplete="off" spellCheck={false} />
-        <AriaButton className="absolute right-2.5 flex items-center text-text-faint outline-none hover:text-text-primary">
+        <AriaButton className="absolute right-2.5 flex items-center text-fg-faint outline-none hover:text-fg">
           <ChevronDown size={13} />
         </AriaButton>
       </div>
       <Popover
         offset={4}
-        className="w-(--trigger-width) overflow-hidden rounded-md border border-border/60 bg-bg-secondary shadow-xl outline-none"
+        className="w-(--trigger-width) overflow-hidden rounded-md border border-edge/60 bg-raised shadow-xl outline-none"
       >
         <ListBox
           className="max-h-52 overflow-y-auto p-1 outline-none"
           renderEmptyState={() => (
-            <div className="px-2 py-1.5 font-mono text-xs text-text-faint">No branches found</div>
+            <div className="px-2 py-1.5 font-mono text-xs text-fg-faint">No branches found</div>
           )}
         >
           {(b: gitApi.BranchInfo) => (
             <ListBoxItem
               id={b.name}
               textValue={b.name}
-              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 font-mono text-sm text-text-secondary outline-none data-[focused]:bg-bg-tertiary data-[focused]:text-text-primary data-[selected]:text-accent"
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 font-mono text-sm text-fg-dim outline-none data-[focused]:bg-surface data-[focused]:text-fg data-[selected]:text-accent"
             >
               <span className="flex-1 truncate">{b.name}</span>
               {b.is_head && (
-                <span className="shrink-0 font-mono text-xs text-text-faint">(HEAD)</span>
+                <span className="shrink-0 font-mono text-xs text-fg-faint">(HEAD)</span>
               )}
             </ListBoxItem>
           )}

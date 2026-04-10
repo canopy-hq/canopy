@@ -24,22 +24,22 @@ function CreatingWorktree({
 }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 select-none">
-      <Spinner size={16} className="text-text-faint" />
-      <span className="font-mono text-sm text-text-faint">Creating worktree…</span>
+      <Spinner size={16} className="text-fg-faint" />
+      <span className="font-mono text-sm text-fg-faint">Creating worktree…</span>
       {pendingSession && (
         <div className="mt-1 flex w-72 flex-col gap-2">
-          <div className="flex flex-col gap-1.5 rounded-md border border-border/30 bg-bg-secondary px-3 py-2 font-mono text-xs text-text-muted">
+          <div className="flex flex-col gap-1.5 rounded-md border border-edge/30 bg-raised px-3 py-2 font-mono text-xs text-fg-muted">
             <div className="flex items-center justify-center gap-1.5">
-              <ClaudeCodeIcon size={12} className="shrink-0 text-[#da7756]" />
+              <ClaudeCodeIcon size={12} className="shrink-0 text-claude" />
               <span>
                 Claude Code ·{' '}
-                <span className="text-text-secondary">
+                <span className="text-fg-dim">
                   {pendingSession.mode === 'plan' ? 'plan mode' : 'bypass permissions'}
                 </span>
               </span>
             </div>
             {pendingSession.prompt && (
-              <p className="leading-relaxed break-words whitespace-pre-wrap text-text-faint">
+              <p className="leading-relaxed break-words whitespace-pre-wrap text-fg-faint">
                 "{pendingSession.prompt}"
               </p>
             )}
@@ -48,7 +48,7 @@ function CreatingWorktree({
             variant="ghost"
             size="sm"
             onPress={cancelPendingClaudeSession}
-            className="flex w-fit items-center gap-1 self-center text-xs text-text-faint hover:text-text-muted"
+            className="flex w-fit items-center gap-1 self-center text-xs text-fg-faint hover:text-fg-muted"
           >
             <X size={11} />
             Cancel launch
@@ -112,7 +112,7 @@ function EmptyState({ projectId }: { projectId: string }) {
   return (
     <div className="flex h-full flex-1 flex-col items-center justify-center gap-2 select-none">
       <ActionRow
-        icon={<ClaudeCodeIcon size={15} className="text-[#da7756]" />}
+        icon={<ClaudeCodeIcon size={15} className="text-claude" />}
         label="Claude Code"
         onPress={() => addClaudeCodeTab(projectId)}
       />

@@ -16,6 +16,7 @@
         "@superagent/db": "workspace:*",
         "@superagent/fps": "workspace:*",
         "@superagent/terminal": "workspace:*",
+        "@superagent/theme": "workspace:*",
         "@superagent/ui": "workspace:*",
         "@tanstack/db": "^0.6.1",
         "@tanstack/react-db": "^0.1.79",
@@ -139,6 +140,10 @@
       "peerDependencies": {
         "react": "catalog:",
       },
+    },
+    "packages/theme": {
+      "name": "@superagent/theme",
+      "version": "0.0.1",
     },
     "packages/tsconfig": {
       "name": "@superagent/tsconfig",
@@ -685,6 +690,8 @@
     "@superagent/fps": ["@superagent/fps@workspace:packages/fps"],
 
     "@superagent/terminal": ["@superagent/terminal@workspace:packages/terminal"],
+
+    "@superagent/theme": ["@superagent/theme@workspace:packages/theme"],
 
     "@superagent/tsconfig": ["@superagent/tsconfig@workspace:packages/tsconfig"],
 

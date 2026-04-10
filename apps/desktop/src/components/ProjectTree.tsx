@@ -226,9 +226,9 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
     <>
       <div
         ref={headerRef}
-        className="flex h-10 items-center gap-2 border-b border-border/20 pr-2 pl-3"
+        className="flex h-10 items-center gap-2 border-b border-edge/20 pr-2 pl-3"
       >
-        <span className="flex-1 font-mono text-sm leading-none font-medium tracking-widest text-text-faint uppercase">
+        <span className="flex-1 font-mono text-sm leading-none font-medium tracking-widest text-fg-faint uppercase">
           Projects
         </span>
         <Tooltip label="New group" placement="right">
@@ -307,7 +307,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
           <>
             {hasGroups && (
               <div className="flex h-7 items-center px-3">
-                <span className="font-mono text-xs leading-none font-semibold tracking-widest text-text-faint/50 uppercase">
+                <span className="font-mono text-xs leading-none font-semibold tracking-widest text-fg-faint/50 uppercase">
                   Ungrouped
                 </span>
               </div>
@@ -346,12 +346,12 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                   )
                 : [];
               return (
-                <div className="border-y border-border/30 bg-bg-secondary shadow-xl">
+                <div className="border-y border-edge/30 bg-raised shadow-xl">
                   <div className="flex items-center gap-2 py-1 pr-2 pl-3">
                     <div className="flex w-6 shrink-0 items-center justify-center">
-                      <GripVertical size={11} className="text-text-faint/30" />
+                      <GripVertical size={11} className="text-fg-faint/30" />
                     </div>
-                    <span className="flex-1 font-mono text-xs font-semibold tracking-widest text-text-faint uppercase">
+                    <span className="flex-1 font-mono text-xs font-semibold tracking-widest text-fg-faint uppercase">
                       {activeDrag.name}
                     </span>
                     <div className="h-7 w-7" />
@@ -360,7 +360,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                     overlayProjects.map((ws) => (
                       <div
                         key={ws.id}
-                        className="flex items-center gap-2 bg-bg-primary py-1.5 pr-2 pl-3 brightness-[1.6]"
+                        className="flex items-center gap-2 bg-base py-1.5 pr-2 pl-3 brightness-[1.6]"
                       >
                         <div
                           className="flex h-6 w-6 shrink-0 items-center justify-center rounded border text-sm leading-none font-medium"
@@ -381,7 +381,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                         >
                           {ws.name.charAt(0).toUpperCase()}
                         </div>
-                        <span className="min-w-0 flex-1 truncate font-mono text-lg font-medium text-text-primary">
+                        <span className="min-w-0 flex-1 truncate font-mono text-lg font-medium text-fg">
                           {ws.name}
                         </span>
                       </div>
@@ -390,13 +390,11 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
               );
             })()}
           {activeDrag?.type === 'project' && (
-            <div className="flex items-center gap-2 border-y border-border/20 bg-bg-secondary px-3 py-1.5 shadow-lg">
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-transparent bg-bg-tertiary text-sm leading-none font-medium text-text-faint">
+            <div className="flex items-center gap-2 border-y border-edge/20 bg-raised px-3 py-1.5 shadow-lg">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-transparent bg-surface text-sm leading-none font-medium text-fg-faint">
                 {activeDrag.firstLetter}
               </div>
-              <span className="font-mono text-lg font-medium text-text-primary">
-                {activeDrag.name}
-              </span>
+              <span className="font-mono text-lg font-medium text-fg">{activeDrag.name}</span>
             </div>
           )}
         </DragOverlay>
