@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 
 import { getDb } from './client';
-import { settings, projects, tabs, sessions } from './schema';
+import { settings, projects, tabs, sessions, groups } from './schema';
 
 /**
  * Run all migrations against the already-initialized SQLite database.
@@ -43,10 +43,11 @@ export async function runMigrations(): Promise<void> {
   `);
 
   // Idempotent column migrations — check via PRAGMA before ALTER to avoid Tauri SQL plugin logging the duplicate-column error.
-  const tabCols = await db.get<{ cnt: number }>(
-    sql`SELECT COUNT(*) as cnt FROM pragma_table_info('tabs') WHERE name = 'label_is_manual'`,
+  // Note: db.get via the sqlite-proxy driver returns a positional array, so we access [0] not .cnt.
+  const tabCols = await db.get<[number]>(
+    sql`SELECT COUNT(*) FROM pragma_table_info('tabs') WHERE name = 'label_is_manual'`,
   );
-  if (!tabCols || tabCols.cnt === 0) {
+  if (!tabCols || !tabCols[0]) {
     await db.run(sql`ALTER TABLE tabs ADD COLUMN label_is_manual INTEGER NOT NULL DEFAULT 0`);
   }
 
@@ -80,43 +81,61 @@ export async function runMigrations(): Promise<void> {
   }
 
   // Add color column to projects if missing (pre-rename installs had it on workspaces).
-  const projCols = await db.get<{ cnt: number }>(
-    sql`SELECT COUNT(*) as cnt FROM pragma_table_info('projects') WHERE name = 'color'`,
+  const projCols = await db.get<[number]>(
+    sql`SELECT COUNT(*) FROM pragma_table_info('projects') WHERE name = 'color'`,
   );
-  if (!projCols || projCols.cnt === 0) {
+  if (!projCols || !projCols[0]) {
     await db.run(sql`ALTER TABLE projects ADD COLUMN color TEXT`);
   }
 
   // Rename workspace_item_id → project_item_id on tabs (idempotent).
-  const tabItemCol = await db.get<{ cnt: number }>(
-    sql`SELECT COUNT(*) as cnt FROM pragma_table_info('tabs') WHERE name = 'workspace_item_id'`,
+  const tabItemCol = await db.get<[number]>(
+    sql`SELECT COUNT(*) FROM pragma_table_info('tabs') WHERE name = 'workspace_item_id'`,
   );
-  if (tabItemCol && tabItemCol.cnt > 0) {
+  if (tabItemCol && tabItemCol[0]) {
     await db.run(sql`ALTER TABLE tabs RENAME COLUMN workspace_item_id TO project_item_id`);
   }
 
   // Rename workspace_id → project_id on sessions (idempotent).
-  const sessWsCol = await db.get<{ cnt: number }>(
-    sql`SELECT COUNT(*) as cnt FROM pragma_table_info('sessions') WHERE name = 'workspace_id'`,
+  const sessWsCol = await db.get<[number]>(
+    sql`SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name = 'workspace_id'`,
   );
-  if (sessWsCol && sessWsCol.cnt > 0) {
+  if (sessWsCol && sessWsCol[0]) {
     await db.run(sql`ALTER TABLE sessions RENAME COLUMN workspace_id TO project_id`);
   }
 
   // Add icon column to tabs if missing.
-  const tabIconCol = await db.get<{ cnt: number }>(
-    sql`SELECT COUNT(*) as cnt FROM pragma_table_info('tabs') WHERE name = 'icon'`,
+  const tabIconCol = await db.get<[number]>(
+    sql`SELECT COUNT(*) FROM pragma_table_info('tabs') WHERE name = 'icon'`,
   );
-  if (!tabIconCol || tabIconCol.cnt === 0) {
+  if (!tabIconCol || !tabIconCol[0]) {
     await db.run(sql`ALTER TABLE tabs ADD COLUMN icon TEXT`);
   }
 
   // Add invalid column to projects if missing.
-  const projInvalidCol = await db.get<{ cnt: number }>(
-    sql`SELECT COUNT(*) as cnt FROM pragma_table_info('projects') WHERE name = 'invalid'`,
+  const projInvalidCol = await db.get<[number]>(
+    sql`SELECT COUNT(*) FROM pragma_table_info('projects') WHERE name = 'invalid'`,
   );
-  if (!projInvalidCol || projInvalidCol.cnt === 0) {
+  if (!projInvalidCol || !projInvalidCol[0]) {
     await db.run(sql`ALTER TABLE projects ADD COLUMN invalid INTEGER NOT NULL DEFAULT 0`);
+  }
+
+  // ── Groups table ─────────────────────────────────────────────────────────────
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS groups (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      collapsed INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
+  // Add group_id column to projects if missing.
+  const projGroupCol = await db.get<[number]>(
+    sql`SELECT COUNT(*) FROM pragma_table_info('projects') WHERE name = 'group_id'`,
+  );
+  if (!projGroupCol || !projGroupCol[0]) {
+    await db.run(sql`ALTER TABLE projects ADD COLUMN group_id TEXT`);
   }
 
   // Silence unused import warnings — these are used by collections
@@ -124,4 +143,5 @@ export async function runMigrations(): Promise<void> {
   void tabs;
   void sessions;
   void settings;
+  void groups;
 }

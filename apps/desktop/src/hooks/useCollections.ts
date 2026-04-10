@@ -1,4 +1,5 @@
 import {
+  getGroupCollection,
   getProjectCollection,
   getTabCollection,
   getSettingCollection,
@@ -11,6 +12,11 @@ import {
  * Uses useLiveQuery from @tanstack/react-db for React integration.
  */
 import { useLiveQuery } from '@tanstack/react-db';
+
+export function useGroups() {
+  const { data = [] } = useLiveQuery(() => getGroupCollection());
+  return data;
+}
 
 export function useProjects() {
   const { data = [] } = useLiveQuery(() => getProjectCollection());

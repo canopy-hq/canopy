@@ -4,6 +4,7 @@ export { hydrateCollections } from './hydrate';
 export * from './schema';
 export * from './types';
 
+export { getGroupCollection } from './collections/groups';
 export { getProjectCollection } from './collections/projects';
 export {
   getTabCollection,
