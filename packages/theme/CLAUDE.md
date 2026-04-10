@@ -5,9 +5,14 @@ Single source of truth for all design tokens. Consumed by `apps/desktop` via `@i
 ## Architecture
 
 ```
-@theme {}          → Tailwind v4 token registration (generates utility classes)
-:root              → Global constants + computed tokens (same across all themes)
-[data-theme='*']   → Per-theme primitive overrides (8 dark themes)
+packages/theme/src/index.css
+  :root              → Global constants + computed tokens (same across all themes)
+  [data-theme='*']   → Per-theme primitive overrides (8 dark themes)
+
+apps/desktop/src/index.css
+  @theme {}          → Tailwind v4 token registration (generates utility classes)
+                       Lives here — not in the theme package — so Tailwind reliably
+                       processes it from the build entry point.
 ```
 
 **Computed tokens** (`--selected`, `--input`, `--placeholder`) are defined once in `:root` and auto-adapt to each theme because they reference per-theme primitives (`--accent`, `--base`, `--fg-muted`).

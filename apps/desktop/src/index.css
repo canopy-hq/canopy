@@ -22,6 +22,7 @@
 }
 
 @theme {
+  /* Typography */
   --font-sans: 'Geist', system-ui, sans-serif;
   --font-mono: 'Geist Mono', monospace;
   --text-2xs: 9px;
@@ -30,6 +31,43 @@
   --text-md: 13px;
   --text-base: 14px;
   --text-lg: 15px;
+
+  /* Surfaces */
+  --color-base: var(--base);
+  --color-raised: var(--raised);
+  --color-surface: var(--surface);
+
+  /* Interactive surfaces */
+  --color-hover: var(--hover);
+  --color-selected: var(--selected);
+  --color-selected-hover: var(--selected-hover);
+
+  /* Forms */
+  --color-input: var(--input);
+  --color-placeholder: var(--placeholder);
+
+  /* Foreground / text */
+  --color-fg: var(--fg);
+  --color-fg-dim: var(--fg-dim);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-faint: var(--fg-faint);
+
+  /* Borders */
+  --color-edge: var(--edge);
+  --color-focus: var(--focus);
+
+  /* Semantic */
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+
+  /* Icons */
+  --color-branch: var(--branch);
+  --color-worktree: var(--worktree);
+  --color-claude: var(--claude);
+
+  /* Git status */
+  --color-ahead: var(--ahead);
+  --color-behind: var(--behind);
 }
 
 /* Native app feel — default cursor everywhere, use cursor-pointer explicitly where needed */
