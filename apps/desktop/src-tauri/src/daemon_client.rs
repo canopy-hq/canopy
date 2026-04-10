@@ -83,6 +83,8 @@ impl DaemonClient {
             }
         }
 
+        // Daemon started but never accepted connections — kill the stray process.
+        let _ = std::process::Command::new("kill").args(["-TERM", &pid.to_string()]).output();
         Err("daemon did not start within timeout".to_string())
     }
 

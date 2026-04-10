@@ -78,12 +78,9 @@ impl DaemonState {
     }
 }
 
-/// Exit when the owning app process disappears. Checks every 2 s via kill(pid, 0):
-/// - returns 0  → process alive
-/// - returns -1 → process gone (ESRCH) or no permission (EPERM, meaning it exists)
-/// We treat ESRCH (no such process) as the only exit trigger.
+/// Exit when the owning app process disappears — handles crash and kill -9.
 async fn watch_parent(parent_pid: u32) {
-    let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
+    let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
     loop {
         interval.tick().await;
         let ret = unsafe { libc::kill(parent_pid as libc::pid_t, 0) };
