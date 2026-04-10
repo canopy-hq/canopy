@@ -5,6 +5,7 @@ import { useProjects } from '../hooks/useCollections';
 import { toggleSidebar } from '../lib/project-actions';
 import { DevBranchBadge } from './DevBranchBadge';
 import { GitHubStatus } from './GitHubStatus';
+import { OpenInEditorButton } from './OpenInEditorButton';
 
 interface HeaderProps {
   onSessionsClick?: () => void;
@@ -64,6 +65,7 @@ export function Header({ onSessionsClick, onSearchClick }: HeaderProps = {}) {
       {/* Right zone */}
       <div className="flex h-full items-center gap-2 px-3">
         <DevBranchBadge />
+        <OpenInEditorButton />
         <GitHubStatus />
       </div>
     </header>
