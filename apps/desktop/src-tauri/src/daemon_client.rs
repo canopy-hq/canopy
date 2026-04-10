@@ -64,6 +64,7 @@ impl DaemonClient {
         use std::os::unix::process::CommandExt;
         let child = std::process::Command::new(bin)
             .arg(socket)
+            .arg(std::process::id().to_string())
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())

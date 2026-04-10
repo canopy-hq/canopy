@@ -78,7 +78,27 @@ impl DaemonState {
     }
 }
 
-pub async fn run(socket_path: String) {
+/// Exit when the owning app process disappears. Checks every 2 s via kill(pid, 0):
+/// - returns 0  → process alive
+/// - returns -1 → process gone (ESRCH) or no permission (EPERM, meaning it exists)
+/// We treat ESRCH (no such process) as the only exit trigger.
+async fn watch_parent(parent_pid: u32) {
+    let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
+    loop {
+        interval.tick().await;
+        let ret = unsafe { libc::kill(parent_pid as libc::pid_t, 0) };
+        if ret != 0 && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH) {
+            eprintln!("[daemon] parent {parent_pid} gone — exiting");
+            std::process::exit(0);
+        }
+    }
+}
+
+pub async fn run(socket_path: String, parent_pid: Option<u32>) {
+    if let Some(pid) = parent_pid {
+        tokio::spawn(watch_parent(pid));
+    }
+
     let _ = std::fs::remove_file(&socket_path);
     let listener = UnixListener::bind(&socket_path).expect("daemon: bind failed");
     let state = Arc::new(Mutex::new(DaemonState::new()));
