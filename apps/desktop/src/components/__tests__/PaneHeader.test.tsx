@@ -33,12 +33,12 @@ describe('PaneHeader', () => {
   it('applies focused text color when isFocused=true', () => {
     const { container } = render(<PaneHeader cwd="/a/b" isFocused={true} agentStatus="running" />);
     const el = container.firstChild as HTMLElement;
-    expect(el.className).toContain('text-text-primary');
+    expect(el.className).toContain('text-fg');
   });
 
   it('applies muted text color when isFocused=false', () => {
     const { container } = render(<PaneHeader cwd="/a/b" isFocused={false} agentStatus="running" />);
     const el = container.firstChild as HTMLElement;
-    expect(el.className).toContain('text-text-muted');
+    expect(el.className).toContain('text-fg-muted');
   });
 });

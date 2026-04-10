@@ -205,7 +205,7 @@ const BranchRow = memo(
         <ItemRow
           icon={
             <IconWithBadge agentStatus={agentStatus}>
-              <Laptop size={14} stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'} />
+              <Laptop size={14} stroke={isSelected ? 'var(--accent)' : 'var(--fg-muted)'} />
             </IconWithBadge>
           }
           name={branch.name}
@@ -287,7 +287,7 @@ const WorktreeRow = memo(
               </div>
             ) : (
               <IconWithBadge agentStatus={agentStatus}>
-                <FolderGit2 size={14} stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'} />
+                <FolderGit2 size={14} stroke={isSelected ? 'var(--accent)' : 'var(--fg-muted)'} />
               </IconWithBadge>
             )
           }
@@ -401,23 +401,23 @@ const RepoHeader = memo(
           '--c': project.color,
           color: isSelected
             ? 'color-mix(in srgb, var(--c) 100%, white)'
-            : 'color-mix(in srgb, var(--c) 40%, var(--text-faint))',
+            : 'color-mix(in srgb, var(--c) 40%, var(--fg-faint))',
           borderColor: isSelected ? 'color-mix(in srgb, var(--c) 80%, transparent)' : 'transparent',
           backgroundColor: isSelected
-            ? 'color-mix(in srgb, var(--c) 35%, var(--bg-secondary))'
-            : 'color-mix(in srgb, var(--c) 8%, var(--bg-secondary))',
+            ? 'color-mix(in srgb, var(--c) 35%, var(--raised))'
+            : 'color-mix(in srgb, var(--c) 8%, var(--raised))',
         } as React.CSSProperties;
       }
       return isSelected
         ? {
-            color: 'var(--text-primary)',
-            borderColor: 'color-mix(in srgb, var(--text-muted) 40%, transparent)',
-            backgroundColor: 'var(--bg-tertiary)',
+            color: 'var(--fg)',
+            borderColor: 'color-mix(in srgb, var(--fg-muted) 40%, transparent)',
+            backgroundColor: 'var(--surface)',
           }
         : {
-            color: 'var(--text-faint)',
+            color: 'var(--fg-faint)',
             borderColor: 'transparent',
-            backgroundColor: 'color-mix(in srgb, var(--bg-tertiary) 60%, var(--bg-secondary))',
+            backgroundColor: 'color-mix(in srgb, var(--surface) 60%, var(--raised))',
           };
     }, [project.color, isSelected]);
 
