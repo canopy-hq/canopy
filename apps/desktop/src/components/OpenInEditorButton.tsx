@@ -6,24 +6,20 @@ import { Button, Tooltip } from '@superagent/ui';
 import { ChevronDown } from 'lucide-react';
 
 import { useSettings, useUiState } from '../hooks/useCollections';
-import { openInEditor, useDetectedEditors, type DetectedEditor } from '../lib/editor';
+import {
+  DEFAULT_EDITOR_SETTING_KEY,
+  openInEditor,
+  resolveDefaultEditor,
+  useDetectedEditors,
+  type DetectedEditor,
+} from '../lib/editor';
 import { resolveProjectItemCwd } from '../lib/tab-actions';
 import { showErrorToast } from '../lib/toast';
-
-const SETTING_KEY = 'defaultEditor';
 
 const panelCls =
   'w-max rounded-lg border border-border/60 bg-bg-secondary py-1 shadow-lg outline-none';
 const itemCls =
   'flex cursor-default items-center gap-2 px-3 py-1.5 text-base text-text-secondary outline-none data-[focused]:bg-bg-tertiary';
-
-function resolveDefault(
-  editors: DetectedEditor[],
-  settingValue: string,
-): DetectedEditor | undefined {
-  if (editors.length === 0) return undefined;
-  return editors.find((e) => e.id === settingValue) ?? editors[0];
-}
 
 /**
  * Header button — opens active project/worktree in editor.
@@ -35,8 +31,8 @@ export function OpenInEditorButton() {
   const settings = useSettings();
   const ui = useUiState();
   const projectItemId = ui.activeContextId;
-  const defaultEditorId = getSetting<string>(settings, SETTING_KEY, '');
-  const defaultEditor = resolveDefault(editors, defaultEditorId);
+  const defaultEditorId = getSetting<string>(settings, DEFAULT_EDITOR_SETTING_KEY, '');
+  const defaultEditor = resolveDefaultEditor(editors, defaultEditorId);
 
   const handleOpen = useCallback(
     (editor: DetectedEditor) => {
@@ -54,7 +50,7 @@ export function OpenInEditorButton() {
     (editorId: string) => {
       const editor = editors.find((e) => e.id === editorId);
       if (!editor) return;
-      setSetting(SETTING_KEY, editor.id);
+      setSetting(DEFAULT_EDITOR_SETTING_KEY, editor.id);
     },
     [editors],
   );
@@ -121,8 +117,8 @@ export function OpenInEditorButton() {
 export function useOpenInEditor(projectItemId: string) {
   const editors = useDetectedEditors();
   const settings = useSettings();
-  const defaultEditorId = getSetting<string>(settings, SETTING_KEY, '');
-  const defaultEditor = resolveDefault(editors, defaultEditorId);
+  const defaultEditorId = getSetting<string>(settings, DEFAULT_EDITOR_SETTING_KEY, '');
+  const defaultEditor = resolveDefaultEditor(editors, defaultEditorId);
 
   const onPress = useCallback(() => {
     if (!defaultEditor) return;

@@ -7,7 +7,7 @@ import { Sidebar } from '../components/Sidebar';
 import { useSettings, useUiState } from '../hooks/useCollections';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { toggleManualOverride } from '../lib/agent-actions';
-import { openInEditor, useDetectedEditors } from '../lib/editor';
+import { DEFAULT_EDITOR_SETTING_KEY, openInEditor, useDetectedEditors } from '../lib/editor';
 import { findLeaf } from '../lib/pane-tree-ops';
 import {
   addTab,
@@ -65,7 +65,7 @@ function ProjectLayout() {
         shift: true,
         condition: () => editors.length > 0 && !!uiState.activeContextId,
         action: () => {
-          const defaultEditorId = getSetting<string>(settings, 'defaultEditor', '');
+          const defaultEditorId = getSetting<string>(settings, DEFAULT_EDITOR_SETTING_KEY, '');
           const editor = editors.find((e) => e.id === defaultEditorId) ?? editors[0];
           if (!editor || !uiState.activeContextId) return;
           const cwd = resolveProjectItemCwd(uiState.activeContextId);

@@ -1,14 +1,12 @@
 import { getSetting } from '@superagent/db';
 
-import { openInEditor } from '../lib/editor';
+import { DEFAULT_EDITOR_SETTING_KEY, openInEditor, resolveDefaultEditor } from '../lib/editor';
 import { resolveProjectItemCwd } from '../lib/tab-actions';
 import { showErrorToast } from '../lib/toast';
 
 import type { DetectedEditor } from '../lib/editor';
 import type { CommandItem } from '@superagent/command-palette';
 import type { Setting } from '@superagent/db';
-
-const SETTING_KEY = 'defaultEditor';
 
 export function buildEditorCommands(
   editors: DetectedEditor[],
@@ -18,8 +16,8 @@ export function buildEditorCommands(
 ): CommandItem[] {
   if (editors.length === 0 || !activeContextId || !activeProjectId) return [];
 
-  const defaultEditorId = getSetting<string>(settings, SETTING_KEY, '');
-  const defaultEditor = editors.find((e) => e.id === defaultEditorId) ?? editors[0]!;
+  const defaultEditorId = getSetting<string>(settings, DEFAULT_EDITOR_SETTING_KEY, '');
+  const defaultEditor = resolveDefaultEditor(editors, defaultEditorId)!;
 
   return [
     {

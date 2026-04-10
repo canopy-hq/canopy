@@ -11,6 +11,7 @@ import { buildProjectCommands } from './project-commands';
 import { buildPtyCommands } from './pty-commands';
 import { buildStaticCommands } from './static-commands';
 import { buildTabCommands } from './tab-commands';
+import { resolveProject } from './utils';
 
 import type { CommandItem } from '@superagent/command-palette';
 import type { PtySessionInfo } from '@superagent/terminal';
@@ -80,9 +81,7 @@ export function useAllCommands(): CommandItem[] {
         editors,
         settings,
         uiState.activeContextId,
-        uiState.activeContextId
-          ? projects.find((p) => uiState.activeContextId!.startsWith(p.id))?.id
-          : undefined,
+        uiState.activeContextId ? resolveProject(uiState.activeContextId, projects)?.id : undefined,
       ),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps

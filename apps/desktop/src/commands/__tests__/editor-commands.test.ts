@@ -4,7 +4,14 @@ import { buildEditorCommands } from '../editor-commands';
 
 import type { DetectedEditor } from '../../lib/editor';
 
-vi.mock('../../lib/editor', () => ({ openInEditor: vi.fn(() => Promise.resolve()) }));
+vi.mock('../../lib/editor', () => ({
+  DEFAULT_EDITOR_SETTING_KEY: 'defaultEditor',
+  openInEditor: vi.fn(() => Promise.resolve()),
+  resolveDefaultEditor: vi.fn(
+    (editors: DetectedEditor[], settingValue: string) =>
+      editors.find((e) => e.id === settingValue) ?? editors[0],
+  ),
+}));
 
 vi.mock('../../lib/tab-actions', () => ({
   resolveProjectItemCwd: vi.fn((id: string) =>
