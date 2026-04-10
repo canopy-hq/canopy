@@ -18,8 +18,8 @@ import type { Group, Project, CloneProgress } from '@superagent/db';
 import type { ContextMenuItemDef, DotStatus } from '@superagent/ui';
 
 const groupHeaderRow = tv({
-  base: 'flex items-center gap-2 py-1 pl-3 pr-2 select-none transition-colors rounded-sm',
-  variants: { isDropTarget: { true: 'rounded-none border-y border-accent/25 bg-accent/8' } },
+  base: 'flex items-center gap-2 py-1 pl-3 pr-2 select-none transition-colors border-y border-transparent',
+  variants: { isDropTarget: { true: 'border-accent/25 bg-accent/8' } },
 });
 
 const GroupHeader = memo(
