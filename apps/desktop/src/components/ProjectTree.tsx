@@ -682,16 +682,18 @@ const GroupHeader = memo(
 function UngroupedDropZone({ visible }: { visible: boolean }) {
   const { setNodeRef, isOver } = useDroppable({ id: 'ungrouped-drop' });
 
-  if (!visible) return null;
-
   return (
     <div
       ref={setNodeRef}
-      className={`mx-2 mb-1 rounded border border-dashed px-3 py-2 font-mono text-xs text-text-faint/50 transition-colors ${
-        isOver ? 'border-accent/40 bg-accent/8 text-accent/60' : 'border-border/30 bg-transparent'
+      className={`mx-2 mt-1 flex min-h-12 flex-1 items-start rounded border border-dashed px-3 pt-2 font-mono text-xs transition-colors ${
+        visible
+          ? isOver
+            ? 'border-accent/40 bg-accent/8 text-accent/60'
+            : 'border-border/30 text-text-faint/40'
+          : 'border-transparent text-transparent'
       }`}
     >
-      Drop here to remove from group
+      {visible ? 'No group' : ''}
     </div>
   );
 }
@@ -1294,7 +1296,6 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                 </span>
               </div>
             )}
-            <UngroupedDropZone visible={showUngroupedDropZone} />
             <SortableContext items={ungroupedProjectIds} strategy={verticalListSortingStrategy}>
               <div>
                 {ungroupedProjects.map((ws) => (
@@ -1315,6 +1316,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                 ))}
               </div>
             </SortableContext>
+            <UngroupedDropZone visible={showUngroupedDropZone} />
           </>
         )}
 
