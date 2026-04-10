@@ -39,6 +39,7 @@ export function useProjectTreeDnD({
 }): {
   activeDrag: ActiveDragInfo | null;
   overGroupId: string | null;
+  overUngrouped: boolean;
   effectiveSortedByGroup: Map<string | null, Project[]>;
   collisionDetection: CollisionDetection;
   modifiers: Modifier[];
@@ -50,6 +51,7 @@ export function useProjectTreeDnD({
   const [activeDrag, setActiveDrag] = useState<ActiveDragInfo | null>(null);
   const activeDragRef = useRef<ActiveDragInfo | null>(null);
   const [overGroupId, setOverGroupId] = useState<string | null>(null);
+  const [overUngrouped, setOverUngrouped] = useState(false);
   // Live draft ordering during cross-group drags (null = use DB data)
   const [draftGroupItems, setDraftGroupItems] = useState<Map<string | null, string[]> | null>(null);
   const draftGroupItemsRef = useRef<Map<string | null, string[]> | null>(null);
@@ -153,6 +155,7 @@ export function useProjectTreeDnD({
       const current = activeDragRef.current;
       if (current?.type !== 'project') {
         setOverGroupId(null);
+        setOverUngrouped(false);
         return;
       }
       const overId = over ? String(over.id) : null;
@@ -162,6 +165,13 @@ export function useProjectTreeDnD({
         overId && !isOverGroup && overId !== 'ungrouped-drop'
           ? allProjects.some((p) => p.id === overId)
           : false;
+
+      setOverUngrouped(
+        overId === 'ungrouped-drop' ||
+          (isOverProject &&
+            !!overId &&
+            (draftGroupItemsRef.current?.get(null)?.includes(overId) ?? false)),
+      );
 
       setOverGroupId((prev) => {
         if (prev !== newOverGroupId) {
@@ -226,6 +236,7 @@ export function useProjectTreeDnD({
     ({ active, over }: DragEndEvent) => {
       clearTimeout(autoExpandTimer.current);
       setOverGroupId(null);
+      setOverUngrouped(false);
       const draft = draftGroupItemsRef.current;
       draftGroupItemsRef.current = null;
       setDraftGroupItems(null);
@@ -361,6 +372,7 @@ export function useProjectTreeDnD({
     activeDragRef.current = null;
     setActiveDrag(null);
     setOverGroupId(null);
+    setOverUngrouped(false);
     draftGroupItemsRef.current = null;
     setDraftGroupItems(null);
   }, []);
@@ -368,6 +380,7 @@ export function useProjectTreeDnD({
   return {
     activeDrag,
     overGroupId,
+    overUngrouped,
     effectiveSortedByGroup,
     collisionDetection,
     modifiers,

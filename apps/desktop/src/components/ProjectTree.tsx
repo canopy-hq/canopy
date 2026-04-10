@@ -146,6 +146,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
   const {
     activeDrag,
     overGroupId,
+    overUngrouped,
     effectiveSortedByGroup,
     collisionDetection,
     modifiers,
@@ -310,7 +311,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                 </span>
               </div>
             )}
-            <UngroupedDropZone visible={showUngroupedDropZone} />
+            <UngroupedDropZone visible={showUngroupedDropZone} isActive={overUngrouped} />
             <SortableContext items={ungroupedProjectIds} strategy={verticalListSortingStrategy}>
               <div>
                 {effectiveUngrouped.map((ws) => (

@@ -139,7 +139,7 @@ const GroupHeader = memo(
     prev.dragListeners === next.dragListeners,
 );
 
-export function UngroupedDropZone({ visible }: { visible: boolean }) {
+export function UngroupedDropZone({ visible, isActive }: { visible: boolean; isActive?: boolean }) {
   const { setNodeRef, isOver } = useDroppable({ id: 'ungrouped-drop' });
 
   if (!visible) return null;
@@ -148,7 +148,7 @@ export function UngroupedDropZone({ visible }: { visible: boolean }) {
     <div
       ref={setNodeRef}
       className={`mx-2 my-1 rounded border border-dashed px-3 font-mono text-xs transition-all duration-150 ${
-        isOver
+        isOver || isActive
           ? 'border-accent/40 bg-accent/8 py-3 text-accent/60'
           : 'border-border/25 py-1.5 text-text-faint/35'
       }`}
