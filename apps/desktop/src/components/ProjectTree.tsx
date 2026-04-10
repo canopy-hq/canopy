@@ -1332,16 +1332,22 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
                     </span>
                     <div className="h-7 w-7" />
                   </div>
-                  {/* Project rows */}
+                  {/* Project rows — match RepoHeader height/spacing exactly */}
                   {!overlayGroup?.collapsed &&
                     overlayProjects.map((ws) => (
-                      <div key={ws.id} className="flex items-center gap-2 py-1.5 pr-2 pl-3">
+                      <div
+                        key={ws.id}
+                        className="flex items-center gap-2 bg-bg-primary py-1.5 pr-2 pl-3 brightness-[1.6]"
+                      >
                         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-transparent bg-bg-tertiary/60 text-sm leading-none font-medium text-text-faint">
                           {ws.name.charAt(0).toUpperCase()}
                         </div>
-                        <span className="flex-1 truncate font-mono text-base font-medium text-text-primary/80">
+                        <span className="min-w-0 flex-1 truncate font-mono text-lg font-medium text-text-primary">
                           {ws.name}
                         </span>
+                        {/* Invisible placeholders for chevron + plus buttons */}
+                        <div className="h-7 w-7 shrink-0" />
+                        <div className="h-7 w-7 shrink-0" />
                       </div>
                     ))}
                 </div>
