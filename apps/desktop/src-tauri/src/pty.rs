@@ -84,7 +84,9 @@ pub async fn spawn_terminal(
         ).await {
             Ok(Ok(result)) if !result.empty => {
                 eprintln!("[pool] CLAIMED pid={} for pane={pane_id}", result.pid);
-                (result.pid, false)
+                // Pool PTY is a fresh shell — treat as new so the frontend sends
+                // any initialCommand (e.g. `claude`) and uses the debounce overlay.
+                (result.pid, true)
             }
             other => {
                 eprintln!("[pool] FALLBACK to spawn for pane={pane_id} (claim result: {other:?})");
