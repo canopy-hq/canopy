@@ -682,18 +682,18 @@ const GroupHeader = memo(
 function UngroupedDropZone({ visible }: { visible: boolean }) {
   const { setNodeRef, isOver } = useDroppable({ id: 'ungrouped-drop' });
 
+  if (!visible) return null;
+
   return (
     <div
       ref={setNodeRef}
-      className={`mx-2 mt-1 flex min-h-12 flex-1 items-start rounded border border-dashed px-3 pt-2 font-mono text-xs transition-colors ${
-        visible
-          ? isOver
-            ? 'border-accent/40 bg-accent/8 text-accent/60'
-            : 'border-border/30 text-text-faint/40'
-          : 'border-transparent text-transparent'
+      className={`mx-2 my-1 rounded border border-dashed px-3 font-mono text-xs transition-all duration-150 ${
+        isOver
+          ? 'border-accent/40 bg-accent/8 py-3 text-accent/60'
+          : 'border-border/25 py-1.5 text-text-faint/35'
       }`}
     >
-      {visible ? 'No group' : ''}
+      No group
     </div>
   );
 }
