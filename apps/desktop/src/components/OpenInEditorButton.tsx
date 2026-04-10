@@ -55,9 +55,8 @@ export function OpenInEditorButton() {
       const editor = editors.find((e) => e.id === editorId);
       if (!editor) return;
       setSetting(SETTING_KEY, editor.id);
-      handleOpen(editor);
     },
-    [editors, handleOpen],
+    [editors],
   );
 
   if (!defaultEditor || !projectItemId) return null;
