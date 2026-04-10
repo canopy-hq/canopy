@@ -22,6 +22,16 @@ const groupHeaderRow = tv({
   variants: { isDropTarget: { true: 'border-accent/25 bg-accent/8' } },
 });
 
+const ungroupedDropZoneCls = tv({
+  base: 'mx-4 mt-1 mb-3 flex items-center justify-center rounded border border-dashed font-mono text-xs transition-all duration-150',
+  variants: {
+    active: {
+      true: 'border-accent/40 bg-accent/8 py-3 text-accent/60',
+      false: 'border-border/25 py-1.5 text-text-faint/35',
+    },
+  },
+});
+
 const GroupHeader = memo(
   function GroupHeader({
     group,
@@ -145,14 +155,7 @@ export function UngroupedDropZone({ visible, isActive }: { visible: boolean; isA
   if (!visible) return null;
 
   return (
-    <div
-      ref={setNodeRef}
-      className={`mx-4 mt-1 mb-3 flex items-center justify-center rounded border border-dashed font-mono text-xs transition-all duration-150 ${
-        isOver || isActive
-          ? 'border-accent/40 bg-accent/8 py-3 text-accent/60'
-          : 'border-border/25 py-1.5 text-text-faint/35'
-      }`}
-    >
+    <div ref={setNodeRef} className={ungroupedDropZoneCls({ active: isOver || isActive })}>
       Drop here to remove from group
     </div>
   );

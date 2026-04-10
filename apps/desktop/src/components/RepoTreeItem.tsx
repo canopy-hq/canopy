@@ -159,8 +159,7 @@ function ItemRow({
           <span className="shrink-0 font-mono text-xs text-destructive/50">removing…</span>
         ) : (
           !editing &&
-          tabCount != null &&
-          tabCount > 0 && (
+          (tabCount ?? 0) > 0 && (
             <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.5 py-px font-mono text-sm leading-none text-text-faint tabular-nums">
               {tabCount}
             </span>

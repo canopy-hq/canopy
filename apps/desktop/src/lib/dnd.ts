@@ -8,36 +8,24 @@ export function useDragSensors() {
 export const restrictToHorizontalAxis: Modifier = ({ transform }) => ({ ...transform, y: 0 });
 export const restrictToVerticalAxis: Modifier = ({ transform }) => ({ ...transform, x: 0 });
 
-/**
- * Returns a modifier that prevents the drag overlay from moving above `getMinY()`.
- * Pass a stable getter (e.g. reading from a ref) — it is called on every pointer move.
- */
-export function restrictToMinTop(getMinY: () => number): Modifier {
+function restrictToMin(axis: 'x' | 'y', coord: 'left' | 'top', getMin: () => number): Modifier {
   return ({ transform, draggingNodeRect }) => {
     if (!draggingNodeRect) return transform;
-    const minY = getMinY();
-    const projectedTop = draggingNodeRect.top + transform.y;
-    if (projectedTop < minY) {
-      return { ...transform, y: minY - draggingNodeRect.top };
-    }
+    const min = getMin();
+    const projected = draggingNodeRect[coord] + transform[axis];
+    if (projected < min) return { ...transform, [axis]: min - draggingNodeRect[coord] };
     return transform;
   };
 }
 
-/**
- * Returns a modifier that prevents the drag overlay from moving left of `getMinX()`.
- * Pass a stable getter (e.g. reading from a ref) — it is called on every pointer move.
- */
+/** Prevents the drag overlay from moving above `getMinY()`. */
+export function restrictToMinTop(getMinY: () => number): Modifier {
+  return restrictToMin('y', 'top', getMinY);
+}
+
+/** Prevents the drag overlay from moving left of `getMinX()`. */
 export function restrictToMinLeft(getMinX: () => number): Modifier {
-  return ({ transform, draggingNodeRect }) => {
-    if (!draggingNodeRect) return transform;
-    const minX = getMinX();
-    const projectedLeft = draggingNodeRect.left + transform.x;
-    if (projectedLeft < minX) {
-      return { ...transform, x: minX - draggingNodeRect.left };
-    }
-    return transform;
-  };
+  return restrictToMin('x', 'left', getMinX);
 }
 
 /** Transition for displaced items during sort — ease-out feels more natural than linear ease. */
