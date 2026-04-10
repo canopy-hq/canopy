@@ -1090,9 +1090,16 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
       activeDragRef.current = null;
       setActiveDrag(null);
 
-      if (!over) return;
-
       const activeId = String(active.id);
+
+      // Drop outside all droppables while dragging a grouped project → ungroup
+      if (!over) {
+        if (current?.type === 'project' && current.groupId !== null) {
+          assignProjectToGroup(activeId, null);
+        }
+        return;
+      }
+
       const overId = String(over.id);
 
       if (current?.type === 'group') {
