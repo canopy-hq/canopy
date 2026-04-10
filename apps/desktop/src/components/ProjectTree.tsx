@@ -220,7 +220,6 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
     ],
   );
 
-  // Show ungrouped drop zone when dragging a grouped project
   const showUngroupedDropZone = activeDrag?.type === 'project' && activeDrag.groupId !== null;
 
   return (

@@ -202,7 +202,6 @@ export function useProjectTreeDnD({
           if (activeIdx === -1 || overIdx === -1 || activeIdx === overIdx) return;
           draft.set(targetGroupId, arrayMove(currentIds, activeIdx, overIdx));
         } else {
-          // Cross-group: remove from current group, insert before overId
           if (currentDraftGroup !== undefined) {
             draft.set(
               currentDraftGroup,

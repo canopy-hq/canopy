@@ -37,6 +37,7 @@ import { useDropping } from '../hooks/useDropping';
 import { sortableTransition } from '../lib/dnd';
 import { assignProjectToGroup } from '../lib/group-actions';
 import {
+  getProjectItemIds,
   toggleExpanded,
   renameProject,
   renameWorktree,
@@ -509,13 +510,10 @@ export function getRepoAgentSummary(
   agentMap: Record<string, DotStatus>,
 ): Array<'running' | 'waiting'> {
   const statuses: Array<'running' | 'waiting'> = [];
-  const checkId = (id: string) => {
+  for (const id of getProjectItemIds(ws)) {
     const s = agentMap[id];
     if (s === 'running' || s === 'waiting') statuses.push(s);
-  };
-  checkId(ws.id);
-  for (const b of ws.branches) checkId(`${ws.id}-branch-${b.name}`);
-  for (const wt of ws.worktrees) checkId(`${ws.id}-wt-${wt.name}`);
+  }
   statuses.sort((a, b) =>
     a === 'waiting' && b !== 'waiting' ? -1 : a !== 'waiting' && b === 'waiting' ? 1 : 0,
   );
