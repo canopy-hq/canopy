@@ -29,7 +29,6 @@
   --text-xs: 10px;
   --text-sm: 12px;
   --text-md: 13px;
-  --text-base: 14px;
   --text-lg: 15px;
 
   /* Surfaces */
@@ -70,14 +69,12 @@
   --color-behind: var(--behind);
 }
 
-/* Font size overrides — non-layered so they win over @layer theme defaults */
-:root {
-  --text-2xs: 9px;
-  --text-xs: 10px;
-  --text-sm: 12px;
-  --text-md: 13px;
-  --text-base: 14px;
-  --text-lg: 15px;
+/* --color-base in @theme causes Tailwind to emit .text-base { color: var(--color-base) }
+   which replaces the font-size utility. Override it here so text-base always means 14px. */
+@layer utilities {
+  .text-base {
+    font-size: 14px;
+  }
 }
 
 /* Native app feel — default cursor everywhere, use cursor-pointer explicitly where needed */

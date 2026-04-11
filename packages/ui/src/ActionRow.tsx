@@ -19,7 +19,7 @@ export function ActionRow({
       className="flex w-72 items-center gap-3 px-4 py-3 text-fg-faint hover:bg-hover hover:text-fg-muted"
     >
       <span className="shrink-0">{icon}</span>
-      <span className="flex-1 text-left font-mono text-base">{label}</span>
+      <span className="flex-1 text-left font-mono">{label}</span>
       {shortcut != null && <Kbd>{shortcut}</Kbd>}
     </Button>
   );

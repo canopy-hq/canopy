@@ -3,7 +3,7 @@ import { Button as AriaButton, type ButtonProps as AriaButtonProps } from 'react
 import { tv, type VariantProps } from 'tailwind-variants';
 
 const button = tv({
-  base: 'inline-flex items-center justify-center gap-1.5 rounded-md font-medium outline-none transition-[color,background-color,opacity,box-shadow] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-focus',
+  base: 'inline-flex appearance-none items-center justify-center gap-1.5 rounded-md font-medium outline-none transition-[color,background-color,opacity,box-shadow] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-focus',
   variants: {
     variant: {
       primary: 'bg-accent text-white hover:opacity-90 pressed:opacity-75',
