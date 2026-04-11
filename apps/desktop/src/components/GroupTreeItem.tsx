@@ -10,6 +10,7 @@ import { tv } from 'tailwind-variants';
 import { useDropping } from '../hooks/useDropping';
 import { sortableTransition } from '../lib/dnd';
 import { deleteGroup, renameGroup, toggleGroupCollapsed } from '../lib/group-actions';
+import { CountBadge } from './CountBadge';
 import { RepoTreeItem } from './RepoTreeItem';
 
 import type { DiffStat } from '../lib/git';
@@ -115,11 +116,7 @@ const GroupHeader = memo(
             {group.name}
           </span>
         )}
-        {group.collapsed && projectCount > 0 && (
-          <span className="shrink-0 rounded-sm bg-surface/60 px-1.5 py-px font-mono text-sm leading-none text-fg-faint tabular-nums">
-            {projectCount}
-          </span>
-        )}
+        {group.collapsed && projectCount > 0 && <CountBadge count={projectCount} />}
         <Button
           iconOnly
           size="sm"

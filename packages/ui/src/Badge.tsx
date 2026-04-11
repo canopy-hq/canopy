@@ -10,6 +10,7 @@ export const badge = tv({
       error: 'bg-danger/[0.08] text-danger',
       success: 'bg-emerald-500/10 text-emerald-500',
       merged: 'bg-purple-500/10 text-purple-500',
+      faint: 'bg-surface/60 text-fg-faint',
     },
     size: {
       xs: 'rounded-sm px-1 py-px text-2xs',

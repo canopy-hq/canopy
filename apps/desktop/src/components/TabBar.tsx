@@ -231,7 +231,7 @@ const TabItemComponent = memo(
             </>
           )}
           {agentStatus === 'waiting' && !editing && (
-            <Badge pill color="warning" size="xs">
+            <Badge pill color="warning" size="sm">
               input
             </Badge>
           )}

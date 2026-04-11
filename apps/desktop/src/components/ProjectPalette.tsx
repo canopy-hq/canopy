@@ -534,7 +534,7 @@ function BranchMeta({
   if (pickingBase) {
     // In base picker, just show HEAD badge if applicable
     return branch.is_head ? (
-      <Badge color="accent" size="xs">
+      <Badge color="accent" size="sm">
         HEAD
       </Badge>
     ) : null;
@@ -543,19 +543,19 @@ function BranchMeta({
   return (
     <>
       {branch.is_head ? (
-        <Badge color="accent" size="xs">
+        <Badge color="accent" size="sm">
           checked out
         </Badge>
       ) : branch.is_in_worktree ? (
-        <Badge color="warning" size="xs">
+        <Badge color="warning" size="sm">
           in worktree
         </Badge>
       ) : branch.is_local ? (
-        <Badge color="neutral" size="xs">
+        <Badge color="neutral" size="sm">
           local
         </Badge>
       ) : (
-        <Badge size="xs">origin</Badge>
+        <Badge size="sm">origin</Badge>
       )}
     </>
   );
