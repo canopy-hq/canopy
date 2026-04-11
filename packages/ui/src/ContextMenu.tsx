@@ -26,7 +26,7 @@ export type ContextMenuSeparator = { type: 'separator' };
 export type ContextMenuItemDef = ContextMenuAction | ContextMenuSubmenuItem | ContextMenuSeparator;
 
 const menuItem = tv({
-  base: 'flex cursor-default items-center gap-2 px-3 py-1.5 text-base text-fg-dim outline-none data-[focused]:bg-surface data-[disabled]:opacity-40',
+  base: 'flex cursor-default items-center gap-2 px-3 py-1.5 text-sm text-fg-dim outline-none data-[focused]:bg-surface data-[disabled]:opacity-40',
   variants: { destructive: { true: 'text-danger data-[focused]:text-danger' } },
 });
 
