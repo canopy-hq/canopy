@@ -118,13 +118,14 @@ impl DaemonClient {
                     Ok(s) => s,
                     Err(_) => {
                         eprintln!("[daemon] connection refused — restarting daemon");
+                        // Clear stale cmd_stream before restart so send_noack reconnects
+                        // even if the restart itself fails.
+                        *self.cmd_stream.lock().await = None;
                         let socket = self.socket.clone();
                         let bin = self.bin.clone();
                         tokio::task::spawn_blocking(move || Self::ensure_daemon_sync(&socket, &bin))
                             .await
                             .map_err(|e| e.to_string())??;
-                        // Clear stale cmd_stream so the next write/resize reconnects to the new daemon.
-                        *self.cmd_stream.lock().await = None;
                         UnixStream::connect(&self.socket)
                             .await
                             .map_err(|e| format!("connect after restart: {e}"))?

@@ -19,17 +19,15 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function ThemePreview({ name }: { name: ThemeName }) {
+function ThemePreview() {
   return (
-    <div data-theme={name} className="flex h-16 overflow-hidden rounded-sm bg-base">
-      {/* Sidebar column */}
+    <div className="flex h-16 overflow-hidden rounded-sm bg-base">
       <div className="w-1/4 border-r border-edge/60 bg-raised">
         <div className="mx-1.5 mt-3 space-y-1">
           <div className="h-1 rounded-full bg-fg-muted/50" />
           <div className="h-1 w-3/4 rounded-full bg-fg-muted/30" />
         </div>
       </div>
-      {/* Main content */}
       <div className="flex-1 bg-surface p-2">
         <div className="space-y-1.5">
           <div className="h-1 w-2/3 rounded-full bg-fg/60" />
@@ -70,6 +68,7 @@ export function AppearanceSection() {
           {themeNames.map((name) => (
             <div
               key={name}
+              data-theme={name}
               role="radio"
               aria-checked={currentTheme === name}
               aria-label={capitalize(name)}
@@ -83,7 +82,7 @@ export function AppearanceSection() {
               }}
               tabIndex={0}
             >
-              <ThemePreview name={name} />
+              <ThemePreview />
               <span className="font-mono text-sm text-fg-dim">{capitalize(name)}</span>
             </div>
           ))}

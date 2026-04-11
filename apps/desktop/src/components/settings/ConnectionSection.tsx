@@ -142,7 +142,7 @@ function ClaudeDefaultMode() {
       <p className="mb-3 text-base text-fg-muted">
         Default permission mode when launching a Claude Code session.
       </p>
-      <fieldset className={`flex gap-px overflow-hidden rounded-md border border-edge/20 p-0`}>
+      <fieldset className="flex gap-px overflow-hidden rounded-md border border-edge/20 p-0">
         <legend className="sr-only">Claude Code default mode</legend>
         {(['bypass', 'plan'] as const).map((m) => (
           <button
