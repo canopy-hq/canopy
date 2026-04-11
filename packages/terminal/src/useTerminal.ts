@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
-import { getSettingCollection, getSetting } from '@superagent/db';
+import { getSettingCollection, getSetting } from '@canopy/db';
 import { Terminal, FitAddon } from 'ghostty-web';
 
 import { ensureGhosttyInit, isGhosttyReady } from './ghostty-init';

@@ -27,7 +27,7 @@ Never implement these in TypeScript and call them in a loop. Build a batched Rus
 
 ## PTY Daemon
 
-Standalone binary (`superagent-pty-daemon`) in its own process group — survives app restart. Protocol: newline-delimited JSON commands, binary-framed output. Scrollback: 100 KB ring-buffer replayed on attach.
+Standalone binary (`canopy-pty-daemon`) in its own process group — survives app restart. Protocol: newline-delimited JSON commands, binary-framed output. Scrollback: 100 KB ring-buffer replayed on attach.
 
 ## IPC
 

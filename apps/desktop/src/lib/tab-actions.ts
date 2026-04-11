@@ -10,7 +10,7 @@ import {
   insertTabSilently,
   deleteTabAndUpdateActive,
   syncNavStateToLocalStorage,
-} from '@superagent/db';
+} from '@canopy/db';
 import {
   closePty,
   closePtysForPanes,
@@ -18,7 +18,7 @@ import {
   initTerminalPool,
   spawnTerminal,
   writeToPty,
-} from '@superagent/terminal';
+} from '@canopy/terminal';
 
 import {
   collectAllLeafPaneIds,
@@ -33,7 +33,7 @@ import {
   type SplitDirection,
 } from './pane-tree-ops';
 
-import type { Tab } from '@superagent/db';
+import type { Tab } from '@canopy/db';
 
 /** Resolve a projectItemId composite key to a filesystem path. */
 export function resolveProjectItemCwd(projectItemId: string): string | undefined {

@@ -22,8 +22,8 @@ vi.mock('ghostty-web', async () => {
   return createGhosttyWebMock();
 });
 
-vi.mock('@superagent/db', async () => {
-  const { createDbMock } = await import('./__mocks__/superagent-db');
+vi.mock('@canopy/db', async () => {
+  const { createDbMock } = await import('./__mocks__/canopy-db');
   return createDbMock();
 });
 
@@ -70,7 +70,7 @@ import { useTerminal } from '../src/useTerminal';
 const ASCII_ART_STRING = [
   '\x1b[2J\x1b[H', // clear screen, home cursor
   '\x1b[1;32m┌───────────────────┐\x1b[0m\r\n',
-  '\x1b[1;32m│\x1b[0m \x1b[38;5;196mSUPERAGENT\x1b[0m \x1b[38;5;214mv1.0.0\x1b[0m \x1b[1;32m│\x1b[0m\r\n',
+  '\x1b[1;32m│\x1b[0m \x1b[38;5;196mCANOPY\x1b[0m \x1b[38;5;214mv1.0.0\x1b[0m \x1b[1;32m│\x1b[0m\r\n',
   '\x1b[1;32m│\x1b[0m \x1b[1;34m日本語\x1b[0m          \x1b[1;32m│\x1b[0m\r\n',
   '\x1b[1;32m├───────────────────┤\x1b[0m\r\n',
   '\x1b[1;32m│\x1b[0m 🚀 \x1b[1;33mReady\x1b[0m          \x1b[1;32m│\x1b[0m\r\n',

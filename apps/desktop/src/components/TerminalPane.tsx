@@ -6,8 +6,8 @@ import {
   setSetting,
   getSessionCollection,
   getTabCollection,
-} from '@superagent/db';
-import { useTerminal, getPtyCwd } from '@superagent/terminal';
+} from '@canopy/db';
+import { useTerminal, getPtyCwd } from '@canopy/terminal';
 import { CircleX } from 'lucide-react';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';

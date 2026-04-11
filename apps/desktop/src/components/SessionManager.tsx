@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, Modal, ModalOverlay } from 'react-aria-components';
 
-import { closePty, listPtySessions } from '@superagent/terminal';
-import { Button, SectionLabel } from '@superagent/ui';
+import { closePty, listPtySessions } from '@canopy/terminal';
+import { Button, SectionLabel } from '@canopy/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { tv } from 'tailwind-variants';
 
@@ -11,8 +11,8 @@ import { containsPtyId } from '../lib/pane-tree-ops';
 import { getProjectItemIds } from '../lib/project-actions';
 import { killPaneInTab, jumpToPane } from '../lib/tab-actions';
 
-import type { Tab, Project } from '@superagent/db';
-import type { PtySessionInfo } from '@superagent/terminal';
+import type { Tab, Project } from '@canopy/db';
+import type { PtySessionInfo } from '@canopy/terminal';
 
 export interface SessionManagerProps {
   onClose: () => void;

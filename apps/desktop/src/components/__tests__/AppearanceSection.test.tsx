@@ -3,7 +3,7 @@ import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest';
 
 const mockSetSetting = vi.fn();
 
-vi.mock('@superagent/db', () => ({
+vi.mock('@canopy/db', () => ({
   setSetting: (...args: unknown[]) => mockSetSetting(...args),
   getSetting: (_settings: unknown[], _key: string, fallback: unknown) => fallback,
   getSettingCollection: () => ({ toArray: [] }),

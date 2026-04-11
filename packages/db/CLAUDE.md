@@ -1,6 +1,6 @@
-# @superagent/db
+# @canopy/db
 
-SQLite-backed persistent state + in-memory collections for the Superagent app. Built on TanStack DB (optimistic, reactive) + Drizzle ORM (type-safe SQLite via `@tauri-apps/plugin-sql`).
+SQLite-backed persistent state + in-memory collections for the Canopy app. Built on TanStack DB (optimistic, reactive) + Drizzle ORM (type-safe SQLite via `@tauri-apps/plugin-sql`).
 
 ## Initialization order — critical
 

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 
-import { getSetting, getSettingCollection, setSetting } from '@superagent/db';
-import { Button, SectionLabel, Spinner } from '@superagent/ui';
+import { getSetting, getSettingCollection, setSetting } from '@canopy/db';
+import { Button, SectionLabel, Spinner } from '@canopy/ui';
 import { useLiveQuery } from '@tanstack/react-db';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { Check, GitBranch } from 'lucide-react';
@@ -237,9 +237,7 @@ function ConnectingCard({
 
   return (
     <div className={`px-4 py-4 ${card}`}>
-      <p className="mb-3 text-sm text-text-muted">
-        Enter this code on GitHub to authorize Superagent:
-      </p>
+      <p className="mb-3 text-sm text-text-muted">Enter this code on GitHub to authorize Canopy:</p>
       <div className="mb-3 flex items-center justify-between gap-4">
         <span className="font-mono text-2xl font-bold tracking-widest text-text-primary select-all">
           {deviceCode.userCode}

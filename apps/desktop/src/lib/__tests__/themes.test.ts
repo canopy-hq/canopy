@@ -4,7 +4,7 @@ import {
   terminalThemes,
   cssThemeProperties,
   type ThemeName,
-} from '@superagent/terminal';
+} from '@canopy/terminal';
 import { describe, it, expect } from 'vitest';
 
 const EXPECTED_THEMES: ThemeName[] = [

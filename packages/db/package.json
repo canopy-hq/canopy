@@ -1,5 +1,5 @@
 {
-  "name": "@superagent/db",
+  "name": "@canopy/db",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "drizzle-orm": "^0.44"
   },
   "devDependencies": {
-    "@superagent/tsconfig": "workspace:*",
+    "@canopy/tsconfig": "workspace:*",
     "drizzle-kit": "^0.31"
   }
 }

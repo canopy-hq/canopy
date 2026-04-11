@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { Group, Project } from '@superagent/db';
+import type { Group, Project } from '@canopy/db';
 
-// ── In-memory mock for @superagent/db ────────────────────────────────────────
+// ── In-memory mock for @canopy/db ────────────────────────────────────────
 
 let _groups: Group[] = [];
 let _projects: Project[] = [];
 
-vi.mock('@superagent/db', () => ({
+vi.mock('@canopy/db', () => ({
   getGroupCollection: () => ({
     get toArray() {
       return [..._groups];

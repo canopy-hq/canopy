@@ -1,9 +1,9 @@
 import { useState, useRef, useCallback, useMemo } from 'react';
 
+import { getSetting } from '@canopy/db';
+import { Button, Kbd, Tooltip } from '@canopy/ui';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { getSetting } from '@superagent/db';
-import { Button, Kbd, Tooltip } from '@superagent/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { FolderPlus, GripVertical, Layers } from 'lucide-react';
 
@@ -40,8 +40,8 @@ import { RemoveWorktreeModal } from './RemoveWorktreeModal';
 import { RepoTreeItem } from './RepoTreeItem';
 import { useProjectTreeDnD } from './useProjectTreeDnD';
 
-import type { Project } from '@superagent/db';
-import type { DotStatus } from '@superagent/ui';
+import type { Project } from '@canopy/db';
+import type { DotStatus } from '@canopy/ui';
 
 function useProjectAgentMap(): Record<string, DotStatus> {
   const agents = useAgents();

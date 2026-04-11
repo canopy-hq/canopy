@@ -1,6 +1,6 @@
 import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 
-import { CommandMenu } from '@superagent/command-palette';
+import { CommandMenu } from '@canopy/command-palette';
 import {
   agentCollection,
   getUiState,
@@ -11,9 +11,9 @@ import {
   getSetting,
   setSetting,
   getSessionCollection,
-} from '@superagent/db';
-import { FpsOverlay } from '@superagent/fps';
-import { ensureGhosttyInit, spawnTerminal, initTerminalPool } from '@superagent/terminal';
+} from '@canopy/db';
+import { FpsOverlay } from '@canopy/fps';
+import { ensureGhosttyInit, spawnTerminal, initTerminalPool } from '@canopy/terminal';
 import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 import { LucideProvider } from 'lucide-react';
 
@@ -45,7 +45,7 @@ import { onOpenProjectPalette } from '../lib/project-palette-bridge';
 import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
 
-import type { CommandItem } from '@superagent/command-palette';
+import type { CommandItem } from '@canopy/command-palette';
 
 // Pre-initialize ghostty-web WASM at module load.
 void ensureGhosttyInit();

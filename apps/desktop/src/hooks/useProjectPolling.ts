@@ -7,7 +7,7 @@ import {
   getUiState,
   setSetting,
   uiCollection,
-} from '@superagent/db';
+} from '@canopy/db';
 
 import { pollAllProjectStates } from '../lib/git';
 import { logInfo } from '../lib/log';
@@ -15,7 +15,7 @@ import { hideWorktree } from '../lib/project-actions';
 import { getExpandedProjectPaths } from '../lib/project-utils';
 
 import type { DiffStat, ProjectPollState } from '../lib/git';
-import type { Project } from '@superagent/db';
+import type { Project } from '@canopy/db';
 
 type StatsMap = Record<string, Record<string, DiffStat>>;
 

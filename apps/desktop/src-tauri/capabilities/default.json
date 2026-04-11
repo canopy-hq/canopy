@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Default capability for Superagent",
+  "description": "Default capability for Canopy",
   "windows": ["main"],
   "permissions": [
     "core:default",

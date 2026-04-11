@@ -1,5 +1,5 @@
 {
-  "name": "@superagent/terminal",
+  "name": "@canopy/terminal",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -12,12 +12,12 @@
     "bench": "vitest bench"
   },
   "dependencies": {
-    "@superagent/db": "workspace:*",
+    "@canopy/db": "workspace:*",
     "@tauri-apps/api": "catalog:",
     "ghostty-web": "catalog:"
   },
   "devDependencies": {
-    "@superagent/tsconfig": "workspace:*",
+    "@canopy/tsconfig": "workspace:*",
     "@testing-library/react": "catalog:",
     "@types/react": "catalog:",
     "happy-dom": "catalog:",

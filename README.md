@@ -1,8 +1,8 @@
-# Superagent
+# Canopy
 
 [![CI](https://github.com/nept/superagent/actions/workflows/ci.yml/badge.svg)](https://github.com/nept/superagent/actions/workflows/ci.yml)
 
-Monorepo for the Superagent desktop app.
+Monorepo for the Canopy desktop app.
 
 ## Dev Setup
 
@@ -37,7 +37,7 @@ chmod +x scripts/setup-dev-codesign.sh scripts/cargo-codesign.sh
 ./scripts/setup-dev-codesign.sh
 ```
 
-This creates a "Superagent Dev" certificate in your login keychain, trusted only for code signing — no impact on other apps. After setup, `bun run desktop:dev` automatically codesigns each build via `scripts/cargo-codesign.sh`.
+This creates a "Canopy Dev" certificate in your login keychain, trusted only for code signing — no impact on other apps. After setup, `bun run desktop:dev` automatically codesigns each build via `scripts/cargo-codesign.sh`.
 
 ## Commands
 
@@ -62,8 +62,8 @@ VITE_PORT=1422 bun run desktop:dev
 
 Dev and prod builds use separate SQLite databases:
 
-- **Dev** → `~/Library/Application Support/com.superagent.dev-<hash>/superagent.db` (one per worktree)
-- **Prod** → `~/Library/Application Support/com.superagent.app/superagent.db`
+- **Dev** → `~/Library/Application Support/com.canopy.dev-<hash>/canopy.db` (one per worktree)
+- **Prod** → `~/Library/Application Support/com.canopy.app/canopy.db`
 
 ```bash
 bun run desktop:db:reset       # Reset dev DB for the current worktree
@@ -82,15 +82,15 @@ git push origin v0.2.0
 This builds the app, signs the update artifacts with the Tauri updater key, and creates a GitHub Release with the `.dmg` and `latest.json` attached. Apple code-signing is pre-wired in `.github/workflows/release.yml` — uncomment and add secrets when a Developer ID certificate is available.
 
 Required GitHub secrets before releasing:
-- `SUPERAGENT_GITHUB_CLIENT_ID`
-- `TAURI_SIGNING_PRIVATE_KEY` (content of `~/.tauri/superagent.key`)
+- `CANOPY_GITHUB_CLIENT_ID`
+- `TAURI_SIGNING_PRIVATE_KEY` (content of `~/.tauri/canopy.key`)
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (empty string if key was generated without password)
 
 ### Other commands
 
 ```bash
 bun --filter desktop test              # Frontend tests (Vitest)
-bun --filter @superagent/terminal test # Terminal package tests
+bun --filter @canopy/terminal test # Terminal package tests
 cd apps/desktop/src-tauri && cargo test # Rust tests
 bun run lint                           # Lint
 bun run format                         # Format

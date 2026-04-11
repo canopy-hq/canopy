@@ -1,4 +1,4 @@
-import { getSetting, getSettingCollection, setSetting } from '@superagent/db';
+import { getSetting, getSettingCollection, setSetting } from '@canopy/db';
 import {
   themes,
   themeNames,
@@ -7,8 +7,8 @@ import {
   DEFAULT_TERMINAL_FONT_SIZE,
   type ThemeName,
   type CssThemeProperties,
-} from '@superagent/terminal';
-import { SectionLabel } from '@superagent/ui';
+} from '@canopy/terminal';
+import { SectionLabel } from '@canopy/ui';
 import { useLiveQuery } from '@tanstack/react-db';
 import { tv } from 'tailwind-variants';
 

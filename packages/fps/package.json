@@ -1,5 +1,5 @@
 {
-  "name": "@superagent/fps",
+  "name": "@canopy/fps",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "test": "vitest run --reporter=verbose"
   },
   "devDependencies": {
-    "@superagent/tsconfig": "workspace:*",
+    "@canopy/tsconfig": "workspace:*",
     "@testing-library/react": "catalog:",
     "@types/react": "catalog:",
     "happy-dom": "catalog:",

@@ -8,8 +8,8 @@ vi.mock('ghostty-web', async () => {
   return createGhosttyWebMock();
 });
 
-vi.mock('@superagent/db', async () => {
-  const { createDbMock } = await import('./__mocks__/superagent-db');
+vi.mock('@canopy/db', async () => {
+  const { createDbMock } = await import('./__mocks__/canopy-db');
   return createDbMock();
 });
 

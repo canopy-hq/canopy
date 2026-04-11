@@ -1,13 +1,13 @@
 import { createElement } from 'react';
 
-import { getSetting } from '@superagent/db';
+import { getSetting } from '@canopy/db';
 
 import { ProjectPalettePanel } from '../components/ProjectPalette';
 import { selectProjectItem } from '../lib/project-actions';
 import { addTab } from '../lib/tab-actions';
 
-import type { Nav, CommandItem, PanelContext } from '@superagent/command-palette';
-import type { Setting, Project } from '@superagent/db';
+import type { Nav, CommandItem, PanelContext } from '@canopy/command-palette';
+import type { Setting, Project } from '@canopy/db';
 
 export function makeProjectPaletteItem(proj: Project, disabled?: boolean): CommandItem {
   return {

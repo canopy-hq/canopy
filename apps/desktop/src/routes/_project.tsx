@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { getSetting } from '@superagent/db';
+import { getSetting } from '@canopy/db';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 
 import { Sidebar } from '../components/Sidebar';

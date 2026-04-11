@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-import { Button, Kbd } from '@superagent/ui';
+import { Button, Kbd } from '@canopy/ui';
 import { createFileRoute } from '@tanstack/react-router';
 import { Bot, FolderPlus, GitBranch, PanelLeft, Terminal } from 'lucide-react';
 
@@ -18,10 +18,10 @@ function Onboarding() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-10 select-none">
       <div className="flex flex-col items-center gap-4">
-        <img src={logoSrc} alt="Superagent" className="h-14 w-14" />
+        <img src={logoSrc} alt="Canopy" className="h-14 w-14" />
         <div className="flex flex-col items-center gap-2 text-center">
           <h1 className="font-mono text-lg font-semibold tracking-tight text-text-primary">
-            Welcome to Superagent
+            Welcome to Canopy
           </h1>
           <p className="max-w-[260px] font-mono text-sm leading-relaxed text-text-muted">
             Run and monitor AI coding agents across all your git projects.

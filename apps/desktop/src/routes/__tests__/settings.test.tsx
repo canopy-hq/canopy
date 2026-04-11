@@ -10,7 +10,7 @@ vi.mock('../../lib/github', () => ({
   GITHUB_CONNECTION_KEY: 'github:connection',
 }));
 
-vi.mock('@superagent/db', () => ({
+vi.mock('@canopy/db', () => ({
   setSetting: vi.fn(),
   getSetting: (_s: unknown[], _k: string, fallback: unknown) => fallback,
   getSettingCollection: () => ({ toArray: [] }),

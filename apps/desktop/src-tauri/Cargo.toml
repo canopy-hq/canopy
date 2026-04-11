@@ -1,11 +1,11 @@
 [package]
-name = "superagent"
+name = "canopy"
 version = "0.1.0"
 edition = "2021"
-default-run = "superagent"
+default-run = "canopy"
 
 [lib]
-name = "superagent_lib"
+name = "canopy_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

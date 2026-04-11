@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { listPtySessions } from '@superagent/terminal';
+import { listPtySessions } from '@canopy/terminal';
 import { useNavigate } from '@tanstack/react-router';
 
 import { useAgents, useSettings, useTabs, useUiState, useProjects } from '../hooks/useCollections';
@@ -13,8 +13,8 @@ import { buildStaticCommands } from './static-commands';
 import { buildTabCommands } from './tab-commands';
 import { resolveProject } from './utils';
 
-import type { CommandItem } from '@superagent/command-palette';
-import type { PtySessionInfo } from '@superagent/terminal';
+import type { CommandItem } from '@canopy/command-palette';
+import type { PtySessionInfo } from '@canopy/terminal';
 
 export function useAllCommands(): CommandItem[] {
   const navigate = useNavigate();

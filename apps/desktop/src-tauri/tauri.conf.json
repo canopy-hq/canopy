@@ -1,17 +1,17 @@
 {
-  "productName": "Superagent",
+  "productName": "Canopy",
   "version": "0.1.0",
-  "identifier": "com.superagent.app",
+  "identifier": "com.canopy.app",
   "build": {
-    "beforeDevCommand": "cargo build --bin superagent-pty-daemon --manifest-path ../../packages/pty-daemon/Cargo.toml",
+    "beforeDevCommand": "cargo build --bin canopy-pty-daemon --manifest-path ../../packages/pty-daemon/Cargo.toml",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "cargo build --release --bin superagent-pty-daemon --manifest-path ../../packages/pty-daemon/Cargo.toml && bun run build",
+    "beforeBuildCommand": "cargo build --release --bin canopy-pty-daemon --manifest-path ../../packages/pty-daemon/Cargo.toml && bun run build",
     "frontendDist": "../dist"
   },
   "app": {
     "windows": [
       {
-        "title": "Superagent",
+        "title": "Canopy",
         "width": 1200,
         "height": 800,
         "minWidth": 640,
@@ -27,7 +27,7 @@
   },
   "bundle": {
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns"],
-    "macOS": { "bundleName": "Superagent" }
+    "macOS": { "bundleName": "Canopy" }
   },
   "plugins": {
     "updater": {

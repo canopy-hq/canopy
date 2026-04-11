@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from 'react';
 
-import { getUiState } from '@superagent/db';
-import { Button, SectionLabel } from '@superagent/ui';
+import { getUiState } from '@canopy/db';
+import { Button, SectionLabel } from '@canopy/ui';
 import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router';
 import { ChevronLeft, Palette, GitBranch } from 'lucide-react';
 import { tv } from 'tailwind-variants';

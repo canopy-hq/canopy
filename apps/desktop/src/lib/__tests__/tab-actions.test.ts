@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { Tab, Project } from '@superagent/db';
-import type { UiState } from '@superagent/db';
+import type { Tab, Project } from '@canopy/db';
+import type { UiState } from '@canopy/db';
 
-// ── In-memory mock for @superagent/db ────────────────────────────────────────
+// ── In-memory mock for @canopy/db ────────────────────────────────────────
 
 let _tabs: Tab[] = [];
 let _uiState: UiState = {
@@ -39,7 +39,7 @@ const mockSetSetting = vi.fn();
 
 let _insertTabSilentlyCalls: Tab[] = [];
 
-vi.mock('@superagent/db', () => ({
+vi.mock('@canopy/db', () => ({
   getProjectCollection: () => ({
     get toArray() {
       return [..._projects];
@@ -88,7 +88,7 @@ vi.mock('@superagent/db', () => ({
   syncNavStateToLocalStorage: vi.fn(),
 }));
 
-vi.mock('@superagent/terminal', () => ({
+vi.mock('@canopy/terminal', () => ({
   spawnTerminal: vi.fn().mockResolvedValue({ ptyId: 42 }),
   writeToPty: vi.fn().mockResolvedValue(undefined),
   closePty: vi.fn().mockResolvedValue(undefined),

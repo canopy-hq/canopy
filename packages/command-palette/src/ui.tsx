@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { Kbd, type KbdVariant } from '@superagent/ui';
+import { Kbd, type KbdVariant } from '@canopy/ui';
 
 export { Kbd, type KbdVariant };
 

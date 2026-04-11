@@ -1,8 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 
-import { type DraggableSyntheticListeners } from '@dnd-kit/core';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import {
   Badge,
   badge,
@@ -13,7 +10,10 @@ import {
   StatusDot,
   Tooltip,
   ContextMenu,
-} from '@superagent/ui';
+} from '@canopy/ui';
+import { type DraggableSyntheticListeners } from '@dnd-kit/core';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener';
 import {
   AlertTriangle,
@@ -47,8 +47,8 @@ import { ClaudeCodeIcon } from './ClaudeCodeIcon';
 
 import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
 import type { PrInfo } from '../lib/github';
-import type { Group, Project, CloneProgress } from '@superagent/db';
-import type { ContextMenuItemDef, DotStatus } from '@superagent/ui';
+import type { Group, Project, CloneProgress } from '@canopy/db';
+import type { ContextMenuItemDef, DotStatus } from '@canopy/ui';
 
 const WORKSPACE_COLORS: Array<{ value: string; label: string }> = [
   { value: '#f59e0b', label: 'Amber' },

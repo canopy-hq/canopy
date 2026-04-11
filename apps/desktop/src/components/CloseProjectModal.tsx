@@ -1,4 +1,4 @@
-import { ConfirmModal } from '@superagent/ui';
+import { ConfirmModal } from '@canopy/ui';
 
 export interface CloseProjectModalProps {
   isOpen: boolean;

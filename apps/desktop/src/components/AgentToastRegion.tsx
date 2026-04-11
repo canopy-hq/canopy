@@ -5,8 +5,8 @@ import {
   Text,
 } from 'react-aria-components';
 
-import { getTabCollection } from '@superagent/db';
-import { Button, StatusDot } from '@superagent/ui';
+import { getTabCollection } from '@canopy/db';
+import { Button, StatusDot } from '@canopy/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { X } from 'lucide-react';
 

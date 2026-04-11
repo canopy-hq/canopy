@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 
-import { initDb, runMigrations, hydrateCollections } from '@superagent/db';
+import { initDb, runMigrations, hydrateCollections } from '@canopy/db';
 import { RouterProvider } from '@tanstack/react-router';
 import { invoke } from '@tauri-apps/api/core';
 import { check } from '@tauri-apps/plugin-updater';

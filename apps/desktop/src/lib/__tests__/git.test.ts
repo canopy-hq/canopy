@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockGetSetting = vi.fn();
 const mockGetSettingCollection = vi.fn();
 
-vi.mock('@superagent/db', () => ({
+vi.mock('@canopy/db', () => ({
   getSetting: (...args: unknown[]) => mockGetSetting(...args),
   getSettingCollection: () => mockGetSettingCollection(),
 }));
@@ -15,24 +15,24 @@ describe('buildWorktreePath', () => {
     mockGetSetting.mockReset();
     mockGetSettingCollection.mockReset();
     mockGetSettingCollection.mockReturnValue({ toArray: [] });
-    mockGetSetting.mockReturnValue('~/.superagent/worktrees');
+    mockGetSetting.mockReturnValue('~/.canopy/worktrees');
   });
 
   it('prefixes the leaf with the project directory basename', () => {
     expect(buildWorktreePath('/repos/mon-projet', 'my-feature')).toBe(
-      '~/.superagent/worktrees/mon-projet.my-feature',
+      '~/.canopy/worktrees/mon-projet.my-feature',
     );
   });
 
   it('puts the directory portion of the wt name before the prefixed leaf', () => {
     expect(buildWorktreePath('/repos/mon-projet', 'feat/my-feature')).toBe(
-      '~/.superagent/worktrees/feat/mon-projet.my-feature',
+      '~/.canopy/worktrees/feat/mon-projet.my-feature',
     );
   });
 
   it('handles nested wt name directories', () => {
     expect(buildWorktreePath('/repos/mon-projet', 'team/feat/my-feature')).toBe(
-      '~/.superagent/worktrees/team/feat/mon-projet.my-feature',
+      '~/.canopy/worktrees/team/feat/mon-projet.my-feature',
     );
   });
 
@@ -45,7 +45,7 @@ describe('buildWorktreePath', () => {
 
   it('strips trailing slash from project path', () => {
     expect(buildWorktreePath('/repos/mon-projet/', 'my-feature')).toBe(
-      '~/.superagent/worktrees/mon-projet.my-feature',
+      '~/.canopy/worktrees/mon-projet.my-feature',
     );
   });
 });

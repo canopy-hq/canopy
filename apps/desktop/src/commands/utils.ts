@@ -1,4 +1,4 @@
-import type { Tab, Project } from '@superagent/db';
+import type { Tab, Project } from '@canopy/db';
 
 /** Find the project that owns a given projectItemId (branch/worktree/root). */
 export function resolveProject(projectItemId: string, projects: Project[]): Project | undefined {

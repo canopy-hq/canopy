@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { ActionRow, Button, Spinner } from '@superagent/ui';
+import { ActionRow, Button, Spinner } from '@canopy/ui';
 import { createFileRoute } from '@tanstack/react-router';
 import { PanelLeft, SquareTerminal, X } from 'lucide-react';
 

@@ -1,12 +1,12 @@
-import { getSetting } from '@superagent/db';
+import { getSetting } from '@canopy/db';
 
 import { DEFAULT_EDITOR_SETTING_KEY, openInEditor, resolveDefaultEditor } from '../lib/editor';
 import { resolveProjectItemCwd } from '../lib/tab-actions';
 import { showErrorToast } from '../lib/toast';
 
 import type { DetectedEditor } from '../lib/editor';
-import type { CommandItem } from '@superagent/command-palette';
-import type { Setting } from '@superagent/db';
+import type { CommandItem } from '@canopy/command-palette';
+import type { Setting } from '@canopy/db';
 
 export function buildEditorCommands(
   editors: DetectedEditor[],

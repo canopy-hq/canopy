@@ -7,14 +7,14 @@ const repoRoot = resolve(desktopDir, '../..');
 
 const rebuild = process.argv.includes('--rebuild');
 if (rebuild) {
-  const daemonBin = resolve(repoRoot, 'target/debug/superagent-pty-daemon');
-  spawnSync('pkill', ['-f', 'superagent-pty-daemon'], { stdio: 'ignore' });
+  const daemonBin = resolve(repoRoot, 'target/debug/canopy-pty-daemon');
+  spawnSync('pkill', ['-f', 'canopy-pty-daemon'], { stdio: 'ignore' });
   spawnSync('rm', ['-f', daemonBin], { stdio: 'ignore' });
   console.log('[dev] daemon killed and binary removed — will rebuild on start');
 }
 
 // Fixed identifier — keeps dev/prod data dirs separate without creating per-worktree dirs.
-const devIdentifier = 'com.superagent.dev';
+const devIdentifier = 'com.canopy.dev';
 
 // Start Vite directly so it picks its own port atomically — no probe/race condition.
 const vite = spawn('bun', ['run', 'dev'], {

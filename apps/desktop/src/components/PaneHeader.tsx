@@ -1,9 +1,9 @@
 import { useCallback } from 'react';
 
-import { StatusDot, Tooltip } from '@superagent/ui';
+import { StatusDot, Tooltip } from '@canopy/ui';
 import { tv } from 'tailwind-variants';
 
-import type { DotStatus } from '@superagent/ui';
+import type { DotStatus } from '@canopy/ui';
 
 const wrapper = tv({
   base: 'absolute top-0 right-0 z-10 rounded-bl-[6px] px-4 py-1 font-mono text-md leading-none flex items-center gap-1 backdrop-blur-[4px] cursor-pointer select-none',

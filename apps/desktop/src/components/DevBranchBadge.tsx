@@ -1,4 +1,4 @@
-import { Badge } from '@superagent/ui';
+import { Badge } from '@canopy/ui';
 
 const branch = import.meta.env.VITE_GIT_BRANCH ?? 'unknown';
 

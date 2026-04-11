@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 
-import { getSettingCollection, getSetting, setSetting } from '@superagent/db';
+import { getSettingCollection, getSetting, setSetting } from '@canopy/db';
 
 import { getPrStatuses } from '../lib/github';
 import { getExpandedProjectPaths } from '../lib/project-utils';
 
 import type { PrInfo } from '../lib/github';
-import type { Project } from '@superagent/db';
+import type { Project } from '@canopy/db';
 
 const PR_SETTING_KEY = 'prStatuses';
 

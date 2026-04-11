@@ -1,4 +1,4 @@
-import type { Project } from '@superagent/db';
+import type { Project } from '@canopy/db';
 
 export interface ExpandedProjectInfo {
   paths: string[];
