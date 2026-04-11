@@ -44,6 +44,7 @@ import {
   setProjectColor,
 } from '../lib/project-actions';
 import { ClaudeCodeIcon } from './ClaudeCodeIcon';
+import { CountBadge } from './CountBadge';
 
 import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
 import type { PrInfo } from '../lib/github';
@@ -92,7 +93,7 @@ const PrBadge = memo(function PrBadge({ pr }: { pr: PrInfo }) {
       className={badge({
         color: PR_COLOR[pr.state],
         size: 'sm',
-        class: 'gap-1 font-mono text-sm font-normal hover:brightness-125',
+        class: 'gap-1 font-mono font-normal hover:brightness-125',
       })}
     >
       <GitPullRequest size={10} className="shrink-0" />#{pr.number}
@@ -158,12 +159,7 @@ function ItemRow({
         {isDeleting ? (
           <span className="shrink-0 font-mono text-xs text-danger/50">removing…</span>
         ) : (
-          !editing &&
-          (tabCount ?? 0) > 0 && (
-            <span className="shrink-0 rounded-sm bg-surface/60 px-1.5 py-px font-mono text-sm leading-none text-fg-faint tabular-nums">
-              {tabCount}
-            </span>
-          )
+          !editing && (tabCount ?? 0) > 0 && <CountBadge count={tabCount} />
         )}
       </div>
       {badge != null && !isDeleting && (
@@ -310,7 +306,7 @@ const WorktreeRow = memo(
           tabCount={tabCount}
           isDeleting={isDeleting}
           badge={
-            <Badge size="md" className="min-w-0 shrink gap-1 font-mono">
+            <Badge size="sm" className="min-w-0 shrink gap-1 font-mono">
               <GitBranch size={10} className="shrink-0 opacity-60" />
               <span className="min-w-0 truncate">{worktree.branch || worktree.name}</span>
             </Badge>
@@ -484,11 +480,7 @@ const RepoHeader = memo(
             ))}
           </span>
         )}
-        {!isRenaming && !project.expanded && childCount > 0 && (
-          <span className="shrink-0 rounded-sm bg-surface/60 px-1.5 py-px font-mono text-sm leading-none text-fg-faint tabular-nums">
-            {childCount}
-          </span>
-        )}
+        {!isRenaming && !project.expanded && childCount > 0 && <CountBadge count={childCount} />}
         {!isRenaming && (
           <>
             {!isCloning && (
