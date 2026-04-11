@@ -22,8 +22,8 @@ React 19 + TypeScript frontend running inside Tauri v2. This is a native macOS a
 // BAD — never reference a CSS var via style=
 <div style={{ color: 'var(--accent)' }} />
 
-// BAD — old arbitrary-value syntax
-<div className="bg-[var(--base)]" />
+// BAD — prefer bg-base (the Tailwind class) over the CSS var shorthand
+<div className="bg-(--base)" />
 
 // GOOD — semantic Tailwind class (token in @theme)
 <div className="bg-base text-fg-muted" />
@@ -34,18 +34,18 @@ React 19 + TypeScript frontend running inside Tauri v2. This is a native macOS a
 
 **Token reference** (see `packages/theme/CLAUDE.md` for the full table + opacity modifier guide):
 
-| Role              | Tailwind class                                                              |
-| ----------------- | --------------------------------------------------------------------------- |
-| Surfaces          | `bg-base` / `bg-raised` / `bg-surface`                                      |
-| Interactive       | `bg-hover` / `bg-selected` / `bg-selected-hover` / `bg-input`               |
-| Text              | `text-fg` / `text-fg-dim` / `text-fg-muted` / `text-fg-faint`               |
-| Placeholder       | `text-placeholder` / `placeholder:text-placeholder`                         |
-| Border            | `border-edge` / `border-focus` / `ring-focus`                               |
-| Accent            | `text-accent` / `bg-accent` / `border-accent`                               |
-| Danger            | `text-danger` / `bg-danger` / `border-danger`                               |
-| Git               | `text-branch` / `text-worktree` / `text-ahead` / `text-behind`              |
-| Claude brand      | `text-claude`                                                               |
-| Agent states      | `bg-(--agent-running)` / `bg-(--agent-waiting)` / `bg-(--agent-idle)`       |
+| Role         | Tailwind class                                                        |
+| ------------ | --------------------------------------------------------------------- |
+| Surfaces     | `bg-base` / `bg-raised` / `bg-surface`                                |
+| Interactive  | `bg-hover` / `bg-selected` / `bg-selected-hover` / `bg-input`         |
+| Text         | `text-fg` / `text-fg-dim` / `text-fg-muted` / `text-fg-faint`         |
+| Placeholder  | `text-placeholder` / `placeholder:text-placeholder`                   |
+| Border       | `border-edge` / `border-focus` / `ring-focus`                         |
+| Accent       | `text-accent` / `bg-accent` / `border-accent`                         |
+| Danger       | `text-danger` / `bg-danger` / `border-danger`                         |
+| Git          | `text-branch` / `text-worktree` / `text-ahead` / `text-behind`        |
+| Claude brand | `text-claude`                                                         |
+| Agent states | `bg-(--agent-running)` / `bg-(--agent-waiting)` / `bg-(--agent-idle)` |
 
 If a CSS variable is used in 3+ places and isn't in `@theme`, add it.
 

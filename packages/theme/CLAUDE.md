@@ -1,6 +1,6 @@
-# @superagent/theme
+# @canopy/theme
 
-Single source of truth for all design tokens. Consumed by `apps/desktop` via `@import '@superagent/theme'` in `src/index.css`.
+Single source of truth for all design tokens. Consumed by `apps/desktop` via `@import '@canopy/theme'` in `src/index.css`.
 
 ## Architecture
 
@@ -21,47 +21,47 @@ apps/desktop/src/index.css
 
 ## Token reference
 
-| CSS var | Tailwind class | Role |
-|---------|----------------|------|
-| `--base` | `bg-base` | App canvas — darkest background |
-| `--raised` | `bg-raised` | Raised surfaces: sidebar, header, tab bar |
-| `--surface` | `bg-surface` | Floating surfaces: menus, popovers, tooltips, dialogs |
-| `--hover` | `bg-hover` | Subtle hover for dense list/tree rows (rgba white 10%) |
-| `--selected` | `bg-selected` | Accent-tinted selected state for sidebar tree items |
-| `--selected-hover` | `bg-selected-hover` | Selected + hovered |
-| `--input` | `bg-input` | Form input field backgrounds |
-| `--placeholder` | `text-placeholder` | Input/textarea placeholder text |
-| `--fg` | `text-fg` | Primary text — high contrast |
-| `--fg-dim` | `text-fg-dim` | Secondary text |
-| `--fg-muted` | `text-fg-muted` | Muted text — labels, metadata |
-| `--fg-faint` | `text-fg-faint` | Faintest text — hints, decorative |
-| `--edge` | `border-edge` | Default border / divider |
-| `--focus` | `border-focus`, `ring-focus` | Focus ring color (= accent in most themes) |
-| `--accent` | `bg-accent`, `text-accent` | Theme accent color (varies per theme) |
-| `--danger` | `bg-danger`, `text-danger` | Destructive actions + error states |
-| `--branch` | `text-branch` | Git branch icon color |
-| `--worktree` | `text-worktree` | Git worktree icon color |
-| `--claude` | `text-claude` | Claude Code brand color (#da7756) |
-| `--ahead` | `text-ahead` | Git commits ahead (green) |
-| `--behind` | `text-behind` | Git commits behind (red) |
+| CSS var            | Tailwind class               | Role                                                   |
+| ------------------ | ---------------------------- | ------------------------------------------------------ |
+| `--base`           | `bg-base`                    | App canvas — darkest background                        |
+| `--raised`         | `bg-raised`                  | Raised surfaces: sidebar, header, tab bar              |
+| `--surface`        | `bg-surface`                 | Floating surfaces: menus, popovers, tooltips, dialogs  |
+| `--hover`          | `bg-hover`                   | Subtle hover for dense list/tree rows (rgba white 10%) |
+| `--selected`       | `bg-selected`                | Accent-tinted selected state for sidebar tree items    |
+| `--selected-hover` | `bg-selected-hover`          | Selected + hovered                                     |
+| `--input`          | `bg-input`                   | Form input field backgrounds                           |
+| `--placeholder`    | `text-placeholder`           | Input/textarea placeholder text                        |
+| `--fg`             | `text-fg`                    | Primary text — high contrast                           |
+| `--fg-dim`         | `text-fg-dim`                | Secondary text                                         |
+| `--fg-muted`       | `text-fg-muted`              | Muted text — labels, metadata                          |
+| `--fg-faint`       | `text-fg-faint`              | Faintest text — hints, decorative                      |
+| `--edge`           | `border-edge`                | Default border / divider                               |
+| `--focus`          | `border-focus`, `ring-focus` | Focus ring color (= accent in most themes)             |
+| `--accent`         | `bg-accent`, `text-accent`   | Theme accent color (varies per theme)                  |
+| `--danger`         | `bg-danger`, `text-danger`   | Destructive actions + error states                     |
+| `--branch`         | `text-branch`                | Git branch icon color                                  |
+| `--worktree`       | `text-worktree`              | Git worktree icon color                                |
+| `--claude`         | `text-claude`                | Claude Code brand color (#da7756)                      |
+| `--ahead`          | `text-ahead`                 | Git commits ahead (green)                              |
+| `--behind`         | `text-behind`                | Git commits behind (red)                               |
 
 ## Opacity modifiers
 
 Use Tailwind's `/N` modifier directly on semantic tokens for contextual variants:
 
-| Class | Usage |
-|-------|-------|
-| `hover:bg-hover` | Subtle hover for sidebar tree rows, action rows |
-| `hover:bg-surface/50` | Visible hover for menu items, palette rows, settings nav |
-| `hover:bg-surface` | Full hover for ghost buttons, context menu items |
-| `bg-surface/60` | Count badge backgrounds |
-| `bg-raised/85` | Glass modal backgrounds (pair with `backdrop-blur`) |
-| `bg-accent/10` | Selected tabs, chips, section buttons |
-| `border-edge/20` | Very subtle dividers (section separators) |
-| `border-edge/40` | Input borders, secondary separators |
-| `border-edge/60` | Dialog borders, component borders |
-| `text-danger/80` | Error messages, destructive ghost button text |
-| `text-fg-muted/60` → `text-placeholder` | Placeholder text (use the token) |
+| Class                                   | Usage                                                    |
+| --------------------------------------- | -------------------------------------------------------- |
+| `hover:bg-hover`                        | Subtle hover for sidebar tree rows, action rows          |
+| `hover:bg-surface/50`                   | Visible hover for menu items, palette rows, settings nav |
+| `hover:bg-surface`                      | Full hover for ghost buttons, context menu items         |
+| `bg-surface/60`                         | Count badge backgrounds                                  |
+| `bg-raised/85`                          | Glass modal backgrounds (pair with `backdrop-blur`)      |
+| `bg-accent/10`                          | Selected tabs, chips, section buttons                    |
+| `border-edge/20`                        | Very subtle dividers (section separators)                |
+| `border-edge/40`                        | Input borders, secondary separators                      |
+| `border-edge/60`                        | Dialog borders, component borders                        |
+| `text-danger/80`                        | Error messages, destructive ghost button text            |
+| `text-fg-muted/60` → `text-placeholder` | Placeholder text (use the token)                         |
 
 ## Hover system — two intentional intensities
 
@@ -75,6 +75,7 @@ Use Tailwind's `/N` modifier directly on semantic tokens for contextual variants
 ## Contrast metrics (verified)
 
 All themes were designed to meet:
+
 - `fg` on `base`: ≥ 14.5:1 (WCAG AAA)
 - `fg-dim` on `base`: ≥ 8.7:1 (WCAG AA)
 - `edge`/`surface` ratio: ≥ 1.30:1 (hairline border visibility)
@@ -99,6 +100,7 @@ All themes were designed to meet:
 ## Not exposed as Tailwind tokens (use CSS var shorthand)
 
 Agent status vars are used only in specific components via `style=` or Tailwind shorthand `bg-(--agent-*)`:
+
 - `--agent-running`, `--agent-waiting`, `--agent-idle` — status dot colors
 - `--agent-running-pulse` — running animation color
 - `--agent-waiting-glow`, `--agent-waiting-border`, `--agent-waiting-inset` — waiting border glow

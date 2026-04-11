@@ -5,6 +5,7 @@ import { Button, SectionLabel, Spinner } from '@canopy/ui';
 import { useLiveQuery } from '@tanstack/react-db';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { Check, GitBranch } from 'lucide-react';
+import { tv } from 'tailwind-variants';
 
 import { pickDirectory } from '../../lib/fs';
 import { DEFAULT_WORKTREE_BASE, WORKTREE_BASE_DIR_KEY } from '../../lib/git';
@@ -23,6 +24,16 @@ import { showErrorToast } from '../../lib/toast';
 
 const sectionDesc = 'mb-4 text-base text-fg-muted';
 const card = 'rounded-md border border-edge/20 bg-raised';
+
+const modeBtn = tv({
+  base: 'flex-1 cursor-pointer appearance-none px-4 py-2.5 text-left text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset',
+  variants: {
+    active: {
+      true: 'bg-accent/10 text-accent',
+      false: 'bg-raised text-fg-muted hover:bg-surface hover:text-fg',
+    },
+  },
+});
 
 function friendlyError(raw: string): string {
   if (raw.includes('keychain')) return 'Could not access the system keychain.';
@@ -149,11 +160,7 @@ function ClaudeDefaultMode() {
             key={m}
             type="button"
             onClick={() => setSetting(CLAUDE_DEFAULT_MODE_KEY, m)}
-            className={`flex-1 cursor-pointer appearance-none px-4 py-2.5 text-left text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset ${
-              mode === m
-                ? 'bg-accent/10 text-accent'
-                : 'bg-raised text-fg-muted hover:bg-surface hover:text-fg'
-            }`}
+            className={modeBtn({ active: mode === m })}
           >
             <span className="font-medium">
               {m === 'bypass' ? 'Bypass permissions' : 'Plan mode'}

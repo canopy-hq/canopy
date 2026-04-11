@@ -330,3 +330,79 @@ impl DaemonClient {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::UnixListener;
+
+    // ---- check_ok ----
+
+    #[test]
+    fn check_ok_returns_value_on_success() {
+        let val = serde_json::json!({ "ok": true, "pid": 42 });
+        assert_eq!(DaemonClient::check_ok(val.clone(), "fallback").unwrap(), val);
+    }
+
+    #[test]
+    fn check_ok_returns_fallback_when_no_error_field() {
+        let val = serde_json::json!({ "ok": false });
+        assert_eq!(
+            DaemonClient::check_ok(val, "fallback msg").unwrap_err(),
+            "fallback msg"
+        );
+    }
+
+    #[test]
+    fn check_ok_returns_error_field_when_present() {
+        let val = serde_json::json!({ "ok": false, "error": "pane not found" });
+        assert_eq!(
+            DaemonClient::check_ok(val, "fallback").unwrap_err(),
+            "pane not found"
+        );
+    }
+
+    #[test]
+    fn check_ok_treats_missing_ok_as_failure() {
+        let val = serde_json::json!({ "pid": 1 });
+        assert!(DaemonClient::check_ok(val, "no ok field").is_err());
+    }
+
+    // ---- send_cmd round-trip ----
+
+    #[tokio::test]
+    async fn send_cmd_writes_message_and_parses_json_response() {
+        let dir = tempfile::tempdir().unwrap();
+        let socket_path = dir.path().join("test.sock");
+
+        let listener = UnixListener::bind(&socket_path).unwrap();
+        let server = tokio::spawn(async move {
+            let (mut conn, _) = listener.accept().await.unwrap();
+            let mut buf = vec![0u8; 256];
+            let n = conn.read(&mut buf).await.unwrap();
+            let received = String::from_utf8_lossy(&buf[..n]).to_string();
+            conn.write_all(b"{\"ok\":true,\"pid\":99}\n").await.unwrap();
+            received
+        });
+
+        let client = DaemonClient::new(socket_path, PathBuf::from("/nonexistent"));
+        let result = client.send_cmd("{\"op\":\"ping\"}\n").await.unwrap();
+
+        let sent = server.await.unwrap();
+        assert!(sent.contains("\"op\":\"ping\""));
+        assert_eq!(result["ok"].as_bool(), Some(true));
+        assert_eq!(result["pid"].as_u64(), Some(99));
+    }
+
+    #[tokio::test]
+    async fn send_cmd_returns_error_when_socket_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let socket_path = dir.path().join("nonexistent.sock");
+        // No listener — socket file does not exist → NotFound
+        let client = DaemonClient::new(socket_path, PathBuf::from("/nonexistent"));
+        // NotFound triggers the restart path, which also fails (bin doesn't exist).
+        // The important thing is that we get an Err, not a panic.
+        assert!(client.send_cmd("{\"op\":\"ping\"}\n").await.is_err());
+    }
+}
