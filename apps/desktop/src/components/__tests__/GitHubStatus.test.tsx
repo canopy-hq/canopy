@@ -5,7 +5,7 @@ let mockSettings: Array<{ key: string; value: string }> = [];
 
 vi.mock('../../hooks/useCollections', () => ({ useSettings: () => mockSettings }));
 
-vi.mock('@superagent/db', () => ({
+vi.mock('@canopy/db', () => ({
   getSetting: (_settings: unknown[], key: string, fallback: unknown) => {
     const entry = mockSettings.find((s) => s.key === key);
     if (!entry) return fallback;

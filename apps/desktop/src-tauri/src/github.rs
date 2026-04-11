@@ -7,7 +7,7 @@ use tokio::sync::Semaphore;
 
 // ── Constants ─────────────────────────────────────────────────────────
 
-const KEYCHAIN_SERVICE: &str = "com.superagent.app";
+const KEYCHAIN_SERVICE: &str = "com.canopy.app";
 const KEYCHAIN_USER: &str = "github-oauth-token";
 
 // ── Shared state ─────────────────────────────────────────────────────
@@ -17,9 +17,9 @@ pub struct PollCancelFlag(pub AtomicBool);
 pub struct HttpClient(pub reqwest::Client);
 
 fn client_id() -> Result<String, String> {
-    option_env!("SUPERAGENT_GITHUB_CLIENT_ID")
+    option_env!("CANOPY_GITHUB_CLIENT_ID")
         .map(String::from)
-        .ok_or_else(|| "SUPERAGENT_GITHUB_CLIENT_ID not set at build time".into())
+        .ok_or_else(|| "CANOPY_GITHUB_CLIENT_ID not set at build time".into())
 }
 
 // ── Types ─────────────────────────────────────────────────────────────
@@ -619,7 +619,7 @@ fn delete_token() -> Result<(), String> {
 
 pub fn build_http_client() -> reqwest::Client {
     reqwest::Client::builder()
-        .user_agent("Superagent-Desktop/0.1")
+        .user_agent("Canopy-Desktop/0.1")
         .build()
         .expect("failed to build HTTP client")
 }
@@ -1031,7 +1031,7 @@ mod tests {
     #[test]
     fn client_id_from_env() {
         let result = client_id();
-        if option_env!("SUPERAGENT_GITHUB_CLIENT_ID").is_some() {
+        if option_env!("CANOPY_GITHUB_CLIENT_ID").is_some() {
             assert!(result.is_ok());
         } else {
             assert!(result.unwrap_err().contains("not set"));

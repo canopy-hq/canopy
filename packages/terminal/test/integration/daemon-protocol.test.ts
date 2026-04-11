@@ -1,12 +1,12 @@
 /**
  * Cross-layer integration tests: packages/pty-daemon ↔ packages/terminal
  *
- * These tests start the real `superagent-pty-daemon` binary, connect to it via
+ * These tests start the real `canopy-pty-daemon` binary, connect to it via
  * a Unix socket, and feed the raw binary frames into the TypeScript channel-manager
  * — exactly the path that Tauri IPC takes in production (minus Tauri itself).
  *
  * Prerequisites: build the daemon binary first.
- *   cargo build --bin superagent-pty-daemon
+ *   cargo build --bin canopy-pty-daemon
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -23,7 +23,7 @@ import { createChannelEntry } from '../../src/channel-manager';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // packages/terminal/test/integration/ → 4 levels up = repo root
-const DAEMON_BIN = path.resolve(__dirname, '../../../../target/debug/superagent-pty-daemon');
+const DAEMON_BIN = path.resolve(__dirname, '../../../../target/debug/canopy-pty-daemon');
 
 // ─── Buffered socket reader ───────────────────────────────────────────────────
 
@@ -76,7 +76,7 @@ function socketPath() {
 async function startDaemon(sockPath: string): Promise<ChildProcess> {
   if (!fs.existsSync(DAEMON_BIN)) {
     throw new Error(
-      `Daemon binary not found at ${DAEMON_BIN}.\nRun: cargo build --bin superagent-pty-daemon`,
+      `Daemon binary not found at ${DAEMON_BIN}.\nRun: cargo build --bin canopy-pty-daemon`,
     );
   }
   const proc = spawn(DAEMON_BIN, [sockPath], { stdio: 'ignore' });

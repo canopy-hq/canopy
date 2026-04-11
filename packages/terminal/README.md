@@ -1,6 +1,6 @@
-# @superagent/terminal
+# @canopy/terminal
 
-PTY management and terminal rendering for the Superagent desktop app.
+PTY management and terminal rendering for the Canopy desktop app.
 
 Provides a React hook (`useTerminal`) and supporting modules for spawning, connecting, and rendering PTY sessions using [ghostty-web](https://github.com/ghostty-org/ghostty) (WASM-based terminal emulator) over Tauri v2 IPC.
 

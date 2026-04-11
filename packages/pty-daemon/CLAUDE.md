@@ -1,6 +1,6 @@
-# superagent-pty-daemon
+# canopy-pty-daemon
 
-Standalone Rust binary that manages PTY sessions for Superagent. Runs in its own process group — survives app restarts. PTY sessions keep running even when the app is closed.
+Standalone Rust binary that manages PTY sessions for Canopy. Runs in its own process group — survives app restarts. PTY sessions keep running even when the app is closed.
 
 ## What this is
 
@@ -11,7 +11,7 @@ A minimal Unix socket server. The Tauri app connects to it, sends JSON commands,
 Communication over a Unix domain socket at a path passed as CLI arg:
 
 ```
-superagent-pty-daemon /tmp/superagent-{port}.sock
+canopy-pty-daemon /tmp/canopy-{port}.sock
 ```
 
 Commands are newline-delimited JSON. Responses vary by operation:

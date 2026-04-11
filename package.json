@@ -1,5 +1,5 @@
 {
-  "name": "superagent",
+  "name": "canopy",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -10,7 +10,7 @@
     "desktop:dev:rebuild": "bun run --cwd apps/desktop tauri:dev:rebuild",
     "desktop:build": "bun --filter desktop tauri build",
     "desktop:build:local": "bun --filter desktop tauri:build:local",
-    "desktop:open": "open apps/desktop/src-tauri/target/release/bundle/macos/Superagent.app",
+    "desktop:open": "open apps/desktop/src-tauri/target/release/bundle/macos/Canopy.app",
     "lint": "oxlint apps/ packages/",
     "format": "oxfmt apps/ packages/",
     "postinstall": "lefthook install",

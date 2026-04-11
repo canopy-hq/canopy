@@ -1,4 +1,4 @@
-// Theme definitions for Superagent
+// Theme definitions for Canopy
 // 8 dark themes, each with CSS custom properties + terminal color scheme
 
 export type ThemeName =

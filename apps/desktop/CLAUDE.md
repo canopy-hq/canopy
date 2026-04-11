@@ -12,7 +12,7 @@ React 19 + TypeScript frontend running inside Tauri v2. This is a native macOS a
 | ARIA + Tailwind | **tailwindcss-react-aria-components**     | `data-[selected]:`, `data-[focused]:` variants                       |
 | Routing         | **TanStack Router** (file-based)          | Routes in `src/routes/`                                              |
 | State           | **TanStack DB** + `useLiveQuery`          | In-memory collections, write-through to SQLite                       |
-| Shared UI       | **`@superagent/ui`**                      | Primitives shared with command-palette — see `packages/ui/CLAUDE.md` |
+| Shared UI       | **`@canopy/ui`**                          | Primitives shared with command-palette — see `packages/ui/CLAUDE.md` |
 
 ## Tailwind v4 rules
 
@@ -118,12 +118,12 @@ const ui = getUiState();
 
 **`projectItemId` composite keys:** `proj.id` → repo root, `proj.id-branch-{name}` → branch, `proj.id-wt-{name}` → worktree.
 
-## Shared UI package (`@superagent/ui`)
+## Shared UI package (`@canopy/ui`)
 
 Components shared between `apps/desktop` and `packages/command-palette` live in `packages/ui`. Import from there, don't duplicate:
 
 ```ts
-import { Kbd } from '@superagent/ui'; // base component
+import { Kbd } from '@canopy/ui'; // base component
 import { Kbd } from '../../components/ui'; // desktop wrapper (default variant)
 ```
 

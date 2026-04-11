@@ -16,7 +16,7 @@ import { restrictToMinTop, restrictToVerticalAxis } from '../lib/dnd';
 import { assignProjectToGroup, reorderGroups, toggleGroupCollapsed } from '../lib/group-actions';
 import { reorderProjects } from '../lib/project-actions';
 
-import type { Group, Project } from '@superagent/db';
+import type { Group, Project } from '@canopy/db';
 
 export type ActiveDragInfo =
   | { type: 'group'; id: string; name: string }

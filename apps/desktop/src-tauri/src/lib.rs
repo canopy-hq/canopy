@@ -16,8 +16,8 @@ use tauri::window::Color;
 struct DaemonPid(Mutex<Option<u32>>);
 
 /// Returns the directory that holds the SQLite DB.
-/// - dev  → ~/Library/Application Support/com.superagent.dev/
-/// - prod → ~/Library/Application Support/com.superagent.app/
+/// - dev  → ~/Library/Application Support/com.canopy.dev/
+/// - prod → ~/Library/Application Support/com.canopy.app/
 /// The identifier is set per-environment: fixed in dev.ts, tauri.conf.json for prod.
 fn db_data_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     app.path().app_data_dir().map_err(|e| e.to_string())
@@ -27,7 +27,7 @@ fn db_data_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
 fn get_db_path(app: tauri::AppHandle) -> Result<String, String> {
     let data_dir = db_data_dir(&app)?;
     std::fs::create_dir_all(&data_dir).map_err(|e| e.to_string())?;
-    Ok(data_dir.join("superagent.db").to_string_lossy().into_owned())
+    Ok(data_dir.join("canopy.db").to_string_lossy().into_owned())
 }
 
 /// Deletes the SQLite DB file so the app can start fresh on next boot.
@@ -35,7 +35,7 @@ fn get_db_path(app: tauri::AppHandle) -> Result<String, String> {
 #[tauri::command]
 fn delete_db(app: tauri::AppHandle) -> Result<(), String> {
     let data_dir = db_data_dir(&app)?;
-    let db_path = data_dir.join("superagent.db");
+    let db_path = data_dir.join("canopy.db");
     if db_path.exists() {
         std::fs::remove_file(&db_path).map_err(|e| e.to_string())?;
         eprintln!("Deleted corrupt/invalid DB at {}", db_path.display());
@@ -85,8 +85,8 @@ pub fn run() {
             let socket = data_dir.join("pty-daemon.sock");
             let bin = std::env::current_exe()
                 .ok()
-                .and_then(|p| p.parent().map(|d| d.join("superagent-pty-daemon")))
-                .unwrap_or_else(|| std::path::PathBuf::from("superagent-pty-daemon"));
+                .and_then(|p| p.parent().map(|d| d.join("canopy-pty-daemon")))
+                .unwrap_or_else(|| std::path::PathBuf::from("canopy-pty-daemon"));
 
             // Start or connect to the daemon (synchronous)
             let daemon_pid = match DaemonClient::ensure_daemon_sync(&socket, &bin) {

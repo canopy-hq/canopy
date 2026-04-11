@@ -1,4 +1,4 @@
-# @superagent/ui
+# @canopy/ui
 
 Shared UI primitives used across `apps/desktop` and `packages/command-palette`. Keeps component logic (split, variants, accessibility) in one place instead of duplicating it.
 
@@ -19,7 +19,7 @@ Don't add purely cosmetic wrappers — those belong in the consuming package.
 Renders a keyboard shortcut. Splits modifier symbols (`⌘ ⌥ ⇧ ⌃`) into individual `<kbd>` elements automatically.
 
 ```tsx
-import { Kbd } from '@superagent/ui';
+import { Kbd } from '@canopy/ui';
 
 <Kbd>⌘N</Kbd>          // renders ⌘ and N as separate <kbd> elements
 <Kbd><ArrowUp /></Kbd>  // single <kbd> wrapping the icon
@@ -40,7 +40,7 @@ Each consuming package wraps `Kbd` with its default variant so call sites don't 
 
 ```ts
 // apps/desktop/src/components/ui/Kbd.tsx
-export { Kbd } from '@superagent/ui'; // variant="default" is implicit
+export { Kbd } from '@canopy/ui'; // variant="default" is implicit
 
 // packages/command-palette/src/ui.tsx
 export function Kbd({ children }) {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { ConfirmModal } from '@superagent/ui';
+import { ConfirmModal } from '@canopy/ui';
 import { Check } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 

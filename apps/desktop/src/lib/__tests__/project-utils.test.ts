@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import { getExpandedProjectPaths } from '../project-utils';
 
-import type { Project } from '@superagent/db';
+import type { Project } from '@canopy/db';
 
 function makeProject(id: string, path: string, expanded: boolean): Project {
   return { id, path, name: id, expanded, position: 0, branches: [], worktrees: [], invalid: false };

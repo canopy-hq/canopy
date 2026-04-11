@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 import { Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
 
-import { getSetting, setSetting } from '@superagent/db';
-import { Button, Tooltip } from '@superagent/ui';
+import { getSetting, setSetting } from '@canopy/db';
+import { Button, Tooltip } from '@canopy/ui';
 import { ChevronDown } from 'lucide-react';
 
 import { useSettings, useUiState } from '../hooks/useCollections';

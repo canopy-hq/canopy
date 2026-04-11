@@ -1,4 +1,4 @@
-import { getSetting, getSettingCollection } from '@superagent/db';
+import { getSetting, getSettingCollection } from '@canopy/db';
 import { invoke } from '@tauri-apps/api/core';
 
 export interface BranchInfo {
@@ -136,7 +136,7 @@ export function sanitizeWorktreeName(name: string): string {
 }
 
 export const WORKTREE_BASE_DIR_KEY = 'worktreeBaseDir';
-export const DEFAULT_WORKTREE_BASE = '~/.superagent/worktrees';
+export const DEFAULT_WORKTREE_BASE = '~/.canopy/worktrees';
 
 /**
  * Build the worktree disk path from the project's filesystem path and the wt name.

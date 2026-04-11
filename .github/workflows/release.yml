@@ -40,9 +40,9 @@ jobs:
 
       - name: Build Tauri app
         env:
-          SUPERAGENT_GITHUB_CLIENT_ID: ${{ secrets.SUPERAGENT_GITHUB_CLIENT_ID }}
+          CANOPY_GITHUB_CLIENT_ID: ${{ secrets.CANOPY_GITHUB_CLIENT_ID }}
           # Updater signing — required for signed update artifacts and latest.json.
-          # Generate once with: bunx @tauri-apps/cli signer generate -w ~/.tauri/superagent.key --password ""
+          # Generate once with: bunx @tauri-apps/cli signer generate -w ~/.tauri/canopy.key --password ""
           # Then add the private key content as TAURI_SIGNING_PRIVATE_KEY in GitHub secrets.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}

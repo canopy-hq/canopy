@@ -1,5 +1,5 @@
-import { getSetting } from '@superagent/db';
-import { Button, Tooltip } from '@superagent/ui';
+import { getSetting } from '@canopy/db';
+import { Button, Tooltip } from '@canopy/ui';
 import { useNavigate } from '@tanstack/react-router';
 
 import { useSettings } from '../hooks/useCollections';

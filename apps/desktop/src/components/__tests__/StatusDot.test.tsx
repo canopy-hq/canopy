@@ -1,4 +1,4 @@
-import { StatusDot } from '@superagent/ui';
+import { StatusDot } from '@canopy/ui';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 

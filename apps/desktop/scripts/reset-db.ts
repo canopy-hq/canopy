@@ -10,8 +10,8 @@ if (envFlag !== 'dev' && envFlag !== 'prod') {
 
 const dbPath =
   envFlag === 'dev'
-    ? join(homedir(), 'Library', 'Application Support', 'com.superagent.dev', 'superagent.db')
-    : join(homedir(), 'Library', 'Application Support', 'com.superagent.app', 'superagent.db');
+    ? join(homedir(), 'Library', 'Application Support', 'com.canopy.dev', 'canopy.db')
+    : join(homedir(), 'Library', 'Application Support', 'com.canopy.app', 'canopy.db');
 
 spawnSync('rm', ['-f', dbPath], { stdio: 'ignore' });
 console.log(`[reset-db] ${envFlag} DB reset: ${dbPath}`);

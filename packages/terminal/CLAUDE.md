@@ -1,4 +1,4 @@
-# @superagent/terminal
+# @canopy/terminal
 
 React hooks and utilities for Ghostty-web (WASM) terminal emulation connected to the PTY daemon via Tauri IPC.
 

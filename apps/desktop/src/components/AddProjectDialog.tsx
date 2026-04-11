@@ -10,8 +10,8 @@ import {
   Button as AriaButton,
 } from 'react-aria-components';
 
-import { getSettingCollection, getSetting } from '@superagent/db';
-import { Button, Spinner, Tabs, TabList, Tab, TabPanel } from '@superagent/ui';
+import { getSettingCollection, getSetting } from '@canopy/db';
+import { Button, Spinner, Tabs, TabList, Tab, TabPanel } from '@canopy/ui';
 import { useForm } from '@tanstack/react-form';
 import { useNavigate } from '@tanstack/react-router';
 import { Check, ChevronDown, FolderOpen } from 'lucide-react';

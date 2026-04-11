@@ -1,7 +1,7 @@
 use tauri::menu::{MenuBuilder, PredefinedMenuItem, SubmenuBuilder};
 
 pub fn setup_menu(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    let app_submenu = SubmenuBuilder::new(app, "Superagent")
+    let app_submenu = SubmenuBuilder::new(app, "Canopy")
         .about(None)
         .separator()
         .text("settings", "Settings...")

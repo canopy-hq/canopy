@@ -8,8 +8,8 @@ import {
   setSetting,
   SIDEBAR_WIDTH_MIN,
   SIDEBAR_WIDTH_MAX,
-} from '@superagent/db';
-import { closePty, closePtysForPanes, disposeCached } from '@superagent/terminal';
+} from '@canopy/db';
+import { closePty, closePtysForPanes, disposeCached } from '@canopy/terminal';
 import { listen } from '@tauri-apps/api/event';
 
 import { openAddProjectDialogViaBridge } from './add-project-bridge';
@@ -20,7 +20,7 @@ import { showErrorToast, showInfoToast } from './toast';
 
 type NavigateFn = (opts: { to: string; params?: Record<string, string> }) => void;
 
-import type { Project } from '@superagent/db';
+import type { Project } from '@canopy/db';
 
 /** Returns true for branch/worktree IDs — the only items that carry selection state. */
 export function isSelectableProjectItem(id: string): boolean {
@@ -89,7 +89,7 @@ export function startProjectClone(
   // The real path is written back once the Rust clone completes.
   collection.insert({
     id: projectId,
-    path: `${dest}/.superagent_cloning_${projectId}`,
+    path: `${dest}/.canopy_cloning_${projectId}`,
     name,
     branches: [],
     worktrees: [],

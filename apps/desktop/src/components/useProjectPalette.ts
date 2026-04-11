@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 
-import { fuzzyScore } from '@superagent/command-palette';
+import { fuzzyScore } from '@canopy/command-palette';
 import { useNavigate } from '@tanstack/react-router';
 
 import {
@@ -14,8 +14,8 @@ import {
 } from '../lib/git';
 import { startWorktreeCreation, openWorktree } from '../lib/project-actions';
 
-import type { PanelContext } from '@superagent/command-palette';
-import type { Project } from '@superagent/db';
+import type { PanelContext } from '@canopy/command-palette';
+import type { Project } from '@canopy/db';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 

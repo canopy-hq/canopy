@@ -1,4 +1,4 @@
-import { getGroupCollection, getProjectCollection } from '@superagent/db';
+import { getGroupCollection, getProjectCollection } from '@canopy/db';
 
 export function createGroup(name: string): string {
   const col = getGroupCollection();

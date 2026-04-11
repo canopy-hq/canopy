@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const desktopDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const bundleDir = resolve(desktopDir, 'src-tauri/target/release/bundle');
-const appPath = resolve(bundleDir, 'macos/Superagent.app');
+const appPath = resolve(bundleDir, 'macos/Canopy.app');
 
 // Build the Tauri app (runs beforeBuildCommand + vite build internally)
 const build = spawn('tauri', ['build'], { cwd: desktopDir, stdio: 'inherit' });
@@ -13,7 +13,7 @@ build.on('exit', (code) => {
   if (code !== 0) process.exit(code ?? 1);
 
   // Strip macOS quarantine so the unsigned app opens without Gatekeeper blocking it.
-  // Users can also run: xattr -cr /path/to/Superagent.app
+  // Users can also run: xattr -cr /path/to/Canopy.app
   const xattr = spawn('xattr', ['-cr', appPath], { stdio: 'inherit' });
   xattr.on('exit', () => {
     console.log(`\nBuild complete (unsigned):`);

@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-CERT_NAME="Superagent Dev"
+CERT_NAME="Canopy Dev"
 
 # Check if certificate already exists
 if security find-identity -v -p codesigning | grep -q "$CERT_NAME"; then
@@ -42,7 +42,7 @@ openssl req -x509 -newkey rsa:2048 -nodes \
   -config "$TMPDIR/cert.conf" \
   2>/dev/null
 
-PASS="superagent-dev-temp"
+PASS="canopy-dev-temp"
 
 openssl pkcs12 -export \
   -inkey "$TMPDIR/key.pem" \

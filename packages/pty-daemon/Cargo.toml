@@ -1,5 +1,5 @@
 [package]
-name = "superagent-pty-daemon"
+name = "canopy-pty-daemon"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +7,7 @@ edition = "2021"
 name = "pty_daemon_lib"
 
 [[bin]]
-name = "superagent-pty-daemon"
+name = "canopy-pty-daemon"
 path = "src/bin/pty_daemon.rs"
 
 [dependencies]

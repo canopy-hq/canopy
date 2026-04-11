@@ -8,8 +8,8 @@ import {
   Kbd,
   SectionHeader,
   useScrollSelectedIntoView,
-} from '@superagent/command-palette';
-import { Badge, Button } from '@superagent/ui';
+} from '@canopy/command-palette';
+import { Badge, Button } from '@canopy/ui';
 import {
   ArrowDown,
   ArrowUp,
@@ -26,8 +26,8 @@ import { tv } from 'tailwind-variants';
 
 import { useProjectPalette, type PaletteItem } from './useProjectPalette';
 
-import type { PanelContext } from '@superagent/command-palette';
-import type { Project } from '@superagent/db';
+import type { PanelContext } from '@canopy/command-palette';
+import type { Project } from '@canopy/db';
 
 export interface ProjectPalettePanelProps {
   project: Project;

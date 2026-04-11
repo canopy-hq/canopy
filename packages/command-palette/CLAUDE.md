@@ -1,4 +1,4 @@
-# @superagent/command-palette
+# @canopy/command-palette
 
 Fuzzy-searchable command palette for navigating projects, tabs, PTY sessions, agents, and global actions. Used by `apps/desktop` as a full-screen modal.
 
@@ -69,10 +69,10 @@ Bonuses for consecutive characters and word boundary matches (`' - / _ . :`).
 All `<Kbd>` uses in command-palette **must** use `variant="menu"`:
 
 ```tsx
-import { Kbd } from './ui'; // re-exports @superagent/ui Kbd with variant="menu" pre-wired
+import { Kbd } from './ui'; // re-exports @canopy/ui Kbd with variant="menu" pre-wired
 
 <Kbd>⌘K</Kbd>             // correct — smaller, border style
-<Kbd variant="menu">⌘K</Kbd>  // also correct if importing directly from @superagent/ui
+<Kbd variant="menu">⌘K</Kbd>  // also correct if importing directly from @canopy/ui
 ```
 
 ## UI utilities (`ui.tsx`)

@@ -2,9 +2,9 @@ import { containsPtyId } from '../lib/pane-tree-ops';
 import { jumpToPane } from '../lib/tab-actions';
 import { resolveProjectForTab } from './utils';
 
-import type { Nav, CommandItem } from '@superagent/command-palette';
-import type { Tab, Project } from '@superagent/db';
-import type { PtySessionInfo } from '@superagent/terminal';
+import type { Nav, CommandItem } from '@canopy/command-palette';
+import type { Tab, Project } from '@canopy/db';
+import type { PtySessionInfo } from '@canopy/terminal';
 
 export function buildPtyCommands(
   sessions: PtySessionInfo[],

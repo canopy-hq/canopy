@@ -52,7 +52,7 @@ jobs:
       - run: bun install --frozen-lockfile --ignore-scripts
 
       - run: bun run --filter desktop test
-      - run: bun run --filter @superagent/terminal test
+      - run: bun run --filter @canopy/terminal test
 
   rust-tests:
     name: Rust Tests

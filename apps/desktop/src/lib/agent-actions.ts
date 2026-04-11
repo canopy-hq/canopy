@@ -1,4 +1,4 @@
-import { agentCollection } from '@superagent/db';
+import { agentCollection } from '@canopy/db';
 
 interface AgentStatusEvent {
   ptyId: number;

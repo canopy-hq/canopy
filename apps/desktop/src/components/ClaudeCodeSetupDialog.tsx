@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
 
-import { Button, Kbd } from '@superagent/ui';
+import { Button, Kbd } from '@canopy/ui';
 import { tv } from 'tailwind-variants';
 
 import { getClaudeDefaultMode } from '../lib/tab-actions';

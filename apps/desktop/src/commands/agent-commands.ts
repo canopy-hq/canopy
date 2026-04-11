@@ -3,8 +3,8 @@ import { containsPtyId } from '../lib/pane-tree-ops';
 import { jumpToPane } from '../lib/tab-actions';
 import { resolveProjectForTab } from './utils';
 
-import type { Nav, CommandItem } from '@superagent/command-palette';
-import type { AgentInfo, Tab, Project } from '@superagent/db';
+import type { Nav, CommandItem } from '@canopy/command-palette';
+import type { AgentInfo, Tab, Project } from '@canopy/db';
 
 export function buildAgentCommands(
   agents: AgentInfo[],

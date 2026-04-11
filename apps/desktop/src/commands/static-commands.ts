@@ -1,6 +1,6 @@
 import { openAddProjectDialog, toggleSidebar } from '../lib/project-actions';
 
-import type { Nav, CommandItem } from '@superagent/command-palette';
+import type { Nav, CommandItem } from '@canopy/command-palette';
 
 export function buildStaticCommands(navigate: Nav): CommandItem[] {
   return [

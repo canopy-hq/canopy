@@ -62,12 +62,13 @@ impl DaemonClient {
 
         // Spawn daemon in its own process group so it survives app restart
         use std::os::unix::process::CommandExt;
+        eprintln!("[daemon] spawning bin={} socket={}", bin.display(), socket.display());
         let child = std::process::Command::new(bin)
             .arg(socket)
             .arg(std::process::id().to_string())
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
+            .stderr(std::process::Stdio::inherit())
             .process_group(0)
             .spawn()
             .map_err(|e| format!("spawn daemon: {e}"))?;

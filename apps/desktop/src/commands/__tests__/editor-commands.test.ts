@@ -21,7 +21,7 @@ vi.mock('../../lib/tab-actions', () => ({
 
 vi.mock('../../lib/toast', () => ({ showErrorToast: vi.fn() }));
 
-vi.mock('@superagent/db', () => ({
+vi.mock('@canopy/db', () => ({
   getSetting: vi.fn((_settings: unknown[], _key: string, fallback: string) => fallback),
 }));
 

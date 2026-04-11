@@ -1,4 +1,4 @@
-# Superagent
+# Canopy
 
 Desktop app for managing AI coding agents across git workspaces. Tauri v2 (Rust + React) with native terminals, git branch/worktree ops, and automatic agent detection.
 
@@ -20,7 +20,7 @@ Desktop app for managing AI coding agents across git workspaces. Tauri v2 (Rust 
 | `packages/ui/`              | Shared UI primitives (Kbd, …) — desktop + command-palette |
 | `packages/db/`              | TanStack DB collections + Drizzle schema + SQLite        |
 | `packages/terminal/`        | ghostty-web lifecycle, terminal cache, PTY IPC           |
-| `packages/command-palette/` | Command menu — uses `@superagent/ui`                     |
+| `packages/command-palette/` | Command menu — uses `@canopy/ui`                     |
 | `packages/pty-daemon/`      | Standalone PTY daemon binary (unix socket, scrollback)   |
 | `packages/tsconfig/`        | Shared TypeScript configs                                |
 

@@ -1,11 +1,11 @@
-# @superagent/fps
+# @canopy/fps
 
 Dev-only FPS meter overlay. **Rendered only when `import.meta.env.DEV` is true** — zero cost in production builds.
 
 ## Usage
 
 ```tsx
-import { FpsOverlay } from '@superagent/fps';
+import { FpsOverlay } from '@canopy/fps';
 
 // Drop anywhere in the React tree — renders a fixed overlay at top-right
 <FpsOverlay />;
@@ -16,7 +16,7 @@ The overlay shows current FPS as a color-coded number + a 60-second sparkline gr
 ## Color thresholds
 
 ```ts
-import { fpsColor } from '@superagent/fps';
+import { fpsColor } from '@canopy/fps';
 
 fpsColor(fps); // 'green' ≥55 | 'yellow' ≥30 | 'red' <30
 ```

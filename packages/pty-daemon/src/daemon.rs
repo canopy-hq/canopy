@@ -669,7 +669,7 @@ mod tests {
         let mut conn = UnixStream::connect(&socket).await.unwrap();
         send_line(
             &mut conn,
-            r#"{"op":"spawn","paneId":"p1","rows":24,"cols":80,"command":"sh","args":["-c","printf 'SUPERAGENT_12345'"]}"#,
+            r#"{"op":"spawn","paneId":"p1","rows":24,"cols":80,"command":"sh","args":["-c","printf 'CANOPY_12345'"]}"#,
         )
         .await;
         let resp = read_json_line(&mut conn).await;
@@ -696,7 +696,7 @@ mod tests {
         assert!(sentinel_received, "sentinel frame not received");
         let text = String::from_utf8_lossy(&scrollback);
         assert!(
-            text.contains("SUPERAGENT_12345"),
+            text.contains("CANOPY_12345"),
             "scrollback missing expected bytes; got: {text:?}"
         );
 

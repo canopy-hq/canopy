@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, Heading } from 'react-aria-components';
 
-import { StatusDot } from '@superagent/ui';
+import { StatusDot } from '@canopy/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { tv } from 'tailwind-variants';
 
@@ -9,7 +9,7 @@ import { useAgents, useProjects, useTabs } from '../hooks/useCollections';
 import { containsPtyId } from '../lib/pane-tree-ops';
 import { jumpToPane } from '../lib/tab-actions';
 
-import type { AgentInfo } from '@superagent/db';
+import type { AgentInfo } from '@canopy/db';
 
 export interface AgentOverlayProps {
   isOpen: boolean;

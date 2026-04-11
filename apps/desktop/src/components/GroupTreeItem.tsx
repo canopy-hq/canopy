@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useRef, memo } from 'react';
 
+import { Button, ContextMenu } from '@canopy/ui';
 import { useDroppable, type DraggableSyntheticListeners } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Button, ContextMenu } from '@superagent/ui';
 import { ChevronDown, ChevronRight, FolderX, GripVertical, Pencil } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
@@ -14,8 +14,8 @@ import { RepoTreeItem } from './RepoTreeItem';
 
 import type { DiffStat } from '../lib/git';
 import type { PrInfo } from '../lib/github';
-import type { Group, Project, CloneProgress } from '@superagent/db';
-import type { ContextMenuItemDef, DotStatus } from '@superagent/ui';
+import type { Group, Project, CloneProgress } from '@canopy/db';
+import type { ContextMenuItemDef, DotStatus } from '@canopy/ui';
 
 const groupHeaderRow = tv({
   base: 'flex items-center gap-2 py-1 pl-3 pr-2 select-none transition-colors border-y border-transparent',

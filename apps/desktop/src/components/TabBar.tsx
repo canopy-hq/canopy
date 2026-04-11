@@ -1,6 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button as AriaButton, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
 
+import { Badge, Button, Kbd, StatusDot, Tooltip } from '@canopy/ui';
+import { ContextMenu } from '@canopy/ui';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -9,8 +11,6 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Badge, Button, Kbd, StatusDot, Tooltip } from '@superagent/ui';
-import { ContextMenu } from '@superagent/ui';
 import { Pencil, SquarePlus, SquareTerminal, X, XCircle, XSquare } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
@@ -37,8 +37,8 @@ import {
 } from '../lib/tab-actions';
 import { ClaudeCodeIcon } from './ClaudeCodeIcon';
 
-import type { Tab } from '@superagent/db';
-import type { DotStatus } from '@superagent/ui';
+import type { Tab } from '@canopy/db';
+import type { DotStatus } from '@canopy/ui';
 
 const closeTabLabel = (
   <>

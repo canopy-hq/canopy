@@ -1,4 +1,4 @@
-import { Button, Kbd, Tooltip } from '@superagent/ui';
+import { Button, Kbd, Tooltip } from '@canopy/ui';
 import { PanelLeft, Search, Shell } from 'lucide-react';
 
 import { useProjects } from '../hooks/useCollections';

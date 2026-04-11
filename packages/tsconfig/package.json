@@ -1,5 +1,5 @@
 {
-  "name": "@superagent/tsconfig",
+  "name": "@canopy/tsconfig",
   "private": true,
   "type": "module",
   "exports": {

@@ -1,5 +1,5 @@
 {
-  "name": "@superagent/command-palette",
+  "name": "@canopy/command-palette",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -10,11 +10,11 @@
     "test": "vitest run --reporter=verbose"
   },
   "dependencies": {
-    "@superagent/ui": "workspace:*",
+    "@canopy/ui": "workspace:*",
     "tailwind-variants": "^3.2.2"
   },
   "devDependencies": {
-    "@superagent/tsconfig": "workspace:*",
+    "@canopy/tsconfig": "workspace:*",
     "@testing-library/react": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "^19.2.3",

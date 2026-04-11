@@ -417,6 +417,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "canopy"
+version = "0.1.0"
+dependencies = [
+ "dotenvy",
+ "git2",
+ "libproc",
+ "portable-pty",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sysinfo",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-sql",
+ "tauri-plugin-store",
+ "tauri-plugin-updater",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
+name = "canopy-pty-daemon"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "portable-pty",
+ "serde_json",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
 name = "cargo-platform"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4724,41 +4759,6 @@ name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
-
-[[package]]
-name = "superagent"
-version = "0.1.0"
-dependencies = [
- "dotenvy",
- "git2",
- "libproc",
- "portable-pty",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "sysinfo",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
- "tauri-plugin-single-instance",
- "tauri-plugin-sql",
- "tauri-plugin-store",
- "tauri-plugin-updater",
- "tempfile",
- "tokio",
-]
-
-[[package]]
-name = "superagent-pty-daemon"
-version = "0.1.0"
-dependencies = [
- "libc",
- "portable-pty",
- "serde_json",
- "tempfile",
- "tokio",
-]
 
 [[package]]
 name = "swift-rs"

@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-CERT_NAME="Superagent Dev"
+CERT_NAME="Canopy Dev"
 
 # Run the actual cargo build with all forwarded arguments
 cargo "$@"
@@ -34,8 +34,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 TARGET_DIR="$REPO_ROOT/target/$PROFILE"
 
-# Sign the Superagent binary if it exists
-BINARY="$TARGET_DIR/superagent"
+# Sign the Canopy binary if it exists
+BINARY="$TARGET_DIR/canopy"
 if [[ -f "$BINARY" ]]; then
   codesign --force --sign "$IDENTITY" --keychain ~/Library/Keychains/login.keychain-db "$BINARY" 2>/dev/null && \
     echo "✓ Codesigned $BINARY" || true

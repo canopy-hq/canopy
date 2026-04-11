@@ -12,7 +12,7 @@ vi.mock('../../lib/github', () => ({
   GITHUB_CONNECTION_KEY: 'github:connection',
 }));
 
-vi.mock('@superagent/db', () => ({
+vi.mock('@canopy/db', () => ({
   setSetting: vi.fn(),
   getSetting: (_s: unknown[], _k: string, fallback: unknown) => fallback,
   getSettingCollection: () => ({ toArray: [] }),
@@ -23,7 +23,7 @@ vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: vi.fn() }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }));
 vi.mock('../../lib/git', () => ({
   WORKTREE_BASE_DIR_KEY: 'worktreeBaseDir',
-  DEFAULT_WORKTREE_BASE: '~/.superagent/worktrees',
+  DEFAULT_WORKTREE_BASE: '~/.canopy/worktrees',
 }));
 
 import { ConnectionSection } from '../settings/ConnectionSection';
@@ -62,7 +62,7 @@ describe('ConnectionSection', () => {
   it('shows default path when no custom dir is set', async () => {
     mockGetConnection.mockResolvedValue(null);
     const { findByText } = render(<ConnectionSection />);
-    expect(await findByText('~/.superagent/worktrees')).toBeInTheDocument();
+    expect(await findByText('~/.canopy/worktrees')).toBeInTheDocument();
   });
 
   it('does not show Reset button when using default path', async () => {

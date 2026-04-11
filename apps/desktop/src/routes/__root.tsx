@@ -1,6 +1,6 @@
 import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 
-import { CommandMenu } from '@superagent/command-palette';
+import { CommandMenu } from '@canopy/command-palette';
 import {
   agentCollection,
   getUiState,
@@ -11,9 +11,9 @@ import {
   getSetting,
   setSetting,
   getSessionCollection,
-} from '@superagent/db';
-import { FpsOverlay } from '@superagent/fps';
-import { ensureGhosttyInit, spawnTerminal, initTerminalPool } from '@superagent/terminal';
+} from '@canopy/db';
+import { FpsOverlay } from '@canopy/fps';
+import { ensureGhosttyInit, spawnTerminal, initTerminalPool } from '@canopy/terminal';
 import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 import { LucideProvider } from 'lucide-react';
 
@@ -45,7 +45,7 @@ import { onOpenProjectPalette } from '../lib/project-palette-bridge';
 import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
 
-import type { CommandItem } from '@superagent/command-palette';
+import type { CommandItem } from '@canopy/command-palette';
 
 // Pre-initialize ghostty-web WASM at module load.
 void ensureGhosttyInit();
@@ -157,11 +157,29 @@ function RootLayout() {
   // not the sessions table (which only covers visited tabs).
   useEffect(() => {
     const tabs = getTabCollection().toArray;
-    if (tabs.length === 0) return;
     const settings = getSettingCollection().toArray;
+
+    // Pre-warm the PTY pool even when there are no tabs to restore (fresh DB).
+    // Use a saved pane CWD, or fall back to the first project's path.
+    const invalidPathSet = new Set(
+      getProjectCollection()
+        .toArray.filter((p) => p.invalid)
+        .map((p) => p.path),
+    );
     const paneEntries = tabs.flatMap((tab) =>
       collectRestorablePaneIds(tab.paneRoot).map((paneId) => ({ tab, paneId })),
     );
+    const firstCwd =
+      paneEntries
+        .map(({ paneId }) => (getSetting(settings, `cwd:${paneId}`, '') as string) || '')
+        .find((cwd) => cwd.length > 0 && !invalidPathSet.has(cwd)) ||
+      getProjectCollection().toArray.find((p) => !p.invalid)?.path;
+    if (firstCwd) {
+      void initTerminalPool(firstCwd);
+    }
+
+    if (tabs.length === 0) return;
+
     void Promise.all(
       paneEntries.map(async ({ tab, paneId }) => {
         const cwd = (getSetting(settings, `cwd:${paneId}`, '') as string) || undefined;
@@ -192,22 +210,6 @@ function RootLayout() {
         }
       }),
     );
-
-    // Pre-warm the PTY pool: use a saved pane CWD, or fall back to the first
-    // project's filesystem path. Skip invalid (deleted) project paths.
-    const invalidPathSet = new Set(
-      getProjectCollection()
-        .toArray.filter((p) => p.invalid)
-        .map((p) => p.path),
-    );
-    const firstCwd =
-      paneEntries
-        .map(({ paneId }) => (getSetting(settings, `cwd:${paneId}`, '') as string) || '')
-        .find((cwd) => cwd.length > 0 && !invalidPathSet.has(cwd)) ||
-      getProjectCollection().toArray.find((p) => !p.invalid)?.path;
-    if (firstCwd) {
-      void initTerminalPool(firstCwd);
-    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useTauriMenuEvent(

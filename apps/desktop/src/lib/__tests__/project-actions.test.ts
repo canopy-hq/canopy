@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { Project, UiState } from '@superagent/db';
+import type { Project, UiState } from '@canopy/db';
 
-// ── In-memory mock for @superagent/db ────────────────────────────────────────
+// ── In-memory mock for @canopy/db ────────────────────────────────────────
 
 let _projects: Project[] = [];
 let _uiState: UiState = {
@@ -23,7 +23,7 @@ let _uiState: UiState = {
 
 const mockSetSetting = vi.fn();
 
-vi.mock('@superagent/db', () => ({
+vi.mock('@canopy/db', () => ({
   getProjectCollection: () => ({
     get toArray() {
       return [..._projects];
@@ -76,7 +76,7 @@ vi.mock('../toast', () => ({ showErrorToast: vi.fn(), showInfoToast: vi.fn() }))
 
 // ── Mock terminal ────────────────────────────────────────────────────────────
 
-vi.mock('@superagent/terminal', () => ({ closePty: vi.fn(), disposeCached: vi.fn() }));
+vi.mock('@canopy/terminal', () => ({ closePty: vi.fn(), disposeCached: vi.fn() }));
 
 import * as gitApi from '../git';
 // Import AFTER mocks are set up

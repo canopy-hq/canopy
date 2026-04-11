@@ -24,5 +24,5 @@ find "$MAIN_WORKTREE" -name ".env.local" -not -path "*/.git/*" | while read -r s
   [ -d "$dest_dir" ] || mkdir -p "$dest_dir"
 
   cp "$src" "$dest"
-  echo "superagent: copied $rel"
+  echo "canopy: copied $rel"
 done

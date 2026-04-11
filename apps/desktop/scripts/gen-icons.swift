@@ -119,7 +119,7 @@ do { try png.write(to: URL(fileURLWithPath: outFile)) } catch { fail("Write fail
 print("✓ icon.png")
 
 // Generate iconset, build ICNS, then copy bundle PNGs from iconset (avoids re-scaling)
-let iconset = "/tmp/superagent_gen.iconset"
+let iconset = "/tmp/canopy_gen.iconset"
 try? FileManager.default.removeItem(atPath: iconset) // ensure clean slate
 do { try FileManager.default.createDirectory(atPath: iconset, withIntermediateDirectories: true) }
 catch { fail("Could not create iconset dir: \(error)") }

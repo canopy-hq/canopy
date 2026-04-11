@@ -1,5 +1,5 @@
 fn main() {
-    // Load .env.local from repo root so SUPERAGENT_GITHUB_CLIENT_ID
+    // Load .env.local from repo root so CANOPY_GITHUB_CLIENT_ID
     // is available to option_env!() at compile time.
     let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../..");

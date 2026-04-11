@@ -1,4 +1,4 @@
-import type { CommandItem } from '@superagent/command-palette';
+import type { CommandItem } from '@canopy/command-palette';
 
 // Single-subscriber bridge — only __root.tsx ever registers.
 type Handler = (item: CommandItem) => void;
