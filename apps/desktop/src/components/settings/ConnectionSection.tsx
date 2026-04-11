@@ -149,7 +149,7 @@ function ClaudeDefaultMode() {
             key={m}
             type="button"
             onClick={() => setSetting(CLAUDE_DEFAULT_MODE_KEY, m)}
-            className={`flex-1 cursor-pointer appearance-none px-4 py-2.5 text-left text-sm transition-colors ${
+            className={`flex-1 cursor-pointer appearance-none px-4 py-2.5 text-left text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset ${
               mode === m
                 ? 'bg-accent/10 text-accent'
                 : 'bg-raised text-fg-muted hover:bg-surface hover:text-fg'

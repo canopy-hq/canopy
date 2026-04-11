@@ -1,12 +1,10 @@
 import { getSetting, getSettingCollection, setSetting } from '@canopy/db';
 import {
-  themes,
   themeNames,
   applyFontSizeToAll,
   applyThemeToAll,
   DEFAULT_TERMINAL_FONT_SIZE,
   type ThemeName,
-  type CssThemeProperties,
 } from '@canopy/terminal';
 import { SectionLabel } from '@canopy/ui';
 import { useLiveQuery } from '@tanstack/react-db';
@@ -21,38 +19,22 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function ThemePreview({ css }: { css: CssThemeProperties }) {
+function ThemePreview({ name }: { name: ThemeName }) {
   return (
-    <div
-      className="flex h-16 overflow-hidden rounded-sm"
-      style={{ backgroundColor: css.bgPrimary }}
-    >
-      <div
-        className="w-1/4 border-r"
-        style={{ backgroundColor: css.bgSecondary, borderColor: css.border }}
-      >
+    <div data-theme={name} className="flex h-16 overflow-hidden rounded-sm bg-base">
+      {/* Sidebar column */}
+      <div className="w-1/4 border-r border-edge/60 bg-raised">
         <div className="mx-1.5 mt-3 space-y-1">
-          <div
-            className="h-1 rounded-full"
-            style={{ backgroundColor: css.textMuted, opacity: 0.5 }}
-          />
-          <div
-            className="h-1 w-3/4 rounded-full"
-            style={{ backgroundColor: css.textMuted, opacity: 0.3 }}
-          />
+          <div className="h-1 rounded-full bg-fg-muted/50" />
+          <div className="h-1 w-3/4 rounded-full bg-fg-muted/30" />
         </div>
       </div>
-      <div className="flex-1 p-2" style={{ backgroundColor: css.bgTertiary }}>
+      {/* Main content */}
+      <div className="flex-1 bg-surface p-2">
         <div className="space-y-1.5">
-          <div
-            className="h-1 w-2/3 rounded-full"
-            style={{ backgroundColor: css.textPrimary, opacity: 0.6 }}
-          />
-          <div
-            className="h-1 w-1/2 rounded-full"
-            style={{ backgroundColor: css.textMuted, opacity: 0.4 }}
-          />
-          <div className="mt-2 h-1.5 w-1/4 rounded-full" style={{ backgroundColor: css.accent }} />
+          <div className="h-1 w-2/3 rounded-full bg-fg/60" />
+          <div className="h-1 w-1/2 rounded-full bg-fg-muted/40" />
+          <div className="mt-2 h-1.5 w-1/4 rounded-full bg-accent" />
         </div>
       </div>
     </div>
@@ -101,7 +83,7 @@ export function AppearanceSection() {
               }}
               tabIndex={0}
             >
-              <ThemePreview css={themes[name].css} />
+              <ThemePreview name={name} />
               <span className="font-mono text-sm text-fg-dim">{capitalize(name)}</span>
             </div>
           ))}
