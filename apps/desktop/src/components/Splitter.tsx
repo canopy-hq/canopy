@@ -20,7 +20,7 @@ const splitterLine = tv({
   base: 'transition-colors duration-150',
   variants: {
     direction: { horizontal: 'h-full w-[2px]', vertical: 'h-[2px] w-full' },
-    state: { idle: 'bg-splitter-idle', hovered: 'bg-splitter-hover', dragging: 'bg-accent' },
+    state: { idle: 'bg-edge', hovered: 'bg-(--splitter-hover)', dragging: 'bg-accent' },
   },
 });
 

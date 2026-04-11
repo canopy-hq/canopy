@@ -22,8 +22,8 @@ function splitKeys(str: string): string[] {
 
 const VARIANT_CLASS = {
   default:
-    'inline-flex items-center rounded bg-bg-secondary px-1 py-0.5 text-sm leading-none text-text-muted',
-  menu: 'inline-flex items-center rounded border border-border/60 bg-bg-primary px-1 py-0.5 text-[10px] leading-none text-text-muted',
+    'inline-flex items-center rounded bg-raised px-1 py-0.5 text-sm leading-none text-fg-muted',
+  menu: 'inline-flex items-center rounded border border-edge/60 bg-base px-1 py-0.5 text-[10px] leading-none text-fg-muted',
 } as const;
 
 export type KbdVariant = keyof typeof VARIANT_CLASS;

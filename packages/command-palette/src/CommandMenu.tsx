@@ -37,11 +37,8 @@ const SECTION_CYCLE: MenuSection[] = ['root', 'projects', 'tabs', 'pty', 'agents
 const commandItem = tv({
   base: 'flex h-9 items-center gap-2 px-3 text-base outline-none',
   variants: {
-    disabled: {
-      true: 'cursor-not-allowed text-text-faint',
-      false: 'cursor-pointer text-text-primary',
-    },
-    selected: { true: 'bg-bg-tertiary', false: 'hover:bg-bg-tertiary/50' },
+    disabled: { true: 'cursor-not-allowed text-fg-faint', false: 'cursor-pointer text-fg' },
+    selected: { true: 'bg-surface', false: 'hover:bg-surface/50' },
   },
   defaultVariants: { disabled: false, selected: false },
 });
@@ -49,7 +46,7 @@ const commandItem = tv({
 // ── Icons ──────────────────────────────────────────────────────────────────────
 
 function ItemIcon({ icon }: { icon: CommandItem['icon'] }) {
-  const props = { size: 12, strokeWidth: 1.5, className: 'shrink-0 text-text-muted' } as const;
+  const props = { size: 12, strokeWidth: 1.5, className: 'shrink-0 text-fg-muted' } as const;
   switch (icon) {
     case 'editor':
       return <CodeXml {...props} />;
@@ -85,7 +82,7 @@ function agentDotColor(status: NonNullable<CommandItem['agentStatus']>): string 
     case 'waiting':
       return 'bg-(--agent-waiting)';
     default:
-      return 'bg-text-muted/40';
+      return 'bg-fg-muted/40';
   }
 }
 
@@ -229,12 +226,8 @@ export function CommandMenu({
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[120px]"
     >
       <Modal
-        className="flex max-h-[70vh] w-[600px] flex-col overflow-hidden rounded-xl border border-border font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
-        style={{
-          background: 'color-mix(in srgb, var(--bg-secondary) 85%, transparent)',
-          WebkitBackdropFilter: 'blur(12px)',
-          backdropFilter: 'blur(12px)',
-        }}
+        className="flex max-h-[70vh] w-[600px] flex-col overflow-hidden rounded-xl border border-edge font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)] bg-raised/85"
+        style={{ WebkitBackdropFilter: 'blur(12px)', backdropFilter: 'blur(12px)' }}
       >
         <Dialog
           className="flex min-h-0 flex-1 flex-col overflow-hidden outline-none"
@@ -243,12 +236,12 @@ export function CommandMenu({
           {panelItem ? (
             <>
               {/* Panel breadcrumb — shows drillStack context + panel item */}
-              <div className="flex items-center gap-1 border-b border-border px-3 py-2 text-sm text-text-muted">
+              <div className="flex items-center gap-1 border-b border-edge px-3 py-2 text-sm text-fg-muted">
                 <button
                   type="button"
                   tabIndex={-1}
                   onClick={() => dispatch({ type: 'RESET' })}
-                  className="cursor-pointer transition-colors hover:text-text-primary"
+                  className="cursor-pointer transition-colors hover:text-fg"
                 >
                   root
                 </button>
@@ -259,7 +252,7 @@ export function CommandMenu({
                       type="button"
                       tabIndex={-1}
                       onClick={() => dispatch({ type: 'DRILL_BACK_TO', index: i })}
-                      className="cursor-pointer transition-colors hover:text-text-primary"
+                      className="cursor-pointer transition-colors hover:text-fg"
                     >
                       {crumb.label}
                     </button>
@@ -275,7 +268,7 @@ export function CommandMenu({
                         dispatch({ type: 'CLOSE_PANEL' });
                         dispatch({ type: 'DRILL_INTO', item: panelWsItem });
                       }}
-                      className="cursor-pointer transition-colors hover:text-text-primary"
+                      className="cursor-pointer transition-colors hover:text-fg"
                     >
                       {panelWsItem.label}
                     </button>
@@ -283,7 +276,7 @@ export function CommandMenu({
                 )}
                 <span className="flex items-center gap-1">
                   <span className="opacity-40">/</span>
-                  <span className="text-text-primary">{panelItem.label}</span>
+                  <span className="text-fg">{panelItem.label}</span>
                 </span>
               </div>
 
@@ -295,15 +288,15 @@ export function CommandMenu({
           ) : (
             <>
               {/* Breadcrumb — always visible */}
-              <div className="flex items-center gap-1 border-b border-border px-3 py-2 text-sm text-text-muted">
+              <div className="flex items-center gap-1 border-b border-edge px-3 py-2 text-sm text-fg-muted">
                 {drillStack.length === 0 ? (
-                  <span className="text-text-primary">root</span>
+                  <span className="text-fg">root</span>
                 ) : (
                   <button
                     type="button"
                     tabIndex={-1}
                     onClick={() => dispatch({ type: 'RESET' })}
-                    className="cursor-pointer transition-colors hover:text-text-primary"
+                    className="cursor-pointer transition-colors hover:text-fg"
                   >
                     root
                   </button>
@@ -312,13 +305,13 @@ export function CommandMenu({
                   <span key={crumb.id} className="flex items-center gap-1">
                     <span className="opacity-40">/</span>
                     {i === drillStack.length - 1 ? (
-                      <span className="text-text-primary">{crumb.label}</span>
+                      <span className="text-fg">{crumb.label}</span>
                     ) : (
                       <button
                         type="button"
                         tabIndex={-1}
                         onClick={() => dispatch({ type: 'DRILL_INTO', item: drillStack[i]! })}
-                        className="cursor-pointer transition-colors hover:text-text-primary"
+                        className="cursor-pointer transition-colors hover:text-fg"
                       >
                         {crumb.label}
                       </button>
@@ -328,7 +321,7 @@ export function CommandMenu({
               </div>
 
               {/* Search input */}
-              <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
+              <div className="flex items-center gap-2 border-b border-edge px-3 py-2.5">
                 <input
                   ref={inputRef}
                   type="text"
@@ -339,7 +332,7 @@ export function CommandMenu({
                   value={query}
                   onChange={(e) => dispatch({ type: 'SET_QUERY', query: e.target.value })}
                   onKeyDown={handleKeyDown}
-                  className="flex-1 bg-transparent text-base text-text-primary outline-none placeholder:text-text-muted/60"
+                  className="flex-1 bg-transparent text-base text-fg outline-none placeholder:text-placeholder"
                   placeholder={
                     drillStack.length > 0
                       ? `Search in ${drillStack[drillStack.length - 1]!.label}…`
@@ -357,7 +350,7 @@ export function CommandMenu({
                       inputRef.current?.focus();
                     }}
                     aria-label="Clear"
-                    className="cursor-pointer rounded px-1 text-text-muted transition-colors hover:text-text-primary"
+                    className="cursor-pointer rounded px-1 text-fg-muted transition-colors hover:text-fg"
                   >
                     <X size={11} />
                   </button>
@@ -366,7 +359,7 @@ export function CommandMenu({
 
               {/* Section tabs */}
               {section !== 'root' && drillStack.length === 0 && (
-                <div className="flex items-center gap-1 border-b border-border px-3 py-1.5">
+                <div className="flex items-center gap-1 border-b border-edge px-3 py-1.5">
                   {SECTION_CYCLE.map((s) => (
                     <button
                       key={s}
@@ -377,9 +370,7 @@ export function CommandMenu({
                         inputRef.current?.focus();
                       }}
                       className={`cursor-pointer rounded px-2 py-0.5 text-sm capitalize transition-colors ${
-                        section === s
-                          ? 'bg-accent/10 text-accent'
-                          : 'text-text-muted hover:text-text-primary'
+                        section === s ? 'bg-accent/10 text-accent' : 'text-fg-muted hover:text-fg'
                       }`}
                     >
                       {s}
@@ -391,7 +382,7 @@ export function CommandMenu({
               {/* Command list */}
               <div className="min-h-0 flex-1 overflow-y-auto">
                 {sections.length === 0 ? (
-                  <div className="flex items-center justify-center py-8 text-base text-text-muted">
+                  <div className="flex items-center justify-center py-8 text-base text-fg-muted">
                     No results
                   </div>
                 ) : (
@@ -426,7 +417,7 @@ export function CommandMenu({
                                   <ChevronRight
                                     size={13}
                                     strokeWidth={1.5}
-                                    className="shrink-0 text-text-muted opacity-50"
+                                    className="shrink-0 text-fg-muted opacity-50"
                                   />
                                 )}
                               </li>

@@ -40,15 +40,22 @@ pub struct ClaimResult {
 
 pub struct DaemonClient {
     pub socket: PathBuf,
-    // Persistent stream for fire-and-forget ops (write, resize)
+    bin: PathBuf,
+    // Persistent stream for fire-and-forget ops (write, resize).
+    // Does not auto-restart on daemon death — send_cmd handles restart,
+    // and send_noack reconnects on its own next call.
     cmd_stream: Arc<Mutex<Option<UnixStream>>>,
+    // Guards daemon restart so concurrent send_cmd failures don't each spawn a new daemon.
+    restart_lock: Arc<Mutex<()>>,
 }
 
 impl DaemonClient {
-    pub fn new(socket: PathBuf) -> Self {
+    pub fn new(socket: PathBuf, bin: PathBuf) -> Self {
         Self {
             socket,
+            bin,
             cmd_stream: Arc::new(Mutex::new(None)),
+            restart_lock: Arc::new(Mutex::new(())),
         }
     }
 
@@ -99,10 +106,39 @@ impl DaemonClient {
     }
 
     /// Send a command that expects a JSON response (per-call connection).
+    /// On ConnectionRefused, serializes a one-shot daemon restart behind restart_lock
+    /// (so concurrent failures don't race to spawn multiple daemons), then retries.
     async fn send_cmd(&self, msg: &str) -> Result<serde_json::Value, String> {
-        let mut stream = UnixStream::connect(&self.socket)
-            .await
-            .map_err(|e| format!("connect: {e}"))?;
+        let mut stream = match UnixStream::connect(&self.socket).await {
+            Ok(s) => s,
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    std::io::ErrorKind::ConnectionRefused | std::io::ErrorKind::NotFound
+                ) =>
+            {
+                let _guard = self.restart_lock.lock().await;
+                // A concurrent caller may have already restarted the daemon — try connecting first.
+                match UnixStream::connect(&self.socket).await {
+                    Ok(s) => s,
+                    Err(_) => {
+                        eprintln!("[daemon] connection refused — restarting daemon");
+                        // Clear stale cmd_stream before restart so send_noack reconnects
+                        // even if the restart itself fails.
+                        *self.cmd_stream.lock().await = None;
+                        let socket = self.socket.clone();
+                        let bin = self.bin.clone();
+                        tokio::task::spawn_blocking(move || Self::ensure_daemon_sync(&socket, &bin))
+                            .await
+                            .map_err(|e| e.to_string())??;
+                        UnixStream::connect(&self.socket)
+                            .await
+                            .map_err(|e| format!("connect after restart: {e}"))?
+                    }
+                }
+            }
+            Err(e) => return Err(format!("connect: {e}")),
+        };
         stream.write_all(msg.as_bytes()).await.map_err(|e| e.to_string())?;
 
         let mut reader = BufReader::new(&mut stream);
@@ -292,5 +328,81 @@ impl DaemonClient {
                 }
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::UnixListener;
+
+    // ---- check_ok ----
+
+    #[test]
+    fn check_ok_returns_value_on_success() {
+        let val = serde_json::json!({ "ok": true, "pid": 42 });
+        assert_eq!(DaemonClient::check_ok(val.clone(), "fallback").unwrap(), val);
+    }
+
+    #[test]
+    fn check_ok_returns_fallback_when_no_error_field() {
+        let val = serde_json::json!({ "ok": false });
+        assert_eq!(
+            DaemonClient::check_ok(val, "fallback msg").unwrap_err(),
+            "fallback msg"
+        );
+    }
+
+    #[test]
+    fn check_ok_returns_error_field_when_present() {
+        let val = serde_json::json!({ "ok": false, "error": "pane not found" });
+        assert_eq!(
+            DaemonClient::check_ok(val, "fallback").unwrap_err(),
+            "pane not found"
+        );
+    }
+
+    #[test]
+    fn check_ok_treats_missing_ok_as_failure() {
+        let val = serde_json::json!({ "pid": 1 });
+        assert!(DaemonClient::check_ok(val, "no ok field").is_err());
+    }
+
+    // ---- send_cmd round-trip ----
+
+    #[tokio::test]
+    async fn send_cmd_writes_message_and_parses_json_response() {
+        let dir = tempfile::tempdir().unwrap();
+        let socket_path = dir.path().join("test.sock");
+
+        let listener = UnixListener::bind(&socket_path).unwrap();
+        let server = tokio::spawn(async move {
+            let (mut conn, _) = listener.accept().await.unwrap();
+            let mut buf = vec![0u8; 256];
+            let n = conn.read(&mut buf).await.unwrap();
+            let received = String::from_utf8_lossy(&buf[..n]).to_string();
+            conn.write_all(b"{\"ok\":true,\"pid\":99}\n").await.unwrap();
+            received
+        });
+
+        let client = DaemonClient::new(socket_path, PathBuf::from("/nonexistent"));
+        let result = client.send_cmd("{\"op\":\"ping\"}\n").await.unwrap();
+
+        let sent = server.await.unwrap();
+        assert!(sent.contains("\"op\":\"ping\""));
+        assert_eq!(result["ok"].as_bool(), Some(true));
+        assert_eq!(result["pid"].as_u64(), Some(99));
+    }
+
+    #[tokio::test]
+    async fn send_cmd_returns_error_when_socket_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let socket_path = dir.path().join("nonexistent.sock");
+        // No listener — socket file does not exist → NotFound
+        let client = DaemonClient::new(socket_path, PathBuf::from("/nonexistent"));
+        // NotFound triggers the restart path, which also fails (bin doesn't exist).
+        // The important thing is that we get an Err, not a panic.
+        assert!(client.send_cmd("{\"op\":\"ping\"}\n").await.is_err());
     }
 }

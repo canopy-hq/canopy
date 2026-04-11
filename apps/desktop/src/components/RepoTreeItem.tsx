@@ -72,7 +72,7 @@ const PR_COLOR: Record<PrInfo['state'], 'success' | 'neutral' | 'merged' | 'erro
 
 const itemName = tv({
   base: 'min-w-0 flex-1 truncate font-mono text-sm leading-none',
-  variants: { color: { secondary: 'text-text-secondary', muted: 'text-text-muted' } },
+  variants: { color: { secondary: 'text-fg-dim', muted: 'text-fg-muted' } },
   defaultVariants: { color: 'muted' },
 });
 
@@ -148,7 +148,7 @@ function ItemRow({
             onChange={onEditChange}
             onBlur={onEditBlur}
             onKeyDown={onEditKeyDown}
-            className="m-0 min-w-0 flex-1 appearance-none border-none bg-transparent p-0 font-mono text-sm leading-none text-text-secondary outline-none"
+            className="m-0 min-w-0 flex-1 appearance-none border-none bg-transparent p-0 font-mono text-sm leading-none text-fg-dim outline-none"
           />
         ) : (
           <span className={itemName({ color: nameColor })} onDoubleClick={onNameDoubleClick}>
@@ -156,11 +156,11 @@ function ItemRow({
           </span>
         )}
         {isDeleting ? (
-          <span className="shrink-0 font-mono text-xs text-destructive/50">removing…</span>
+          <span className="shrink-0 font-mono text-xs text-danger/50">removing…</span>
         ) : (
           !editing &&
           (tabCount ?? 0) > 0 && (
-            <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.5 py-px font-mono text-sm leading-none text-text-faint tabular-nums">
+            <span className="shrink-0 rounded-sm bg-surface/60 px-1.5 py-px font-mono text-sm leading-none text-fg-faint tabular-nums">
               {tabCount}
             </span>
           )
@@ -175,7 +175,7 @@ function ItemRow({
             (diffStat.additions > 0 || diffStat.deletions > 0 ? (
               <DiffPill additions={diffStat.additions} deletions={diffStat.deletions} />
             ) : (
-              <span className="font-mono text-xs text-text-faint">—</span>
+              <span className="font-mono text-xs text-fg-faint">—</span>
             ))}
           {prInfo && <PrBadge pr={prInfo} />}
         </div>
@@ -205,7 +205,7 @@ const BranchRow = memo(
         <ItemRow
           icon={
             <IconWithBadge agentStatus={agentStatus}>
-              <Laptop size={14} stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'} />
+              <Laptop size={14} stroke={isSelected ? 'var(--accent)' : 'var(--fg-muted)'} />
             </IconWithBadge>
           }
           name={branch.name}
@@ -283,11 +283,11 @@ const WorktreeRow = memo(
           icon={
             isDeleting ? (
               <div className="relative flex w-6 shrink-0 items-center justify-center">
-                <Spinner size={14} className="text-destructive/60" />
+                <Spinner size={14} className="text-danger/60" />
               </div>
             ) : (
               <IconWithBadge agentStatus={agentStatus}>
-                <FolderGit2 size={14} stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'} />
+                <FolderGit2 size={14} stroke={isSelected ? 'var(--accent)' : 'var(--fg-muted)'} />
               </IconWithBadge>
             )
           }
@@ -338,17 +338,15 @@ const WorktreeRow = memo(
 );
 
 const sidebarItem = tv({
-  base: 'transition-colors outline-none hover:bg-white/[0.06]',
+  base: 'transition-colors outline-none hover:bg-hover',
   variants: {
-    selected: {
-      true: 'sticky top-9 z-[5] [background:color-mix(in_srgb,var(--accent)_8%,var(--bg-primary))] hover:[background:color-mix(in_srgb,var(--accent)_12%,var(--bg-primary))]',
-    },
+    selected: { true: 'sticky top-9 z-[5] bg-selected hover:bg-selected-hover' },
     deleting: { true: 'pointer-events-none' },
   },
 });
 
 const repoHeader = tv({
-  base: 'sticky top-0 z-10 flex items-center gap-2 py-1.5 pr-2 pl-3 touch-none bg-bg-primary brightness-[1.6] transition-[filter]',
+  base: 'sticky top-0 z-10 flex items-center gap-2 py-1.5 pr-2 pl-3 touch-none bg-base brightness-[1.6] transition-[filter]',
   variants: {
     selected: { true: 'brightness-[1.0]', false: 'hover:brightness-[1.3]' },
     cloning: { true: 'cursor-default', false: 'cursor-grab active:cursor-grabbing' },
@@ -403,23 +401,23 @@ const RepoHeader = memo(
           '--c': project.color,
           color: isSelected
             ? 'color-mix(in srgb, var(--c) 100%, white)'
-            : 'color-mix(in srgb, var(--c) 40%, var(--text-faint))',
+            : 'color-mix(in srgb, var(--c) 40%, var(--fg-faint))',
           borderColor: isSelected ? 'color-mix(in srgb, var(--c) 80%, transparent)' : 'transparent',
           backgroundColor: isSelected
-            ? 'color-mix(in srgb, var(--c) 35%, var(--bg-secondary))'
-            : 'color-mix(in srgb, var(--c) 8%, var(--bg-secondary))',
+            ? 'color-mix(in srgb, var(--c) 35%, var(--raised))'
+            : 'color-mix(in srgb, var(--c) 8%, var(--raised))',
         } as React.CSSProperties;
       }
       return isSelected
         ? {
-            color: 'var(--text-primary)',
-            borderColor: 'color-mix(in srgb, var(--text-muted) 40%, transparent)',
-            backgroundColor: 'var(--bg-tertiary)',
+            color: 'var(--fg)',
+            borderColor: 'color-mix(in srgb, var(--fg-muted) 40%, transparent)',
+            backgroundColor: 'var(--surface)',
           }
         : {
-            color: 'var(--text-faint)',
+            color: 'var(--fg-faint)',
             borderColor: 'transparent',
-            backgroundColor: 'color-mix(in srgb, var(--bg-tertiary) 60%, var(--bg-secondary))',
+            backgroundColor: 'color-mix(in srgb, var(--surface) 60%, var(--raised))',
           };
     }, [project.color, isSelected]);
 
@@ -456,21 +454,21 @@ const RepoHeader = memo(
               if (e.key === 'Escape') onRenameCancel();
             }}
             onClick={(e) => e.stopPropagation()}
-            className="min-w-0 flex-1 appearance-none border-none bg-transparent font-mono text-lg leading-none font-medium text-text-primary outline-none"
+            className="min-w-0 flex-1 appearance-none border-none bg-transparent font-mono text-lg leading-none font-medium text-fg outline-none"
           />
         ) : (
           <>
-            <span className="min-w-0 flex-1 truncate font-mono text-lg leading-none font-medium text-text-primary">
+            <span className="min-w-0 flex-1 truncate font-mono text-lg leading-none font-medium text-fg">
               {project.name}
             </span>
             {isInvalid && (
-              <span className="flex shrink-0 items-center gap-1 font-mono text-xs text-destructive/70">
+              <span className="flex shrink-0 items-center gap-1 font-mono text-xs text-danger/70">
                 <AlertTriangle size={11} />
                 not found
               </span>
             )}
             {isCloning && (
-              <span className="flex shrink-0 items-center gap-1 font-mono text-xs text-text-faint">
+              <span className="flex shrink-0 items-center gap-1 font-mono text-xs text-fg-faint">
                 {cloneProgress && cloneProgress.total > 0
                   ? `${cloneProgress.phase === 'resolving' ? 'resolving' : cloneProgress.phase === 'checkout' ? 'checking out' : 'receiving'} ${Math.round((cloneProgress.step / cloneProgress.total) * 100)}%`
                   : 'cloning…'}
@@ -487,7 +485,7 @@ const RepoHeader = memo(
           </span>
         )}
         {!isRenaming && !project.expanded && childCount > 0 && (
-          <span className="shrink-0 rounded-sm bg-bg-tertiary/60 px-1.5 py-px font-mono text-sm leading-none text-text-faint tabular-nums">
+          <span className="shrink-0 rounded-sm bg-surface/60 px-1.5 py-px font-mono text-sm leading-none text-fg-faint tabular-nums">
             {childCount}
           </span>
         )}
@@ -644,11 +642,7 @@ export function RepoTreeItem({
   const localCreatingIds = [...creatingWorktreeIds].filter((id) => id.startsWith(`${ws.id}-wt-`));
   const draggingCls = isDragging || isDropping ? 'pointer-events-none relative z-50' : '';
   const blockCls =
-    isDragging || isDropping
-      ? 'bg-bg-tertiary'
-      : isActive
-        ? 'bg-bg-tertiary/70'
-        : 'bg-bg-tertiary/40';
+    isDragging || isDropping ? 'bg-surface' : isActive ? 'bg-surface/70' : 'bg-surface/40';
 
   return (
     <>
@@ -747,7 +741,7 @@ export function RepoTreeItem({
               ws.worktrees.length === 0 &&
               !isCloning &&
               localCreatingIds.length === 0 && (
-                <div className="py-1.5 pr-3 pl-11 font-mono text-xs text-text-faint/40">
+                <div className="py-1.5 pr-3 pl-11 font-mono text-xs text-fg-faint/40">
                   no branches
                 </div>
               )}
@@ -766,11 +760,11 @@ export function RepoTreeItem({
                       <div className="relative flex w-6 shrink-0 items-center justify-center">
                         <Spinner size={14} className="text-accent/60" />
                       </div>
-                      <span className="min-w-0 flex-1 truncate font-mono text-sm text-text-faint">
+                      <span className="min-w-0 flex-1 truncate font-mono text-sm text-fg-faint">
                         {name}
                       </span>
                       {hasPendingClaude && (
-                        <ClaudeCodeIcon size={11} className="shrink-0 text-[#da7756]/60" />
+                        <ClaudeCodeIcon size={11} className="shrink-0 text-claude/60" />
                       )}
                       <span className="shrink-0 font-mono text-xs text-accent/50">creating…</span>
                     </div>
@@ -802,7 +796,7 @@ export function RepoTreeItem({
                 icon: ws.color ? (
                   <div className="h-3.5 w-3.5 rounded-sm" style={{ backgroundColor: ws.color }} />
                 ) : (
-                  <div className="flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-border/60 text-[9px] leading-none text-text-faint">
+                  <div className="flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-edge/60 text-[9px] leading-none text-fg-faint">
                     ✕
                   </div>
                 ),
@@ -810,7 +804,7 @@ export function RepoTreeItem({
                   {
                     label: 'No color',
                     icon: (
-                      <div className="flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-border/60 text-[9px] leading-none text-text-faint">
+                      <div className="flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-edge/60 text-[9px] leading-none text-fg-faint">
                         ✕
                       </div>
                     ),

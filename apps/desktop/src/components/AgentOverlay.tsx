@@ -35,7 +35,7 @@ const agentRowStyle = tv({
   variants: {
     state: {
       waiting: 'border-transparent bg-(--agent-waiting-glow)',
-      selected: 'border-accent bg-bg-tertiary',
+      selected: 'border-accent bg-surface',
       idle: 'border-transparent bg-transparent',
     },
   },
@@ -160,14 +160,14 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
       role="presentation"
     >
       <div
-        className="fixed top-1/2 left-1/2 flex max-h-[60vh] w-[520px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-border bg-bg-secondary/85 font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-[12px]"
+        className="fixed top-1/2 left-1/2 flex max-h-[60vh] w-[520px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-edge bg-raised/85 font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-[12px]"
         style={{ WebkitBackdropFilter: 'blur(12px)' }}
         onKeyDown={handleKeyDown}
       >
         <Dialog className="outline-none" aria-label="Agent Overview">
           {/* Header */}
-          <div className="flex items-center gap-2 border-b border-border p-4">
-            <Heading slot="title" className="m-0 text-lg font-semibold text-text-primary">
+          <div className="flex items-center gap-2 border-b border-edge p-4">
+            <Heading slot="title" className="m-0 text-lg font-semibold text-fg">
               Agent Overview
             </Heading>
             {(runningCount > 0 || waitingCount > 0) && (
@@ -176,7 +176,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                   <span className="text-(--agent-running)">{runningCount} running</span>
                 )}
                 {runningCount > 0 && waitingCount > 0 && (
-                  <span className="text-text-muted opacity-60">{'\u00B7'}</span>
+                  <span className="text-fg-muted opacity-60">{'\u00B7'}</span>
                 )}
                 {waitingCount > 0 && (
                   <span className="text-(--agent-waiting)">{waitingCount} waiting</span>
@@ -188,14 +188,14 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
           {/* Body */}
           <div className="scrollbar-none flex-1 overflow-y-auto py-2">
             {!hasAgents ? (
-              <div className="flex items-center justify-center py-8 font-mono text-sm text-text-faint">
+              <div className="flex items-center justify-center py-8 font-mono text-sm text-fg-faint">
                 No agents running
               </div>
             ) : (
               Object.entries(groupedRows).map(([projName, rows]) => (
                 <div key={projName}>
                   {/* Group header */}
-                  <div className="px-4 pt-2 pb-1 text-sm font-semibold text-text-muted">
+                  <div className="px-4 pt-2 pb-1 text-sm font-semibold text-fg-muted">
                     {projName}
                   </div>
                   {/* Agent rows */}
@@ -218,13 +218,11 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                         data-selected={isSelected}
                       >
                         <StatusDot status={row.agent.status} size={8} />
-                        <span className="shrink-0 text-base text-text-primary">
-                          {row.agent.agentName}
-                        </span>
-                        <span className="flex-1 truncate text-base text-text-muted">
+                        <span className="shrink-0 text-base text-fg">{row.agent.agentName}</span>
+                        <span className="flex-1 truncate text-base text-fg-muted">
                           {row.projectName}
                         </span>
-                        <span className="shrink-0 text-sm text-text-muted tabular-nums">
+                        <span className="shrink-0 text-sm text-fg-muted tabular-nums">
                           {formatDuration(row.agent.startedAt)}
                         </span>
                       </div>

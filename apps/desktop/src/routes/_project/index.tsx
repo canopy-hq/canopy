@@ -20,10 +20,10 @@ function Onboarding() {
       <div className="flex flex-col items-center gap-4">
         <img src={logoSrc} alt="Canopy" className="h-14 w-14" />
         <div className="flex flex-col items-center gap-2 text-center">
-          <h1 className="font-mono text-lg font-semibold tracking-tight text-text-primary">
+          <h1 className="font-mono text-lg font-semibold tracking-tight text-fg">
             Welcome to Canopy
           </h1>
-          <p className="max-w-[260px] font-mono text-sm leading-relaxed text-text-muted">
+          <p className="max-w-[260px] font-mono text-sm leading-relaxed text-fg-muted">
             Run and monitor AI coding agents across all your git projects.
           </p>
         </div>
@@ -34,14 +34,14 @@ function Onboarding() {
           <FolderPlus size={14} />
           Add a project
         </Button>
-        <span className="font-mono text-xs text-text-faint">
+        <span className="font-mono text-xs text-fg-faint">
           or press <Kbd>⌘N</Kbd>
         </span>
       </div>
 
       <div className="flex items-center gap-6">
         {FEATURES.map(({ Icon, label }) => (
-          <div key={label} className="flex items-center gap-1.5 font-mono text-xs text-text-faint">
+          <div key={label} className="flex items-center gap-1.5 font-mono text-xs text-fg-faint">
             <Icon size={13} />
             {label}
           </div>

@@ -22,26 +22,30 @@ React 19 + TypeScript frontend running inside Tauri v2. This is a native macOS a
 // BAD — never reference a CSS var via style=
 <div style={{ color: 'var(--accent)' }} />
 
-// BAD — old arbitrary-value syntax
-<div className="bg-[var(--bg-primary)]" />
+// BAD — prefer bg-base (the Tailwind class) over the CSS var shorthand
+<div className="bg-(--base)" />
 
 // GOOD — semantic Tailwind class (token in @theme)
-<div className="bg-bg-primary text-text-muted" />
+<div className="bg-base text-fg-muted" />
 
 // GOOD — v4 shorthand for vars not in @theme
 <div className="bg-(--agent-running)" />
 ```
 
-**Token reference:**
+**Token reference** (see `packages/theme/CLAUDE.md` for the full table + opacity modifier guide):
 
-| Role         | Tailwind class                                                                      |
-| ------------ | ----------------------------------------------------------------------------------- |
-| Background   | `bg-bg-primary` / `bg-bg-secondary` / `bg-bg-tertiary`                              |
-| Text         | `text-text-primary` / `text-text-secondary` / `text-text-muted` / `text-text-faint` |
-| Border       | `border-border` / `border-border-focus`                                             |
-| Accent       | `text-accent` / `bg-accent` / `border-accent`                                       |
-| Destructive  | `text-destructive` / `bg-destructive`                                               |
-| Agent states | `bg-(--agent-running)` / `bg-(--agent-waiting)` / `bg-(--agent-idle)`               |
+| Role         | Tailwind class                                                        |
+| ------------ | --------------------------------------------------------------------- |
+| Surfaces     | `bg-base` / `bg-raised` / `bg-surface`                                |
+| Interactive  | `bg-hover` / `bg-selected` / `bg-selected-hover` / `bg-input`         |
+| Text         | `text-fg` / `text-fg-dim` / `text-fg-muted` / `text-fg-faint`         |
+| Placeholder  | `text-placeholder` / `placeholder:text-placeholder`                   |
+| Border       | `border-edge` / `border-focus` / `ring-focus`                         |
+| Accent       | `text-accent` / `bg-accent` / `border-accent`                         |
+| Danger       | `text-danger` / `bg-danger` / `border-danger`                         |
+| Git          | `text-branch` / `text-worktree` / `text-ahead` / `text-behind`        |
+| Claude brand | `text-claude`                                                         |
+| Agent states | `bg-(--agent-running)` / `bg-(--agent-waiting)` / `bg-(--agent-idle)` |
 
 If a CSS variable is used in 3+ places and isn't in `@theme`, add it.
 
@@ -57,7 +61,7 @@ const button = tv({
   variants: {
     variant: {
       primary: 'bg-accent text-white hover:opacity-90',
-      ghost: 'bg-transparent text-text-muted hover:bg-bg-tertiary',
+      ghost: 'bg-transparent text-fg-muted hover:bg-surface',
     },
   },
 });
@@ -76,7 +80,7 @@ With the `tailwindcss-react-aria-components` plugin, use data-attribute variants
 <MenuItem className={({ isSelected }) => isSelected ? 'bg-accent/10' : ''} />
 
 // GOOD
-<MenuItem className="data-[selected]:bg-accent/10 data-[focused]:bg-bg-tertiary" />
+<MenuItem className="data-[selected]:bg-accent/10 data-[focused]:bg-surface/50" />
 ```
 
 Key variants: `data-[selected]:`, `data-[focused]:`, `data-[pressed]:`, `data-[disabled]:`, `data-[hovered]:`, `data-[open]:`.
@@ -87,7 +91,7 @@ Key variants: `data-[selected]:`, `data-[focused]:`, `data-[pressed]:`, `data-[d
 
 ```tsx
 // Acceptable — SVG attribute
-<FolderGit2 stroke={isSelected ? 'var(--accent)' : 'var(--text-muted)'} />
+<FolderGit2 stroke={isSelected ? 'var(--accent)' : 'var(--fg-muted)'} />
 
 // Preferred when static — use currentColor + text class on parent
 <span className="text-accent"><FolderGit2 /></span>

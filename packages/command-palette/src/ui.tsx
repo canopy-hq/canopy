@@ -32,7 +32,7 @@ export function useScrollSelectedIntoView(
 
 export function SectionHeader({ label }: { label: string }) {
   return (
-    <div className="px-3 pt-2 pb-1 font-mono text-2xs font-medium tracking-widest text-text-faint uppercase">
+    <div className="px-3 pt-2 pb-1 font-mono text-2xs font-medium tracking-widest text-fg-faint uppercase">
       {label}
     </div>
   );
@@ -45,7 +45,7 @@ export function SectionHeader({ label }: { label: string }) {
 
 export function FooterBar({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex shrink-0 items-center gap-2.5 border-t border-border bg-bg-primary/40 px-3 py-2 text-sm text-text-muted/60">
+    <div className="flex shrink-0 items-center gap-2.5 border-t border-edge bg-base/40 px-3 py-2 text-sm text-placeholder">
       {children}
     </div>
   );

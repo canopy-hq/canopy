@@ -27,10 +27,10 @@ import { Kbd } from '@canopy/ui';
 
 **Variants:**
 
-| Variant             | Style                                                  | Used in                                |
-| ------------------- | ------------------------------------------------------ | -------------------------------------- |
-| `default` (default) | `bg-bg-secondary`, `text-xs`                           | `apps/desktop` tooltips, headers       |
-| `menu`              | `bg-bg-primary border border-border/60`, `text-[10px]` | command palette footer + palette hints |
+| Variant             | Style                                          | Used in                                |
+| ------------------- | ---------------------------------------------- | -------------------------------------- |
+| `default` (default) | `bg-raised`, `text-xs`                         | `apps/desktop` tooltips, headers       |
+| `menu`              | `bg-base border border-edge/60`, `text-[10px]` | command palette footer + palette hints |
 
 ```tsx
 <Kbd variant="menu">⌘K</Kbd>

@@ -3,17 +3,17 @@ import { Button as AriaButton, type ButtonProps as AriaButtonProps } from 'react
 import { tv, type VariantProps } from 'tailwind-variants';
 
 const button = tv({
-  base: 'inline-flex items-center justify-center gap-1.5 rounded-md font-medium outline-none transition-[color,background-color,opacity,box-shadow] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-border-focus',
+  base: 'inline-flex appearance-none items-center justify-center gap-1.5 rounded-md font-medium outline-none transition-[color,background-color,opacity,box-shadow] disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-focus',
   variants: {
     variant: {
       primary: 'bg-accent text-white hover:opacity-90 pressed:opacity-75',
-      secondary: 'bg-bg-tertiary text-text-muted hover:text-text-primary pressed:opacity-80',
+      secondary: 'bg-surface text-fg-muted hover:text-fg pressed:opacity-80',
       ghost:
-        'bg-transparent text-text-muted hover:bg-bg-tertiary hover:text-text-primary pressed:bg-bg-secondary pressed:text-text-primary',
-      destructive: 'bg-destructive text-white hover:opacity-90 pressed:opacity-75',
+        'bg-transparent text-fg-muted hover:bg-surface hover:text-fg pressed:bg-raised pressed:text-fg',
+      destructive: 'bg-danger text-white hover:opacity-90 pressed:opacity-75',
       'destructive-ghost':
-        'bg-transparent text-destructive/80 hover:bg-destructive/10 pressed:bg-destructive/[0.15]',
-      link: 'bg-transparent text-text-muted hover:text-text-primary pressed:opacity-70',
+        'bg-transparent text-danger/80 hover:bg-danger/10 pressed:bg-danger/[0.15]',
+      link: 'bg-transparent text-fg-muted hover:text-fg pressed:opacity-70',
       accent: 'bg-accent/[0.08] text-accent hover:bg-accent/[0.12] pressed:bg-accent/[0.18]',
     },
     size: {

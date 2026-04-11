@@ -36,8 +36,8 @@ const navItem = tv({
   base: 'flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-base transition-colors',
   variants: {
     active: {
-      true: 'bg-bg-tertiary text-text-primary',
-      false: 'text-text-muted hover:bg-bg-tertiary/50 hover:text-text-primary',
+      true: 'bg-surface text-fg',
+      false: 'text-fg-muted hover:bg-surface/50 hover:text-fg',
     },
   },
 });
@@ -67,9 +67,9 @@ function SettingsRoute() {
   const ActiveComponent = SECTIONS[activeSection];
 
   return (
-    <div className="fixed inset-0 z-50 flex bg-bg-primary">
+    <div className="fixed inset-0 z-50 flex bg-base">
       {/* Left sidebar */}
-      <div className="flex w-[220px] flex-shrink-0 flex-col border-r border-border/20 bg-bg-secondary">
+      <div className="flex w-[220px] flex-shrink-0 flex-col border-r border-edge/20 bg-raised">
         <div data-tauri-drag-region className="h-12 flex-shrink-0" />
         <div className="px-3 py-2">
           <Button variant="link" size="md" onPress={navigateBack} aria-label="Back to app">
@@ -77,7 +77,7 @@ function SettingsRoute() {
             Back
           </Button>
         </div>
-        <div className="mb-2 border-b border-border/20" />
+        <div className="mb-2 border-b border-edge/20" />
 
         <nav className="flex-1 space-y-4 px-3 pt-3">
           {NAV.map((group) => (
