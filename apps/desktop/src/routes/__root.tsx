@@ -157,11 +157,29 @@ function RootLayout() {
   // not the sessions table (which only covers visited tabs).
   useEffect(() => {
     const tabs = getTabCollection().toArray;
-    if (tabs.length === 0) return;
     const settings = getSettingCollection().toArray;
+
+    // Pre-warm the PTY pool even when there are no tabs to restore (fresh DB).
+    // Use a saved pane CWD, or fall back to the first project's path.
+    const invalidPathSet = new Set(
+      getProjectCollection()
+        .toArray.filter((p) => p.invalid)
+        .map((p) => p.path),
+    );
     const paneEntries = tabs.flatMap((tab) =>
       collectRestorablePaneIds(tab.paneRoot).map((paneId) => ({ tab, paneId })),
     );
+    const firstCwd =
+      paneEntries
+        .map(({ paneId }) => (getSetting(settings, `cwd:${paneId}`, '') as string) || '')
+        .find((cwd) => cwd.length > 0 && !invalidPathSet.has(cwd)) ||
+      getProjectCollection().toArray.find((p) => !p.invalid)?.path;
+    if (firstCwd) {
+      void initTerminalPool(firstCwd);
+    }
+
+    if (tabs.length === 0) return;
+
     void Promise.all(
       paneEntries.map(async ({ tab, paneId }) => {
         const cwd = (getSetting(settings, `cwd:${paneId}`, '') as string) || undefined;
@@ -192,22 +210,6 @@ function RootLayout() {
         }
       }),
     );
-
-    // Pre-warm the PTY pool: use a saved pane CWD, or fall back to the first
-    // project's filesystem path. Skip invalid (deleted) project paths.
-    const invalidPathSet = new Set(
-      getProjectCollection()
-        .toArray.filter((p) => p.invalid)
-        .map((p) => p.path),
-    );
-    const firstCwd =
-      paneEntries
-        .map(({ paneId }) => (getSetting(settings, `cwd:${paneId}`, '') as string) || '')
-        .find((cwd) => cwd.length > 0 && !invalidPathSet.has(cwd)) ||
-      getProjectCollection().toArray.find((p) => !p.invalid)?.path;
-    if (firstCwd) {
-      void initTerminalPool(firstCwd);
-    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useTauriMenuEvent(
