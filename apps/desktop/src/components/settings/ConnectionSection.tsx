@@ -149,7 +149,7 @@ function ClaudeDefaultMode() {
             key={m}
             type="button"
             onClick={() => setSetting(CLAUDE_DEFAULT_MODE_KEY, m)}
-            className={`flex-1 cursor-pointer px-4 py-2.5 text-left text-base transition-colors ${
+            className={`flex-1 cursor-pointer appearance-none px-4 py-2.5 text-left text-sm transition-colors ${
               mode === m
                 ? 'bg-accent/10 text-accent'
                 : 'bg-raised text-fg-muted hover:bg-surface hover:text-fg'
@@ -195,7 +195,7 @@ function WorktreeBaseDir() {
         New worktrees will be created inside this directory.
       </p>
       <div className={`flex items-center gap-2 px-4 py-3 ${card}`}>
-        <span className="min-w-0 flex-1 truncate font-mono text-base text-fg">{currentDir}</span>
+        <span className="min-w-0 flex-1 truncate font-mono text-sm text-fg">{currentDir}</span>
         <Button variant="ghost" size="sm" onPress={handleChoose}>
           Browse...
         </Button>
@@ -293,7 +293,7 @@ function GitHubAuth({
           <GitBranch size={14} className="text-fg-faint" />
         </div>
       )}
-      <span className="flex-1 font-mono text-base text-fg">
+      <span className="flex-1 font-mono text-sm text-fg">
         {isConnected ? auth.connection.username : 'Not connected'}
       </span>
       {isConnected ? (

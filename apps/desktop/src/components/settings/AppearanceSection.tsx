@@ -102,7 +102,7 @@ export function AppearanceSection() {
               tabIndex={0}
             >
               <ThemePreview css={themes[name].css} />
-              <span className="font-mono text-base text-fg-dim">{capitalize(name)}</span>
+              <span className="font-mono text-sm text-fg-dim">{capitalize(name)}</span>
             </div>
           ))}
         </div>
@@ -121,7 +121,7 @@ export function AppearanceSection() {
             className="h-1 w-40 cursor-pointer appearance-none rounded-full bg-edge accent-accent"
             aria-label="Terminal font size"
           />
-          <span className="min-w-[3ch] text-center font-mono text-base text-fg tabular-nums">
+          <span className="min-w-[3ch] text-center font-mono text-sm text-fg tabular-nums">
             {currentFontSize}
           </span>
         </div>
