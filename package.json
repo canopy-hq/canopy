@@ -15,7 +15,11 @@
     "format": "oxfmt apps/ packages/",
     "postinstall": "lefthook install",
     "desktop:db:reset": "bun --filter desktop db:reset",
-    "desktop:db:reset:prod": "bun --filter desktop db:reset:prod"
+    "desktop:db:reset:prod": "bun --filter desktop db:reset:prod",
+    "clean": "bun run clean:js && bun run clean:rust",
+    "clean:js": "trash node_modules/.cache",
+    "clean:rust": "cd apps/desktop/src-tauri && cargo clean",
+    "clean:all": "bun run clean && trash node_modules"
   },
   "catalog": {
     "@tauri-apps/api": "^2.10.1",

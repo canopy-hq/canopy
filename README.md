@@ -86,6 +86,14 @@ Required GitHub secrets before releasing:
 - `TAURI_SIGNING_PRIVATE_KEY` (content of `~/.tauri/canopy.key`)
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (empty string if key was generated without password)
 
+### Cleaning build artifacts
+
+```bash
+bun run clean          # Remove JS cache + Rust target
+bun run clean:rust     # Rust target only
+bun run clean:all      # Everything including node_modules
+```
+
 ### Other commands
 
 ```bash
