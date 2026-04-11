@@ -95,7 +95,7 @@ pub fn run() {
             };
 
             app.manage(DaemonPid(Mutex::new(daemon_pid)));
-            app.manage(DaemonClient::new(socket));
+            app.manage(DaemonClient::new(socket, bin));
             app.manage(Mutex::new(pty::PtyState::new()));
             app.manage(Mutex::new(agent_watcher::AgentWatcherState::new()));
             app.manage(github::PollCancelFlag(std::sync::atomic::AtomicBool::new(false)));

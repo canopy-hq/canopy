@@ -40,15 +40,22 @@ pub struct ClaimResult {
 
 pub struct DaemonClient {
     pub socket: PathBuf,
-    // Persistent stream for fire-and-forget ops (write, resize)
+    bin: PathBuf,
+    // Persistent stream for fire-and-forget ops (write, resize).
+    // Does not auto-restart on daemon death — send_cmd handles restart,
+    // and send_noack reconnects on its own next call.
     cmd_stream: Arc<Mutex<Option<UnixStream>>>,
+    // Guards daemon restart so concurrent send_cmd failures don't each spawn a new daemon.
+    restart_lock: Arc<Mutex<()>>,
 }
 
 impl DaemonClient {
-    pub fn new(socket: PathBuf) -> Self {
+    pub fn new(socket: PathBuf, bin: PathBuf) -> Self {
         Self {
             socket,
+            bin,
             cmd_stream: Arc::new(Mutex::new(None)),
+            restart_lock: Arc::new(Mutex::new(())),
         }
     }
 
@@ -99,10 +106,33 @@ impl DaemonClient {
     }
 
     /// Send a command that expects a JSON response (per-call connection).
+    /// On ConnectionRefused, serializes a one-shot daemon restart behind restart_lock
+    /// (so concurrent failures don't race to spawn multiple daemons), then retries.
     async fn send_cmd(&self, msg: &str) -> Result<serde_json::Value, String> {
-        let mut stream = UnixStream::connect(&self.socket)
-            .await
-            .map_err(|e| format!("connect: {e}"))?;
+        let mut stream = match UnixStream::connect(&self.socket).await {
+            Ok(s) => s,
+            Err(e) if e.kind() == std::io::ErrorKind::ConnectionRefused => {
+                let _guard = self.restart_lock.lock().await;
+                // A concurrent caller may have already restarted the daemon — try connecting first.
+                match UnixStream::connect(&self.socket).await {
+                    Ok(s) => s,
+                    Err(_) => {
+                        eprintln!("[daemon] connection refused — restarting daemon");
+                        let socket = self.socket.clone();
+                        let bin = self.bin.clone();
+                        tokio::task::spawn_blocking(move || Self::ensure_daemon_sync(&socket, &bin))
+                            .await
+                            .map_err(|e| e.to_string())??;
+                        // Clear stale cmd_stream so the next write/resize reconnects to the new daemon.
+                        *self.cmd_stream.lock().await = None;
+                        UnixStream::connect(&self.socket)
+                            .await
+                            .map_err(|e| format!("connect after restart: {e}"))?
+                    }
+                }
+            }
+            Err(e) => return Err(format!("connect: {e}")),
+        };
         stream.write_all(msg.as_bytes()).await.map_err(|e| e.to_string())?;
 
         let mut reader = BufReader::new(&mut stream);
