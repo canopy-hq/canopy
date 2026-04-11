@@ -111,7 +111,12 @@ impl DaemonClient {
     async fn send_cmd(&self, msg: &str) -> Result<serde_json::Value, String> {
         let mut stream = match UnixStream::connect(&self.socket).await {
             Ok(s) => s,
-            Err(e) if e.kind() == std::io::ErrorKind::ConnectionRefused => {
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    std::io::ErrorKind::ConnectionRefused | std::io::ErrorKind::NotFound
+                ) =>
+            {
                 let _guard = self.restart_lock.lock().await;
                 // A concurrent caller may have already restarted the daemon — try connecting first.
                 match UnixStream::connect(&self.socket).await {

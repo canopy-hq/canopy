@@ -10,7 +10,7 @@ import { ClaudeCodeIcon } from './ClaudeCodeIcon';
 type Mode = 'bypass' | 'plan';
 
 const modeCard = tv({
-  base: 'flex flex-1 cursor-pointer flex-col gap-1 rounded-md border px-3 py-2.5 text-left transition-colors',
+  base: 'flex flex-1 cursor-pointer flex-col gap-1 rounded-md border px-3 py-2.5 text-left transition-colors appearance-none outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset',
   variants: {
     selected: {
       true: 'border-accent/60 bg-accent/[0.06] text-fg',
