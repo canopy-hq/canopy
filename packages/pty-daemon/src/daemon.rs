@@ -617,7 +617,7 @@ mod tests {
 
     async fn start_daemon(socket_path: &str) {
         let path = socket_path.to_string();
-        tokio::spawn(async move { run(path).await });
+        tokio::spawn(async move { run(path, None).await });
         for _ in 0..20 {
             tokio::time::sleep(tokio::time::Duration::from_millis(15)).await;
             if UnixStream::connect(socket_path).await.is_ok() {
