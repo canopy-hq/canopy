@@ -29,7 +29,7 @@ import { useUiState } from '../hooks/useCollections';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { useTauriMenuEvent } from '../hooks/useTauriMenuEvent';
 import { onOpenAddProjectDialog } from '../lib/add-project-bridge';
-import { initAgentListener } from '../lib/agent-actions';
+import { initAgentListener, clearReviewForTab } from '../lib/agent-actions';
 import { checkProjectPaths, listWorktrees } from '../lib/git';
 import { getConnection, GITHUB_CONNECTION_KEY } from '../lib/github';
 import { logInfo } from '../lib/log';
@@ -302,6 +302,21 @@ function RootLayout() {
             branch: agentTab.label,
             ptyId: agent.ptyId,
           });
+        }
+      }
+    });
+    return () => sub.unsubscribe();
+  }, []);
+
+  // Clear review state when the user switches to a tab — review means
+  // "done while you weren't looking", so viewing the tab clears it.
+  useEffect(() => {
+    const sub = uiCollection.subscribeChanges((changes) => {
+      for (const change of changes) {
+        if (change.type === 'delete') continue;
+        const ui = change.value;
+        if (ui.activeTabId) {
+          clearReviewForTab(ui.activeTabId);
         }
       }
     });

@@ -208,6 +208,7 @@ pub async fn close_pty(
             let _ = cancel.send(());
         }
         ws.last_outputs.remove(&pty_id);
+        ws.hook_states.remove(&pty_id);
     }
 
     daemon.close(&pane_id).await
@@ -290,6 +291,7 @@ pub async fn close_ptys_for_panes(
                 let _ = cancel.send(());
             }
             ws.last_outputs.remove(&pty_id);
+            ws.hook_states.remove(&pty_id);
         }
     }
 

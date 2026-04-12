@@ -1,4 +1,7 @@
-import { agentCollection, type AgentStatus } from '@canopy/db';
+import { agentCollection, getTabCollection, type AgentStatus } from '@canopy/db';
+
+import { containsPtyId } from './pane-tree-ops';
+import { getActiveTab } from './tab-actions';
 
 interface AgentStatusEvent {
   ptyId: number;
@@ -9,8 +12,9 @@ interface AgentStatusEvent {
 }
 
 /** Map legacy/backend status strings to the canonical AgentStatus.
- * Returns `'idle'` for statuses that should remove the agent from the collection. */
-function normalizeStatus(status: string): AgentStatus | 'idle' {
+ * Returns `'idle'` for statuses that should remove the agent from the collection.
+ * `'stopped'` is handled separately in initAgentListener (needs focus check). */
+function normalizeStatus(status: string): AgentStatus | 'idle' | 'stopped' {
   switch (status) {
     // Hook-based states (primary path)
     case 'working':
@@ -19,10 +23,8 @@ function normalizeStatus(status: string): AgentStatus | 'idle' {
       return 'permission';
     case 'review':
       return 'review';
-    // `stopped` is a transient backend event — Phase 4 will derive review/idle
-    // based on activeTabId. For now, treat as idle (remove from collection).
     case 'stopped':
-      return 'idle';
+      return 'stopped';
     // Legacy states (silence-based detection — backward compat during transition)
     case 'running':
       return 'working';
@@ -33,6 +35,13 @@ function normalizeStatus(status: string): AgentStatus | 'idle' {
     default:
       return 'idle';
   }
+}
+
+/** Check if a pty_id belongs to the currently active tab. */
+function isPtyInActiveTab(ptyId: number): boolean {
+  const activeTab = getActiveTab();
+  if (!activeTab) return false;
+  return containsPtyId(activeTab.paneRoot, ptyId);
 }
 
 export function setAgent(
@@ -85,6 +94,19 @@ export function toggleManualOverride(ptyId: number): void {
   }
 }
 
+/** Clear review state for all agents in the given tab's panes. */
+export function clearReviewForTab(tabId: string): void {
+  const tabs = getTabCollection().toArray;
+  const tab = tabs.find((t) => t.id === tabId);
+  if (!tab) return;
+
+  for (const agent of agentCollection.toArray) {
+    if (agent.status === 'review' && containsPtyId(tab.paneRoot, agent.ptyId)) {
+      removeAgent(agent.ptyId);
+    }
+  }
+}
+
 export async function initAgentListener(): Promise<() => void> {
   const { listen } = await import('@tauri-apps/api/event');
 
@@ -94,6 +116,15 @@ export async function initAgentListener(): Promise<() => void> {
 
     if (status === 'idle') {
       removeAgent(ptyId);
+    } else if (status === 'stopped') {
+      // Derive review/idle based on whether the pane's tab is active:
+      // - Active tab → agent is done and user can see it → idle (remove)
+      // - Background tab → agent finished while user wasn't looking → review
+      if (isPtyInActiveTab(ptyId)) {
+        removeAgent(ptyId);
+      } else {
+        setAgent(ptyId, { status: 'review', agentName, pid, subState });
+      }
     } else {
       setAgent(ptyId, { status, agentName, pid, subState });
     }
