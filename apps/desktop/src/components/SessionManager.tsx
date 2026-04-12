@@ -36,9 +36,9 @@ interface SessionRow {
 }
 
 const sessionRowCls = tv({
-  base: 'flex h-8 items-center gap-3 px-3 text-xs text-fg outline-none',
+  base: 'group flex items-center gap-1.5 rounded px-2 py-1 text-xs text-fg outline-none',
   variants: {
-    interactive: { true: 'cursor-pointer hover:bg-surface/50', false: 'cursor-default opacity-50' },
+    interactive: { true: 'cursor-pointer hover:bg-surface', false: 'cursor-default opacity-40' },
   },
 });
 
@@ -165,7 +165,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
   return (
     <>
       <div className="px-3 pt-2 pb-1">
-        <div className="flex items-center gap-2">
+        <div className="group/header flex items-center gap-2">
           <SectionLabel className="flex-1">PTY Sessions</SectionLabel>
           {rows.length > 0 && (
             <span className="font-mono text-[10px] tabular-nums text-fg-faint">
@@ -176,6 +176,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
             <Button
               variant="destructive-ghost"
               size="sm"
+              className="opacity-0 transition-opacity group-hover/header:opacity-100"
               onPress={() => void handleKillAll()}
               isDisabled={rows.every((r) => killing.has(r.info.ptyId))}
             >
@@ -190,13 +191,14 @@ export function SessionManager({ onClose }: SessionManagerProps) {
           <div className="px-2 py-3 text-xs text-fg-faint">No active sessions.</div>
         ) : (
           Array.from(grouped.entries()).map(([projName, groupRows]) => (
-            <div key={projName}>
+            <div key={projName} className="group/section">
               <div className="flex h-6 items-center gap-2 px-2">
                 <SectionLabel className="flex-1">{projName}</SectionLabel>
                 <Button
                   variant="destructive-ghost"
                   size="sm"
                   aria-label={`Kill all sessions in ${projName}`}
+                  className="opacity-0 transition-opacity group-hover/section:opacity-100"
                   onPress={() => void handleKillGroup(groupRows)}
                   isDisabled={groupRows.every((r) => killing.has(r.info.ptyId))}
                 >
@@ -215,15 +217,17 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                   }}
                   className={sessionRowCls({ interactive: !!row.tab })}
                 >
-                  <span className="min-w-0 flex-1 truncate font-mono">{row.tab?.label ?? '—'}</span>
-                  <span className="shrink-0 font-mono text-[10px] tabular-nums text-fg-faint">
+                  <span className="min-w-0 flex-1 truncate font-mono text-xs">
+                    {row.tab?.label ?? '—'}
+                  </span>
+                  <span className="shrink-0 font-mono text-[10px] tabular-nums text-fg-faint opacity-0 transition-opacity group-hover:opacity-100">
                     {row.info.cpuPercent.toFixed(1)}% · {row.info.memoryMb}MB
                   </span>
                   <div onClick={(e) => e.stopPropagation()}>
                     <Button
                       variant="destructive-ghost"
                       size="sm"
-                      className="shrink-0"
+                      className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
                       onPress={() => void handleKill(row)}
                       isDisabled={killing.has(row.info.ptyId)}
                     >
