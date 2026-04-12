@@ -146,6 +146,25 @@ export function activateTabFromRoute(contextId: string, tabId: string): void {
   });
 }
 
+/**
+ * Sync activeContextId from the URL when there is no tab sub-route (EmptyState).
+ * activateTabFromRoute handles this for tab contexts, but when a project has no tabs
+ * TabRoute never mounts and activeContextId would remain stale — causing addTab() to
+ * create tabs on the wrong (previous) context.
+ *
+ * React runs effects child-before-parent, so when TabRoute IS present its
+ * activateTabFromRoute effect runs first and the early-return guard below prevents
+ * any redundant update.
+ */
+export function activateContextFromRoute(contextId: string): void {
+  const ui = getUiState();
+  if (ui.activeContextId === contextId) return;
+  uiCollection.update('ui', (draft) => {
+    draft.activeContextId = contextId;
+    draft.selectedItemId = contextId;
+  });
+}
+
 export function addTab(projectItemId?: string): void {
   const ui = getUiState();
   const itemId = projectItemId ?? ui.activeContextId;

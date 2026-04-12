@@ -14,7 +14,7 @@ import {
   setPendingClaudeSession,
   cancelPendingClaudeSession,
 } from '../../lib/project-actions';
-import { addTab, addClaudeCodeTab } from '../../lib/tab-actions';
+import { addTab, addClaudeCodeTab, activateContextFromRoute } from '../../lib/tab-actions';
 import { router } from '../../router';
 
 function CreatingWorktree({
@@ -70,6 +70,16 @@ function ProjectRoute() {
   const worktreeName = projectId.includes('-wt-') ? (projectId.split('-wt-').pop() ?? '') : '';
   const pendingSession =
     ui.pendingClaudeSession?.worktreeId === projectId ? ui.pendingClaudeSession : null;
+
+  // Keep activeContextId in sync with the URL whenever projectId changes.
+  // activateTabFromRoute (TabRoute) is the authoritative writer when tabs exist —
+  // React runs child effects before parent, so it always wins and the guard inside
+  // activateContextFromRoute prevents a double-write. For the EmptyState case
+  // (no TabRoute), this is the only place that updates activeContextId.
+  useEffect(() => {
+    activateContextFromRoute(projectId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   // Safety net: if we land on the bare project URL (no /tabs/ segment) but tabs exist,
   // redirect to the saved tab. Covers crash recovery and stale boot state.
