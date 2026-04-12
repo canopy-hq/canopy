@@ -45,12 +45,8 @@ const agentRowStyle = tv({
 export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
   const navigate = useNavigate();
   const agentList = useAgents();
-  const workingCount = agentList.filter(
-    (a) => a.status === 'working' || a.status === 'running',
-  ).length;
-  const permissionCount = agentList.filter(
-    (a) => a.status === 'permission' || a.status === 'waiting',
-  ).length;
+  const workingCount = agentList.filter((a) => a.status === 'working').length;
+  const permissionCount = agentList.filter((a) => a.status === 'permission').length;
   const reviewCount = agentList.filter((a) => a.status === 'review').length;
   const projects = useProjects();
   const tabs = useTabs();
@@ -211,8 +207,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                   {rows.map((row) => {
                     const flatIndex = flatRows.indexOf(row);
                     const isSelected = flatIndex === selectedIndex;
-                    const isWaiting =
-                      row.agent.status === 'waiting' || row.agent.status === 'permission';
+                    const isWaiting = row.agent.status === 'permission';
                     const state: 'waiting' | 'selected' | 'idle' = isWaiting
                       ? 'waiting'
                       : isSelected

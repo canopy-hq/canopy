@@ -56,23 +56,17 @@ function useProjectAgentMap(): Record<string, DotStatus> {
       for (const id of ptyIds) {
         const agent = agentByPty.get(id);
         const s = agent?.status;
-        if (s === 'permission' || s === 'waiting') {
+        if (s === 'permission') {
           best = 'permission';
           break;
         }
-        if (s === 'working' || s === 'running') best = 'working';
+        if (s === 'working') best = 'working';
         else if (s === 'review' && best === 'idle') best = 'review';
       }
       const existing = result[tab.projectItemId];
       // Priority: permission > working > review > idle
       const prio = (d: DotStatus) =>
-        d === 'permission' || d === 'waiting'
-          ? 0
-          : d === 'working' || d === 'running'
-            ? 1
-            : d === 'review'
-              ? 2
-              : 3;
+        d === 'permission' ? 0 : d === 'working' ? 1 : d === 'review' ? 2 : 3;
       if (!existing || prio(best) < prio(existing)) {
         result[tab.projectItemId] = best;
       }

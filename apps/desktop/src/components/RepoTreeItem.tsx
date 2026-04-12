@@ -558,13 +558,7 @@ export function getRepoAgentSummary(ws: Project, agentMap: Record<string, DotSta
     if (s && s !== 'idle') statuses.push(s);
   }
   // Priority sort: permission > working > review > others
-  const priority: Record<string, number> = {
-    permission: 0,
-    waiting: 0,
-    working: 1,
-    running: 1,
-    review: 2,
-  };
+  const priority: Record<string, number> = { permission: 0, working: 1, review: 2 };
   statuses.sort((a, b) => (priority[a] ?? 3) - (priority[b] ?? 3));
   return statuses;
 }

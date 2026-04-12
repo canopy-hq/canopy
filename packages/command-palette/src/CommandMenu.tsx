@@ -77,10 +77,12 @@ function ItemIcon({ icon }: { icon: CommandItem['icon'] }) {
 
 function agentDotColor(status: NonNullable<CommandItem['agentStatus']>): string {
   switch (status) {
-    case 'running':
+    case 'working':
       return 'bg-(--agent-running)';
-    case 'waiting':
+    case 'permission':
       return 'bg-(--agent-waiting)';
+    case 'review':
+      return 'bg-green-500';
     default:
       return 'bg-fg-muted/40';
   }

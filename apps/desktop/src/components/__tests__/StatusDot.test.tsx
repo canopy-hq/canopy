@@ -10,36 +10,43 @@ describe('StatusDot', () => {
     expect(dot.className).toContain('bg-(--agent-idle)');
   });
 
-  it('renders orange dot with pulse-slow animation when running', () => {
-    render(<StatusDot status="running" />);
-    const dot = screen.getByRole('img', { name: 'Agent running' });
+  it('renders amber dot with pulse-slow animation when working', () => {
+    render(<StatusDot status="working" />);
+    const dot = screen.getByRole('img', { name: 'Agent working' });
     expect(dot).toBeDefined();
     expect(dot.className).toContain('pulse-slow');
     expect(dot.className).toContain('bg-(--agent-running)');
   });
 
-  it('renders red dot with breathe animation when waiting', () => {
-    render(<StatusDot status="waiting" />);
-    const dot = screen.getByRole('img', { name: 'Agent waiting' });
+  it('renders red dot with ping animation when permission', () => {
+    render(<StatusDot status="permission" />);
+    const dot = screen.getByRole('img', { name: 'Agent permission' });
     expect(dot).toBeDefined();
-    expect(dot.className).toContain('breathe');
+    expect(dot.className).toContain('ping');
     expect(dot.className).toContain('bg-(--agent-waiting)');
   });
 
+  it('renders green static dot when review', () => {
+    render(<StatusDot status="review" />);
+    const dot = screen.getByRole('img', { name: 'Agent review' });
+    expect(dot).toBeDefined();
+    expect(dot.className).toContain('bg-green-500');
+  });
+
   it('uses custom size prop via CSS variable', () => {
-    render(<StatusDot status="running" size={12} />);
+    render(<StatusDot status="working" size={12} />);
     const dot = screen.getByRole('img') as HTMLElement;
     expect(dot.style.getPropertyValue('--dot-size')).toBe('12px');
   });
 
   it('has accessible aria-label', () => {
-    render(<StatusDot status="running" />);
+    render(<StatusDot status="working" />);
     const dot = screen.getByRole('img');
-    expect(dot.getAttribute('aria-label')).toBe('Agent running');
+    expect(dot.getAttribute('aria-label')).toBe('Agent working');
   });
 
   it('uses default size of 8px', () => {
-    render(<StatusDot status="running" />);
+    render(<StatusDot status="working" />);
     const dot = screen.getByRole('img') as HTMLElement;
     expect(dot.style.getPropertyValue('--dot-size')).toBe('8px');
   });

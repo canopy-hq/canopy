@@ -16,7 +16,6 @@ interface AgentStatusEvent {
  * `'stopped'` is handled separately in initAgentListener (needs focus check). */
 function normalizeStatus(status: string): AgentStatus | 'idle' | 'stopped' {
   switch (status) {
-    // Hook-based states (primary path)
     case 'working':
       return 'working';
     case 'permission':
@@ -25,11 +24,6 @@ function normalizeStatus(status: string): AgentStatus | 'idle' | 'stopped' {
       return 'review';
     case 'stopped':
       return 'stopped';
-    // Legacy states (silence-based detection — backward compat during transition)
-    case 'running':
-      return 'working';
-    case 'waiting':
-      return 'permission';
     case 'idle':
       return 'idle';
     default:

@@ -77,8 +77,8 @@ function useTabAgentStatus(tab: Tab): DotStatus {
   let hasReview = false;
   for (const id of ptyIds) {
     const status = agents.find((a) => a.ptyId === id)?.status;
-    if (status === 'permission' || status === 'waiting') return 'permission';
-    if (status === 'working' || status === 'running') hasWorking = true;
+    if (status === 'permission') return 'permission';
+    if (status === 'working') hasWorking = true;
     if (status === 'review') hasReview = true;
   }
   if (hasWorking) return 'working';
@@ -184,7 +184,7 @@ const TabItemComponent = memo(
           data-flip-id={tab.id}
           className={tabItem({
             active: isActive,
-            agentWaiting: agentStatus === 'waiting' || agentStatus === 'permission',
+            agentWaiting: agentStatus === 'permission',
             dragging: isDragging || isDropping,
           })}
           style={{
@@ -255,7 +255,7 @@ const TabItemComponent = memo(
               </span>
             </>
           )}
-          {(agentStatus === 'waiting' || agentStatus === 'permission') && !editing && (
+          {agentStatus === 'permission' && !editing && (
             <Badge pill color="warning" size="sm">
               input
             </Badge>

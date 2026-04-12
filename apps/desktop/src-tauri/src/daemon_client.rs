@@ -22,15 +22,12 @@
 
 use std::os::unix::net::UnixStream as StdUnixStream;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, atomic::AtomicU64};
-use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
 use tauri::ipc::Channel;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tokio::sync::Mutex;
-
-use crate::agent_watcher::now_millis;
 
 #[derive(Debug)]
 pub struct ClaimResult {
@@ -286,8 +283,7 @@ impl DaemonClient {
     }
 
     /// Attach to a PTY session: spawns a background task that reads frames
-    /// from the daemon and sends them to `on_output`. Updates `last_output` timestamp
-    /// on each chunk (used by the agent watcher for silence detection).
+    /// from the daemon and sends them to `on_output`.
     ///
     /// `ready_tx` is fired once when the daemon sentinel (zero-length frame marking
     /// end of scrollback replay) is forwarded. `spawn_terminal` awaits this signal
@@ -299,7 +295,6 @@ impl DaemonClient {
         &self,
         pane_id: String,
         on_output: Channel<Vec<u8>>,
-        last_output: Arc<AtomicU64>,
         ready_tx: tokio::sync::oneshot::Sender<()>,
     ) -> tokio::task::JoinHandle<()> {
         let socket = self.socket.clone();
@@ -335,9 +330,6 @@ impl DaemonClient {
                     if stream.read_exact(&mut data).await.is_err() {
                         break;
                     }
-                    // Only update the activity timestamp for real output, not the
-                    // zero-length sentinel frame.
-                    last_output.store(now_millis(), Ordering::Relaxed);
                 } else {
                     // Sentinel: scrollback replay complete. Signal spawn_terminal so it
                     // can return to TypeScript with a fully-buffered ChannelEntry.

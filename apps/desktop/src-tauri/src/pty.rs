@@ -18,14 +18,13 @@
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-use std::sync::atomic::AtomicU64;
+use std::sync::Mutex;
 
 use sysinfo::{System, Pid, ProcessesToUpdate};
 
 use tauri::ipc::Channel;
 
-use crate::agent_watcher::{self, AgentWatcherState, now_millis};
+use crate::agent_watcher::{self, AgentWatcherState};
 use crate::daemon_client::DaemonClient;
 
 /// PTY session state: maps ptyId (child PID) → paneId for IPC routing,
@@ -127,9 +126,8 @@ pub async fn spawn_terminal(
         }
     }
 
-    let last_output = Arc::new(AtomicU64::new(now_millis()));
     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<()>();
-    let handle = daemon.attach(pane_id.clone(), on_output, last_output.clone(), ready_tx);
+    let handle = daemon.attach(pane_id.clone(), on_output, ready_tx);
 
     // Wait until the attach task forwards the sentinel frame (end of scrollback replay).
     // This guarantees the TypeScript ChannelEntry has buffered data when the invoke
@@ -145,14 +143,16 @@ pub async fn spawn_terminal(
         s.attach_handles.insert(pane_id.clone(), handle);
     }
 
-    // Agent watcher uses child PID = ptyId for tracking
+    // Start process-based watcher as fallback for all terminals.
+    // Hook-capable agents (Claude, Codex, Gemini, Cursor) use the hook server
+    // and the hook_states map takes priority; the process watcher serves as a
+    // safety net and primary detection path for Aider (no hook support).
     let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
     {
         let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
-        ws.last_outputs.insert(pid, last_output.clone());
         ws.cancel_senders.insert(pid, cancel_tx);
     }
-    agent_watcher::start_watching(pid, pid, app, last_output, cancel_rx);
+    agent_watcher::start_process_watcher(pid, pid, app, cancel_rx);
 
     Ok(SpawnResult { pty_id: pid, is_new })
 }
@@ -207,7 +207,6 @@ pub async fn close_pty(
         if let Some(cancel) = ws.cancel_senders.remove(&pty_id) {
             let _ = cancel.send(());
         }
-        ws.last_outputs.remove(&pty_id);
         ws.hook_states.remove(&pty_id);
     }
 
@@ -290,7 +289,6 @@ pub async fn close_ptys_for_panes(
             if let Some(cancel) = ws.cancel_senders.remove(&pty_id) {
                 let _ = cancel.send(());
             }
-            ws.last_outputs.remove(&pty_id);
             ws.hook_states.remove(&pty_id);
         }
     }
