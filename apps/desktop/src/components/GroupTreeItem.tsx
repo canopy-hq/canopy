@@ -232,7 +232,7 @@ export function GroupTreeItem({
       <div
         ref={setNodeRef}
         data-flip-id={group.id}
-        className={`${draggingCls} ${blockCls}`.trim() || undefined}
+        className={`mb-2 ${draggingCls} ${blockCls}`.trim()}
         style={{
           transform: CSS.Transform.toString(
             transform ? { ...transform, scaleX: 1, scaleY: 1 } : null,
