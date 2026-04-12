@@ -40,7 +40,11 @@ pub struct AgentStatusPayload {
 
 // ── Known agents ───────────────────────────────────────────────────────
 
-pub const DEFAULT_KNOWN_AGENTS: &[&str] = &["claude", "codex", "aider", "gemini"];
+pub const DEFAULT_KNOWN_AGENTS: &[&str] = &["claude", "codex", "aider", "gemini", "mastracode"];
+
+/// Agents that support hook-based state reporting. The process watcher emits
+/// `Idle` (not `Working`) when it detects these — hooks are the source of truth.
+const HOOK_CAPABLE_AGENTS: &[&str] = &["claude", "codex", "gemini", "mastracode"];
 
 /// Check if a process name or path contains a known agent name (case-insensitive).
 /// Returns the matched agent name if found.
@@ -52,6 +56,12 @@ pub fn is_known_agent(name: &str) -> Option<&'static str> {
         }
     }
     None
+}
+
+/// Returns true if the agent supports hooks and should not be marked `Working`
+/// by the process watcher alone.
+fn is_hook_capable(agent_name: &str) -> bool {
+    HOOK_CAPABLE_AGENTS.iter().any(|&a| agent_name == a)
 }
 
 // ── Shared state ───────────────────────────────────────────────────────
@@ -225,7 +235,15 @@ pub fn start_process_watcher(
                     let (new_status, agent_name, agent_pid) = match agent {
                         Some((name, pid)) => {
                             idle_count = 0;
-                            (AgentStatus::Working, name, pid)
+                            // Hook-capable agents: emit Idle (registers agent name/icon)
+                            // but let hooks drive Working/Permission/Stopped transitions.
+                            // Non-hook agents (aider): emit Working directly.
+                            let status = if is_hook_capable(&name) {
+                                AgentStatus::Idle
+                            } else {
+                                AgentStatus::Working
+                            };
+                            (status, name, pid)
                         }
                         None => {
                             idle_count = idle_count.saturating_add(1);
@@ -380,11 +398,22 @@ mod tests {
 
     #[test]
     fn test_default_known_agents_list() {
-        assert_eq!(DEFAULT_KNOWN_AGENTS.len(), 4);
+        assert_eq!(DEFAULT_KNOWN_AGENTS.len(), 5);
         assert!(DEFAULT_KNOWN_AGENTS.contains(&"claude"));
         assert!(DEFAULT_KNOWN_AGENTS.contains(&"codex"));
         assert!(DEFAULT_KNOWN_AGENTS.contains(&"aider"));
         assert!(DEFAULT_KNOWN_AGENTS.contains(&"gemini"));
+        assert!(DEFAULT_KNOWN_AGENTS.contains(&"mastracode"));
+    }
+
+    #[test]
+    fn test_hook_capable_agents() {
+        assert!(is_hook_capable("claude"));
+        assert!(is_hook_capable("codex"));
+        assert!(is_hook_capable("gemini"));
+        assert!(is_hook_capable("mastracode"));
+        assert!(!is_hook_capable("aider"));
+        assert!(!is_hook_capable("unknown"));
     }
 
     #[test]
