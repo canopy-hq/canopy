@@ -26,6 +26,22 @@ use tauri::ipc::Channel;
 
 use crate::agent_watcher::{self, AgentWatcherState};
 use crate::daemon_client::DaemonClient;
+use crate::hook_server::HookServerState;
+
+/// Build env vars for hook system injection from the hook server state.
+/// Returns `None` if the hook server failed to start (port=0).
+fn hook_env_vars(hook_server: &HookServerState, pane_id: Option<&str>) -> Option<std::collections::HashMap<String, String>> {
+    if hook_server.port == 0 {
+        return None;
+    }
+    let mut vars = std::collections::HashMap::new();
+    if let Some(id) = pane_id {
+        vars.insert("CANOPY_PANE_ID".to_string(), id.to_string());
+    }
+    vars.insert("CANOPY_PORT".to_string(), hook_server.port.to_string());
+    vars.insert("CANOPY_TOKEN".to_string(), hook_server.token.clone());
+    Some(vars)
+}
 
 /// PTY session state: maps ptyId (child PID) → paneId for IPC routing,
 /// and owns the sysinfo System for targeted per-PID resource queries.
@@ -68,7 +84,7 @@ pub async fn spawn_terminal(
     state: tauri::State<'_, Mutex<PtyState>>,
     daemon: tauri::State<'_, DaemonClient>,
     watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
-    hook_server: tauri::State<'_, crate::hook_server::HookServerState>,
+    hook_server: tauri::State<'_, HookServerState>,
 ) -> Result<SpawnResult, String> {
     // Validate CWD exists before passing to daemon — stale paths from session
     // restore or deleted worktrees would cause silent failures.
@@ -80,18 +96,12 @@ pub async fn spawn_terminal(
         exists
     });
 
-    // Build env vars for hook system injection
-    let env_vars = if hook_server.port > 0 {
-        let mut vars = std::collections::HashMap::new();
-        vars.insert("CANOPY_PANE_ID".to_string(), pane_id.clone());
-        vars.insert("CANOPY_PORT".to_string(), hook_server.port.to_string());
-        vars.insert("CANOPY_TOKEN".to_string(), hook_server.token.clone());
+    let env_vars = hook_env_vars(&hook_server, Some(&pane_id));
+    if env_vars.is_some() {
         eprintln!("[pty] env_vars for pane={pane_id}: port={} token={}…", hook_server.port, &hook_server.token[..8]);
-        Some(vars)
     } else {
         eprintln!("[pty] WARNING: hook_server.port=0, skipping env vars for pane={pane_id}");
-        None
-    };
+    }
 
     let (pid, is_new) = {
         let r = rows.unwrap_or(24);
@@ -154,6 +164,7 @@ pub async fn spawn_terminal(
         let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
         ws.cancel_senders.insert(pid, cancel_tx);
     }
+    // shell_pid == pty_id: daemon returns the shell PID which doubles as session key.
     agent_watcher::start_process_watcher(pid, pid, app, cancel_rx);
 
     // Write sidecar file so canopy-notify can discover the pane_id by walking
@@ -343,7 +354,7 @@ pub async fn get_pty_cwd(
 pub async fn init_terminal_pool(
     cwd: String,
     daemon: tauri::State<'_, DaemonClient>,
-    hook_server: tauri::State<'_, crate::hook_server::HookServerState>,
+    hook_server: tauri::State<'_, HookServerState>,
 ) -> Result<(), String> {
     if !std::path::Path::new(&cwd).is_dir() {
         eprintln!("[pool] init_terminal_pool skipped — cwd does not exist: {cwd}");
@@ -351,14 +362,7 @@ pub async fn init_terminal_pool(
     }
     // Bake CANOPY_PORT and CANOPY_TOKEN into pool shells at spawn time.
     // CANOPY_PANE_ID is set per-pane via sidecar file on claim (see spawn_terminal).
-    let env_vars = if hook_server.port > 0 {
-        let mut vars = std::collections::HashMap::new();
-        vars.insert("CANOPY_PORT".to_string(), hook_server.port.to_string());
-        vars.insert("CANOPY_TOKEN".to_string(), hook_server.token.clone());
-        Some(vars)
-    } else {
-        None
-    };
+    let env_vars = hook_env_vars(&hook_server, None);
     eprintln!("[pool] init_terminal_pool called with cwd={cwd}");
     let result = daemon.init_pool(&cwd, 3, env_vars.as_ref()).await;
     eprintln!("[pool] init_terminal_pool result: {result:?}");

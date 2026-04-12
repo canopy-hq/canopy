@@ -217,7 +217,7 @@ fn install_hooks_inner(
     // For each event, remove stale Canopy entries and append fresh ones
     for &(agent_event, canopy_event) in config.events {
         let command = format!(
-            "CANOPY_HOOK_EVENT={canopy_event} CANOPY_AGENT={} {notify_str}",
+            "CANOPY_HOOK_EVENT={canopy_event} CANOPY_AGENT={} '{notify_str}'",
             config.name
         );
 
@@ -262,8 +262,8 @@ fn install_hooks_inner(
 /// Check if a hook entry contains the Canopy marker.
 fn entry_contains_marker(entry: &serde_json::Value, format: HookConfigFormat) -> bool {
     match format {
-        HookConfigFormat::NestedMatcherHooks => {
-            // {"matcher": "", "hooks": [{"type": "command", "command": "..."}]}
+        // Both nested formats share the same structure: entry["hooks"][*]["command"]
+        HookConfigFormat::NestedMatcherHooks | HookConfigFormat::NestedGroupHooks => {
             entry["hooks"]
                 .as_array()
                 .map(|hooks| hooks.iter().any(|h| {
@@ -271,21 +271,8 @@ fn entry_contains_marker(entry: &serde_json::Value, format: HookConfigFormat) ->
                 }))
                 .unwrap_or(false)
         }
-        HookConfigFormat::NestedGroupHooks => {
-            // {"hooks": [{"type": "command", "command": "..."}]}
-            entry["hooks"]
-                .as_array()
-                .map(|hooks| hooks.iter().any(|h| {
-                    h["command"].as_str().map_or(false, |c| c.contains(CANOPY_MARKER))
-                }))
-                .unwrap_or(false)
-        }
-        HookConfigFormat::DirectEvents => {
-            // {"type": "command", "command": "..."}
-            entry["command"].as_str().map_or(false, |c| c.contains(CANOPY_MARKER))
-        }
-        HookConfigFormat::VersionedHooks => {
-            // {"command": "..."}
+        // Both flat formats check entry["command"] directly
+        HookConfigFormat::DirectEvents | HookConfigFormat::VersionedHooks => {
             entry["command"].as_str().map_or(false, |c| c.contains(CANOPY_MARKER))
         }
     }

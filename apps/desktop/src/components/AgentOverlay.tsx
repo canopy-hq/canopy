@@ -102,13 +102,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
   }, [agentRows]);
 
   // Flat list for keyboard navigation
-  const flatRows: AgentRow[] = useMemo(() => {
-    const flat: AgentRow[] = [];
-    for (const group of Object.values(groupedRows)) {
-      flat.push(...group);
-    }
-    return flat;
-  }, [groupedRows]);
+  const flatRows: AgentRow[] = useMemo(() => Object.values(groupedRows).flat(), [groupedRows]);
 
   const handleJump = useCallback(
     (row: AgentRow) => {

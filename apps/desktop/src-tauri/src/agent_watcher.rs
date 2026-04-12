@@ -44,24 +44,19 @@ pub const DEFAULT_KNOWN_AGENTS: &[&str] = &["claude", "codex", "aider", "gemini"
 
 /// Agents that support hook-based state reporting. The process watcher emits
 /// `Idle` (not `Working`) when it detects these — hooks are the source of truth.
-const HOOK_CAPABLE_AGENTS: &[&str] = &["claude", "codex", "gemini", "mastracode"];
+const HOOK_CAPABLE_AGENTS: &[&str] = &["claude", "codex", "gemini", "mastracode", "cursor"];
 
 /// Check if a process name or path contains a known agent name (case-insensitive).
 /// Returns the matched agent name if found.
 pub fn is_known_agent(name: &str) -> Option<&'static str> {
     let lower = name.to_lowercase();
-    for &agent in DEFAULT_KNOWN_AGENTS {
-        if lower.contains(agent) {
-            return Some(agent);
-        }
-    }
-    None
+    DEFAULT_KNOWN_AGENTS.iter().copied().find(|&agent| lower.contains(agent))
 }
 
 /// Returns true if the agent supports hooks and should not be marked `Working`
 /// by the process watcher alone.
 fn is_hook_capable(agent_name: &str) -> bool {
-    HOOK_CAPABLE_AGENTS.iter().any(|&a| agent_name == a)
+    HOOK_CAPABLE_AGENTS.contains(&agent_name)
 }
 
 // ── Shared state ───────────────────────────────────────────────────────
@@ -414,6 +409,7 @@ mod tests {
         assert!(is_hook_capable("codex"));
         assert!(is_hook_capable("gemini"));
         assert!(is_hook_capable("mastracode"));
+        assert!(is_hook_capable("cursor"));
         assert!(!is_hook_capable("aider"));
         assert!(!is_hook_capable("unknown"));
     }

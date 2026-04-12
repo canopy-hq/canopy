@@ -11,23 +11,12 @@ interface AgentStatusEvent {
   subState?: string;
 }
 
+const VALID_STATUSES = new Set(['working', 'permission', 'review', 'stopped', 'idle']);
+
 /** Map backend status strings to a canonical value.
  * `idle` and `stopped` trigger removal — handled in initAgentListener. */
 function normalizeStatus(status: string): AgentStatus | 'stopped' {
-  switch (status) {
-    case 'working':
-      return 'working';
-    case 'permission':
-      return 'permission';
-    case 'review':
-      return 'review';
-    case 'stopped':
-      return 'stopped';
-    case 'idle':
-      return 'idle';
-    default:
-      return 'idle';
-  }
+  return VALID_STATUSES.has(status) ? (status as AgentStatus | 'stopped') : 'idle';
 }
 
 /** Check if a pty_id belongs to the currently active tab. */
@@ -112,8 +101,11 @@ export async function initAgentListener(): Promise<() => void> {
     if (status === 'idle' || status === 'stopped') {
       // Agent done: if user is looking at the tab, remove immediately.
       // If it's a background tab, mark "review" (done-while-away badge).
+      const existing = agentCollection.toArray.find((a) => a.ptyId === ptyId);
       if (status === 'stopped' && !isPtyInActiveTab(ptyId)) {
         setAgent(ptyId, { status: 'review', agentName, pid, subState });
+      } else if (existing?.status === 'review') {
+        // Don't let a process-watcher idle event clobber a hook-driven review badge
       } else {
         removeAgent(ptyId);
       }

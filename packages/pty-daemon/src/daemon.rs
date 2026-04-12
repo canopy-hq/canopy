@@ -168,6 +168,15 @@ pub async fn run(socket_path: String, parent_pid: Option<u32>) {
     }
 }
 
+/// Parse optional `envVars` JSON object into a HashMap.
+fn parse_env_vars(cmd: &serde_json::Value) -> Option<HashMap<String, String>> {
+    cmd["envVars"].as_object().map(|obj| {
+        obj.iter()
+            .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+            .collect()
+    })
+}
+
 async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
     let (reader_half, mut write_half) = stream.into_split();
     let mut reader = BufReader::new(reader_half);
@@ -198,11 +207,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                     .as_array()
                     .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
                     .unwrap_or_default();
-                let env_vars = cmd["envVars"].as_object().map(|obj| {
-                    obj.iter()
-                        .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
-                        .collect::<std::collections::HashMap<_, _>>()
-                });
+                let env_vars = parse_env_vars(&cmd);
                 eprintln!("[daemon] spawn pane={pane_id} env_vars={}", env_vars.as_ref().map_or(0, |v| v.len()));
                 let result = do_spawn(state.clone(), pane_id, cwd, rows, cols, command, args, env_vars);
                 let resp = match result {
@@ -335,11 +340,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 let rows = cmd["rows"].as_u64().unwrap_or(24) as u16;
                 let cols = cmd["cols"].as_u64().unwrap_or(80) as u16;
                 let requested_cwd = cmd["cwd"].as_str().map(|s| s.to_string());
-                let env_vars = cmd["envVars"].as_object().map(|obj| {
-                    obj.iter()
-                        .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
-                        .collect::<std::collections::HashMap<String, String>>()
-                });
+                let env_vars = parse_env_vars(&cmd);
                 eprintln!("[daemon] claim pane={pane_id} env_vars={}", env_vars.as_ref().map_or(0, |v| v.len()));
                 let claimed = {
                     let mut st = state.lock().unwrap();
@@ -505,18 +506,16 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
             "init_pool" => {
                 let cwd = cmd["cwd"].as_str().unwrap_or("/tmp").to_string();
                 let size = cmd["size"].as_u64().unwrap_or(2) as usize;
-                let pool_env: Option<HashMap<String, String>> = cmd["envVars"].as_object().map(|obj| {
-                    obj.iter()
-                        .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
-                        .collect()
-                });
+                let pool_env = parse_env_vars(&cmd);
 
                 // No-op: if the pool is already warm for this CWD and has enough entries,
                 // skip killing and respawning — daemon survives app restarts so the shells
                 // are still alive and immediately claimable.
                 let already_warm = {
                     let st = state.lock().unwrap();
-                    st.pool_cwd.as_deref() == Some(&cwd) && st.pool.len() >= size
+                    st.pool_cwd.as_deref() == Some(&cwd)
+                        && st.pool.len() >= size
+                        && st.pool_env == pool_env
                 };
                 if already_warm {
                     let _ = write_half.write_all(b"{\"ok\":true}\n").await;

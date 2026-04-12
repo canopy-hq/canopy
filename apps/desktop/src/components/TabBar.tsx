@@ -71,11 +71,12 @@ const closeButton = tv({
 function useTabAgentStatus(tab: Tab): DotStatus {
   const ptyIds = useMemo(() => collectLeafPtyIds(tab.paneRoot), [tab.paneRoot]);
   const agents = useAgents();
+  const agentByPty = useMemo(() => new Map(agents.map((a) => [a.ptyId, a])), [agents]);
   // Priority: permission > working > review > idle
   let hasWorking = false;
   let hasReview = false;
   for (const id of ptyIds) {
-    const status = agents.find((a) => a.ptyId === id)?.status;
+    const status = agentByPty.get(id)?.status;
     if (status === 'permission') return 'permission';
     if (status === 'working') hasWorking = true;
     if (status === 'review') hasReview = true;
