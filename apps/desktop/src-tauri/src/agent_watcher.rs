@@ -308,6 +308,7 @@ pub fn stop_agent_watching(
     if let Some(cancel) = watcher_state.cancel_senders.remove(&pty_id) {
         let _ = cancel.send(());
     }
+    watcher_state.hook_states.remove(&pty_id);
     Ok(())
 }
 

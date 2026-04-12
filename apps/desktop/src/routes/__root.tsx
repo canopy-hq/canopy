@@ -282,13 +282,15 @@ function RootLayout() {
 
   // Clear review state when the user switches to a tab.
   // Review means "done while you weren't looking", so viewing the tab clears it.
+  const prevTabIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     const sub = uiCollection.subscribeChanges((changes) => {
       for (const change of changes) {
         if (change.type === 'delete') continue;
-        const ui = change.value;
-        if (ui.activeTabId) {
-          clearReviewForTab(ui.activeTabId);
+        const tabId = change.value.activeTabId;
+        if (tabId && tabId !== prevTabIdRef.current) {
+          prevTabIdRef.current = tabId;
+          clearReviewForTab(tabId);
         }
       }
     });

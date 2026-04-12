@@ -184,11 +184,14 @@ fn install_hooks_inner(
         serde_json::json!({})
     };
 
-    // Create backup before modification
+    // Create backup before first modification — only once, so it always
+    // reflects the user's pre-Canopy config for clean rollback.
     if config_path.exists() {
         let backup = config_path.with_extension("canopy-backup");
-        fs::copy(config_path, &backup)
-            .map_err(|e| format!("backup {}: {e}", config_path.display()))?;
+        if !backup.exists() {
+            fs::copy(config_path, &backup)
+                .map_err(|e| format!("backup {}: {e}", config_path.display()))?;
+        }
     }
 
     // Get or create the hooks container
@@ -247,6 +250,8 @@ fn install_hooks_inner(
     f.write_all(b"\n")
         .map_err(|e| format!("write newline: {e}"))?;
     f.flush().map_err(|e| format!("flush: {e}"))?;
+    f.sync_all().map_err(|e| format!("fsync: {e}"))?;
+    drop(f);
     fs::rename(&tmp_path, config_path)
         .map_err(|e| format!("rename: {e}"))?;
 

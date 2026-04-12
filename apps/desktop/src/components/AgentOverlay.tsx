@@ -69,7 +69,7 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
   const agentRows: AgentRow[] = useMemo(() => {
     const rows: AgentRow[] = [];
 
-    for (const agent of agentList) {
+    for (const agent of agentList.filter((a) => a.status !== 'idle')) {
       let projectName = 'Unknown';
       let tabId = '';
       let projectItemId = '';

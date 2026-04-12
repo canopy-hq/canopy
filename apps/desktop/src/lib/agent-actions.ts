@@ -11,10 +11,9 @@ interface AgentStatusEvent {
   subState?: string;
 }
 
-/** Map legacy/backend status strings to the canonical AgentStatus.
- * Returns `'idle'` for statuses that should remove the agent from the collection.
- * `'stopped'` is handled separately in initAgentListener (needs focus check). */
-function normalizeStatus(status: string): AgentStatus | 'idle' | 'stopped' {
+/** Map backend status strings to a canonical value.
+ * `idle` and `stopped` trigger removal — handled in initAgentListener. */
+function normalizeStatus(status: string): AgentStatus | 'stopped' {
   switch (status) {
     case 'working':
       return 'working';
@@ -88,9 +87,9 @@ export function toggleManualOverride(ptyId: number): void {
   }
 }
 
-/** Downgrade review → idle for all agents in the given tab's panes.
+/** Remove review agents in the given tab's panes.
  * Called when the user switches to a tab — "review" means "finished while
- * you weren't looking", so once you're looking it becomes "idle". */
+ * you weren't looking", so viewing the tab dismisses it entirely. */
 export function clearReviewForTab(tabId: string): void {
   const tabs = getTabCollection().toArray;
   const tab = tabs.find((t) => t.id === tabId);
@@ -98,9 +97,7 @@ export function clearReviewForTab(tabId: string): void {
 
   for (const agent of agentCollection.toArray) {
     if (agent.status === 'review' && containsPtyId(tab.paneRoot, agent.ptyId)) {
-      agentCollection.update(agent.ptyId, (draft) => {
-        draft.status = 'idle';
-      });
+      removeAgent(agent.ptyId);
     }
   }
 }
@@ -112,16 +109,13 @@ export async function initAgentListener(): Promise<() => void> {
     const { ptyId, agentName, pid, subState } = event.payload;
     const status = normalizeStatus(event.payload.status);
 
-    if (status === 'idle') {
-      removeAgent(ptyId);
-    } else if (status === 'stopped') {
-      // Derive review/idle based on whether the pane's tab is active:
-      // - Active tab → agent is done and user can see it → idle dot
-      // - Background tab → agent finished while user wasn't looking → review
-      if (isPtyInActiveTab(ptyId)) {
-        setAgent(ptyId, { status: 'idle', agentName, pid, subState });
-      } else {
+    if (status === 'idle' || status === 'stopped') {
+      // Agent done: if user is looking at the tab, remove immediately.
+      // If it's a background tab, mark "review" (done-while-away badge).
+      if (status === 'stopped' && !isPtyInActiveTab(ptyId)) {
         setAgent(ptyId, { status: 'review', agentName, pid, subState });
+      } else {
+        removeAgent(ptyId);
       }
     } else {
       setAgent(ptyId, { status, agentName, pid, subState });
