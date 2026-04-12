@@ -1,5 +1,6 @@
 import {
   getProjectCollection,
+  getGroupCollection,
   getTabCollection,
   uiCollection,
   getUiState,
@@ -380,23 +381,40 @@ export function switchProjectItemByIndex(
   if (itemId) selectProjectItem(itemId, navigate);
 }
 
-/** Navigate to the previous or next project (sorted by position, wraps). */
+/** Navigate to the previous or next project (sidebar order, wraps). */
 export function switchProjectRelative(
   direction: 'prev' | 'next',
   navigate: (opts: { to: string; params?: Record<string, string> }) => void,
 ): void {
-  const projects = [...getProjectCollection().toArray].sort((a, b) => a.position - b.position);
-  if (projects.length === 0) return;
+  const allProjects = getProjectCollection().toArray;
+  const allGroups = [...getGroupCollection().toArray].sort((a, b) => a.position - b.position);
 
-  const { activeContextId } = getUiState();
-  const currentIndex = projects.findIndex(
-    (p) =>
-      activeContextId === p.id ||
-      activeContextId.startsWith(`${p.id}-branch-`) ||
-      activeContextId.startsWith(`${p.id}-wt-`),
-  );
+  // Build ordered list matching sidebar: groups by position → projects per group by position → ungrouped by position
+  const orderedProjects = [
+    ...allGroups.flatMap((g) =>
+      allProjects.filter((p) => p.groupId === g.id).sort((a, b) => a.position - b.position),
+    ),
+    ...allProjects
+      .filter((p) => !p.groupId || !allGroups.some((g) => g.id === p.groupId))
+      .sort((a, b) => a.position - b.position),
+  ];
+  if (orderedProjects.length === 0) return;
 
-  const proj = projects[stepIndex(currentIndex, direction, projects.length)]!;
+  const { activeContextId, navHistory } = getUiState();
+  const currentIndex = orderedProjects.findIndex((p) => resolveProject(activeContextId, [p]));
+
+  const proj = orderedProjects[stepIndex(currentIndex, direction, orderedProjects.length)]!;
+
+  // Prefer last visited context for this project from navHistory
+  const lastVisit = [...navHistory]
+    .reverse()
+    .find((e) => e.type === 'worktree' && e.projectId === proj.id);
+  if (lastVisit?.contextId) {
+    selectProjectItem(lastVisit.contextId, navigate, lastVisit.tabId);
+    return;
+  }
+
+  // Fallback: HEAD branch
   const head = proj.branches.find((b) => b.is_head);
   const first = proj.branches[0];
   const itemId = head
