@@ -14,7 +14,7 @@ import {
   Shell,
 } from 'lucide-react';
 
-import { useProjects, useUiState } from '../hooks/useCollections';
+import { useProjects, useTabs, useUiState } from '../hooks/useCollections';
 import {
   goBack,
   goForward,
@@ -44,8 +44,15 @@ export function Header({
   onRecentlyViewedChange,
 }: HeaderProps = {}) {
   const projects = useProjects();
+  const tabs = useTabs();
   const { navHistory, navIndex } = useUiState();
   const navigate = useNavigate();
+
+  const tabLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of tabs) map.set(t.id, t.label);
+    return map;
+  }, [tabs]);
 
   const canGoBack = navIndex > 0;
   const canGoForward = navIndex < navHistory.length - 1;
@@ -192,8 +199,11 @@ export function Header({
                     }
                   } else if (entry.contextId && entry.projectId) {
                     const projectName = entry.projectName ?? '';
-                    primaryLabel = entry.tabId
-                      ? `${projectName} · ${entry.label}`
+                    const tabLabel = entry.tabId
+                      ? (tabLabelMap.get(entry.tabId) ?? entry.label)
+                      : null;
+                    primaryLabel = tabLabel
+                      ? `${projectName} · ${tabLabel}`
                       : projectName || entry.label;
                     const pid = entry.projectId;
                     let contextName = '';
