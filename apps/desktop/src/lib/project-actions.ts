@@ -1,5 +1,6 @@
 import {
   getProjectCollection,
+  getGroupCollection,
   getTabCollection,
   uiCollection,
   getUiState,
@@ -12,15 +13,21 @@ import {
 import { closePty, closePtysForPanes, disposeCached } from '@canopy/terminal';
 import { listen } from '@tauri-apps/api/event';
 
+import { resolveProject } from '../commands/utils';
 import { openAddProjectDialogViaBridge } from './add-project-bridge';
 import * as gitApi from './git';
 import { collectAllLeafPaneIds, collectLeafPtyIds } from './pane-tree-ops';
 import { addClaudeCodeTab, closeTab } from './tab-actions';
 import { showErrorToast, showInfoToast } from './toast';
 
-type NavigateFn = (opts: { to: string; params?: Record<string, string> }) => void;
+type NavigateFn = (opts: {
+  to: string;
+  params?: Record<string, string>;
+  search?: Record<string, string>;
+  state?: Record<string, unknown>;
+}) => void;
 
-import type { Project } from '@canopy/db';
+import type { NavEntry, Project } from '@canopy/db';
 
 /** Returns true for branch/worktree IDs — the only items that carry selection state. */
 export function isSelectableProjectItem(id: string): boolean {
@@ -268,6 +275,18 @@ export function toggleExpanded(id: string): void {
   });
 }
 
+/** Ensures the project is expanded and its group (if any) is not collapsed. */
+function expandProjectAndGroup(proj: { id: string; groupId?: string | null }): void {
+  getProjectCollection().update(proj.id, (draft) => {
+    draft.expanded = true;
+  });
+  if (proj.groupId) {
+    getGroupCollection().update(proj.groupId, (draft) => {
+      draft.collapsed = false;
+    });
+  }
+}
+
 export function setProjectColor(id: string, color: string | null): void {
   getProjectCollection().update(id, (draft) => {
     draft.color = color;
@@ -282,31 +301,61 @@ export function setSelectedItem(itemId: string | null): void {
 
 const RECENT_MAX = 10;
 
-function trackRecentProject(itemId: string): void {
-  // Extract project ID from composite item IDs (e.g. "proj-id-branch-main" → "proj-id")
-  const proj = getProjectCollection().toArray.find(
-    (p) =>
-      itemId === p.id || itemId.startsWith(`${p.id}-branch-`) || itemId.startsWith(`${p.id}-wt-`),
-  );
-  if (!proj) return;
-
+function trackRecentProject(projectId: string): void {
   const settings = getSettingCollection().toArray;
   const current = getSetting<string[]>(settings, 'recentProjectIds', []);
-  const updated = [proj.id, ...current.filter((id) => id !== proj.id)].slice(0, RECENT_MAX);
+  const updated = [projectId, ...current.filter((id) => id !== projectId)].slice(0, RECENT_MAX);
   setSetting('recentProjectIds', updated);
 }
 
 export function selectProjectItem(
   itemId: string | null,
-  navigate: (opts: { to: string; params?: Record<string, string> }) => void,
+  navigate: NavigateFn,
+  /** When set (e.g. from Recently Viewed), navigate directly to this specific tab. */
+  overrideTabId?: string,
+  /** When true, skip pushing a new navHistory entry (e.g. navigating from Recently Viewed). */
+  silent?: boolean,
 ): void {
-  uiCollection.update('ui', (draft) => {
-    draft.selectedItemId = itemId;
-  });
   if (itemId !== null) {
-    trackRecentProject(itemId);
-    navigate({ to: '/projects/$projectId', params: { projectId: itemId } });
+    const ui = getUiState();
+    const proj = resolveProject(itemId, getProjectCollection().toArray);
+    if (proj) {
+      expandProjectAndGroup(proj);
+      trackRecentProject(proj.id);
+      // Resolve the destination tab and record it in navHistory.
+      const contextTabs = getTabCollection().toArray.filter((t) => t.projectItemId === itemId);
+      // Candidate from explicit override, current active tab, or last-saved tab for this context.
+      // Validate against contextTabs so stale/deleted IDs fall back to the first available tab.
+      const candidateTabId =
+        overrideTabId ??
+        (ui.activeContextId === itemId ? ui.activeTabId : ui.contextActiveTabIds[itemId]);
+      const destTabId =
+        (candidateTabId && contextTabs.some((t) => t.id === candidateTabId)
+          ? candidateTabId
+          : null) ?? contextTabs[0]?.id;
+      setSelectedItem(itemId);
+      if (destTabId) {
+        navigate({
+          to: '/projects/$projectId/tabs/$tabId',
+          params: { projectId: itemId, tabId: destTabId },
+          state: silent ? { skipNav: true } : undefined,
+        });
+        return;
+      }
+    } else {
+      uiCollection.update('ui', (draft) => {
+        draft.selectedItemId = itemId;
+      });
+    }
+    navigate({
+      to: '/projects/$projectId',
+      params: { projectId: itemId },
+      state: silent ? { skipNav: true } : undefined,
+    });
   } else {
+    uiCollection.update('ui', (draft) => {
+      draft.selectedItemId = null;
+    });
     navigate({ to: '/' });
   }
 }
@@ -315,12 +364,7 @@ export function selectProjectItem(
 function getActiveProject(): Project | undefined {
   const { activeContextId } = getUiState();
   if (!activeContextId) return undefined;
-  return getProjectCollection().toArray.find(
-    (p) =>
-      activeContextId === p.id ||
-      activeContextId.startsWith(`${p.id}-branch-`) ||
-      activeContextId.startsWith(`${p.id}-wt-`),
-  );
+  return resolveProject(activeContextId, getProjectCollection().toArray);
 }
 
 /** Safe modular step: when currentIndex is -1 (not found), clamp to 0 before stepping. */
@@ -349,23 +393,46 @@ export function switchProjectItemByIndex(
   if (itemId) selectProjectItem(itemId, navigate);
 }
 
-/** Navigate to the previous or next project (sorted by position, wraps). */
+/** Navigate to the previous or next project (sidebar order, wraps). */
 export function switchProjectRelative(
   direction: 'prev' | 'next',
   navigate: (opts: { to: string; params?: Record<string, string> }) => void,
 ): void {
-  const projects = [...getProjectCollection().toArray].sort((a, b) => a.position - b.position);
-  if (projects.length === 0) return;
+  const allProjects = getProjectCollection().toArray;
+  const allGroups = [...getGroupCollection().toArray].sort((a, b) => a.position - b.position);
 
-  const { activeContextId } = getUiState();
-  const currentIndex = projects.findIndex(
-    (p) =>
-      activeContextId === p.id ||
-      activeContextId.startsWith(`${p.id}-branch-`) ||
-      activeContextId.startsWith(`${p.id}-wt-`),
-  );
+  // Build ordered list matching sidebar: groups by position → projects per group by position → ungrouped by position
+  const orderedProjects = [
+    ...allGroups.flatMap((g) =>
+      allProjects.filter((p) => p.groupId === g.id).sort((a, b) => a.position - b.position),
+    ),
+    ...allProjects
+      .filter((p) => !p.groupId || !allGroups.some((g) => g.id === p.groupId))
+      .sort((a, b) => a.position - b.position),
+  ];
+  if (orderedProjects.length === 0) return;
 
-  const proj = projects[stepIndex(currentIndex, direction, projects.length)]!;
+  const { activeContextId, navHistory } = getUiState();
+  const currentIndex = orderedProjects.findIndex((p) => resolveProject(activeContextId, [p]));
+
+  const proj = orderedProjects[stepIndex(currentIndex, direction, orderedProjects.length)]!;
+
+  // Prefer last visited context for this project from navHistory.
+  // Validate that the context (branch/worktree) still exists to avoid navigating to deleted refs.
+  const lastVisit = [...navHistory].reverse().find((e) => {
+    if (e.type !== 'worktree' || e.projectId !== proj.id || !e.contextId) return false;
+    return (
+      e.contextId === proj.id ||
+      proj.branches.some((b) => `${proj.id}-branch-${b.name}` === e.contextId) ||
+      proj.worktrees.some((wt) => `${proj.id}-wt-${wt.name}` === e.contextId)
+    );
+  });
+  if (lastVisit?.contextId) {
+    selectProjectItem(lastVisit.contextId, navigate, lastVisit.tabId);
+    return;
+  }
+
+  // Fallback: HEAD branch
   const head = proj.branches.find((b) => b.is_head);
   const first = proj.branches[0];
   const itemId = head
@@ -394,6 +461,61 @@ export function switchProjectItemRelative(
   const currentIndex = items.indexOf(activeContextId);
   const itemId = items[stepIndex(currentIndex, direction, items.length)];
   if (itemId) selectProjectItem(itemId, navigate);
+}
+
+// ---------------------------------------------------------------------------
+// Navigation history
+// ---------------------------------------------------------------------------
+
+export function navigateToSettings(section: string, navigate: NavigateFn, silent?: boolean): void {
+  navigate({ to: '/settings', search: { section }, state: silent ? { skipNav: true } : undefined });
+}
+
+function navigateToEntry(entry: NavEntry, navigate: NavigateFn): void {
+  if (entry.type === 'settings') {
+    navigate({
+      to: '/settings',
+      search: { section: entry.section ?? 'appearance' },
+      state: { skipNav: true },
+    });
+  } else if (entry.contextId) {
+    setSelectedItem(entry.contextId);
+    if (entry.tabId && getTabCollection().toArray.find((t) => t.id === entry.tabId)) {
+      navigate({
+        to: '/projects/$projectId/tabs/$tabId',
+        params: { projectId: entry.contextId, tabId: entry.tabId },
+        state: { skipNav: true },
+      });
+    } else {
+      navigate({
+        to: '/projects/$projectId',
+        params: { projectId: entry.contextId },
+        state: { skipNav: true },
+      });
+    }
+  }
+}
+
+export function goBack(navigate: NavigateFn): void {
+  const ui = getUiState();
+  if (ui.navIndex <= 0) return;
+  const entry = ui.navHistory[ui.navIndex - 1];
+  if (!entry) return;
+  uiCollection.update('ui', (draft) => {
+    draft.navIndex -= 1;
+  });
+  navigateToEntry(entry, navigate);
+}
+
+export function goForward(navigate: NavigateFn): void {
+  const ui = getUiState();
+  if (ui.navIndex >= ui.navHistory.length - 1) return;
+  const entry = ui.navHistory[ui.navIndex + 1];
+  if (!entry) return;
+  uiCollection.update('ui', (draft) => {
+    draft.navIndex += 1;
+  });
+  navigateToEntry(entry, navigate);
 }
 
 export function toggleSidebar(): void {

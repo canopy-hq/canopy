@@ -80,7 +80,7 @@ pub async fn spawn_terminal(
         // 200ms timeout guards against stale daemons that don't know "claim".
         match tokio::time::timeout(
             std::time::Duration::from_millis(200),
-            daemon.claim(&pane_id, r, c),
+            daemon.claim(&pane_id, validated_cwd.as_deref(), r, c),
         ).await {
             Ok(Ok(result)) if !result.empty => {
                 eprintln!("[pool] CLAIMED pid={} for pane={pane_id}", result.pid);

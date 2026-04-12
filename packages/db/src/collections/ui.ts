@@ -20,6 +20,18 @@ export interface CloneProgress {
   bytes: number;
 }
 
+export interface NavEntry {
+  type: 'worktree' | 'settings';
+  projectId?: string;
+  contextId?: string;
+  tabId?: string;
+  /** For settings entries: which settings section was active (e.g. 'git', 'appearance'). */
+  section?: string;
+  label: string;
+  projectName?: string;
+  timestamp: number;
+}
+
 export interface UiState {
   id: 'ui';
   // Sidebar
@@ -37,6 +49,9 @@ export interface UiState {
   invalidProjectIds: string[];
   justStartedWorktreeId: string | null;
   pendingClaudeSession: { worktreeId: string; mode: 'bypass' | 'plan'; prompt?: string } | null;
+  // Navigation history
+  navHistory: NavEntry[];
+  navIndex: number;
 }
 
 const INITIAL_UI_STATE: UiState = {
@@ -53,6 +68,8 @@ const INITIAL_UI_STATE: UiState = {
   invalidProjectIds: [],
   justStartedWorktreeId: null,
   pendingClaudeSession: null,
+  navHistory: [],
+  navIndex: -1,
 };
 
 export const uiCollection = createCollection(
@@ -72,6 +89,8 @@ export const uiCollection = createCollection(
       if (old.sidebarVisible !== next.sidebarVisible)
         setSetting('sidebarVisible', next.sidebarVisible);
       if (old.sidebarWidth !== next.sidebarWidth) setSetting('sidebarWidth', next.sidebarWidth);
+      if (old.navHistory !== next.navHistory) setSetting('navHistory', next.navHistory);
+      if (old.navIndex !== next.navIndex) setSetting('navIndex', next.navIndex);
     },
   }),
 );

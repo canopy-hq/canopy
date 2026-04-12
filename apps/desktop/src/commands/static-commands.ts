@@ -1,4 +1,4 @@
-import { openAddProjectDialog, toggleSidebar } from '../lib/project-actions';
+import { openAddProjectDialog, toggleSidebar, navigateToSettings } from '../lib/project-actions';
 
 import type { Nav, CommandItem } from '@canopy/command-palette';
 
@@ -6,11 +6,11 @@ export function buildStaticCommands(navigate: Nav): CommandItem[] {
   return [
     {
       id: 'action:add-project',
-      label: 'Add project',
+      label: 'New project',
       category: 'global',
       keywords: ['import', 'repository', 'repo', 'open', 'folder'],
       icon: 'folder',
-      shortcut: '⌘N',
+      shortcut: '⌘⇧N',
       action: ({ close }) => {
         close();
         openAddProjectDialog();
@@ -35,7 +35,7 @@ export function buildStaticCommands(navigate: Nav): CommandItem[] {
       keywords: ['preferences', 'config', 'theme'],
       icon: 'settings',
       action: ({ close }) => {
-        navigate({ to: '/settings', search: { section: 'appearance' } });
+        navigateToSettings('appearance', navigate);
         close();
       },
     },

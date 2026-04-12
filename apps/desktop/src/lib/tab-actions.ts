@@ -6,9 +6,8 @@ import {
   getSetting,
   setSetting,
   getSettingCollection,
-  insertTabAndActivate,
-  insertTabSilently,
-  deleteTabAndUpdateActive,
+  insertTab,
+  deleteTab,
   syncNavStateToLocalStorage,
 } from '@canopy/db';
 import {
@@ -20,6 +19,7 @@ import {
   writeToPty,
 } from '@canopy/terminal';
 
+import { router } from '../router';
 import {
   collectAllLeafPaneIds,
   collectLeafPtyIds,
@@ -34,6 +34,17 @@ import {
 } from './pane-tree-ops';
 
 import type { Tab } from '@canopy/db';
+
+/**
+ * Read the current project context directly from the URL.
+ * The URL is always updated synchronously on navigation, unlike ui.activeContextId
+ * which is written by a useEffect and lags one render cycle behind. Use this as
+ * the primary source of truth wherever the store may be stale (addTab, addClaudeCodeTab…).
+ */
+export function getContextIdFromUrl(): string | undefined {
+  const match = /\/projects\/([^/]+)/.exec(router.latestLocation.pathname);
+  return match ? decodeURIComponent(match[1]!) : undefined;
+}
 
 /** Resolve a projectItemId composite key to a filesystem path. */
 export function resolveProjectItemCwd(projectItemId: string): string | undefined {
@@ -98,13 +109,82 @@ export function renameTab(id: string, label: string, manual: boolean): void {
   });
 }
 
-export function addTab(projectItemId?: string): void {
+function navigateToTab(projectId: string, tabId: string): void {
+  void router.navigate({
+    to: '/projects/$projectId/tabs/$tabId',
+    params: { projectId, tabId },
+    replace: true,
+  });
+}
+
+// Prevents spawning shells for every intermediate project during rapid switching —
+// only the final destination gets a pool init, avoiding N×(shell startup CPU) spikes.
+const POOL_INIT_DEBOUNCE_MS = 300;
+let _poolInitTimer: ReturnType<typeof setTimeout> | null = null;
+
+function schedulePoolInit(contextId: string): void {
   const ui = getUiState();
-  const itemId = projectItemId ?? ui.activeContextId;
+  const cwd = resolveProjectItemCwd(contextId);
+  const isInvalid = ui.invalidProjectIds.some(
+    (id) => contextId === id || contextId.startsWith(`${id}-`),
+  );
+  if (cwd && !isInvalid) {
+    if (_poolInitTimer !== null) clearTimeout(_poolInitTimer);
+    _poolInitTimer = setTimeout(() => {
+      _poolInitTimer = null;
+      void initTerminalPool(cwd);
+    }, POOL_INIT_DEBOUNCE_MS);
+  }
+}
+
+/**
+ * Sync the store from the active route's URL params.
+ * Called by the tab child route's useEffect — this is the ONLY place that writes
+ * activeTabId / activeContextId to the store.
+ */
+export function activateTabFromRoute(contextId: string, tabId: string): void {
+  const ui = getUiState();
+  if (ui.activeContextId === contextId && ui.activeTabId === tabId) return;
+  schedulePoolInit(contextId);
+  syncNavStateToLocalStorage(tabId, contextId);
+  uiCollection.update('ui', (draft) => {
+    draft.contextActiveTabIds[contextId] = tabId;
+    draft.activeContextId = contextId;
+    draft.activeTabId = tabId;
+    draft.selectedItemId = contextId;
+  });
+}
+
+/**
+ * Sync activeContextId from the URL when there is no tab sub-route (EmptyState).
+ * activateTabFromRoute handles this for tab contexts, but when a project has no tabs
+ * TabRoute never mounts and activeContextId would remain stale — causing addTab() to
+ * create tabs on the wrong (previous) context.
+ *
+ * React runs effects child-before-parent, so when TabRoute IS present its
+ * activateTabFromRoute effect runs first and the early-return guard below prevents
+ * any redundant update.
+ */
+export function activateContextFromRoute(contextId: string): void {
+  const ui = getUiState();
+  if (ui.activeContextId === contextId) return;
+  // TabRoute never mounts for empty projects, so activateTabFromRoute never fires —
+  // this is the only place that can warm the pool for the no-tabs case.
+  schedulePoolInit(contextId);
+  uiCollection.update('ui', (draft) => {
+    draft.activeContextId = contextId;
+    draft.selectedItemId = contextId;
+  });
+}
+
+export function addTab(projectItemId?: string): void {
+  const itemId = projectItemId ?? getContextIdFromUrl() ?? getUiState().activeContextId;
   if (!itemId) return;
   const tab = makeTab({ projectItemId: itemId });
   storePaneCwd(tab.paneRoot.id, itemId);
-  insertTabAndActivate(tab);
+  insertTab(tab);
+  syncNavStateToLocalStorage(tab.id, itemId, [...getTabCollection().toArray, tab]);
+  navigateToTab(itemId, tab.id);
 }
 
 export const CLAUDE_DEFAULT_MODE_KEY = 'claudeDefaultMode';
@@ -121,7 +201,8 @@ export function addClaudeCodeTab(
   projectItemId?: string,
   options?: { mode?: 'bypass' | 'plan'; prompt?: string },
 ): void {
-  const itemId = projectItemId ?? getUiState().activeContextId;
+  const contextIdFromUrl = getContextIdFromUrl();
+  const itemId = projectItemId ?? contextIdFromUrl ?? getUiState().activeContextId;
   if (!itemId) return;
   const base = makeTab({ projectItemId: itemId, label: 'Claude Code' });
   const tab = { ...base, labelIsManual: true, icon: 'claude-code' };
@@ -135,13 +216,15 @@ export function addClaudeCodeTab(
   setSetting(`init-cmd:${tab.paneRoot.id}`, cmd);
   // Store a flag so TerminalPane knows a prompt arg is embedded — avoids fragile regex on the cmd string.
   if (options?.prompt) setSetting(`init-has-prompt:${tab.paneRoot.id}`, 'true');
-  // Only switch to the new tab if the user is currently on this worktree.
-  if (getUiState().activeContextId === itemId) {
-    insertTabAndActivate(tab);
+  if ((contextIdFromUrl ?? getUiState().activeContextId) === itemId) {
+    insertTab(tab);
+    syncNavStateToLocalStorage(tab.id, itemId, [...getTabCollection().toArray, tab]);
+    navigateToTab(itemId, tab.id);
   } else {
-    insertTabSilently(tab);
-    // Spawn PTY in the background so Claude starts immediately without the user
-    // having to navigate to the worktree first.
+    insertTab(tab);
+    // Tab created in the background (user is on a different worktree) — no navigation
+    // or nav history entry since the user hasn't visited it yet.
+    // Spawn PTY immediately so Claude starts as soon as the user switches to this worktree.
     const paneId = tab.paneRoot.id;
     const cwd = resolveProjectItemCwd(itemId);
     void (async () => {
@@ -175,10 +258,16 @@ export function closeTab(tabId: string): void {
   const ui = getUiState();
 
   if (contextTabs.length === 1) {
-    deleteTabAndUpdateActive(tabId, '');
+    deleteTab(tabId);
     uiCollection.update('ui', (draft) => {
       const { [contextId]: _, ...rest } = draft.contextActiveTabIds;
       draft.contextActiveTabIds = rest;
+    });
+    syncNavStateToLocalStorage('', contextId, []);
+    void router.navigate({
+      to: '/projects/$projectId',
+      params: { projectId: contextId },
+      replace: true,
     });
     return;
   }
@@ -187,22 +276,23 @@ export function closeTab(tabId: string): void {
   const closedIndex = sorted.findIndex((t) => t.id === tabId);
   const remaining = sorted.filter((t) => t.id !== tabId);
 
+  deleteTab(tabId);
+
   if (ui.activeTabId === tabId) {
-    // Prefer the tab to the left; fall back to the right if closing the first.
-    const newTab = remaining[Math.max(0, closedIndex - 1)] ?? null;
-    deleteTabAndUpdateActive(tabId, newTab?.id ?? '');
-  } else {
-    deleteTabAndUpdateActive(tabId, null);
+    const newTab = remaining[Math.max(0, closedIndex - 1)]!;
+    void router.navigate({
+      to: '/projects/$projectId/tabs/$tabId',
+      params: { projectId: contextId, tabId: newTab.id },
+      replace: true,
+      state: { skipNav: true },
+    });
   }
 }
 
 export function switchTab(tabId: string): void {
-  if (getTabCollection().toArray.some((t) => t.id === tabId)) {
-    syncNavStateToLocalStorage(tabId, getUiState().activeContextId);
-    uiCollection.update('ui', (draft) => {
-      draft.activeTabId = tabId;
-    });
-  }
+  const tab = getTabCollection().toArray.find((t) => t.id === tabId);
+  if (!tab) return;
+  navigateToTab(tab.projectItemId, tabId);
 }
 
 export function switchTabByIndex(index: number): void {
@@ -211,11 +301,7 @@ export function switchTabByIndex(index: number): void {
     (t) => t.projectItemId === ui.activeContextId,
   );
   if (index >= 0 && index < contextTabs.length) {
-    const tabId = contextTabs[index]!.id;
-    syncNavStateToLocalStorage(tabId, ui.activeContextId);
-    uiCollection.update('ui', (draft) => {
-      draft.activeTabId = tabId;
-    });
+    navigateToTab(ui.activeContextId, contextTabs[index]!.id);
   }
 }
 
@@ -230,64 +316,7 @@ export function switchTabRelative(direction: 'prev' | 'next'): void {
     direction === 'next'
       ? (idx + 1) % contextTabs.length
       : (idx - 1 + contextTabs.length) % contextTabs.length;
-  const tabId = contextTabs[newIdx]!.id;
-  syncNavStateToLocalStorage(tabId, ui.activeContextId);
-  uiCollection.update('ui', (draft) => {
-    draft.activeTabId = tabId;
-  });
-}
-
-// Prevents spawning shells for every intermediate project during rapid switching —
-// only the final destination gets a pool init, avoiding N×(shell startup CPU) spikes.
-const POOL_INIT_DEBOUNCE_MS = 300;
-let _poolInitTimer: ReturnType<typeof setTimeout> | null = null;
-
-export function setActiveContext(contextId: string): void {
-  const ui = getUiState();
-  // Re-init the terminal pool for the new context's cwd so claimed
-  // shells are already at the correct working directory (no cd flicker).
-  // Skip invalid (deleted) project paths to avoid crash-loop logs.
-  const newCwd = resolveProjectItemCwd(contextId);
-  const isInvalid = ui.invalidProjectIds.some(
-    (id) => contextId === id || contextId.startsWith(`${id}-`),
-  );
-  if (newCwd && !isInvalid) {
-    if (_poolInitTimer !== null) clearTimeout(_poolInitTimer);
-    _poolInitTimer = setTimeout(() => {
-      _poolInitTimer = null;
-      void initTerminalPool(newCwd);
-    }, POOL_INIT_DEBOUNCE_MS);
-  }
-
-  const col = getTabCollection();
-
-  const updatedContextActiveTabIds = {
-    ...ui.contextActiveTabIds,
-    [ui.activeContextId]: ui.activeTabId,
-  };
-
-  const contextTabs = col.toArray.filter((t) => t.projectItemId === contextId);
-
-  if (contextTabs.length > 0) {
-    const savedTabId = updatedContextActiveTabIds[contextId];
-    const savedTab = savedTabId ? contextTabs.find((t) => t.id === savedTabId) : null;
-    const newActiveTabId = savedTab ? savedTab.id : contextTabs[0]!.id;
-    syncNavStateToLocalStorage(newActiveTabId, contextId);
-    uiCollection.update('ui', (draft) => {
-      draft.contextActiveTabIds = updatedContextActiveTabIds;
-      draft.activeContextId = contextId;
-      draft.activeTabId = newActiveTabId;
-      draft.selectedItemId = contextId;
-    });
-  } else {
-    syncNavStateToLocalStorage('', contextId);
-    uiCollection.update('ui', (draft) => {
-      draft.contextActiveTabIds = updatedContextActiveTabIds;
-      draft.activeContextId = contextId;
-      draft.activeTabId = '';
-      draft.selectedItemId = contextId;
-    });
-  }
+  navigateToTab(ui.activeContextId, contextTabs[newIdx]!.id);
 }
 
 export function getActiveTab(): Tab | undefined {
@@ -369,13 +398,9 @@ export function killPaneInTab(tabId: string, paneId: PaneId): void {
 /**
  * Navigate to a specific project → tab → pane from anywhere in the app.
  *
- * - Same context: switchTab direct — no route change, no re-render.
- * - Cross context: pre-populates contextActiveTabIds before navigating so that
- *   setActiveContext (triggered by the route's useEffect) picks the right tab.
+ * - Same context: navigate to tab URL directly — router replace, no re-mount.
+ * - Cross context: navigate to tab URL; activateTabFromRoute handles store sync.
  * - Pane: focusedPaneId is set directly on the tab, independent of active context.
- *
- * Always calls navigate() to handle the case where the user is on a different
- * route (e.g. /settings) even when the project context is already correct.
  */
 export function jumpToPane(
   navigate: (opts: { to: string; params?: Record<string, string> }) => void,
@@ -383,8 +408,6 @@ export function jumpToPane(
   tabId?: string,
   paneId?: string,
 ): void {
-  const ui = getUiState();
-
   if (tabId && paneId) {
     getTabCollection().update(tabId, (draft) => {
       draft.focusedPaneId = paneId;
@@ -393,15 +416,15 @@ export function jumpToPane(
 
   uiCollection.update('ui', (draft) => {
     draft.selectedItemId = projectItemId;
-    if (ui.activeContextId !== projectItemId && tabId) {
-      draft.contextActiveTabIds[projectItemId] = tabId;
-    }
   });
 
-  navigate({ to: '/projects/$projectId', params: { projectId: projectItemId } });
-
-  if (ui.activeContextId === projectItemId && tabId) {
-    switchTab(tabId);
+  if (tabId) {
+    navigate({
+      to: '/projects/$projectId/tabs/$tabId',
+      params: { projectId: projectItemId, tabId },
+    });
+  } else {
+    navigate({ to: '/projects/$projectId', params: { projectId: projectItemId } });
   }
 }
 

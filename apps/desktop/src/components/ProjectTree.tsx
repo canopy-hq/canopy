@@ -237,7 +237,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
             size="sm"
             variant="ghost"
             onPress={handleAddGroup}
-            aria-label="Add group"
+            aria-label="New group"
           >
             <Layers size={14} />
           </Button>
@@ -246,7 +246,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
           <Tooltip
             label={
               <>
-                Add project <Kbd>⌘N</Kbd>
+                New project <Kbd>⌘⇧N</Kbd>
               </>
             }
             placement="right"
@@ -256,7 +256,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
               size="sm"
               variant="ghost"
               onPress={onAddProject}
-              aria-label="Add project"
+              aria-label="New project"
             >
               <FolderPlus size={14} />
             </Button>

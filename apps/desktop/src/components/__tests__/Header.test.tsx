@@ -3,11 +3,22 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 
 import { Header } from '../Header';
 
-vi.mock('../../lib/project-actions', () => ({ toggleSidebar: vi.fn() }));
+vi.mock('@tanstack/react-router', () => ({ useNavigate: vi.fn(() => vi.fn()) }));
+vi.mock('../../router', () => ({
+  router: { navigate: vi.fn().mockResolvedValue(undefined), latestLocation: { pathname: '' } },
+}));
+vi.mock('../../lib/project-actions', () => ({
+  toggleSidebar: vi.fn(),
+  goBack: vi.fn(),
+  goForward: vi.fn(),
+  navigateToSettings: vi.fn(),
+  selectProjectItem: vi.fn(),
+}));
 vi.mock('../../hooks/useCollections', () => ({
   useProjects: vi.fn(() => [{ id: '1' }]),
+  useTabs: vi.fn(() => []),
   useSettings: vi.fn(() => []),
-  useUiState: vi.fn(() => ({ activeContextId: '' })),
+  useUiState: vi.fn(() => ({ activeContextId: '', navHistory: [], navIndex: -1 })),
 }));
 vi.mock('../../lib/editor', () => ({
   DEFAULT_EDITOR_SETTING_KEY: 'defaultEditor',
@@ -58,7 +69,11 @@ describe('Header', () => {
     const cursor = { id: 'cursor', displayName: 'Cursor', cliPath: '/usr/bin/cursor' };
     vi.mocked(useDetectedEditors).mockReturnValue([cursor]);
     vi.mocked(resolveDefaultEditor).mockReturnValue(cursor);
-    vi.mocked(useUiState).mockReturnValue({ activeContextId: 'proj1-branch-main' } as any);
+    vi.mocked(useUiState).mockReturnValue({
+      activeContextId: 'proj1-branch-main',
+      navHistory: [],
+      navIndex: -1,
+    } as any);
     const { getByText } = render(<Header />);
     expect(getByText('Open in Cursor')).toBeInTheDocument();
   });

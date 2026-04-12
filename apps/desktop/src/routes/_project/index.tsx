@@ -32,10 +32,10 @@ function Onboarding() {
       <div className="flex flex-col items-center gap-3">
         <Button variant="primary" size="md" onPress={() => openAddProjectDialog()}>
           <FolderPlus size={14} />
-          Add a project
+          New project
         </Button>
         <span className="font-mono text-xs text-fg-faint">
-          or press <Kbd>⌘N</Kbd>
+          or press <Kbd>⌘⇧N</Kbd>
         </span>
       </div>
 

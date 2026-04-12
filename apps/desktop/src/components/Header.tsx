@@ -1,26 +1,145 @@
-import { Button, Kbd, Tooltip } from '@canopy/ui';
-import { PanelLeft, Search, Shell } from 'lucide-react';
+import { useMemo, useCallback } from 'react';
+import { DialogTrigger, Dialog, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
 
-import { useProjects } from '../hooks/useCollections';
-import { toggleSidebar } from '../lib/project-actions';
+import { Button, Kbd, SectionLabel, Tooltip } from '@canopy/ui';
+import { useNavigate } from '@tanstack/react-router';
+import {
+  ChevronLeft,
+  ChevronRight,
+  GitBranch,
+  History,
+  PanelLeft,
+  Search,
+  Settings,
+  Shell,
+} from 'lucide-react';
+
+import { useProjects, useTabs, useUiState } from '../hooks/useCollections';
+import {
+  goBack,
+  goForward,
+  navigateToSettings,
+  selectProjectItem,
+  toggleSidebar,
+} from '../lib/project-actions';
 import { DevBranchBadge } from './DevBranchBadge';
 import { GitHubStatus } from './GitHubStatus';
 import { OpenInEditorButton } from './OpenInEditorButton';
+import { SessionManager } from './SessionManager';
 
-interface HeaderProps {
-  onSessionsClick?: () => void;
-  onSearchClick?: () => void;
+import type { NavEntry } from '@canopy/db';
+
+const RECENTLY_VIEWED_MAX = 15;
+
+function getEntryLabels(
+  entry: NavEntry,
+  projects: { id: string; worktrees: { name: string; label?: string; branch: string }[] }[],
+  tabLabelMap: Map<string, string>,
+): { primaryLabel: string; secondaryLabel: string } {
+  let primaryLabel = entry.label;
+  let secondaryLabel = '';
+
+  if (entry.type === 'settings') {
+    if (entry.section) {
+      secondaryLabel = entry.section.charAt(0).toUpperCase() + entry.section.slice(1);
+    }
+  } else if (entry.contextId && entry.projectId) {
+    const projectName = entry.projectName ?? '';
+    const tabLabel = entry.tabId ? (tabLabelMap.get(entry.tabId) ?? entry.label) : null;
+    primaryLabel = tabLabel ? `${projectName} · ${tabLabel}` : projectName || entry.label;
+    const pid = entry.projectId;
+    let contextName = '';
+    if (entry.contextId.includes(`${pid}-branch-`)) {
+      contextName = entry.contextId.split(`${pid}-branch-`)[1] ?? '';
+    } else if (entry.contextId.includes(`${pid}-wt-`)) {
+      const wtName = entry.contextId.split(`${pid}-wt-`)[1];
+      const proj = projects.find((p) => p.id === pid);
+      const wt = proj?.worktrees.find((w) => w.name === wtName);
+      contextName = wt?.label || wt?.branch || wtName || '';
+    }
+    if (contextName && contextName !== primaryLabel) {
+      secondaryLabel = contextName;
+    }
+  } else {
+    primaryLabel = entry.projectName ?? entry.label;
+  }
+
+  return { primaryLabel, secondaryLabel };
 }
 
-export function Header({ onSessionsClick, onSearchClick }: HeaderProps = {}) {
+interface HeaderProps {
+  onSearchClick?: () => void;
+  sessionsOpen?: boolean;
+  onSessionsOpenChange?: (open: boolean) => void;
+  recentlyViewedOpen?: boolean;
+  onRecentlyViewedChange?: (open: boolean) => void;
+}
+
+export function Header({
+  onSearchClick,
+  sessionsOpen,
+  onSessionsOpenChange,
+  recentlyViewedOpen,
+  onRecentlyViewedChange,
+}: HeaderProps = {}) {
   const projects = useProjects();
+  const tabs = useTabs();
+  const { navHistory, navIndex } = useUiState();
+  const navigate = useNavigate();
+
+  const tabLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of tabs) map.set(t.id, t.label);
+    return map;
+  }, [tabs]);
+
+  const canGoBack = navIndex > 0;
+  const canGoForward = navIndex < navHistory.length - 1;
+
+  const recentEntries = useMemo<NavEntry[]>(() => {
+    const seen = new Set<string>();
+    const result: NavEntry[] = [];
+    for (let i = navHistory.length - 1; i >= 0; i--) {
+      const entry = navHistory[i]!;
+      const key =
+        entry.type === 'settings'
+          ? `settings:${entry.section ?? ''}`
+          : `${entry.contextId ?? ''}:${entry.tabId ?? ''}`;
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        result.push(entry);
+        if (result.length >= RECENTLY_VIEWED_MAX) break;
+      }
+    }
+    return result;
+  }, [navHistory]);
+
+  const handleRecentSelect = useCallback(
+    (key: string) => {
+      const index = parseInt(key, 10);
+      const entry = recentEntries[index];
+      if (!entry) return;
+      onRecentlyViewedChange?.(false);
+      if (entry.type === 'settings') {
+        navigateToSettings(entry.section ?? 'appearance', navigate, true);
+      } else if (entry.contextId) {
+        selectProjectItem(entry.contextId, navigate, entry.tabId, true);
+      }
+    },
+    [recentEntries, navigate, onRecentlyViewedChange],
+  );
+
+  const projectColorMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const p of projects) map.set(p.id, p.color ?? null);
+    return map;
+  }, [projects]);
 
   return (
     <header
       data-tauri-drag-region
       className="relative flex h-12 shrink-0 items-center border-b border-edge/20 bg-raised pl-[78px]"
     >
-      {/* Left zone — sidebar toggle + PTY sessions */}
       <div data-tauri-drag-region className="flex h-full items-center px-1">
         {projects.length > 0 && (
           <Tooltip
@@ -36,14 +155,132 @@ export function Header({ onSessionsClick, onSearchClick }: HeaderProps = {}) {
             </Button>
           </Tooltip>
         )}
-        <Tooltip label="PTY Sessions" placement="right">
-          <Button variant="ghost" iconOnly onPress={onSessionsClick} aria-label="PTY sessions">
-            <Shell size={16} />
+
+        <Tooltip
+          label={
+            <>
+              Go back <Kbd>⌘[</Kbd>
+            </>
+          }
+          placement="right"
+        >
+          <Button
+            variant="ghost"
+            iconOnly
+            isDisabled={!canGoBack}
+            onPress={() => goBack(navigate)}
+            aria-label="Go back"
+          >
+            <ChevronLeft size={16} />
           </Button>
         </Tooltip>
+        <Tooltip
+          label={
+            <>
+              Go forward <Kbd>⌘]</Kbd>
+            </>
+          }
+          placement="right"
+        >
+          <Button
+            variant="ghost"
+            iconOnly
+            isDisabled={!canGoForward}
+            onPress={() => goForward(navigate)}
+            aria-label="Go forward"
+          >
+            <ChevronRight size={16} />
+          </Button>
+        </Tooltip>
+
+        {/* Recently Viewed dropdown */}
+        <MenuTrigger isOpen={recentlyViewedOpen} onOpenChange={onRecentlyViewedChange}>
+          <Tooltip
+            label={
+              <>
+                Recently Viewed <Kbd>⌘⇧H</Kbd>
+              </>
+            }
+            placement="right"
+          >
+            <Button variant="ghost" iconOnly aria-label="Recently Viewed">
+              <History size={16} />
+            </Button>
+          </Tooltip>
+          <Popover
+            placement="bottom start"
+            offset={4}
+            className="w-64 overflow-hidden rounded-lg border border-edge/60 bg-raised shadow-xl outline-none"
+          >
+            <div className="px-3 pt-2 pb-1">
+              <SectionLabel>Recently Viewed</SectionLabel>
+            </div>
+            {recentEntries.length === 0 ? (
+              <div className="px-3 py-3 text-xs text-fg-faint">No history yet.</div>
+            ) : (
+              <Menu
+                className="max-h-80 overflow-y-auto p-1 outline-none"
+                onAction={(key) => handleRecentSelect(String(key))}
+              >
+                {recentEntries.map((entry, i) => {
+                  const projectColor = entry.projectId
+                    ? (projectColorMap.get(entry.projectId) ?? null)
+                    : null;
+                  const { primaryLabel, secondaryLabel } = getEntryLabels(
+                    entry,
+                    projects,
+                    tabLabelMap,
+                  );
+
+                  return (
+                    <MenuItem
+                      key={`${entry.contextId ?? 'settings'}-${entry.tabId ?? ''}`}
+                      id={String(i)}
+                      className="flex cursor-default items-start gap-1.5 rounded px-2 py-1 transition-colors outline-none data-[focus-visible]:bg-surface data-[hovered]:bg-surface"
+                    >
+                      {entry.type === 'settings' ? (
+                        <Settings size={10} className="mt-0.5 shrink-0 text-fg-faint" />
+                      ) : (
+                        <GitBranch
+                          size={10}
+                          className="mt-0.5 shrink-0 text-fg-faint"
+                          style={projectColor ? { color: projectColor } : undefined}
+                        />
+                      )}
+                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="truncate text-xs text-fg">{primaryLabel}</span>
+                        <span className="truncate font-mono text-[10px] text-fg-faint">
+                          {secondaryLabel || '\u00A0'}
+                        </span>
+                      </div>
+                    </MenuItem>
+                  );
+                })}
+              </Menu>
+            )}
+          </Popover>
+        </MenuTrigger>
+
+        <div className="mx-1 h-4 w-px shrink-0 bg-edge/40" />
+
+        <DialogTrigger isOpen={sessionsOpen} onOpenChange={onSessionsOpenChange}>
+          <Tooltip label="PTY Sessions" placement="right">
+            <Button variant="ghost" iconOnly aria-label="PTY sessions">
+              <Shell size={16} />
+            </Button>
+          </Tooltip>
+          <Popover
+            placement="bottom start"
+            offset={4}
+            className="w-72 overflow-hidden rounded-lg border border-edge/60 bg-raised shadow-xl outline-none"
+          >
+            <Dialog aria-label="PTY Sessions" className="outline-none">
+              {sessionsOpen && <SessionManager onClose={() => onSessionsOpenChange?.(false)} />}
+            </Dialog>
+          </Popover>
+        </DialogTrigger>
       </div>
 
-      {/* Center zone — spacer to push right zone right */}
       <div data-tauri-drag-region className="flex-1" />
 
       {/* Search — absolutely centered in the full header width */}

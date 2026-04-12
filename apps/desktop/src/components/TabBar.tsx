@@ -323,11 +323,14 @@ const TabItemComponent = memo(
     prev.tab === next.tab && prev.isActive === next.isActive && prev.color === next.color,
 );
 
-export function TabBar() {
+export function TabBar({ projectId: propProjectId }: { projectId?: string } = {}) {
   const allTabs = useTabs();
   const projects = useProjects();
   const ui = useUiState();
-  const activeContextId = ui.activeContextId;
+  // Use the URL-derived projectId when available so the tab list is correct
+  // on the very first render after a project switch, before activateTabFromRoute
+  // has had a chance to update ui.activeContextId via its useEffect.
+  const activeContextId = propProjectId ?? ui.activeContextId;
   const tabs = useMemo(
     () =>
       allTabs
@@ -343,7 +346,11 @@ export function TabBar() {
     return project?.color ?? null;
   }, [projects, activeContextId]);
 
-  const activeTabId = ui.activeTabId;
+  // Use the context-specific saved tab as the active marker while
+  // ui.activeTabId may still point to the previous project's tab.
+  const activeTabId = propProjectId
+    ? (ui.contextActiveTabIds[propProjectId] ?? ui.activeTabId)
+    : ui.activeTabId;
   const [dragging, setDragging] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const addButtonRef = useRef<HTMLDivElement>(null);
@@ -427,11 +434,11 @@ export function TabBar() {
     maskImage = 'linear-gradient(to right, black calc(100% - 24px), transparent)';
   }
 
-  const projectId = activeContextId ?? '';
+  const projectId = propProjectId ?? activeContextId ?? '';
 
   return (
     <div className="flex h-10 shrink-0 items-center border-b border-edge/20 bg-raised">
-      <div ref={addButtonRef}>
+      <div ref={addButtonRef} className="flex items-center">
         <MenuTrigger>
           <Button aria-label="New tab" size="sm" variant="ghost" iconOnly className="mx-2">
             <SquarePlus size={14} />
@@ -439,10 +446,10 @@ export function TabBar() {
           <Popover
             placement="bottom start"
             offset={4}
-            className="entering:animate-in entering:fade-in entering:zoom-in-95 exiting:animate-out exiting:fade-out exiting:zoom-out-95 w-max rounded-lg border border-edge/60 bg-raised py-1 shadow-lg outline-none"
+            className="entering:animate-in entering:fade-in entering:zoom-in-95 exiting:animate-out exiting:fade-out exiting:zoom-out-95 w-max rounded-lg border border-edge/60 bg-raised shadow-xl outline-none"
           >
             <Menu
-              className="outline-none"
+              className="p-1 outline-none"
               onAction={(key) => {
                 if (key === 'terminal') addTab(projectId);
                 if (key === 'claude-code') addClaudeCodeTab(projectId);
@@ -450,7 +457,7 @@ export function TabBar() {
             >
               <MenuItem
                 id="terminal"
-                className="flex cursor-default items-center gap-2 px-3 py-1.5 font-mono text-base text-fg-dim outline-none data-[focused]:bg-surface"
+                className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm text-fg-dim transition-colors outline-none data-[focus-visible]:bg-surface data-[hovered]:bg-surface"
               >
                 <SquareTerminal size={12} className="shrink-0" />
                 <span className="flex-1">New terminal</span>
@@ -458,7 +465,7 @@ export function TabBar() {
               </MenuItem>
               <MenuItem
                 id="claude-code"
-                className="flex cursor-default items-center gap-2 px-3 py-1.5 font-mono text-base text-fg-dim outline-none data-[focused]:bg-surface"
+                className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm text-fg-dim transition-colors outline-none data-[focus-visible]:bg-surface data-[hovered]:bg-surface"
               >
                 <ClaudeCodeIcon size={12} className="shrink-0 text-claude" />
                 <span className="flex-1">Claude Code</span>

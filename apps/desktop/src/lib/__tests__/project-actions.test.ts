@@ -19,6 +19,8 @@ let _uiState: UiState = {
   invalidProjectIds: [],
   justStartedWorktreeId: null,
   pendingClaudeSession: null,
+  navHistory: [],
+  navIndex: -1,
 };
 
 const mockSetSetting = vi.fn();
@@ -37,6 +39,11 @@ vi.mock('@canopy/db', () => ({
     update: (id: string, updater: (draft: Project) => void) => {
       const proj = _projects.find((p) => p.id === id);
       if (proj) updater(proj);
+    },
+  }),
+  getGroupCollection: () => ({
+    get toArray() {
+      return [];
     },
   }),
   getTabCollection: () => ({
@@ -76,7 +83,14 @@ vi.mock('../toast', () => ({ showErrorToast: vi.fn(), showInfoToast: vi.fn() }))
 
 // ── Mock terminal ────────────────────────────────────────────────────────────
 
-vi.mock('@canopy/terminal', () => ({ closePty: vi.fn(), disposeCached: vi.fn() }));
+vi.mock('@canopy/terminal', () => ({
+  closePty: vi.fn(),
+  closePtysForPanes: vi.fn(),
+  disposeCached: vi.fn(),
+}));
+vi.mock('../../router', () => ({
+  router: { navigate: vi.fn().mockResolvedValue(undefined), latestLocation: { pathname: '' } },
+}));
 
 import * as gitApi from '../git';
 // Import AFTER mocks are set up
@@ -122,6 +136,8 @@ describe('importRepo', () => {
       invalidProjectIds: [],
       justStartedWorktreeId: null,
       pendingClaudeSession: null,
+      navHistory: [],
+      navIndex: -1,
     };
     vi.clearAllMocks();
   });
@@ -302,6 +318,8 @@ function resetNav() {
     invalidProjectIds: [],
     justStartedWorktreeId: null,
     pendingClaudeSession: null,
+    navHistory: [],
+    navIndex: -1,
   };
 }
 

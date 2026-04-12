@@ -209,11 +209,11 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
       role="presentation"
     >
       <div className="w-[480px] rounded-lg border border-edge/60 bg-raised shadow-xl">
-        <Dialog className="outline-none" aria-label="Add Project">
+        <Dialog className="outline-none" aria-label="New project">
           {/* Header */}
           <div className="flex items-center justify-between px-5 pt-5 pb-4">
             <Heading slot="title" className="font-mono leading-none font-medium text-base text-fg">
-              Add Project
+              New project
             </Heading>
           </div>
 
@@ -468,7 +468,7 @@ export function AddProjectDialog({ onClose }: { onClose: () => void }) {
                   Back
                 </Button>
                 <Button variant="primary" onPress={handleConfirm} isDisabled={!projectName.trim()}>
-                  {sourceResult?.kind === 'clone' ? 'Start Clone' : 'Add Project'}
+                  {sourceResult?.kind === 'clone' ? 'Start clone' : 'Add project'}
                 </Button>
               </>
             ) : activeTab === 'local' ? (

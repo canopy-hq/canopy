@@ -6,6 +6,7 @@ import {
   Button,
   DiffPill,
   IconWithBadge,
+  Kbd,
   Spinner,
   StatusDot,
   Tooltip,
@@ -136,7 +137,7 @@ function ItemRow({
 }) {
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex h-4 items-center gap-2">
         {icon}
         {editing ? (
           <input
@@ -496,7 +497,18 @@ const RepoHeader = memo(
               </Button>
             )}
             {!isCloning && (
-              <Tooltip label="New worktree" placement="right">
+              <Tooltip
+                label={
+                  isSelected ? (
+                    <>
+                      New worktree <Kbd>⌘N</Kbd>
+                    </>
+                  ) : (
+                    'New worktree'
+                  )
+                }
+                placement="right"
+              >
                 <Button
                   iconOnly
                   size="sm"

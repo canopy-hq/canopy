@@ -15,6 +15,7 @@ import {
   NAV_KEY_TABS,
 } from './collections/ui';
 
+import type { NavEntry } from './collections/ui';
 import type { Tab } from './types';
 
 /**
@@ -42,6 +43,8 @@ function restoreUiState(): void {
   const savedSelectedItemId = getSetting<string | null>(settings, 'selectedItemId', null);
   const sidebarVisible = getSetting(settings, 'sidebarVisible', true);
   const sidebarWidth = getSetting(settings, 'sidebarWidth', SIDEBAR_WIDTH_DEFAULT);
+  const navHistory = getSetting<NavEntry[]>(settings, 'navHistory', []);
+  const navIndex = getSetting<number>(settings, 'navIndex', -1);
 
   // Recover tabs whose SQLite insert hadn't flushed before reload
   recoverUnflushedTabs();
@@ -67,6 +70,8 @@ function restoreUiState(): void {
   uiCollection.update('ui', (draft) => {
     draft.sidebarVisible = sidebarVisible;
     draft.sidebarWidth = Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, sidebarWidth));
+    draft.navHistory = Array.isArray(navHistory) ? navHistory : [];
+    draft.navIndex = typeof navIndex === 'number' ? navIndex : -1;
     if (activeTab) {
       draft.activeContextId = activeTab.projectItemId;
       draft.activeTabId = activeTab.id;

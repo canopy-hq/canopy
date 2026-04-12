@@ -8,6 +8,7 @@ import { tv } from 'tailwind-variants';
 
 import { AppearanceSection } from '../components/settings/AppearanceSection';
 import { ConnectionSection } from '../components/settings/ConnectionSection';
+import { navigateToSettings } from '../lib/project-actions';
 
 type SectionId = 'appearance' | 'git';
 
@@ -88,7 +89,7 @@ function SettingsRoute() {
                   <Button
                     key={item.id}
                     className={`${navItem({ active: activeSection === item.id })} justify-start`}
-                    onPress={() => void navigate({ to: '/settings', search: { section: item.id } })}
+                    onPress={() => navigateToSettings(item.id, navigate)}
                   >
                     <item.icon size={13} />
                     {item.label}

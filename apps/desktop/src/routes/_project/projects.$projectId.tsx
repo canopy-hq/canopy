@@ -1,12 +1,11 @@
 import { useEffect } from 'react';
 
 import { ActionRow, Button, Spinner } from '@canopy/ui';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Outlet, useLocation } from '@tanstack/react-router';
 import { PanelLeft, SquareTerminal, X } from 'lucide-react';
 
 import { ClaudeCodeIcon } from '../../components/ClaudeCodeIcon';
 import { ClaudeCodeSetupDialog } from '../../components/ClaudeCodeSetupDialog';
-import { PaneContainer } from '../../components/PaneContainer';
 import { TabBar } from '../../components/TabBar';
 import { useUiState, useTabs } from '../../hooks/useCollections';
 import {
@@ -15,7 +14,8 @@ import {
   setPendingClaudeSession,
   cancelPendingClaudeSession,
 } from '../../lib/project-actions';
-import { setActiveContext, addTab, addClaudeCodeTab } from '../../lib/tab-actions';
+import { addTab, addClaudeCodeTab, activateContextFromRoute } from '../../lib/tab-actions';
+import { router } from '../../router';
 
 function CreatingWorktree({
   pendingSession,
@@ -61,37 +61,61 @@ function CreatingWorktree({
 
 function ProjectRoute() {
   const { projectId } = Route.useParams();
+  const location = useLocation();
   const ui = useUiState();
   const allTabs = useTabs();
-  const activeTab = allTabs.find((t) => t.id === ui.activeTabId);
-  // Sync store state when navigating to a project URL directly (routing is source of truth)
-  useEffect(() => {
-    if (ui.activeContextId !== projectId) {
-      setActiveContext(projectId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
 
+  const contextTabs = allTabs.filter((t) => t.projectItemId === projectId);
   const isCreating = ui.creatingWorktreeIds.includes(projectId);
   const showSetupDialog = ui.justStartedWorktreeId === projectId;
   const worktreeName = projectId.includes('-wt-') ? (projectId.split('-wt-').pop() ?? '') : '';
-
-  // Pending session relevant to this worktree (shown on loading screen)
   const pendingSession =
     ui.pendingClaudeSession?.worktreeId === projectId ? ui.pendingClaudeSession : null;
 
+  // Keep activeContextId in sync with the URL whenever projectId changes.
+  // activateTabFromRoute (TabRoute) is the authoritative writer when tabs exist —
+  // React runs child effects before parent, so it always wins and the guard inside
+  // activateContextFromRoute prevents a double-write. For the EmptyState case
+  // (no TabRoute), this is the only place that updates activeContextId.
+  useEffect(() => {
+    activateContextFromRoute(projectId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  // Safety net: if we land on the bare project URL (no /tabs/ segment) but tabs exist,
+  // redirect to the saved tab. Covers crash recovery and stale boot state.
+  // Skip when we're already on a tab sub-route — the tab route's useEffect handles
+  // activation there, and this effect's stale closure would redirect to the wrong tab.
+  useEffect(() => {
+    if (router.state.location.pathname.includes('/tabs/')) return;
+    if (contextTabs.length === 0) return;
+    const savedTabId = ui.contextActiveTabIds[projectId];
+    const savedTab = savedTabId ? contextTabs.find((t) => t.id === savedTabId) : undefined;
+    const tab = savedTab ?? contextTabs[0]!;
+    void router.navigate({
+      to: '/projects/$projectId/tabs/$tabId',
+      params: { projectId, tabId: tab.id },
+      replace: true,
+      state: { skipNav: true },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  // Only show the tab bar once the URL has committed to a tab sub-route.
+  // insertTab fires before navigateToTab, so without this guard a render frame would
+  // show the tab bar (40 px) while the content area still shows EmptyState — a layout shift.
+  const showTabBar = location.pathname.includes('/tabs/');
+
   return (
     <>
-      <TabBar />
+      {showTabBar && <TabBar projectId={projectId} />}
       <div className="relative min-h-0 flex-1">
         {isCreating ? (
           <CreatingWorktree pendingSession={pendingSession} />
-        ) : activeTab ? (
-          <div key={activeTab.id} className="absolute inset-0">
-            <PaneContainer root={activeTab.paneRoot} />
-          </div>
-        ) : (
+        ) : contextTabs.length === 0 ? (
           <EmptyState projectId={projectId} />
+        ) : (
+          <Outlet />
         )}
         {showSetupDialog && (
           <ClaudeCodeSetupDialog

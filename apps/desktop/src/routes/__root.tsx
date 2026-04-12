@@ -18,11 +18,12 @@ import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 import { LucideProvider } from 'lucide-react';
 
 import { useAllCommands } from '../commands';
+import { makeProjectPaletteItem } from '../commands/project-commands';
+import { resolveProject } from '../commands/utils';
 import { AddProjectDialog } from '../components/AddProjectDialog';
 import { AgentOverlay } from '../components/AgentOverlay';
 import { AgentToastRegion } from '../components/AgentToastRegion';
 import { Header } from '../components/Header';
-import { SessionManager } from '../components/SessionManager';
 import { ErrorToastRegion } from '../components/ToastProvider';
 import { useUiState } from '../hooks/useCollections';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
@@ -32,6 +33,7 @@ import { initAgentListener } from '../lib/agent-actions';
 import { checkProjectPaths, listWorktrees } from '../lib/git';
 import { getConnection, GITHUB_CONNECTION_KEY } from '../lib/github';
 import { logInfo } from '../lib/log';
+import { pushNav, deriveContextLabel } from '../lib/nav-history';
 import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
 import {
   toggleSidebar,
@@ -40,10 +42,14 @@ import {
   switchProjectRelative,
   switchProjectItemRelative,
   openAddProjectDialog,
+  goBack,
+  goForward,
+  navigateToSettings,
 } from '../lib/project-actions';
-import { onOpenProjectPalette } from '../lib/project-palette-bridge';
-import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
+import { onOpenProjectPalette, openProjectPalette } from '../lib/project-palette-bridge';
+import { getActiveTab, setPtyIdInTab, getContextIdFromUrl } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
+import { router } from '../router';
 
 import type { CommandItem } from '@canopy/command-palette';
 
@@ -63,6 +69,7 @@ function RootLayout() {
   const [sessionManagerOpen, setSessionManagerOpen] = useState(false);
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const [fpsVisible, setFpsVisible] = useState(false);
+  const [recentlyViewedOpen, setRecentlyViewedOpen] = useState(false);
   const cmdItems = useAllCommands();
   const { activeContextId } = useUiState();
   const navigate = useNavigate();
@@ -73,10 +80,26 @@ function RootLayout() {
   useEffect(() => {
     if (booted.current) return;
     booted.current = true;
-    const { activeContextId } = getUiState();
+    const { activeContextId, activeTabId } = getUiState();
     const projects = getProjectCollection().toArray;
     if (activeContextId && projects.some((p) => activeContextId.startsWith(p.id))) {
-      void navigate({ to: '/projects/$projectId', params: { projectId: activeContextId } });
+      const tabs = getTabCollection().toArray;
+      const activeTab = activeTabId
+        ? tabs.find((t) => t.id === activeTabId && t.projectItemId === activeContextId)
+        : null;
+      if (activeTab) {
+        void navigate({
+          to: '/projects/$projectId/tabs/$tabId',
+          params: { projectId: activeContextId, tabId: activeTab.id },
+          state: { skipNav: true },
+        });
+      } else {
+        void navigate({
+          to: '/projects/$projectId',
+          params: { projectId: activeContextId },
+          state: { skipNav: true },
+        });
+      }
     }
     for (const ws of projects) {
       void refreshRepo(ws.id);
@@ -212,10 +235,9 @@ function RootLayout() {
     );
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useTauriMenuEvent(
-    'menu:settings',
-    () => void navigate({ to: '/settings', search: { section: 'appearance' } }),
-  );
+  useTauriMenuEvent('menu:settings', () => {
+    navigateToSettings('appearance', navigate);
+  });
   useTauriMenuEvent('menu:fps-overlay', () => setFpsVisible((prev) => !prev), import.meta.env.DEV);
 
   useEffect(() => {
@@ -226,6 +248,39 @@ function RootLayout() {
     return () => {
       unlisten?.();
     };
+  }, []);
+
+  useEffect(() => {
+    return router.subscribe('onResolved', ({ toLocation }) => {
+      if (toLocation.state.skipNav) return;
+      const { pathname } = toLocation;
+      if (pathname.startsWith('/settings')) {
+        const section = (toLocation.search as Record<string, string>).section ?? 'appearance';
+        pushNav({ type: 'settings', label: 'Settings', section, timestamp: Date.now() });
+        return;
+      }
+      const projectMatch = /\/projects\/([^/]+)/.exec(pathname);
+      if (!projectMatch) return;
+      const contextId = decodeURIComponent(projectMatch[1]!);
+      const tabMatch = /\/tabs\/([^/]+)/.exec(pathname);
+      const tabId = tabMatch ? decodeURIComponent(tabMatch[1]!) : undefined;
+      const proj = resolveProject(contextId, getProjectCollection().toArray);
+      if (!proj) return;
+      const tab = tabId ? getTabCollection().toArray.find((t) => t.id === tabId) : undefined;
+      const label = tab?.label ?? deriveContextLabel(contextId, proj);
+      pushNav(
+        {
+          type: 'worktree',
+          projectId: proj.id,
+          contextId,
+          tabId,
+          label,
+          projectName: proj.name,
+          timestamp: Date.now(),
+        },
+        contextId,
+      );
+    });
   }, []);
 
   useEffect(() => {
@@ -292,8 +347,24 @@ function RootLayout() {
           }),
       },
       { key: 'b', meta: true, action: () => toggleSidebar() },
-      { key: 'n', meta: true, action: () => openAddProjectDialog() },
-      { key: 'o', meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
+      { key: 'N', meta: true, shift: true, action: () => openAddProjectDialog() },
+      {
+        key: 'n',
+        meta: true,
+        action: () => {
+          const contextId = getContextIdFromUrl() ?? getUiState().activeContextId;
+          if (!contextId) return;
+          const proj = resolveProject(contextId, getProjectCollection().toArray);
+          if (!proj || proj.invalid) return;
+          openProjectPalette(makeProjectPaletteItem(proj));
+        },
+      },
+      { key: 'O', meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
+      // ⌘⇧H: recently viewed dropdown
+      { key: 'H', meta: true, shift: true, action: () => setRecentlyViewedOpen((prev) => !prev) },
+      // ⌘[ / ⌘]: back/forward navigation
+      { key: '[', meta: true, action: () => goBack(navigate) },
+      { key: ']', meta: true, action: () => goForward(navigate) },
       // ⌘⇧↑ / ⌘⇧↓: navigate to the prev/next project (sorted by position, wraps).
       {
         key: 'ArrowUp',
@@ -320,8 +391,11 @@ function RootLayout() {
     <LucideProvider strokeWidth={1}>
       <div className="flex h-screen w-screen flex-col overflow-hidden bg-base">
         <Header
-          onSessionsClick={() => setSessionManagerOpen((prev) => !prev)}
           onSearchClick={() => setCmdMenuOpen(true)}
+          sessionsOpen={sessionManagerOpen}
+          onSessionsOpenChange={setSessionManagerOpen}
+          recentlyViewedOpen={recentlyViewedOpen}
+          onRecentlyViewedChange={setRecentlyViewedOpen}
         />
         <Outlet />
         <ErrorToastRegion />
@@ -333,7 +407,6 @@ function RootLayout() {
           defaultPanelItem={defaultPanelItem}
         />
         <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
-        {sessionManagerOpen && <SessionManager onClose={() => setSessionManagerOpen(false)} />}
         {addProjectOpen && <AddProjectDialog onClose={() => setAddProjectOpen(false)} />}
         <AgentToastRegion />
         {import.meta.env.DEV && <FpsOverlay visible={fpsVisible} />}

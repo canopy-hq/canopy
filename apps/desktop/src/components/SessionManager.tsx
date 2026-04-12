@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Dialog, Modal, ModalOverlay } from 'react-aria-components';
+import { Header, Menu, MenuItem, Section } from 'react-aria-components';
 
 import { closePty, listPtySessions } from '@canopy/terminal';
 import { Button, SectionLabel } from '@canopy/ui';
 import { useNavigate } from '@tanstack/react-router';
-import { tv } from 'tailwind-variants';
 
 import { useTabs, useProjects } from '../hooks/useCollections';
 import { containsPtyId } from '../lib/pane-tree-ops';
@@ -35,13 +34,6 @@ interface SessionRow {
   projectName: string;
   projectItemId: string;
 }
-
-const sessionRowCls = tv({
-  base: 'flex h-9 items-center gap-3 px-3 text-base text-fg outline-none',
-  variants: {
-    interactive: { true: 'cursor-pointer hover:bg-surface/50', false: 'cursor-default opacity-50' },
-  },
-});
 
 /**
  * Mounted only when the panel is open — polling starts on mount, stops on unmount.
@@ -159,101 +151,69 @@ export function SessionManager({ onClose }: SessionManagerProps) {
     });
   }, []);
 
-  const handleKillAll = useCallback(async () => {
-    await handleKillGroup(rows);
-  }, [handleKillGroup, rows]);
-
   return (
-    <ModalOverlay
-      isOpen
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      isDismissable
-      isKeyboardDismissDisabled
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[120px]"
-    >
-      <Modal
-        className="flex max-h-[70vh] w-[600px] flex-col overflow-hidden rounded-xl border border-edge/60 bg-raised/85 font-mono shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-[12px]"
-        style={{ WebkitBackdropFilter: 'blur(12px)' }}
-      >
-        <Dialog className="flex min-h-0 flex-col outline-none" aria-label="PTY Session Manager">
-          {/* Header */}
-          <div className="flex shrink-0 items-center gap-2 border-b border-edge/40 px-3 py-2.5">
-            <span className="flex-1 text-base text-fg">PTY Sessions</span>
-            {rows.length > 0 && (
-              <span className="font-mono text-sm text-fg-faint tabular-nums">
-                {rows.length} {rows.length === 1 ? 'session' : 'sessions'}
-              </span>
-            )}
-            {rows.length > 0 && (
-              <Button
-                variant="destructive-ghost"
-                size="sm"
-                onPress={() => void handleKillAll()}
-                isDisabled={rows.every((r) => killing.has(r.info.ptyId))}
-              >
-                Kill all
-              </Button>
-            )}
-          </div>
+    <>
+      <div className="px-3 pt-2 pb-1">
+        <SectionLabel>PTY Sessions</SectionLabel>
+      </div>
 
-          {/* Body */}
-          <div className="min-h-0 flex-1 overflow-y-auto py-1">
-            {rows.length === 0 ? (
-              <div className="flex items-center justify-center py-8 font-mono text-sm text-fg-faint">
-                No active sessions
-              </div>
-            ) : (
-              Array.from(grouped.entries()).map(([projName, groupRows]) => (
-                <div key={projName}>
-                  <div className="flex h-7 items-center px-3">
-                    <SectionLabel className="flex-1">{projName}</SectionLabel>
+      {rows.length === 0 ? (
+        <div className="px-3 py-3 text-xs text-fg-faint">No active sessions.</div>
+      ) : (
+        <Menu
+          className="max-h-80 overflow-y-auto p-1 outline-none"
+          onAction={(key) => {
+            const ptyId = parseInt(String(key), 10);
+            const row = rows.find((r) => r.info.ptyId === ptyId);
+            if (row) handleJump(row);
+          }}
+        >
+          {Array.from(grouped.entries()).map(([projName, groupRows]) => (
+            <Section key={projName}>
+              <Header className="group/section flex h-6 items-center gap-2 px-2">
+                <SectionLabel className="flex-1">{projName}</SectionLabel>
+                <Button
+                  variant="destructive-ghost"
+                  size="sm"
+                  aria-label={`Kill all sessions in ${projName}`}
+                  onPress={() => void handleKillGroup(groupRows)}
+                  isDisabled={groupRows.every((r) => killing.has(r.info.ptyId))}
+                >
+                  Kill all
+                </Button>
+              </Header>
+
+              {groupRows.map((row) => (
+                <MenuItem
+                  key={row.info.ptyId}
+                  id={row.info.ptyId}
+                  isDisabled={!row.tab}
+                  className="flex cursor-default items-center gap-1.5 rounded px-2 py-1 text-xs text-fg transition-colors outline-none data-[disabled]:opacity-40 data-[focus-visible]:bg-surface data-[hovered]:bg-surface"
+                >
+                  <span className="min-w-0 flex-1 truncate font-mono">{row.tab?.label ?? '—'}</span>
+                  <span className="shrink-0 font-mono text-[10px] text-fg-faint tabular-nums">
+                    {row.info.cpuPercent.toFixed(1)}% · {row.info.memoryMb}MB
+                  </span>
+                  <div
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <Button
                       variant="destructive-ghost"
                       size="sm"
-                      aria-label={`Kill all sessions in ${projName}`}
-                      onPress={() => void handleKillGroup(groupRows)}
-                      isDisabled={groupRows.every((r) => killing.has(r.info.ptyId))}
+                      className="shrink-0"
+                      onPress={() => void handleKill(row)}
+                      isDisabled={killing.has(row.info.ptyId)}
                     >
-                      Kill all
+                      kill
                     </Button>
                   </div>
-
-                  {groupRows.map((row) => (
-                    <div
-                      key={row.info.ptyId}
-                      role="button"
-                      tabIndex={row.tab ? 0 : -1}
-                      onClick={() => handleJump(row)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleJump(row);
-                      }}
-                      className={sessionRowCls({ interactive: !!row.tab })}
-                    >
-                      <span className="min-w-0 flex-1 truncate">{row.tab?.label ?? '—'}</span>
-                      <span className="shrink-0 font-mono text-sm text-fg-faint tabular-nums">
-                        {row.info.cpuPercent.toFixed(1)}% · {row.info.memoryMb}MB
-                      </span>
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          variant="destructive-ghost"
-                          size="sm"
-                          className="shrink-0"
-                          onPress={() => void handleKill(row)}
-                          isDisabled={killing.has(row.info.ptyId)}
-                        >
-                          kill
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ))
-            )}
-          </div>
-        </Dialog>
-      </Modal>
-    </ModalOverlay>
+                </MenuItem>
+              ))}
+            </Section>
+          ))}
+        </Menu>
+      )}
+    </>
   );
 }
