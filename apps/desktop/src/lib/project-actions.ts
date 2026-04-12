@@ -309,11 +309,15 @@ export function selectProjectItem(
       trackRecentProject(proj.id);
       // Resolve the destination tab and record it in navHistory.
       const contextTabs = getTabCollection().toArray.filter((t) => t.projectItemId === itemId);
-      const destTabId =
+      // Candidate from explicit override, current active tab, or last-saved tab for this context.
+      // Validate against contextTabs so stale/deleted IDs fall back to the first available tab.
+      const candidateTabId =
         overrideTabId ??
-        (ui.activeContextId === itemId
-          ? ui.activeTabId
-          : (ui.contextActiveTabIds[itemId] ?? contextTabs[0]?.id));
+        (ui.activeContextId === itemId ? ui.activeTabId : ui.contextActiveTabIds[itemId]);
+      const destTabId =
+        (candidateTabId && contextTabs.some((t) => t.id === candidateTabId)
+          ? candidateTabId
+          : null) ?? contextTabs[0]?.id;
       // Batch selectedItemId + navHistory into one store write.
       pushNav(
         {
@@ -405,10 +409,16 @@ export function switchProjectRelative(
 
   const proj = orderedProjects[stepIndex(currentIndex, direction, orderedProjects.length)]!;
 
-  // Prefer last visited context for this project from navHistory
-  const lastVisit = [...navHistory]
-    .reverse()
-    .find((e) => e.type === 'worktree' && e.projectId === proj.id);
+  // Prefer last visited context for this project from navHistory.
+  // Validate that the context (branch/worktree) still exists to avoid navigating to deleted refs.
+  const lastVisit = [...navHistory].reverse().find((e) => {
+    if (e.type !== 'worktree' || e.projectId !== proj.id || !e.contextId) return false;
+    return (
+      e.contextId === proj.id ||
+      proj.branches.some((b) => `${proj.id}-branch-${b.name}` === e.contextId) ||
+      proj.worktrees.some((wt) => `${proj.id}-wt-${wt.name}` === e.contextId)
+    );
+  });
   if (lastVisit?.contextId) {
     selectProjectItem(lastVisit.contextId, navigate, lastVisit.tabId);
     return;
