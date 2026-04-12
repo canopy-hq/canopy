@@ -191,7 +191,10 @@ export function Header({
                         entry.section.charAt(0).toUpperCase() + entry.section.slice(1);
                     }
                   } else if (entry.contextId && entry.projectId) {
-                    primaryLabel = entry.projectName ?? entry.label;
+                    const projectName = entry.projectName ?? '';
+                    primaryLabel = entry.tabId
+                      ? `${projectName} · ${entry.label}`
+                      : projectName || entry.label;
                     const pid = entry.projectId;
                     let contextName = '';
                     if (entry.contextId.includes(`${pid}-branch-`)) {
