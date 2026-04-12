@@ -10,7 +10,7 @@ use crate::scrollback::ScrollbackBuffer;
 
 /// Protocol version — bump when the daemon protocol changes (new ops, new fields).
 /// The app checks this on startup and restarts the daemon if it doesn't match.
-pub const PROTOCOL_VERSION: u32 = 3;
+pub const PROTOCOL_VERSION: u32 = 4;
 
 /// Get the current working directory of a process on macOS via proc_pidinfo(PROC_PIDVNODEPATHINFO).
 /// proc_pid::pidcwd from the libproc crate reads /proc/{pid}/cwd which only exists on Linux.
@@ -61,6 +61,8 @@ pub struct DaemonState {
     sessions: HashMap<String, PtySession>,
     pool: Vec<PoolEntry>,
     pool_cwd: Option<String>,
+    /// Env vars baked into pool shells at spawn time (CANOPY_PORT, CANOPY_TOKEN).
+    pool_env: Option<HashMap<String, String>>,
     pool_target_size: usize,
     pool_counter: u64,
     /// Incremented on every init_pool call. Async replenishment tasks compare
@@ -75,6 +77,7 @@ impl DaemonState {
             sessions: HashMap::new(),
             pool: Vec::new(),
             pool_cwd: None,
+            pool_env: None,
             pool_target_size: 0,
             pool_counter: 0,
             pool_generation: 0,
@@ -371,20 +374,6 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                                 pixel_width: 0,
                                 pixel_height: 0,
                             });
-                            // Inject env vars into the already-running shell so
-                            // hook callbacks (canopy-notify) can reach the hook server.
-                            // Leading space suppresses history in most shells.
-                            if let Some(ref vars) = env_vars {
-                                if !vars.is_empty() {
-                                    let exports: Vec<String> = vars
-                                        .iter()
-                                        .map(|(k, v)| format!("{}={}", k, shell_escape(v)))
-                                        .collect();
-                                    let cmd = format!(" export {}\n", exports.join(" "));
-                                    let _ = sess.writer.write_all(cmd.as_bytes());
-                                    let _ = sess.writer.flush();
-                                }
-                            }
                             // Update the shared pane_id so the reader thread
                             // looks up the session under the new key.
                             *sess.pane_id_ref.lock().unwrap() = pane_id.clone();
@@ -402,9 +391,9 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                     Some(pid) => {
                         // Trigger async replenishment — replace the consumed pool entry.
                         let state_bg = state.clone();
-                        let (pool_cwd, gen) = {
+                        let (pool_cwd, pool_env_for_replenish, gen) = {
                             let st = state.lock().unwrap();
-                            (st.pool_cwd.clone(), st.pool_generation)
+                            (st.pool_cwd.clone(), st.pool_env.clone(), st.pool_generation)
                         };
                         if let Some(cwd) = pool_cwd {
                             tokio::spawn(async move {
@@ -424,8 +413,9 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                                 // syscalls that must not run on the async executor.
                                 let state_for_spawn = state_bg.clone();
                                 let pane_for_spawn = pool_pane_id.clone();
+                                let env_for_replenish = pool_env_for_replenish.clone();
                                 let result = tokio::task::spawn_blocking(move || {
-                                    do_spawn(state_for_spawn, pane_for_spawn, Some(cwd), 24, 80, None, vec![], None)
+                                    do_spawn(state_for_spawn, pane_for_spawn, Some(cwd), 24, 80, None, vec![], env_for_replenish)
                                 })
                                 .await
                                 .unwrap_or(Err("spawn_blocking panicked".to_string()));
@@ -498,6 +488,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                     let pool_entries: Vec<String> = st.pool.drain(..).map(|e| e.pane_id).collect();
                     st.pool_target_size = 0;
                     st.pool_cwd = None;
+                    st.pool_env = None;
                     pool_entries.into_iter().filter_map(|id| st.sessions.remove(&id)).collect()
                 };
                 let _ = write_half.write_all(b"{\"ok\":true}\n").await;
@@ -514,6 +505,11 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
             "init_pool" => {
                 let cwd = cmd["cwd"].as_str().unwrap_or("/tmp").to_string();
                 let size = cmd["size"].as_u64().unwrap_or(2) as usize;
+                let pool_env: Option<HashMap<String, String>> = cmd["envVars"].as_object().map(|obj| {
+                    obj.iter()
+                        .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                        .collect()
+                });
 
                 // No-op: if the pool is already warm for this CWD and has enough entries,
                 // skip killing and respawning — daemon survives app restarts so the shells
@@ -534,6 +530,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                     let mut st = state.lock().unwrap();
                     let old_pane_ids: Vec<String> = st.pool.drain(..).map(|e| e.pane_id).collect();
                     st.pool_cwd = Some(cwd.clone());
+                    st.pool_env = pool_env.clone();
                     st.pool_target_size = size;
                     st.pool_generation += 1;
                     old_pane_ids.into_iter().filter_map(|id| st.sessions.remove(&id)).collect()
@@ -578,8 +575,9 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                         let state_for_spawn = state_bg.clone();
                         let cwd_for_spawn = cwd.clone();
                         let pane_for_spawn = pool_pane_id.clone();
+                        let env_for_spawn = pool_env.clone();
                         let result = tokio::task::spawn_blocking(move || {
-                            do_spawn(state_for_spawn, pane_for_spawn, Some(cwd_for_spawn), 24, 80, None, vec![], None)
+                            do_spawn(state_for_spawn, pane_for_spawn, Some(cwd_for_spawn), 24, 80, None, vec![], env_for_spawn)
                         })
                         .await
                         .unwrap_or(Err("spawn_blocking panicked".to_string()));
@@ -622,11 +620,6 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
             _ => {}
         }
     }
-}
-
-/// Single-quote a value for safe shell interpolation.
-fn shell_escape(s: &str) -> String {
-    format!("'{}'", s.replace('\'', "'\\''"))
 }
 
 /// Returns `(pid, is_new)` where `is_new` is false when the session already existed.

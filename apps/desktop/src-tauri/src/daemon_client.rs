@@ -57,7 +57,7 @@ impl DaemonClient {
     }
 
     /// Expected daemon protocol version. Must match `PROTOCOL_VERSION` in daemon.rs.
-    const EXPECTED_PROTOCOL_VERSION: u32 = 3;
+    const EXPECTED_PROTOCOL_VERSION: u32 = 4;
 
     /// Ensure daemon process is running with the correct protocol version.
     /// Synchronous — safe to call from Tauri setup.
@@ -291,12 +291,23 @@ impl DaemonClient {
     }
 
     /// Initialize the daemon's PTY pool for the given CWD.
-    pub async fn init_pool(&self, cwd: &str, size: usize) -> Result<(), String> {
-        let msg = format!(
-            "{{\"op\":\"init_pool\",\"cwd\":{},\"size\":{}}}\n",
-            serde_json::json!(cwd),
-            size,
-        );
+    /// Optional `env_vars` (e.g. CANOPY_PORT, CANOPY_TOKEN) are baked into pool
+    /// shells at spawn time — no visible `export` in the terminal.
+    pub async fn init_pool(
+        &self,
+        cwd: &str,
+        size: usize,
+        env_vars: Option<&std::collections::HashMap<String, String>>,
+    ) -> Result<(), String> {
+        let mut obj = serde_json::json!({
+            "op": "init_pool",
+            "cwd": cwd,
+            "size": size,
+        });
+        if let Some(vars) = env_vars {
+            obj["envVars"] = serde_json::json!(vars);
+        }
+        let msg = format!("{obj}\n");
         Self::check_ok(self.send_cmd(&msg).await?, "init_pool failed")?;
         Ok(())
     }

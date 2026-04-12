@@ -120,6 +120,15 @@ pub fn run() {
                 }
             }
 
+            // Clean stale pane_id sidecar files from previous runs.
+            if let Some(home) = dirs::home_dir() {
+                let run_dir = home.join(".canopy").join("run");
+                if run_dir.is_dir() {
+                    let _ = std::fs::remove_dir_all(&run_dir);
+                }
+                let _ = std::fs::create_dir_all(&run_dir);
+            }
+
             // Install notify script + agent hooks (non-blocking background task).
             // Uses the bundled canopy-notify script resource.
             let notify_content = include_bytes!("../resources/canopy-notify").to_vec();

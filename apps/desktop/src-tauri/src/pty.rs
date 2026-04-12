@@ -156,7 +156,29 @@ pub async fn spawn_terminal(
     }
     agent_watcher::start_process_watcher(pid, pid, app, cancel_rx);
 
+    // Write sidecar file so canopy-notify can discover the pane_id by walking
+    // up the process tree. Pool shells don't have CANOPY_PANE_ID in their env
+    // (it's not known at spawn time), so this file is the fallback.
+    write_pane_id_file(pid, &pane_id);
+
     Ok(SpawnResult { pty_id: pid, is_new })
+}
+
+/// Write `~/.canopy/run/<shell_pid>` containing the pane_id.
+/// canopy-notify walks the process tree to find this file.
+fn write_pane_id_file(shell_pid: u32, pane_id: &str) {
+    if let Some(home) = dirs::home_dir() {
+        let run_dir = home.join(".canopy").join("run");
+        let _ = std::fs::create_dir_all(&run_dir);
+        let _ = std::fs::write(run_dir.join(shell_pid.to_string()), pane_id);
+    }
+}
+
+/// Remove the pane_id sidecar file on PTY close.
+fn remove_pane_id_file(shell_pid: u32) {
+    if let Some(home) = dirs::home_dir() {
+        let _ = std::fs::remove_file(home.join(".canopy").join("run").join(shell_pid.to_string()));
+    }
 }
 
 #[tauri::command]
@@ -212,6 +234,7 @@ pub async fn close_pty(
         ws.hook_states.remove(&pty_id);
     }
 
+    remove_pane_id_file(pty_id);
     daemon.close(&pane_id).await
 }
 
@@ -295,8 +318,9 @@ pub async fn close_ptys_for_panes(
         }
     }
 
-    for (_, pane_id) in to_close {
-        let _ = daemon.close(&pane_id).await;
+    for (pty_id, pane_id) in &to_close {
+        remove_pane_id_file(*pty_id);
+        let _ = daemon.close(pane_id).await;
     }
 
     Ok(())
@@ -313,17 +337,30 @@ pub async fn get_pty_cwd(
 
 /// Pre-warm the daemon's PTY pool for the given CWD.
 /// Called once when a project is opened or switched.
+/// Pool shells inherit CANOPY_PORT and CANOPY_TOKEN at spawn time so hook
+/// callbacks work without visible `export` commands in the terminal.
 #[tauri::command]
 pub async fn init_terminal_pool(
     cwd: String,
     daemon: tauri::State<'_, DaemonClient>,
+    hook_server: tauri::State<'_, crate::hook_server::HookServerState>,
 ) -> Result<(), String> {
     if !std::path::Path::new(&cwd).is_dir() {
         eprintln!("[pool] init_terminal_pool skipped — cwd does not exist: {cwd}");
         return Ok(());
     }
+    // Bake CANOPY_PORT and CANOPY_TOKEN into pool shells at spawn time.
+    // CANOPY_PANE_ID is set per-pane via sidecar file on claim (see spawn_terminal).
+    let env_vars = if hook_server.port > 0 {
+        let mut vars = std::collections::HashMap::new();
+        vars.insert("CANOPY_PORT".to_string(), hook_server.port.to_string());
+        vars.insert("CANOPY_TOKEN".to_string(), hook_server.token.clone());
+        Some(vars)
+    } else {
+        None
+    };
     eprintln!("[pool] init_terminal_pool called with cwd={cwd}");
-    let result = daemon.init_pool(&cwd, 3).await;
+    let result = daemon.init_pool(&cwd, 3, env_vars.as_ref()).await;
     eprintln!("[pool] init_terminal_pool result: {result:?}");
     result
 }
