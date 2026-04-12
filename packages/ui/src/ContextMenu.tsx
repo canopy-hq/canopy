@@ -27,7 +27,11 @@ export type ContextMenuItemDef = ContextMenuAction | ContextMenuSubmenuItem | Co
 
 const menuItem = tv({
   base: 'flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm text-fg-dim outline-none transition-colors data-[hovered]:bg-surface data-[focus-visible]:bg-surface data-[disabled]:opacity-40',
-  variants: { destructive: { true: 'text-danger data-[hovered]:text-danger data-[focus-visible]:text-danger' } },
+  variants: {
+    destructive: {
+      true: 'text-danger data-[hovered]:text-danger data-[focus-visible]:text-danger',
+    },
+  },
 });
 
 const panelCls = 'w-max rounded-lg border border-edge/60 bg-raised shadow-xl outline-none';
@@ -104,7 +108,9 @@ export function ContextMenu({
                     >
                       {item.items.map((sub, i) => {
                         if (sub.type === 'separator') {
-                          return <Separator key={`sep-${i}`} className="mx-2 my-1 h-px bg-edge/40" />;
+                          return (
+                            <Separator key={`sep-${i}`} className="mx-2 my-1 h-px bg-edge/40" />
+                          );
                         }
                         if (sub.type === 'submenu') return null;
                         return (
