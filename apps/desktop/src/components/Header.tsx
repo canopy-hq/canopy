@@ -166,15 +166,14 @@ export function Header({
             offset={4}
             className="w-64 overflow-hidden rounded-lg border border-edge/60 bg-raised shadow-xl outline-none"
           >
-            <div className="px-3 pt-2.5 pb-1">
-              <div className="text-xs font-medium text-fg-muted">Recently Viewed</div>
-              <div className="mt-2 border-t border-edge/20" />
+            <div className="border-b border-edge/20 px-3 py-2">
+              <span className="text-xs font-medium text-fg-muted">Recently Viewed</span>
             </div>
             {recentEntries.length === 0 ? (
               <div className="px-3 py-3 text-xs text-fg-faint">No history yet.</div>
             ) : (
               <Menu
-                className="max-h-80 overflow-y-auto p-1 pb-1.5 outline-none"
+                className="max-h-80 overflow-y-auto p-1 outline-none"
                 onAction={(key) => handleRecentSelect(String(key))}
               >
                 {recentEntries.map((entry, i) => {
@@ -198,10 +197,10 @@ export function Header({
                     <MenuItem
                       key={`${entry.contextId ?? 'settings'}-${entry.tabId ?? ''}-${i}`}
                       id={String(i)}
-                      className="flex cursor-default items-start gap-2 rounded px-2 py-1.5 outline-none data-[focused]:bg-surface"
+                      className="flex cursor-default items-start gap-1.5 rounded px-2 py-1 outline-none data-[focused]:bg-surface"
                     >
                       <span
-                        className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full"
+                        className="mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full"
                         style={
                           projectColor
                             ? { backgroundColor: projectColor }
@@ -209,7 +208,7 @@ export function Header({
                         }
                       />
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span className="truncate text-xs text-fg-dim">{primaryLabel}</span>
+                        <span className="truncate text-xs text-fg">{primaryLabel}</span>
                         <span className="truncate font-mono text-[10px] text-fg-faint">
                           {secondaryLabel || '\u00A0'}
                         </span>
