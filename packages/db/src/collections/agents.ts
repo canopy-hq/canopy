@@ -2,9 +2,8 @@ import { createCollection, localOnlyCollectionOptions } from '@tanstack/db';
 
 /** Agent status values stored in the collection.
  * `stopped` is intentionally excluded — it's a transient backend event
- * that gets derived to `review` or removed (idle) before collection insertion.
- * `running`/`waiting` are legacy values kept only for StatusDot backward compat. */
-export type AgentStatus = 'working' | 'permission' | 'review';
+ * that gets derived to `review` or `idle` before collection insertion. */
+export type AgentStatus = 'idle' | 'working' | 'permission' | 'review';
 
 export interface AgentInfo {
   ptyId: number;

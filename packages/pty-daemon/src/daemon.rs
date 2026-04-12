@@ -8,6 +8,10 @@ use tokio::sync::broadcast;
 
 use crate::scrollback::ScrollbackBuffer;
 
+/// Protocol version — bump when the daemon protocol changes (new ops, new fields).
+/// The app checks this on startup and restarts the daemon if it doesn't match.
+pub const PROTOCOL_VERSION: u32 = 2;
+
 /// Get the current working directory of a process on macOS via proc_pidinfo(PROC_PIDVNODEPATHINFO).
 /// proc_pid::pidcwd from the libproc crate reads /proc/{pid}/cwd which only exists on Linux.
 #[cfg(target_os = "macos")]
@@ -196,6 +200,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                         .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
                         .collect::<std::collections::HashMap<_, _>>()
                 });
+                eprintln!("[daemon] spawn pane={pane_id} env_vars={}", env_vars.as_ref().map_or(0, |v| v.len()));
                 let result = do_spawn(state.clone(), pane_id, cwd, rows, cols, command, args, env_vars);
                 let resp = match result {
                     Ok((pid, is_new)) => format!("{{\"ok\":true,\"pid\":{pid},\"new\":{is_new}}}\n"),
@@ -332,6 +337,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                         .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
                         .collect::<std::collections::HashMap<String, String>>()
                 });
+                eprintln!("[daemon] claim pane={pane_id} env_vars={}", env_vars.as_ref().map_or(0, |v| v.len()));
                 let claimed = {
                     let mut st = state.lock().unwrap();
                     // If a session already exists for this paneId, don't
@@ -582,6 +588,11 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                         }
                     }
                 });
+            }
+
+            "version" => {
+                let resp = format!("{{\"ok\":true,\"version\":{PROTOCOL_VERSION}}}\n");
+                let _ = write_half.write_all(resp.as_bytes()).await;
             }
 
             _ => {}

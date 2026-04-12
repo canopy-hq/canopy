@@ -86,8 +86,10 @@ pub async fn spawn_terminal(
         vars.insert("CANOPY_PANE_ID".to_string(), pane_id.clone());
         vars.insert("CANOPY_PORT".to_string(), hook_server.port.to_string());
         vars.insert("CANOPY_TOKEN".to_string(), hook_server.token.clone());
+        eprintln!("[pty] env_vars for pane={pane_id}: port={} token={}…", hook_server.port, &hook_server.token[..8]);
         Some(vars)
     } else {
+        eprintln!("[pty] WARNING: hook_server.port=0, skipping env vars for pane={pane_id}");
         None
     };
 

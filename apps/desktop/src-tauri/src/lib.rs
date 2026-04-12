@@ -123,7 +123,7 @@ pub fn run() {
             // Install notify script + agent hooks (non-blocking background task).
             // Uses the bundled canopy-notify script resource.
             let notify_content = include_bytes!("../resources/canopy-notify").to_vec();
-            tokio::task::spawn_blocking(move || {
+            tauri::async_runtime::spawn_blocking(move || {
                 match hook_installer::ensure_notify_script(&notify_content) {
                     Ok(path) => {
                         let results = hook_installer::install_all_hooks(&path);

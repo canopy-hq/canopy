@@ -11,6 +11,7 @@ pub enum AgentStatus {
     Working,
     Permission,
     Stopped,
+    #[allow(dead_code)]
     Review,
 }
 
@@ -112,6 +113,10 @@ pub fn set_hook_status(
     };
 
     if changed {
+        eprintln!(
+            "[hook] state change: pane={pane_id} pty={pty_id} → {}",
+            status.as_str()
+        );
         let _ = app_handle.emit(
             "agent-status-changed",
             AgentStatusPayload {
@@ -174,6 +179,12 @@ const IDLE_BACKOFF_THRESHOLD: u32 = 8;
 
 /// Start a process-tree watcher for agents without hook support (Aider).
 /// No silence threshold — agent found = Working, agent gone = Idle.
+///
+/// **Hook priority:** once the hook system has claimed this pty_id (i.e.
+/// `hook_states` contains an entry), the process watcher suppresses its
+/// emissions and lets hooks be the sole source of truth. This prevents
+/// the watcher from overwriting hook-driven states like `Stopped` or
+/// `Permission` with `Working` just because the agent process is alive.
 pub fn start_process_watcher(
     shell_pid: u32,
     pty_id: u32,
@@ -197,6 +208,16 @@ pub fn start_process_watcher(
             tokio::select! {
                 _ = &mut cancel => break,
                 _ = tokio::time::sleep(std::time::Duration::from_millis(interval_ms)) => {
+                    // If the hook system has claimed this pty_id, suppress
+                    // process-watcher emissions — hooks are the source of truth.
+                    if let Some(ws) = app_handle.try_state::<Mutex<AgentWatcherState>>() {
+                        if let Ok(guard) = ws.lock() {
+                            if guard.hook_states.contains_key(&pty_id) {
+                                continue;
+                            }
+                        }
+                    }
+
                     let agent = tokio::task::spawn_blocking(move || find_agent_in_children(shell_pid))
                         .await
                         .unwrap_or(None);

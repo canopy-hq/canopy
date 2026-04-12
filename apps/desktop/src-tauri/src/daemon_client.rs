@@ -56,12 +56,39 @@ impl DaemonClient {
         }
     }
 
-    /// Ensure daemon process is running. Synchronous — safe to call from Tauri setup.
+    /// Expected daemon protocol version. Must match `PROTOCOL_VERSION` in daemon.rs.
+    const EXPECTED_PROTOCOL_VERSION: u32 = 2;
+
+    /// Ensure daemon process is running with the correct protocol version.
+    /// Synchronous — safe to call from Tauri setup.
     /// Returns `Some(pid)` when a new daemon was spawned, `None` when one was already running.
     pub fn ensure_daemon_sync(socket: &Path, bin: &Path) -> Result<Option<u32>, String> {
         // Try to connect first (daemon may already be running)
-        if StdUnixStream::connect(socket).is_ok() {
-            return Ok(None);
+        if let Ok(mut stream) = StdUnixStream::connect(socket) {
+            // Check protocol version — stale daemon (from a previous build) might
+            // not support new ops/fields. Kill and restart if mismatched.
+            use std::io::{BufRead, BufReader, Write as _};
+            let _ = stream.write_all(b"{\"op\":\"version\",\"paneId\":\"\"}\n");
+            let _ = stream.set_read_timeout(Some(std::time::Duration::from_millis(500)));
+            let mut line = String::new();
+            let version_ok = BufReader::new(&stream)
+                .read_line(&mut line)
+                .ok()
+                .and_then(|_| serde_json::from_str::<serde_json::Value>(line.trim()).ok())
+                .and_then(|v| v["version"].as_u64())
+                .map(|v| v as u32)
+                == Some(Self::EXPECTED_PROTOCOL_VERSION);
+
+            if version_ok {
+                return Ok(None);
+            }
+
+            // Stale daemon — kill it so we can spawn a fresh one.
+            eprintln!("[daemon] protocol version mismatch (got {line:?}), restarting");
+            drop(stream);
+            let _ = std::fs::remove_file(socket);
+            // Give the old daemon time to exit after socket removal.
+            std::thread::sleep(std::time::Duration::from_millis(100));
         }
 
         // Spawn daemon in its own process group so it survives app restart

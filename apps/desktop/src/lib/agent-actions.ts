@@ -88,7 +88,9 @@ export function toggleManualOverride(ptyId: number): void {
   }
 }
 
-/** Clear review state for all agents in the given tab's panes. */
+/** Downgrade review → idle for all agents in the given tab's panes.
+ * Called when the user switches to a tab — "review" means "finished while
+ * you weren't looking", so once you're looking it becomes "idle". */
 export function clearReviewForTab(tabId: string): void {
   const tabs = getTabCollection().toArray;
   const tab = tabs.find((t) => t.id === tabId);
@@ -96,7 +98,9 @@ export function clearReviewForTab(tabId: string): void {
 
   for (const agent of agentCollection.toArray) {
     if (agent.status === 'review' && containsPtyId(tab.paneRoot, agent.ptyId)) {
-      removeAgent(agent.ptyId);
+      agentCollection.update(agent.ptyId, (draft) => {
+        draft.status = 'idle';
+      });
     }
   }
 }
@@ -112,10 +116,10 @@ export async function initAgentListener(): Promise<() => void> {
       removeAgent(ptyId);
     } else if (status === 'stopped') {
       // Derive review/idle based on whether the pane's tab is active:
-      // - Active tab → agent is done and user can see it → idle (remove)
+      // - Active tab → agent is done and user can see it → idle dot
       // - Background tab → agent finished while user wasn't looking → review
       if (isPtyInActiveTab(ptyId)) {
-        removeAgent(ptyId);
+        setAgent(ptyId, { status: 'idle', agentName, pid, subState });
       } else {
         setAgent(ptyId, { status: 'review', agentName, pid, subState });
       }

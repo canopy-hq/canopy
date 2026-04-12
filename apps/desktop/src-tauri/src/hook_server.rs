@@ -70,6 +70,10 @@ async fn handle_hook(
     };
 
     let agent_name = payload.agent.as_deref().unwrap_or("unknown");
+    eprintln!(
+        "[hook] received: event={} agent={} pane={} → {:?}",
+        payload.event, agent_name, payload.pane_id, status
+    );
 
     // Access Tauri-managed state via the AppHandle
     if let (Some(pty_state), Some(watcher_state)) = (
@@ -85,6 +89,8 @@ async fn handle_hook(
             &pty_state,
             &watcher_state,
         );
+    } else {
+        eprintln!("[hook] WARNING: could not access Tauri managed state");
     }
 
     StatusCode::OK
@@ -121,8 +127,10 @@ pub fn start_hook_server(app_handle: AppHandle) -> Result<(u16, String), String>
 
     eprintln!("[hook] server listening on 127.0.0.1:{port}");
 
-    // Convert std listener to tokio and spawn the server
-    tokio::spawn(async move {
+    // Convert std listener to tokio and spawn the server.
+    // Must use tauri::async_runtime::spawn — plain tokio::spawn panics
+    // because Tauri's .setup() runs before the tokio reactor is available.
+    tauri::async_runtime::spawn(async move {
         let listener = match TcpListener::from_std(std_listener) {
             Ok(l) => l,
             Err(e) => {
