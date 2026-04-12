@@ -220,7 +220,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                   <span className="min-w-0 flex-1 truncate font-mono text-xs">
                     {row.tab?.label ?? '—'}
                   </span>
-                  <span className="shrink-0 font-mono text-[10px] tabular-nums text-fg-faint opacity-0 transition-opacity group-hover:opacity-100">
+                  <span className="shrink-0 font-mono text-[10px] tabular-nums text-fg-faint">
                     {row.info.cpuPercent.toFixed(1)}% · {row.info.memoryMb}MB
                   </span>
                   <div onClick={(e) => e.stopPropagation()}>
