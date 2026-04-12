@@ -334,8 +334,8 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                     // Reject pool claim if the pool was warmed for a different project.
                     // A claimed shell starts in pool_cwd, not the requested cwd — the
                     // caller must fall back to spawn to get the correct working directory.
-                    } else if requested_cwd.as_deref() != st.pool_cwd.as_deref()
-                        && requested_cwd.is_some()
+                    } else if requested_cwd.is_some()
+                        && requested_cwd.as_deref() != st.pool_cwd.as_deref()
                     {
                         None
                     } else if let Some(idx) = st.pool.iter().position(|_| true) {
