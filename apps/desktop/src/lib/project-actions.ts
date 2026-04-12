@@ -297,7 +297,7 @@ function trackRecentProject(projectId: string): void {
 export function selectProjectItem(
   itemId: string | null,
   navigate: NavigateFn,
-  /** When set (e.g. from Recently Viewed), this specific tab is pre-seeded for restoration. */
+  /** When set (e.g. from Recently Viewed), navigate directly to this specific tab. */
   overrideTabId?: string,
 ): void {
   uiCollection.update('ui', (draft) => {
@@ -311,11 +311,9 @@ export function selectProjectItem(
     );
     if (proj) {
       trackRecentProject(proj.id);
-      // Record which tab will be active in the target context so that goBack can restore it.
-      // Priority: explicit override (e.g. Recently Viewed) > already in this context (current tab)
-      //           > last saved tab for this context > first tab in context.
+      // Resolve the destination tab and record it in navHistory.
       const contextTabs = getTabCollection().toArray.filter((t) => t.projectItemId === itemId);
-      const tabToRecord =
+      const destTabId =
         overrideTabId ??
         (ui.activeContextId === itemId
           ? ui.activeTabId
@@ -326,18 +324,19 @@ export function selectProjectItem(
         contextId: itemId,
         label: deriveContextLabel(itemId, proj),
         projectName: proj.name,
-        tabId: tabToRecord || undefined,
+        tabId: destTabId || undefined,
         timestamp: Date.now(),
       });
-    }
-    // Pre-seed the tab so setActiveContext restores the right one after the route transition.
-    if (overrideTabId) {
-      const tab = getTabCollection().toArray.find((t) => t.id === overrideTabId);
-      if (tab) {
+      if (destTabId) {
+        // Pre-seed so activateTabFromRoute picks the right tab on arrival.
         uiCollection.update('ui', (draft) => {
-          draft.contextActiveTabIds[itemId] = overrideTabId;
-          if (draft.activeContextId === itemId) draft.activeTabId = overrideTabId;
+          draft.contextActiveTabIds[itemId] = destTabId;
         });
+        navigate({
+          to: '/projects/$projectId/tabs/$tabId',
+          params: { projectId: itemId, tabId: destTabId },
+        });
+        return;
       }
     }
     navigate({ to: '/projects/$projectId', params: { projectId: itemId } });
@@ -446,21 +445,18 @@ function navigateToEntry(entry: NavEntry, navigate: NavigateFn): void {
     navigate({ to: '/settings', search: { section: 'appearance' } });
   } else if (entry.contextId) {
     setSelectedItem(entry.contextId);
-    if (entry.tabId) {
-      const tab = getTabCollection().toArray.find((t) => t.id === entry.tabId);
-      if (tab) {
-        uiCollection.update('ui', (draft) => {
-          // Pre-seed contextActiveTabIds so setActiveContext restores the right tab
-          // if it runs after the route transition; also set directly if we're already
-          // in this context (same route, no re-mount).
-          draft.contextActiveTabIds[entry.contextId!] = entry.tabId!;
-          if (draft.activeContextId === entry.contextId) {
-            draft.activeTabId = entry.tabId!;
-          }
-        });
-      }
+    if (entry.tabId && getTabCollection().toArray.find((t) => t.id === entry.tabId)) {
+      // Pre-seed so activateTabFromRoute picks the right tab on arrival.
+      uiCollection.update('ui', (draft) => {
+        draft.contextActiveTabIds[entry.contextId!] = entry.tabId!;
+      });
+      navigate({
+        to: '/projects/$projectId/tabs/$tabId',
+        params: { projectId: entry.contextId, tabId: entry.tabId },
+      });
+    } else {
+      navigate({ to: '/projects/$projectId', params: { projectId: entry.contextId } });
     }
-    navigate({ to: '/projects/$projectId', params: { projectId: entry.contextId } });
   }
 }
 

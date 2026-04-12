@@ -84,10 +84,21 @@ function RootLayout() {
   useEffect(() => {
     if (booted.current) return;
     booted.current = true;
-    const { activeContextId } = getUiState();
+    const { activeContextId, activeTabId } = getUiState();
     const projects = getProjectCollection().toArray;
     if (activeContextId && projects.some((p) => activeContextId.startsWith(p.id))) {
-      void navigate({ to: '/projects/$projectId', params: { projectId: activeContextId } });
+      const tabs = getTabCollection().toArray;
+      const activeTab = activeTabId
+        ? tabs.find((t) => t.id === activeTabId && t.projectItemId === activeContextId)
+        : null;
+      if (activeTab) {
+        void navigate({
+          to: '/projects/$projectId/tabs/$tabId',
+          params: { projectId: activeContextId, tabId: activeTab.id },
+        });
+      } else {
+        void navigate({ to: '/projects/$projectId', params: { projectId: activeContextId } });
+      }
     }
     for (const ws of projects) {
       void refreshRepo(ws.id);

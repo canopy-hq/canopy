@@ -6,12 +6,7 @@ export * from './types';
 
 export { getGroupCollection } from './collections/groups';
 export { getProjectCollection } from './collections/projects';
-export {
-  getTabCollection,
-  insertTabAndActivate,
-  insertTabSilently,
-  deleteTabAndUpdateActive,
-} from './collections/tabs';
+export { getTabCollection, insertTab, insertTabSilently, deleteTab } from './collections/tabs';
 export { getSessionCollection } from './collections/sessions';
 export { getSettingCollection, getSetting, setSetting } from './collections/settings';
 export { agentCollection } from './collections/agents';

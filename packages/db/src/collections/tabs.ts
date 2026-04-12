@@ -1,9 +1,8 @@
-import { createCollection, createTransaction, localOnlyCollectionOptions } from '@tanstack/db';
+import { createCollection, localOnlyCollectionOptions } from '@tanstack/db';
 import { asc, eq } from 'drizzle-orm';
 
 import { getDb } from '../client';
 import { tabs as table } from '../schema';
-import { uiCollection, syncNavStateToLocalStorage } from './ui';
 
 import type { Tab, PaneNode } from '../types';
 
@@ -75,61 +74,17 @@ export async function hydrateTabCollection(): Promise<void> {
   );
 }
 
-function commitTabAndUi(dbFn: () => Promise<unknown>, mutateFn: () => void): void {
-  const tabCol = getTabCollection();
-  const tx = createTransaction({
-    mutationFn: async ({ transaction }) => {
-      await dbFn();
-      tabCol.utils.acceptMutations(transaction);
-      uiCollection.utils.acceptMutations(transaction);
-    },
-  });
-  tx.mutate(mutateFn);
-  tx.commit().catch(() => undefined);
+/** Insert a tab. Navigation and store activation are handled by the caller. */
+export function insertTab(tab: Tab): void {
+  getTabCollection().insert(tab);
 }
 
-export function insertTabAndActivate(tab: Tab): void {
-  // Snapshot includes existing tabs + the new one (collection insert is async)
-  syncNavStateToLocalStorage(tab.id, tab.projectItemId, [...getTabCollection().toArray, tab]);
-  commitTabAndUi(
-    () => getDb().insert(table).values(serialize(tab)),
-    () => {
-      getTabCollection().insert(tab);
-      uiCollection.update('ui', (draft) => {
-        draft.activeTabId = tab.id;
-      });
-    },
-  );
-}
-
-/** Insert a tab into the DB without switching to it. Used when the user is on a different context. */
+/** Insert a tab without switching to it. Used when the user is on a different context. */
 export function insertTabSilently(tab: Tab): void {
-  commitTabAndUi(
-    () => getDb().insert(table).values(serialize(tab)),
-    () => {
-      getTabCollection().insert(tab);
-    },
-  );
+  getTabCollection().insert(tab);
 }
 
-export function deleteTabAndUpdateActive(tabId: string, newActiveTabId: string | null): void {
-  if (newActiveTabId !== null) {
-    const ctx = uiCollection.toArray[0]?.activeContextId ?? '';
-    syncNavStateToLocalStorage(
-      newActiveTabId,
-      ctx,
-      getTabCollection().toArray.filter((t) => t.id !== tabId),
-    );
-  }
-  commitTabAndUi(
-    () => getDb().delete(table).where(eq(table.id, tabId)),
-    () => {
-      getTabCollection().delete(tabId);
-      if (newActiveTabId !== null) {
-        uiCollection.update('ui', (draft) => {
-          draft.activeTabId = newActiveTabId;
-        });
-      }
-    },
-  );
+/** Delete a tab. Navigation to the next active tab is handled by the caller. */
+export function deleteTab(tabId: string): void {
+  getTabCollection().delete(tabId);
 }

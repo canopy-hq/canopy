@@ -6,9 +6,9 @@ import {
   getSetting,
   setSetting,
   getSettingCollection,
-  insertTabAndActivate,
+  insertTab,
   insertTabSilently,
-  deleteTabAndUpdateActive,
+  deleteTab,
   syncNavStateToLocalStorage,
 } from '@canopy/db';
 import {
@@ -20,6 +20,7 @@ import {
   writeToPty,
 } from '@canopy/terminal';
 
+import { router } from '../router';
 import { pushNav } from './nav-history';
 import {
   collectAllLeafPaneIds,
@@ -99,13 +100,60 @@ export function renameTab(id: string, label: string, manual: boolean): void {
   });
 }
 
+// Prevents spawning shells for every intermediate project during rapid switching —
+// only the final destination gets a pool init, avoiding N×(shell startup CPU) spikes.
+const POOL_INIT_DEBOUNCE_MS = 300;
+let _poolInitTimer: ReturnType<typeof setTimeout> | null = null;
+
+function schedulePoolInit(contextId: string): void {
+  const ui = getUiState();
+  const cwd = resolveProjectItemCwd(contextId);
+  const isInvalid = ui.invalidProjectIds.some(
+    (id) => contextId === id || contextId.startsWith(`${id}-`),
+  );
+  if (cwd && !isInvalid) {
+    if (_poolInitTimer !== null) clearTimeout(_poolInitTimer);
+    _poolInitTimer = setTimeout(() => {
+      _poolInitTimer = null;
+      void initTerminalPool(cwd);
+    }, POOL_INIT_DEBOUNCE_MS);
+  }
+}
+
+/**
+ * Sync the store from the active route's URL params.
+ * Called by the tab child route's useEffect — this is the ONLY place that writes
+ * activeTabId / activeContextId to the store.
+ */
+export function activateTabFromRoute(contextId: string, tabId: string): void {
+  const ui = getUiState();
+  schedulePoolInit(contextId);
+  syncNavStateToLocalStorage(tabId, contextId);
+  uiCollection.update('ui', (draft) => {
+    // Save outgoing context's active tab before switching
+    if (ui.activeContextId && ui.activeContextId !== contextId) {
+      draft.contextActiveTabIds[ui.activeContextId] = ui.activeTabId;
+    }
+    draft.contextActiveTabIds[contextId] = tabId;
+    draft.activeContextId = contextId;
+    draft.activeTabId = tabId;
+    draft.selectedItemId = contextId;
+  });
+}
+
 export function addTab(projectItemId?: string): void {
   const ui = getUiState();
   const itemId = projectItemId ?? ui.activeContextId;
   if (!itemId) return;
   const tab = makeTab({ projectItemId: itemId });
   storePaneCwd(tab.paneRoot.id, itemId);
-  insertTabAndActivate(tab);
+  insertTab(tab);
+  syncNavStateToLocalStorage(tab.id, itemId, [...getTabCollection().toArray, tab]);
+  void router.navigate({
+    to: '/projects/$projectId/tabs/$tabId',
+    params: { projectId: itemId, tabId: tab.id },
+    replace: true,
+  });
   pushTabNav(tab);
 }
 
@@ -139,7 +187,13 @@ export function addClaudeCodeTab(
   if (options?.prompt) setSetting(`init-has-prompt:${tab.paneRoot.id}`, 'true');
   // Only switch to the new tab if the user is currently on this worktree.
   if (getUiState().activeContextId === itemId) {
-    insertTabAndActivate(tab);
+    insertTab(tab);
+    syncNavStateToLocalStorage(tab.id, itemId, [...getTabCollection().toArray, tab]);
+    void router.navigate({
+      to: '/projects/$projectId/tabs/$tabId',
+      params: { projectId: itemId, tabId: tab.id },
+      replace: true,
+    });
     pushTabNav(tab);
   } else {
     insertTabSilently(tab);
@@ -178,10 +232,16 @@ export function closeTab(tabId: string): void {
   const ui = getUiState();
 
   if (contextTabs.length === 1) {
-    deleteTabAndUpdateActive(tabId, '');
+    deleteTab(tabId);
     uiCollection.update('ui', (draft) => {
       const { [contextId]: _, ...rest } = draft.contextActiveTabIds;
       draft.contextActiveTabIds = rest;
+    });
+    syncNavStateToLocalStorage('', contextId, []);
+    void router.navigate({
+      to: '/projects/$projectId',
+      params: { projectId: contextId },
+      replace: true,
     });
     return;
   }
@@ -190,12 +250,17 @@ export function closeTab(tabId: string): void {
   const closedIndex = sorted.findIndex((t) => t.id === tabId);
   const remaining = sorted.filter((t) => t.id !== tabId);
 
+  deleteTab(tabId);
+
   if (ui.activeTabId === tabId) {
     // Prefer the tab to the left; fall back to the right if closing the first.
-    const newTab = remaining[Math.max(0, closedIndex - 1)] ?? null;
-    deleteTabAndUpdateActive(tabId, newTab?.id ?? '');
-  } else {
-    deleteTabAndUpdateActive(tabId, null);
+    const newTab = remaining[Math.max(0, closedIndex - 1)]!;
+    syncNavStateToLocalStorage(newTab.id, contextId, remaining);
+    void router.navigate({
+      to: '/projects/$projectId/tabs/$tabId',
+      params: { projectId: contextId, tabId: newTab.id },
+      replace: true,
+    });
   }
 }
 
@@ -220,13 +285,14 @@ function pushTabNav(tab: { id: string; label: string; projectItemId: string }): 
 
 export function switchTab(tabId: string): void {
   const tab = getTabCollection().toArray.find((t) => t.id === tabId);
-  if (tab) {
-    syncNavStateToLocalStorage(tabId, getUiState().activeContextId);
-    uiCollection.update('ui', (draft) => {
-      draft.activeTabId = tabId;
-    });
-    pushTabNav(tab);
-  }
+  if (!tab) return;
+  syncNavStateToLocalStorage(tabId, getUiState().activeContextId);
+  void router.navigate({
+    to: '/projects/$projectId/tabs/$tabId',
+    params: { projectId: tab.projectItemId, tabId },
+    replace: true,
+  });
+  pushTabNav(tab);
 }
 
 export function switchTabByIndex(index: number): void {
@@ -237,8 +303,10 @@ export function switchTabByIndex(index: number): void {
   if (index >= 0 && index < contextTabs.length) {
     const tab = contextTabs[index]!;
     syncNavStateToLocalStorage(tab.id, ui.activeContextId);
-    uiCollection.update('ui', (draft) => {
-      draft.activeTabId = tab.id;
+    void router.navigate({
+      to: '/projects/$projectId/tabs/$tabId',
+      params: { projectId: ui.activeContextId, tabId: tab.id },
+      replace: true,
     });
     pushTabNav(tab);
   }
@@ -257,63 +325,12 @@ export function switchTabRelative(direction: 'prev' | 'next'): void {
       : (idx - 1 + contextTabs.length) % contextTabs.length;
   const tab = contextTabs[newIdx]!;
   syncNavStateToLocalStorage(tab.id, ui.activeContextId);
-  uiCollection.update('ui', (draft) => {
-    draft.activeTabId = tab.id;
+  void router.navigate({
+    to: '/projects/$projectId/tabs/$tabId',
+    params: { projectId: ui.activeContextId, tabId: tab.id },
+    replace: true,
   });
   pushTabNav(tab);
-}
-
-// Prevents spawning shells for every intermediate project during rapid switching —
-// only the final destination gets a pool init, avoiding N×(shell startup CPU) spikes.
-const POOL_INIT_DEBOUNCE_MS = 300;
-let _poolInitTimer: ReturnType<typeof setTimeout> | null = null;
-
-export function setActiveContext(contextId: string): void {
-  const ui = getUiState();
-  // Re-init the terminal pool for the new context's cwd so claimed
-  // shells are already at the correct working directory (no cd flicker).
-  // Skip invalid (deleted) project paths to avoid crash-loop logs.
-  const newCwd = resolveProjectItemCwd(contextId);
-  const isInvalid = ui.invalidProjectIds.some(
-    (id) => contextId === id || contextId.startsWith(`${id}-`),
-  );
-  if (newCwd && !isInvalid) {
-    if (_poolInitTimer !== null) clearTimeout(_poolInitTimer);
-    _poolInitTimer = setTimeout(() => {
-      _poolInitTimer = null;
-      void initTerminalPool(newCwd);
-    }, POOL_INIT_DEBOUNCE_MS);
-  }
-
-  const col = getTabCollection();
-
-  const updatedContextActiveTabIds = {
-    ...ui.contextActiveTabIds,
-    [ui.activeContextId]: ui.activeTabId,
-  };
-
-  const contextTabs = col.toArray.filter((t) => t.projectItemId === contextId);
-
-  if (contextTabs.length > 0) {
-    const savedTabId = updatedContextActiveTabIds[contextId];
-    const savedTab = savedTabId ? contextTabs.find((t) => t.id === savedTabId) : null;
-    const newActiveTabId = savedTab ? savedTab.id : contextTabs[0]!.id;
-    syncNavStateToLocalStorage(newActiveTabId, contextId);
-    uiCollection.update('ui', (draft) => {
-      draft.contextActiveTabIds = updatedContextActiveTabIds;
-      draft.activeContextId = contextId;
-      draft.activeTabId = newActiveTabId;
-      draft.selectedItemId = contextId;
-    });
-  } else {
-    syncNavStateToLocalStorage('', contextId);
-    uiCollection.update('ui', (draft) => {
-      draft.contextActiveTabIds = updatedContextActiveTabIds;
-      draft.activeContextId = contextId;
-      draft.activeTabId = '';
-      draft.selectedItemId = contextId;
-    });
-  }
 }
 
 export function getActiveTab(): Tab | undefined {
@@ -395,13 +412,9 @@ export function killPaneInTab(tabId: string, paneId: PaneId): void {
 /**
  * Navigate to a specific project → tab → pane from anywhere in the app.
  *
- * - Same context: switchTab direct — no route change, no re-render.
- * - Cross context: pre-populates contextActiveTabIds before navigating so that
- *   setActiveContext (triggered by the route's useEffect) picks the right tab.
+ * - Same context: navigate to tab URL directly — router replace, no re-mount.
+ * - Cross context: navigate to tab URL; activateTabFromRoute handles store sync.
  * - Pane: focusedPaneId is set directly on the tab, independent of active context.
- *
- * Always calls navigate() to handle the case where the user is on a different
- * route (e.g. /settings) even when the project context is already correct.
  */
 export function jumpToPane(
   navigate: (opts: { to: string; params?: Record<string, string> }) => void,
@@ -409,8 +422,6 @@ export function jumpToPane(
   tabId?: string,
   paneId?: string,
 ): void {
-  const ui = getUiState();
-
   if (tabId && paneId) {
     getTabCollection().update(tabId, (draft) => {
       draft.focusedPaneId = paneId;
@@ -419,15 +430,15 @@ export function jumpToPane(
 
   uiCollection.update('ui', (draft) => {
     draft.selectedItemId = projectItemId;
-    if (ui.activeContextId !== projectItemId && tabId) {
-      draft.contextActiveTabIds[projectItemId] = tabId;
-    }
   });
 
-  navigate({ to: '/projects/$projectId', params: { projectId: projectItemId } });
-
-  if (ui.activeContextId === projectItemId && tabId) {
-    switchTab(tabId);
+  if (tabId) {
+    navigate({
+      to: '/projects/$projectId/tabs/$tabId',
+      params: { projectId: projectItemId, tabId },
+    });
+  } else {
+    navigate({ to: '/projects/$projectId', params: { projectId: projectItemId } });
   }
 }
 

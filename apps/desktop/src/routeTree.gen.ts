@@ -13,6 +13,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ProjectRouteImport } from './routes/_project'
 import { Route as ProjectIndexRouteImport } from './routes/_project/index'
 import { Route as ProjectProjectsProjectIdRouteImport } from './routes/_project/projects.$projectId'
+import { Route as ProjectProjectsProjectIdTabsTabIdRouteImport } from './routes/_project/projects.$projectId.tabs.$tabId'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -34,35 +35,53 @@ const ProjectProjectsProjectIdRoute =
     path: '/projects/$projectId',
     getParentRoute: () => ProjectRoute,
   } as any)
+const ProjectProjectsProjectIdTabsTabIdRoute =
+  ProjectProjectsProjectIdTabsTabIdRouteImport.update({
+    id: '/tabs/$tabId',
+    path: '/tabs/$tabId',
+    getParentRoute: () => ProjectProjectsProjectIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ProjectIndexRoute
   '/settings': typeof SettingsRoute
-  '/projects/$projectId': typeof ProjectProjectsProjectIdRoute
+  '/projects/$projectId': typeof ProjectProjectsProjectIdRouteWithChildren
+  '/projects/$projectId/tabs/$tabId': typeof ProjectProjectsProjectIdTabsTabIdRoute
 }
 export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/': typeof ProjectIndexRoute
-  '/projects/$projectId': typeof ProjectProjectsProjectIdRoute
+  '/projects/$projectId': typeof ProjectProjectsProjectIdRouteWithChildren
+  '/projects/$projectId/tabs/$tabId': typeof ProjectProjectsProjectIdTabsTabIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_project': typeof ProjectRouteWithChildren
   '/settings': typeof SettingsRoute
   '/_project/': typeof ProjectIndexRoute
-  '/_project/projects/$projectId': typeof ProjectProjectsProjectIdRoute
+  '/_project/projects/$projectId': typeof ProjectProjectsProjectIdRouteWithChildren
+  '/_project/projects/$projectId/tabs/$tabId': typeof ProjectProjectsProjectIdTabsTabIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/settings' | '/projects/$projectId'
+  fullPaths:
+    | '/'
+    | '/settings'
+    | '/projects/$projectId'
+    | '/projects/$projectId/tabs/$tabId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/settings' | '/' | '/projects/$projectId'
+  to:
+    | '/settings'
+    | '/'
+    | '/projects/$projectId'
+    | '/projects/$projectId/tabs/$tabId'
   id:
     | '__root__'
     | '/_project'
     | '/settings'
     | '/_project/'
     | '/_project/projects/$projectId'
+    | '/_project/projects/$projectId/tabs/$tabId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -100,17 +119,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectProjectsProjectIdRouteImport
       parentRoute: typeof ProjectRoute
     }
+    '/_project/projects/$projectId/tabs/$tabId': {
+      id: '/_project/projects/$projectId/tabs/$tabId'
+      path: '/tabs/$tabId'
+      fullPath: '/projects/$projectId/tabs/$tabId'
+      preLoaderRoute: typeof ProjectProjectsProjectIdTabsTabIdRouteImport
+      parentRoute: typeof ProjectProjectsProjectIdRoute
+    }
   }
 }
 
+interface ProjectProjectsProjectIdRouteChildren {
+  ProjectProjectsProjectIdTabsTabIdRoute: typeof ProjectProjectsProjectIdTabsTabIdRoute
+}
+
+const ProjectProjectsProjectIdRouteChildren: ProjectProjectsProjectIdRouteChildren =
+  {
+    ProjectProjectsProjectIdTabsTabIdRoute:
+      ProjectProjectsProjectIdTabsTabIdRoute,
+  }
+
+const ProjectProjectsProjectIdRouteWithChildren =
+  ProjectProjectsProjectIdRoute._addFileChildren(
+    ProjectProjectsProjectIdRouteChildren,
+  )
+
 interface ProjectRouteChildren {
   ProjectIndexRoute: typeof ProjectIndexRoute
-  ProjectProjectsProjectIdRoute: typeof ProjectProjectsProjectIdRoute
+  ProjectProjectsProjectIdRoute: typeof ProjectProjectsProjectIdRouteWithChildren
 }
 
 const ProjectRouteChildren: ProjectRouteChildren = {
   ProjectIndexRoute: ProjectIndexRoute,
-  ProjectProjectsProjectIdRoute: ProjectProjectsProjectIdRoute,
+  ProjectProjectsProjectIdRoute: ProjectProjectsProjectIdRouteWithChildren,
 }
 
 const ProjectRouteWithChildren =

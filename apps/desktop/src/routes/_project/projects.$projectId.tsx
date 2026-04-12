@@ -1,12 +1,11 @@
 import { useEffect } from 'react';
 
 import { ActionRow, Button, Spinner } from '@canopy/ui';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { PanelLeft, SquareTerminal, X } from 'lucide-react';
 
 import { ClaudeCodeIcon } from '../../components/ClaudeCodeIcon';
 import { ClaudeCodeSetupDialog } from '../../components/ClaudeCodeSetupDialog';
-import { PaneContainer } from '../../components/PaneContainer';
 import { TabBar } from '../../components/TabBar';
 import { useUiState, useTabs } from '../../hooks/useCollections';
 import {
@@ -15,7 +14,8 @@ import {
   setPendingClaudeSession,
   cancelPendingClaudeSession,
 } from '../../lib/project-actions';
-import { setActiveContext, addTab, addClaudeCodeTab } from '../../lib/tab-actions';
+import { addTab, addClaudeCodeTab } from '../../lib/tab-actions';
+import { router } from '../../router';
 
 function CreatingWorktree({
   pendingSession,
@@ -63,22 +63,29 @@ function ProjectRoute() {
   const { projectId } = Route.useParams();
   const ui = useUiState();
   const allTabs = useTabs();
-  const activeTab = allTabs.find((t) => t.id === ui.activeTabId);
-  // Sync store state when navigating to a project URL directly (routing is source of truth)
-  useEffect(() => {
-    if (ui.activeContextId !== projectId) {
-      setActiveContext(projectId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
 
+  const contextTabs = allTabs.filter((t) => t.projectItemId === projectId);
   const isCreating = ui.creatingWorktreeIds.includes(projectId);
   const showSetupDialog = ui.justStartedWorktreeId === projectId;
   const worktreeName = projectId.includes('-wt-') ? (projectId.split('-wt-').pop() ?? '') : '';
-
-  // Pending session relevant to this worktree (shown on loading screen)
   const pendingSession =
     ui.pendingClaudeSession?.worktreeId === projectId ? ui.pendingClaudeSession : null;
+
+  // Safety net: if we land on the parent URL but tabs exist, redirect to the saved tab.
+  // This covers edge cases (crash recovery, stale boot state).
+  // Normal navigation always goes directly to /projects/$projectId/tabs/$tabId.
+  useEffect(() => {
+    if (contextTabs.length === 0) return;
+    const savedTabId = ui.contextActiveTabIds[projectId];
+    const savedTab = savedTabId ? contextTabs.find((t) => t.id === savedTabId) : undefined;
+    const tab = savedTab ?? contextTabs[0]!;
+    void router.navigate({
+      to: '/projects/$projectId/tabs/$tabId',
+      params: { projectId, tabId: tab.id },
+      replace: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   return (
     <>
@@ -86,12 +93,10 @@ function ProjectRoute() {
       <div className="relative min-h-0 flex-1">
         {isCreating ? (
           <CreatingWorktree pendingSession={pendingSession} />
-        ) : activeTab ? (
-          <div key={activeTab.id} className="absolute inset-0">
-            <PaneContainer root={activeTab.paneRoot} />
-          </div>
-        ) : (
+        ) : contextTabs.length === 0 ? (
           <EmptyState projectId={projectId} />
+        ) : (
+          <Outlet />
         )}
         {showSetupDialog && (
           <ClaudeCodeSetupDialog
