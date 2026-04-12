@@ -9,7 +9,7 @@ import { useProjects, useUiState } from '../hooks/useCollections';
 import {
   goBack,
   goForward,
-  pushNav,
+  navigateToSettings,
   selectProjectItem,
   toggleSidebar,
 } from '../lib/project-actions';
@@ -63,8 +63,7 @@ export function Header({
       if (!entry) return;
       onRecentlyViewedChange?.(false);
       if (entry.type === 'settings') {
-        pushNav({ type: 'settings', label: 'Settings', timestamp: Date.now() });
-        void navigate({ to: '/settings', search: { section: 'appearance' } });
+        void navigateToSettings('appearance', navigate);
       } else if (entry.contextId) {
         selectProjectItem(entry.contextId, navigate);
       }

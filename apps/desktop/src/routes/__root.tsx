@@ -42,7 +42,7 @@ import {
   openAddProjectDialog,
   goBack,
   goForward,
-  pushNav,
+  navigateToSettings,
 } from '../lib/project-actions';
 import { onOpenProjectPalette } from '../lib/project-palette-bridge';
 import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
@@ -224,8 +224,7 @@ function RootLayout() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useTauriMenuEvent('menu:settings', () => {
-    pushNav({ type: 'settings', label: 'Settings', timestamp: Date.now() });
-    void navigate({ to: '/settings', search: { section: 'appearance' } });
+    void navigateToSettings('appearance', navigate);
   });
   useTauriMenuEvent('menu:fps-overlay', () => setFpsVisible((prev) => !prev), import.meta.env.DEV);
 

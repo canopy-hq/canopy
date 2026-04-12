@@ -8,7 +8,7 @@ vi.mock('../../lib/project-actions', () => ({
   toggleSidebar: vi.fn(),
   goBack: vi.fn(),
   goForward: vi.fn(),
-  pushNav: vi.fn(),
+  navigateToSettings: vi.fn(),
   selectProjectItem: vi.fn(),
 }));
 vi.mock('../../hooks/useCollections', () => ({
