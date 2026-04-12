@@ -193,12 +193,14 @@ export function Header({
                     }
                   } else {
                     primaryLabel = entry.projectName ?? entry.label;
-                    if (entry.tabId) {
-                      const contextName =
-                        entry.contextId && entry.projectId
-                          ? deriveContextLabel(entry.contextId, { id: entry.projectId, name: '' })
-                          : '';
-                      secondaryLabel = [contextName, entry.label].filter(Boolean).join(' · ');
+                    if (entry.contextId && entry.projectId) {
+                      const contextName = deriveContextLabel(entry.contextId, {
+                        id: entry.projectId,
+                        name: '',
+                      });
+                      if (contextName && contextName !== primaryLabel) {
+                        secondaryLabel = contextName;
+                      }
                     } else if (entry.label !== (entry.projectName ?? '')) {
                       secondaryLabel = entry.label;
                     }
