@@ -191,7 +191,12 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                     .as_array()
                     .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
                     .unwrap_or_default();
-                let result = do_spawn(state.clone(), pane_id, cwd, rows, cols, command, args);
+                let env_vars = cmd["envVars"].as_object().map(|obj| {
+                    obj.iter()
+                        .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                        .collect::<std::collections::HashMap<_, _>>()
+                });
+                let result = do_spawn(state.clone(), pane_id, cwd, rows, cols, command, args, env_vars);
                 let resp = match result {
                     Ok((pid, is_new)) => format!("{{\"ok\":true,\"pid\":{pid},\"new\":{is_new}}}\n"),
                     Err(e) => format!("{{\"ok\":false,\"error\":{}}}\n", serde_json::json!(e)),
@@ -322,6 +327,11 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 let rows = cmd["rows"].as_u64().unwrap_or(24) as u16;
                 let cols = cmd["cols"].as_u64().unwrap_or(80) as u16;
                 let requested_cwd = cmd["cwd"].as_str().map(|s| s.to_string());
+                let env_vars = cmd["envVars"].as_object().map(|obj| {
+                    obj.iter()
+                        .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                        .collect::<std::collections::HashMap<String, String>>()
+                });
                 let claimed = {
                     let mut st = state.lock().unwrap();
                     // If a session already exists for this paneId, don't
@@ -395,7 +405,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                                 let state_for_spawn = state_bg.clone();
                                 let pane_for_spawn = pool_pane_id.clone();
                                 let result = tokio::task::spawn_blocking(move || {
-                                    do_spawn(state_for_spawn, pane_for_spawn, Some(cwd), 24, 80, None, vec![])
+                                    do_spawn(state_for_spawn, pane_for_spawn, Some(cwd), 24, 80, None, vec![], None)
                                 })
                                 .await
                                 .unwrap_or(Err("spawn_blocking panicked".to_string()));
@@ -426,6 +436,24 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                                     }
                                 }
                             });
+                        }
+                        // Inject env vars by writing `export` to the PTY stdin.
+                        // This executes in the shell before any frontend-initiated writes
+                        // (the response hasn't been sent yet, so the frontend hasn't
+                        // written the initialCommand).
+                        if let Some(ref vars) = env_vars {
+                            if !vars.is_empty() {
+                                let exports: Vec<String> = vars
+                                    .iter()
+                                    .map(|(k, v)| format!("{k}={v}"))
+                                    .collect();
+                                let cmd_str = format!("export {}\r", exports.join(" "));
+                                let mut st = state.lock().unwrap();
+                                if let Some(sess) = st.sessions.get_mut(&pane_id) {
+                                    let _ = sess.writer.write_all(cmd_str.as_bytes());
+                                    let _ = sess.writer.flush();
+                                }
+                            }
                         }
                         format!("{{\"ok\":true,\"pid\":{pid}}}\n")
                     }
@@ -521,7 +549,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                         let cwd_for_spawn = cwd.clone();
                         let pane_for_spawn = pool_pane_id.clone();
                         let result = tokio::task::spawn_blocking(move || {
-                            do_spawn(state_for_spawn, pane_for_spawn, Some(cwd_for_spawn), 24, 80, None, vec![])
+                            do_spawn(state_for_spawn, pane_for_spawn, Some(cwd_for_spawn), 24, 80, None, vec![], None)
                         })
                         .await
                         .unwrap_or(Err("spawn_blocking panicked".to_string()));
@@ -570,6 +598,7 @@ fn do_spawn(
     cols: u16,
     command: Option<String>,
     args: Vec<String>,
+    env_vars: Option<std::collections::HashMap<String, String>>,
 ) -> Result<(u32, bool), String> {
     // Return existing session pid if it already exists (reconnect case).
     // Also resize the PTY to the requested dimensions so the subprocess sees the
@@ -606,6 +635,11 @@ fn do_spawn(
     };
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
+    if let Some(ref vars) = env_vars {
+        for (k, v) in vars {
+            cmd.env(k, v);
+        }
+    }
     if let Some(ref dir) = cwd {
         cmd.cwd(dir);
     }

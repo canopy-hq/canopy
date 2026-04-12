@@ -69,6 +69,7 @@ pub async fn spawn_terminal(
     state: tauri::State<'_, Mutex<PtyState>>,
     daemon: tauri::State<'_, DaemonClient>,
     watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
+    hook_server: tauri::State<'_, crate::hook_server::HookServerState>,
 ) -> Result<SpawnResult, String> {
     // Validate CWD exists before passing to daemon — stale paths from session
     // restore or deleted worktrees would cause silent failures.
@@ -80,6 +81,17 @@ pub async fn spawn_terminal(
         exists
     });
 
+    // Build env vars for hook system injection
+    let env_vars = if hook_server.port > 0 {
+        let mut vars = std::collections::HashMap::new();
+        vars.insert("CANOPY_PANE_ID".to_string(), pane_id.clone());
+        vars.insert("CANOPY_PORT".to_string(), hook_server.port.to_string());
+        vars.insert("CANOPY_TOKEN".to_string(), hook_server.token.clone());
+        Some(vars)
+    } else {
+        None
+    };
+
     let (pid, is_new) = {
         let r = rows.unwrap_or(24);
         let c = cols.unwrap_or(80);
@@ -87,7 +99,7 @@ pub async fn spawn_terminal(
         // 200ms timeout guards against stale daemons that don't know "claim".
         match tokio::time::timeout(
             std::time::Duration::from_millis(200),
-            daemon.claim(&pane_id, validated_cwd.as_deref(), r, c),
+            daemon.claim(&pane_id, validated_cwd.as_deref(), r, c, env_vars.as_ref()),
         ).await {
             Ok(Ok(result)) if !result.empty => {
                 eprintln!("[pool] CLAIMED pid={} for pane={pane_id}", result.pid);
@@ -97,7 +109,7 @@ pub async fn spawn_terminal(
             }
             other => {
                 eprintln!("[pool] FALLBACK to spawn for pane={pane_id} (claim result: {other:?})");
-                daemon.spawn(&pane_id, validated_cwd.as_deref(), r, c).await?
+                daemon.spawn(&pane_id, validated_cwd.as_deref(), r, c, env_vars.as_ref()).await?
             }
         }
     };

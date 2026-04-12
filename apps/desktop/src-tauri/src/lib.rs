@@ -3,6 +3,7 @@ mod agent_watcher;
 mod editor;
 mod git;
 mod github;
+mod hook_server;
 mod menu;
 mod pty;
 
@@ -100,6 +101,23 @@ pub fn run() {
             app.manage(Mutex::new(agent_watcher::AgentWatcherState::new()));
             app.manage(github::PollCancelFlag(std::sync::atomic::AtomicBool::new(false)));
             app.manage(github::HttpClient(github::build_http_client()));
+
+            // Start the hook HTTP server for agent state callbacks.
+            // Uses tauri::async_runtime to run the async function from the sync setup closure.
+            let handle = app.handle().clone();
+            match tauri::async_runtime::block_on(hook_server::start_hook_server(handle)) {
+                Ok((port, token)) => {
+                    app.manage(hook_server::HookServerState { port, token });
+                }
+                Err(e) => {
+                    eprintln!("Warning: could not start hook server: {e}");
+                    // Fallback: manage a dummy state so spawn_terminal doesn't panic
+                    app.manage(hook_server::HookServerState {
+                        port: 0,
+                        token: String::new(),
+                    });
+                }
+            }
 
             Ok(())
         })
