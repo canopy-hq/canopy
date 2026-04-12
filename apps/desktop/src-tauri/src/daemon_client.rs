@@ -226,15 +226,19 @@ impl DaemonClient {
     }
 
     /// Claim a pre-warmed PTY from the daemon pool.
-    /// Returns `ClaimResult { pid, empty }`. When `empty` is true, the pool is
-    /// exhausted and the caller should fall back to a regular `spawn`.
-    pub async fn claim(&self, pane_id: &str, rows: u16, cols: u16) -> Result<ClaimResult, String> {
-        let msg = format!(
-            "{{\"op\":\"claim\",\"paneId\":{},\"rows\":{},\"cols\":{}}}\n",
-            serde_json::json!(pane_id),
-            rows,
-            cols,
-        );
+    /// Returns `ClaimResult { pid, empty }`. When `empty` is true (pool empty or
+    /// cwd mismatch), the caller should fall back to a regular `spawn`.
+    pub async fn claim(&self, pane_id: &str, cwd: Option<&str>, rows: u16, cols: u16) -> Result<ClaimResult, String> {
+        let mut obj = serde_json::json!({
+            "op": "claim",
+            "paneId": pane_id,
+            "rows": rows,
+            "cols": cols,
+        });
+        if let Some(cwd) = cwd {
+            obj["cwd"] = serde_json::json!(cwd);
+        }
+        let msg = format!("{obj}\n");
         let resp = Self::check_ok(self.send_cmd(&msg).await?, "claim failed")?;
         Ok(ClaimResult {
             pid: resp["pid"].as_u64().unwrap_or(0) as u32,

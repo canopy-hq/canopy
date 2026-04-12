@@ -321,6 +321,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
             "claim" => {
                 let rows = cmd["rows"].as_u64().unwrap_or(24) as u16;
                 let cols = cmd["cols"].as_u64().unwrap_or(80) as u16;
+                let requested_cwd = cmd["cwd"].as_str().map(|s| s.to_string());
                 let claimed = {
                     let mut st = state.lock().unwrap();
                     // If a session already exists for this paneId, don't
@@ -329,6 +330,13 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                     // Without this guard, the pool entry replaces the
                     // existing session and the user's scrollback is lost.
                     if st.sessions.contains_key(&pane_id) {
+                        None
+                    // Reject pool claim if the pool was warmed for a different project.
+                    // A claimed shell starts in pool_cwd, not the requested cwd — the
+                    // caller must fall back to spawn to get the correct working directory.
+                    } else if requested_cwd.as_deref() != st.pool_cwd.as_deref()
+                        && requested_cwd.is_some()
+                    {
                         None
                     } else if let Some(idx) = st.pool.iter().position(|_| true) {
                         let entry = st.pool.remove(idx);

@@ -170,6 +170,9 @@ export function activateTabFromRoute(contextId: string, tabId: string): void {
 export function activateContextFromRoute(contextId: string): void {
   const ui = getUiState();
   if (ui.activeContextId === contextId) return;
+  // activateTabFromRoute (child effect) calls schedulePoolInit when tabs exist.
+  // For the no-tabs case, TabRoute never mounts, so we must warm the pool here.
+  schedulePoolInit(contextId);
   uiCollection.update('ui', (draft) => {
     draft.activeContextId = contextId;
     draft.selectedItemId = contextId;
