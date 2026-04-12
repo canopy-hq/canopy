@@ -4,6 +4,9 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { Header } from '../Header';
 
 vi.mock('@tanstack/react-router', () => ({ useNavigate: vi.fn(() => vi.fn()) }));
+vi.mock('../../router', () => ({
+  router: { navigate: vi.fn().mockResolvedValue(undefined), latestLocation: { pathname: '' } },
+}));
 vi.mock('../../lib/project-actions', () => ({
   toggleSidebar: vi.fn(),
   goBack: vi.fn(),
@@ -13,6 +16,7 @@ vi.mock('../../lib/project-actions', () => ({
 }));
 vi.mock('../../hooks/useCollections', () => ({
   useProjects: vi.fn(() => [{ id: '1' }]),
+  useTabs: vi.fn(() => []),
   useSettings: vi.fn(() => []),
   useUiState: vi.fn(() => ({ activeContextId: '', navHistory: [], navIndex: -1 })),
 }));

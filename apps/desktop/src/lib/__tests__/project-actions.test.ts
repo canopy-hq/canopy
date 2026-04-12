@@ -41,6 +41,11 @@ vi.mock('@canopy/db', () => ({
       if (proj) updater(proj);
     },
   }),
+  getGroupCollection: () => ({
+    get toArray() {
+      return [];
+    },
+  }),
   getTabCollection: () => ({
     get toArray() {
       return [];
@@ -78,7 +83,10 @@ vi.mock('../toast', () => ({ showErrorToast: vi.fn(), showInfoToast: vi.fn() }))
 
 // ── Mock terminal ────────────────────────────────────────────────────────────
 
-vi.mock('@canopy/terminal', () => ({ closePty: vi.fn(), disposeCached: vi.fn() }));
+vi.mock('@canopy/terminal', () => ({ closePty: vi.fn(), closePtysForPanes: vi.fn(), disposeCached: vi.fn() }));
+vi.mock('../../router', () => ({
+  router: { navigate: vi.fn().mockResolvedValue(undefined), latestLocation: { pathname: '' } },
+}));
 
 import * as gitApi from '../git';
 // Import AFTER mocks are set up

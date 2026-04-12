@@ -83,7 +83,9 @@ vi.mock('@canopy/db', () => ({
   syncNavStateToLocalStorage: vi.fn(),
 }));
 
-vi.mock('../../router', () => ({ router: { navigate: mockRouterNavigate } }));
+vi.mock('../../router', () => ({
+  router: { navigate: mockRouterNavigate, latestLocation: { pathname: '' } },
+}));
 
 vi.mock('@canopy/terminal', () => ({
   spawnTerminal: vi.fn().mockResolvedValue({ ptyId: 42 }),

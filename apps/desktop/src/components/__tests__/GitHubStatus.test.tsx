@@ -19,6 +19,9 @@ vi.mock('@canopy/db', () => ({
 
 const mockNavigate = vi.fn();
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => mockNavigate }));
+vi.mock('../../router', () => ({
+  router: { navigate: vi.fn().mockResolvedValue(undefined), latestLocation: { pathname: '' } },
+}));
 
 import { GitHubStatus } from '../GitHubStatus';
 

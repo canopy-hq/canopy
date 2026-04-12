@@ -28,6 +28,9 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mockNavigate,
   useSearch: () => ({}),
 }));
+vi.mock('../../router', () => ({
+  router: { navigate: vi.fn().mockResolvedValue(undefined), latestLocation: { pathname: '' } },
+}));
 
 import SettingsRoute from '../settings';
 
