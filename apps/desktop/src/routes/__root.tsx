@@ -22,7 +22,6 @@ import { AddProjectDialog } from '../components/AddProjectDialog';
 import { AgentOverlay } from '../components/AgentOverlay';
 import { AgentToastRegion } from '../components/AgentToastRegion';
 import { Header } from '../components/Header';
-import { SessionManager } from '../components/SessionManager';
 import { ErrorToastRegion } from '../components/ToastProvider';
 import { useUiState } from '../hooks/useCollections';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
@@ -339,8 +338,9 @@ function RootLayout() {
     <LucideProvider strokeWidth={1}>
       <div className="flex h-screen w-screen flex-col overflow-hidden bg-base">
         <Header
-          onSessionsClick={() => setSessionManagerOpen((prev) => !prev)}
           onSearchClick={() => setCmdMenuOpen(true)}
+          sessionsOpen={sessionManagerOpen}
+          onSessionsOpenChange={setSessionManagerOpen}
           recentlyViewedOpen={recentlyViewedOpen}
           onRecentlyViewedChange={setRecentlyViewedOpen}
         />
@@ -354,7 +354,6 @@ function RootLayout() {
           defaultPanelItem={defaultPanelItem}
         />
         <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
-        {sessionManagerOpen && <SessionManager onClose={() => setSessionManagerOpen(false)} />}
         {addProjectOpen && <AddProjectDialog onClose={() => setAddProjectOpen(false)} />}
         <AgentToastRegion />
         {import.meta.env.DEV && <FpsOverlay visible={fpsVisible} />}

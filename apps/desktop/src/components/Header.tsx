@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from 'react';
-import { Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
+import { DialogTrigger, Dialog, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
 
 import { Button, Kbd, SectionLabel, Tooltip } from '@canopy/ui';
 import { useNavigate } from '@tanstack/react-router';
@@ -25,21 +25,24 @@ import {
 import { DevBranchBadge } from './DevBranchBadge';
 import { GitHubStatus } from './GitHubStatus';
 import { OpenInEditorButton } from './OpenInEditorButton';
+import { SessionManager } from './SessionManager';
 
 import type { NavEntry } from '@canopy/db';
 
 const RECENTLY_VIEWED_MAX = 15;
 
 interface HeaderProps {
-  onSessionsClick?: () => void;
   onSearchClick?: () => void;
+  sessionsOpen?: boolean;
+  onSessionsOpenChange?: (open: boolean) => void;
   recentlyViewedOpen?: boolean;
   onRecentlyViewedChange?: (open: boolean) => void;
 }
 
 export function Header({
-  onSessionsClick,
   onSearchClick,
+  sessionsOpen,
+  onSessionsOpenChange,
   recentlyViewedOpen,
   onRecentlyViewedChange,
 }: HeaderProps = {}) {
@@ -253,11 +256,22 @@ export function Header({
 
         <div className="mx-1 h-4 w-px shrink-0 bg-edge/40" />
 
-        <Tooltip label="PTY Sessions" placement="right">
-          <Button variant="ghost" iconOnly onPress={onSessionsClick} aria-label="PTY sessions">
-            <Shell size={16} />
-          </Button>
-        </Tooltip>
+        <DialogTrigger isOpen={sessionsOpen} onOpenChange={onSessionsOpenChange}>
+          <Tooltip label="PTY Sessions" placement="right">
+            <Button variant="ghost" iconOnly aria-label="PTY sessions">
+              <Shell size={16} />
+            </Button>
+          </Tooltip>
+          <Popover
+            placement="bottom start"
+            offset={4}
+            className="w-72 overflow-hidden rounded-lg border border-edge/60 bg-raised shadow-xl outline-none"
+          >
+            <Dialog aria-label="PTY Sessions" className="outline-none">
+              {sessionsOpen && <SessionManager onClose={() => onSessionsOpenChange?.(false)} />}
+            </Dialog>
+          </Popover>
+        </DialogTrigger>
       </div>
 
       {/* Center zone — spacer to push right zone right */}
