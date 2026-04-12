@@ -8,6 +8,7 @@ import { tv } from 'tailwind-variants';
 
 import { AppearanceSection } from '../components/settings/AppearanceSection';
 import { ConnectionSection } from '../components/settings/ConnectionSection';
+import { goBack, navigateToSettings } from '../lib/project-actions';
 
 type SectionId = 'appearance' | 'git';
 
@@ -48,8 +49,10 @@ function SettingsRoute() {
   const activeSection: SectionId = section ?? 'appearance';
 
   const navigateBack = useCallback(() => {
-    const { activeContextId } = getUiState();
-    if (activeContextId) {
+    const { navIndex, activeContextId } = getUiState();
+    if (navIndex > 0) {
+      goBack(navigate);
+    } else if (activeContextId) {
       void navigate({ to: '/projects/$projectId', params: { projectId: activeContextId } });
     } else {
       void navigate({ to: '/' });
@@ -88,7 +91,7 @@ function SettingsRoute() {
                   <Button
                     key={item.id}
                     className={`${navItem({ active: activeSection === item.id })} justify-start`}
-                    onPress={() => void navigate({ to: '/settings', search: { section: item.id } })}
+                    onPress={() => navigateToSettings(item.id, navigate)}
                   >
                     <item.icon size={13} />
                     {item.label}
