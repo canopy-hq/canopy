@@ -17,13 +17,14 @@ import { resolveProject } from '../commands/utils';
 import { openAddProjectDialogViaBridge } from './add-project-bridge';
 import * as gitApi from './git';
 import { collectAllLeafPaneIds, collectLeafPtyIds } from './pane-tree-ops';
-import { addClaudeCodeTab, closeTab } from './tab-actions';
+import { closeTab } from './tab-actions';
 import { showErrorToast, showInfoToast } from './toast';
 
 type NavigateFn = (opts: {
   to: string;
   params?: Record<string, string>;
-  search?: Record<string, string>;
+  search?: Record<string, string | boolean | undefined>;
+  replace?: boolean;
   state?: Record<string, unknown>;
 }) => void;
 
@@ -603,7 +604,6 @@ export function startWorktreeCreation(
     if (!draft.creatingWorktreeIds.includes(wtItemId)) {
       draft.creatingWorktreeIds.push(wtItemId);
     }
-    draft.justStartedWorktreeId = wtItemId;
   });
 
   void (async () => {
@@ -617,7 +617,7 @@ export function startWorktreeCreation(
           entry.branch = wt.branch;
         }
       });
-      // Clear creating state before addClaudeCodeTab — that function creates a
+      // Clear creating state before navigation — that function creates a
       // TanStack DB transaction that snapshots uiCollection. If we clear here first,
       // the snapshot captures creatingWorktreeIds:[] and acceptMutations() won't
       // restore the stale "creating" state when the async commit resolves.
@@ -627,23 +627,18 @@ export function startWorktreeCreation(
 
       // Navigate only after the worktree exists on disk — navigating before
       // would race terminal spawn against worktree creation.
+      // Replace the history entry so that ⌘[ skips the bare /projects/wtId entry.
       selectProjectItem(wtItemId, navigate);
-
-      // If the user scheduled a Claude Code session for this worktree, launch it now
-      const pending = getUiState().pendingClaudeSession;
-      if (pending?.worktreeId === wtItemId) {
-        addClaudeCodeTab(wtItemId, { mode: pending.mode, prompt: pending.prompt });
-        uiCollection.update('ui', (draft) => {
-          draft.pendingClaudeSession = null;
-        });
-      }
+      navigate({
+        to: '/projects/$projectId',
+        params: { projectId: wtItemId },
+        search: { setup: true },
+        replace: true,
+      });
     } catch (err) {
       showErrorToast('Create worktree failed', String(err));
       getProjectCollection().update(projectId, (draft) => {
         draft.worktrees = draft.worktrees.filter((w) => w.name !== name);
-      });
-      uiCollection.update('ui', (draft) => {
-        draft.pendingClaudeSession = null;
       });
     } finally {
       uiCollection.update('ui', (draft) => {
@@ -651,35 +646,6 @@ export function startWorktreeCreation(
       });
     }
   })();
-}
-
-export function clearJustStartedWorktree(): void {
-  uiCollection.update('ui', (draft) => {
-    draft.justStartedWorktreeId = null;
-  });
-}
-
-export function setPendingClaudeSession(
-  worktreeId: string,
-  mode: 'bypass' | 'plan',
-  prompt?: string,
-): void {
-  // If the worktree finished creating before the user confirmed the dialog,
-  // launch Claude immediately — the async completion handler already ran and
-  // found no pending session, so we have to trigger it ourselves here.
-  if (!getUiState().creatingWorktreeIds.includes(worktreeId)) {
-    addClaudeCodeTab(worktreeId, { mode, prompt });
-    return;
-  }
-  uiCollection.update('ui', (draft) => {
-    draft.pendingClaudeSession = { worktreeId, mode, prompt };
-  });
-}
-
-export function cancelPendingClaudeSession(): void {
-  uiCollection.update('ui', (draft) => {
-    draft.pendingClaudeSession = null;
-  });
 }
 
 export async function removeWorktree(projectId: string, name: string): Promise<void> {

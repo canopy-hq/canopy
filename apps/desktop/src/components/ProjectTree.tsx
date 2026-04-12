@@ -103,7 +103,6 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
     creatingWorktreeIds,
     cloningProjectIds,
     cloneProgress,
-    pendingClaudeSession,
   } = useUiState();
   const creatingWorktreeIdSet = useMemo(() => new Set(creatingWorktreeIds), [creatingWorktreeIds]);
   const cloningProjectIdSet = useMemo(() => new Set(cloningProjectIds), [cloningProjectIds]);
@@ -203,7 +202,6 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
       onSelectItem: handleSelectItem,
       deletingWtIds,
       creatingWorktreeIds: creatingWorktreeIdSet,
-      pendingClaudeWorktreeId: pendingClaudeSession?.worktreeId ?? null,
       groups,
     }),
     [
@@ -215,7 +213,6 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
       handleSelectItem,
       deletingWtIds,
       creatingWorktreeIdSet,
-      pendingClaudeSession,
       groups,
     ],
   );

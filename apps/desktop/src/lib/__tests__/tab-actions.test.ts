@@ -18,8 +18,6 @@ let _uiState: UiState = {
   cloningProjectIds: [],
   cloneProgress: {},
   invalidProjectIds: [],
-  justStartedWorktreeId: null,
-  pendingClaudeSession: null,
   navHistory: [],
   navIndex: -1,
 };
@@ -140,8 +138,6 @@ function resetState() {
     cloningProjectIds: [],
     cloneProgress: {},
     invalidProjectIds: [],
-    justStartedWorktreeId: null,
-    pendingClaudeSession: null,
     navHistory: [],
     navIndex: -1,
   };

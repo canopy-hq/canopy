@@ -1,76 +1,45 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 
-import { ActionRow, Button, Spinner } from '@canopy/ui';
+import { ActionRow, Spinner } from '@canopy/ui';
 import { createFileRoute, Outlet, useLocation } from '@tanstack/react-router';
-import { PanelLeft, SquareTerminal, X } from 'lucide-react';
+import { PanelLeft, SquareTerminal } from 'lucide-react';
 
 import { ClaudeCodeIcon } from '../../components/ClaudeCodeIcon';
 import { ClaudeCodeSetupDialog } from '../../components/ClaudeCodeSetupDialog';
 import { TabBar } from '../../components/TabBar';
 import { useUiState, useTabs } from '../../hooks/useCollections';
-import {
-  toggleSidebar,
-  clearJustStartedWorktree,
-  setPendingClaudeSession,
-  cancelPendingClaudeSession,
-} from '../../lib/project-actions';
+import { toggleSidebar } from '../../lib/project-actions';
 import { addTab, addClaudeCodeTab, activateContextFromRoute } from '../../lib/tab-actions';
 import { router } from '../../router';
 
-function CreatingWorktree({
-  pendingSession,
-}: {
-  pendingSession: { mode: 'bypass' | 'plan'; prompt?: string } | null;
-}) {
+/**
+ * Update search params without changing the current path.
+ * TanStack Router's navigate() can't infer the search schema for search-only
+ * navigation (no `from`/`to`), so we escape the type once here.
+ */
+function updateSearch(updater: (prev: Record<string, unknown>) => Record<string, unknown>): void {
+  void router.navigate({ search: updater as never });
+}
+
+function CreatingWorktree() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 select-none">
       <Spinner size={16} className="text-fg-faint" />
       <span className="font-mono text-sm text-fg-faint">Creating worktree…</span>
-      {pendingSession && (
-        <div className="mt-1 flex w-72 flex-col gap-2">
-          <div className="flex flex-col gap-1.5 rounded-md border border-edge/30 bg-raised px-3 py-2 font-mono text-xs text-fg-muted">
-            <div className="flex items-center justify-center gap-1.5">
-              <ClaudeCodeIcon size={12} className="shrink-0 text-claude" />
-              <span>
-                Claude Code ·{' '}
-                <span className="text-fg-dim">
-                  {pendingSession.mode === 'plan' ? 'plan mode' : 'bypass permissions'}
-                </span>
-              </span>
-            </div>
-            {pendingSession.prompt && (
-              <p className="leading-relaxed break-words whitespace-pre-wrap text-fg-faint">
-                "{pendingSession.prompt}"
-              </p>
-            )}
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onPress={cancelPendingClaudeSession}
-            className="flex w-fit items-center gap-1 self-center text-xs text-fg-faint hover:text-fg-muted"
-          >
-            <X size={11} />
-            Cancel launch
-          </Button>
-        </div>
-      )}
     </div>
   );
 }
 
 function ProjectRoute() {
   const { projectId } = Route.useParams();
+  const { setup } = Route.useSearch();
   const location = useLocation();
   const ui = useUiState();
   const allTabs = useTabs();
 
   const contextTabs = allTabs.filter((t) => t.projectItemId === projectId);
   const isCreating = ui.creatingWorktreeIds.includes(projectId);
-  const showSetupDialog = ui.justStartedWorktreeId === projectId;
   const worktreeName = projectId.includes('-wt-') ? (projectId.split('-wt-').pop() ?? '') : '';
-  const pendingSession =
-    ui.pendingClaudeSession?.worktreeId === projectId ? ui.pendingClaudeSession : null;
 
   // Keep activeContextId in sync with the URL whenever projectId changes.
   // activateTabFromRoute (TabRoute) is the authoritative writer when tabs exist —
@@ -101,6 +70,10 @@ function ProjectRoute() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  const clearSetup = useCallback(() => {
+    updateSearch((prev) => ({ ...prev, setup: undefined }));
+  }, []);
+
   // Only show the tab bar once the URL has committed to a tab sub-route.
   // insertTab fires before navigateToTab, so without this guard a render frame would
   // show the tab bar (40 px) while the content area still shows EmptyState — a layout shift.
@@ -111,20 +84,19 @@ function ProjectRoute() {
       {showTabBar && <TabBar projectId={projectId} />}
       <div className="relative min-h-0 flex-1">
         {isCreating ? (
-          <CreatingWorktree pendingSession={pendingSession} />
+          <CreatingWorktree />
         ) : contextTabs.length === 0 ? (
           <EmptyState projectId={projectId} />
         ) : (
           <Outlet />
         )}
-        {showSetupDialog && (
+        {setup && (
           <ClaudeCodeSetupDialog
             worktreeName={worktreeName}
             onLaunch={(mode, prompt) => {
-              clearJustStartedWorktree();
-              setPendingClaudeSession(projectId, mode, prompt);
+              addClaudeCodeTab(projectId, { mode, prompt });
             }}
-            onSkip={clearJustStartedWorktree}
+            onSkip={clearSetup}
           />
         )}
       </div>
@@ -156,4 +128,9 @@ function EmptyState({ projectId }: { projectId: string }) {
   );
 }
 
-export const Route = createFileRoute('/_project/projects/$projectId')({ component: ProjectRoute });
+export const Route = createFileRoute('/_project/projects/$projectId')({
+  component: ProjectRoute,
+  validateSearch: (s: Record<string, unknown>): { setup?: true } => ({
+    setup: s.setup === true ? true : undefined,
+  }),
+});

@@ -47,8 +47,6 @@ export interface UiState {
   cloningProjectIds: string[];
   cloneProgress: Record<string, CloneProgress>;
   invalidProjectIds: string[];
-  justStartedWorktreeId: string | null;
-  pendingClaudeSession: { worktreeId: string; mode: 'bypass' | 'plan'; prompt?: string } | null;
   // Navigation history
   navHistory: NavEntry[];
   navIndex: number;
@@ -66,8 +64,6 @@ const INITIAL_UI_STATE: UiState = {
   cloningProjectIds: [],
   cloneProgress: {},
   invalidProjectIds: [],
-  justStartedWorktreeId: null,
-  pendingClaudeSession: null,
   navHistory: [],
   navIndex: -1,
 };

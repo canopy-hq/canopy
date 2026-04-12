@@ -178,7 +178,6 @@ export function GroupTreeItem({
   creatingWorktreeIds,
   cloningProjectIdSet,
   cloneProgressMap,
-  pendingClaudeWorktreeId,
   groups,
 }: {
   group: Group;
@@ -200,7 +199,6 @@ export function GroupTreeItem({
   creatingWorktreeIds: Set<string>;
   cloningProjectIdSet: Set<string>;
   cloneProgressMap: Record<string, CloneProgress>;
-  pendingClaudeWorktreeId: string | null;
   groups: Group[];
 }) {
   const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
@@ -288,7 +286,6 @@ export function GroupTreeItem({
                   isCloning={cloningProjectIdSet.has(ws.id)}
                   cloneProgress={cloneProgressMap[ws.id]}
                   isInvalid={ws.invalid}
-                  pendingClaudeWorktreeId={pendingClaudeWorktreeId}
                   groups={groups}
                 />
               ))}

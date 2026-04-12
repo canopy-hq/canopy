@@ -17,8 +17,6 @@ let _uiState: UiState = {
   cloningProjectIds: [],
   cloneProgress: {},
   invalidProjectIds: [],
-  justStartedWorktreeId: null,
-  pendingClaudeSession: null,
   navHistory: [],
   navIndex: -1,
 };
@@ -134,8 +132,6 @@ describe('importRepo', () => {
       cloningProjectIds: [],
       cloneProgress: {},
       invalidProjectIds: [],
-      justStartedWorktreeId: null,
-      pendingClaudeSession: null,
       navHistory: [],
       navIndex: -1,
     };
@@ -316,8 +312,6 @@ function resetNav() {
     cloningProjectIds: [],
     cloneProgress: {},
     invalidProjectIds: [],
-    justStartedWorktreeId: null,
-    pendingClaudeSession: null,
     navHistory: [],
     navIndex: -1,
   };
