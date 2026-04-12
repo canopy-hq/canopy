@@ -275,6 +275,18 @@ export function toggleExpanded(id: string): void {
   });
 }
 
+/** Ensures the project is expanded and its group (if any) is not collapsed. */
+function expandProjectAndGroup(proj: { id: string; groupId?: string | null }): void {
+  getProjectCollection().update(proj.id, (draft) => {
+    draft.expanded = true;
+  });
+  if (proj.groupId) {
+    getGroupCollection().update(proj.groupId, (draft) => {
+      draft.collapsed = false;
+    });
+  }
+}
+
 export function setProjectColor(id: string, color: string | null): void {
   getProjectCollection().update(id, (draft) => {
     draft.color = color;
@@ -308,6 +320,7 @@ export function selectProjectItem(
     const ui = getUiState();
     const proj = resolveProject(itemId, getProjectCollection().toArray);
     if (proj) {
+      expandProjectAndGroup(proj);
       trackRecentProject(proj.id);
       // Resolve the destination tab and record it in navHistory.
       const contextTabs = getTabCollection().toArray.filter((t) => t.projectItemId === itemId);
