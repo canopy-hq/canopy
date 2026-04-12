@@ -106,6 +106,7 @@ export function addTab(projectItemId?: string): void {
   const tab = makeTab({ projectItemId: itemId });
   storePaneCwd(tab.paneRoot.id, itemId);
   insertTabAndActivate(tab);
+  pushTabNav(tab);
 }
 
 export const CLAUDE_DEFAULT_MODE_KEY = 'claudeDefaultMode';
@@ -139,6 +140,7 @@ export function addClaudeCodeTab(
   // Only switch to the new tab if the user is currently on this worktree.
   if (getUiState().activeContextId === itemId) {
     insertTabAndActivate(tab);
+    pushTabNav(tab);
   } else {
     insertTabSilently(tab);
     // Spawn PTY in the background so Claude starts immediately without the user
