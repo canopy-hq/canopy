@@ -188,15 +188,16 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                   key={row.info.ptyId}
                   id={row.info.ptyId}
                   isDisabled={!row.tab}
-                  className="flex cursor-default items-center gap-1.5 rounded px-2 py-1 text-xs text-fg outline-none transition-colors data-[disabled]:opacity-40 data-[hovered]:bg-surface data-[focus-visible]:bg-surface"
+                  className="flex cursor-default items-center gap-1.5 rounded px-2 py-1 text-xs text-fg transition-colors outline-none data-[disabled]:opacity-40 data-[focus-visible]:bg-surface data-[hovered]:bg-surface"
                 >
-                  <span className="min-w-0 flex-1 truncate font-mono">
-                    {row.tab?.label ?? '—'}
-                  </span>
-                  <span className="shrink-0 font-mono text-[10px] tabular-nums text-fg-faint">
+                  <span className="min-w-0 flex-1 truncate font-mono">{row.tab?.label ?? '—'}</span>
+                  <span className="shrink-0 font-mono text-[10px] text-fg-faint tabular-nums">
                     {row.info.cpuPercent.toFixed(1)}% · {row.info.memoryMb}MB
                   </span>
-                  <div onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+                  <div
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <Button
                       variant="destructive-ghost"
                       size="sm"

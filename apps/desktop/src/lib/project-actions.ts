@@ -473,7 +473,11 @@ export function navigateToSettings(section: string, navigate: NavigateFn, silent
 
 function navigateToEntry(entry: NavEntry, navigate: NavigateFn): void {
   if (entry.type === 'settings') {
-    navigate({ to: '/settings', search: { section: entry.section ?? 'appearance' }, state: { skipNav: true } });
+    navigate({
+      to: '/settings',
+      search: { section: entry.section ?? 'appearance' },
+      state: { skipNav: true },
+    });
   } else if (entry.contextId) {
     setSelectedItem(entry.contextId);
     if (entry.tabId && getTabCollection().toArray.find((t) => t.id === entry.tabId)) {
@@ -483,7 +487,11 @@ function navigateToEntry(entry: NavEntry, navigate: NavigateFn): void {
         state: { skipNav: true },
       });
     } else {
-      navigate({ to: '/projects/$projectId', params: { projectId: entry.contextId }, state: { skipNav: true } });
+      navigate({
+        to: '/projects/$projectId',
+        params: { projectId: entry.contextId },
+        state: { skipNav: true },
+      });
     }
   }
 }

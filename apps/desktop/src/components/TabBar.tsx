@@ -457,7 +457,7 @@ export function TabBar({ projectId: propProjectId }: { projectId?: string } = {}
             >
               <MenuItem
                 id="terminal"
-                className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm text-fg-dim outline-none transition-colors data-[hovered]:bg-surface data-[focus-visible]:bg-surface"
+                className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm text-fg-dim transition-colors outline-none data-[focus-visible]:bg-surface data-[hovered]:bg-surface"
               >
                 <SquareTerminal size={12} className="shrink-0" />
                 <span className="flex-1">New terminal</span>
@@ -465,7 +465,7 @@ export function TabBar({ projectId: propProjectId }: { projectId?: string } = {}
               </MenuItem>
               <MenuItem
                 id="claude-code"
-                className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm text-fg-dim outline-none transition-colors data-[hovered]:bg-surface data-[focus-visible]:bg-surface"
+                className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm text-fg-dim transition-colors outline-none data-[focus-visible]:bg-surface data-[hovered]:bg-surface"
               >
                 <ClaudeCodeIcon size={12} className="shrink-0 text-claude" />
                 <span className="flex-1">Claude Code</span>

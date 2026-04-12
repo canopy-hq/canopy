@@ -33,6 +33,7 @@ import { initAgentListener } from '../lib/agent-actions';
 import { checkProjectPaths, listWorktrees } from '../lib/git';
 import { getConnection, GITHUB_CONNECTION_KEY } from '../lib/github';
 import { logInfo } from '../lib/log';
+import { pushNav, deriveContextLabel } from '../lib/nav-history';
 import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
 import {
   toggleSidebar,
@@ -45,11 +46,10 @@ import {
   goForward,
   navigateToSettings,
 } from '../lib/project-actions';
-import { pushNav, deriveContextLabel } from '../lib/nav-history';
 import { onOpenProjectPalette, openProjectPalette } from '../lib/project-palette-bridge';
 import { getActiveTab, setPtyIdInTab, getContextIdFromUrl } from '../lib/tab-actions';
-import { router } from '../router';
 import { showAgentToastDeduped } from '../lib/toast';
+import { router } from '../router';
 
 import type { CommandItem } from '@canopy/command-palette';
 
@@ -269,7 +269,15 @@ function RootLayout() {
       const tab = tabId ? getTabCollection().toArray.find((t) => t.id === tabId) : undefined;
       const label = tab?.label ?? deriveContextLabel(contextId, proj);
       pushNav(
-        { type: 'worktree', projectId: proj.id, contextId, tabId, label, projectName: proj.name, timestamp: Date.now() },
+        {
+          type: 'worktree',
+          projectId: proj.id,
+          contextId,
+          tabId,
+          label,
+          projectName: proj.name,
+          timestamp: Date.now(),
+        },
         contextId,
       );
     });
