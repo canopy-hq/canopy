@@ -6,6 +6,7 @@ import { useNavigate } from '@tanstack/react-router';
 import {
   ChevronLeft,
   ChevronRight,
+  GitBranch,
   History,
   PanelLeft,
   Search,
@@ -212,13 +213,10 @@ export function Header({
                       {entry.type === 'settings' ? (
                         <Settings size={10} className="mt-0.5 shrink-0 text-fg-faint" />
                       ) : (
-                        <span
-                          className="mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full"
-                          style={
-                            projectColor
-                              ? { backgroundColor: projectColor }
-                              : { visibility: 'hidden' }
-                          }
+                        <GitBranch
+                          size={10}
+                          className="mt-0.5 shrink-0 text-fg-faint"
+                          style={projectColor ? { color: projectColor } : undefined}
                         />
                       )}
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
