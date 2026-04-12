@@ -3,7 +3,15 @@ import { Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
 
 import { Button, Kbd, SectionLabel, Tooltip } from '@canopy/ui';
 import { useNavigate } from '@tanstack/react-router';
-import { ChevronLeft, ChevronRight, History, PanelLeft, Search, Shell } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  History,
+  PanelLeft,
+  Search,
+  Settings,
+  Shell,
+} from 'lucide-react';
 
 import { useProjects, useUiState } from '../hooks/useCollections';
 import { deriveContextLabel } from '../lib/nav-history';
@@ -48,7 +56,9 @@ export function Header({
     for (let i = navHistory.length - 1; i >= 0; i--) {
       const entry = navHistory[i]!;
       const key =
-        entry.type === 'settings' ? 'settings' : `${entry.contextId ?? ''}:${entry.tabId ?? ''}`;
+        entry.type === 'settings'
+          ? `settings:${entry.section ?? ''}`
+          : `${entry.contextId ?? ''}:${entry.tabId ?? ''}`;
       if (key && !seen.has(key)) {
         seen.add(key);
         result.push(entry);
@@ -199,14 +209,18 @@ export function Header({
                       id={String(i)}
                       className="flex cursor-default items-start gap-1.5 rounded px-2 py-1 outline-none data-[focused]:bg-surface"
                     >
-                      <span
-                        className="mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full"
-                        style={
-                          projectColor
-                            ? { backgroundColor: projectColor }
-                            : { visibility: 'hidden' }
-                        }
-                      />
+                      {entry.type === 'settings' ? (
+                        <Settings size={10} className="mt-0.5 shrink-0 text-fg-faint" />
+                      ) : (
+                        <span
+                          className="mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={
+                            projectColor
+                              ? { backgroundColor: projectColor }
+                              : { visibility: 'hidden' }
+                          }
+                        />
+                      )}
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="truncate text-xs text-fg">{primaryLabel}</span>
                         <span className="truncate font-mono text-[10px] text-fg-faint">
