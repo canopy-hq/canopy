@@ -113,7 +113,7 @@ export function Header({
         <Tooltip
           label={
             <>
-              Go back <Kbd>⌘←</Kbd>
+              Go back <Kbd>⌘[</Kbd>
             </>
           }
           placement="right"
@@ -131,7 +131,7 @@ export function Header({
         <Tooltip
           label={
             <>
-              Go forward <Kbd>⌘→</Kbd>
+              Go forward <Kbd>⌘]</Kbd>
             </>
           }
           placement="right"
@@ -182,12 +182,16 @@ export function Header({
                     ? (projectColorMap.get(entry.projectId) ?? null)
                     : null;
 
+                  let primaryLabel = entry.label;
                   let secondaryLabel = '';
-                  if (entry.tabId) {
-                    const contextName = contextNameFromEntry(entry);
-                    secondaryLabel = [contextName, entry.projectName].filter(Boolean).join(' · ');
-                  } else if (entry.type !== 'settings' && entry.label !== entry.projectName) {
-                    secondaryLabel = entry.projectName ?? '';
+                  if (entry.type !== 'settings') {
+                    primaryLabel = entry.projectName ?? entry.label;
+                    if (entry.tabId) {
+                      const contextName = contextNameFromEntry(entry);
+                      secondaryLabel = [contextName, entry.label].filter(Boolean).join(' · ');
+                    } else if (entry.label !== (entry.projectName ?? '')) {
+                      secondaryLabel = entry.label;
+                    }
                   }
 
                   return (
@@ -205,10 +209,8 @@ export function Header({
                         }
                       />
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span className="truncate font-mono text-xs text-fg-dim">
-                          {entry.label}
-                        </span>
-                        <span className="truncate text-[10px] text-fg-faint">
+                        <span className="truncate text-xs text-fg-dim">{primaryLabel}</span>
+                        <span className="truncate font-mono text-[10px] text-fg-faint">
                           {secondaryLabel || '\u00A0'}
                         </span>
                       </div>

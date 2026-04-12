@@ -59,13 +59,6 @@ void ensureGhosttyInit();
 void document.fonts?.load('13px "Geist Mono", Menlo, Monaco, "Courier New", monospace');
 void document.fonts?.load('bold 13px "Geist Mono", Menlo, Monaco, "Courier New", monospace');
 
-function isInputFocused(): boolean {
-  const el = document.activeElement;
-  if (!el) return false;
-  const tag = el.tagName.toLowerCase();
-  return tag === 'input' || tag === 'textarea' || el.getAttribute('contenteditable') === 'true';
-}
-
 function RootLayout() {
   const [cmdMenuOpen, setCmdMenuOpen] = useState(false);
   const [defaultPanelItem, setDefaultPanelItem] = useState<CommandItem | null>(null);
@@ -317,19 +310,9 @@ function RootLayout() {
       { key: 'o', meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
       // ⌘⇧H: recently viewed dropdown
       { key: 'h', meta: true, shift: true, action: () => setRecentlyViewedOpen((prev) => !prev) },
-      // ⌘← / ⌘→: back/forward navigation — suppressed inside inputs (native text-editing shortcut)
-      {
-        key: 'ArrowLeft',
-        meta: true,
-        condition: () => !isInputFocused(),
-        action: () => goBack(navigate),
-      },
-      {
-        key: 'ArrowRight',
-        meta: true,
-        condition: () => !isInputFocused(),
-        action: () => goForward(navigate),
-      },
+      // ⌘[ / ⌘]: back/forward navigation
+      { key: '[', meta: true, action: () => goBack(navigate) },
+      { key: ']', meta: true, action: () => goForward(navigate) },
       // ⌘⇧↑ / ⌘⇧↓: navigate to the prev/next project (sorted by position, wraps).
       {
         key: 'ArrowUp',
