@@ -4,8 +4,9 @@ import type { NavEntry } from '@canopy/db';
 
 const NAV_HISTORY_MAX = 50;
 
-export function pushNav(entry: NavEntry): void {
+export function pushNav(entry: NavEntry, selectedItemId?: string): void {
   uiCollection.update('ui', (draft) => {
+    if (selectedItemId !== undefined) draft.selectedItemId = selectedItemId;
     // Truncate forward history when branching
     if (draft.navIndex < draft.navHistory.length - 1) {
       draft.navHistory = draft.navHistory.slice(0, draft.navIndex + 1);

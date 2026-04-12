@@ -190,7 +190,7 @@ export function Header({
 
                   return (
                     <MenuItem
-                      key={`${entry.contextId ?? 'settings'}-${entry.tabId ?? ''}-${i}`}
+                      key={`${entry.contextId ?? 'settings'}-${entry.tabId ?? ''}`}
                       id={String(i)}
                       className="flex cursor-default items-start gap-1.5 rounded px-2 py-1 outline-none data-[focused]:bg-surface"
                     >

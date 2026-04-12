@@ -21,7 +21,7 @@ export interface CloneProgress {
 }
 
 export interface NavEntry {
-  type: 'worktree' | 'settings' | 'session';
+  type: 'worktree' | 'settings';
   projectId?: string;
   contextId?: string;
   tabId?: string;

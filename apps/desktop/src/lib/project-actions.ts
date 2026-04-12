@@ -12,6 +12,7 @@ import {
 import { closePty, closePtysForPanes, disposeCached } from '@canopy/terminal';
 import { listen } from '@tauri-apps/api/event';
 
+import { resolveProject } from '../commands/utils';
 import { openAddProjectDialogViaBridge } from './add-project-bridge';
 import * as gitApi from './git';
 import { pushNav, deriveContextLabel } from './nav-history';
@@ -300,15 +301,9 @@ export function selectProjectItem(
   /** When set (e.g. from Recently Viewed), navigate directly to this specific tab. */
   overrideTabId?: string,
 ): void {
-  uiCollection.update('ui', (draft) => {
-    draft.selectedItemId = itemId;
-  });
   if (itemId !== null) {
     const ui = getUiState();
-    const proj = getProjectCollection().toArray.find(
-      (p) =>
-        itemId === p.id || itemId.startsWith(`${p.id}-branch-`) || itemId.startsWith(`${p.id}-wt-`),
-    );
+    const proj = resolveProject(itemId, getProjectCollection().toArray);
     if (proj) {
       trackRecentProject(proj.id);
       // Resolve the destination tab and record it in navHistory.
@@ -318,15 +313,19 @@ export function selectProjectItem(
         (ui.activeContextId === itemId
           ? ui.activeTabId
           : (ui.contextActiveTabIds[itemId] ?? contextTabs[0]?.id));
-      pushNav({
-        type: 'worktree',
-        projectId: proj.id,
-        contextId: itemId,
-        label: deriveContextLabel(itemId, proj),
-        projectName: proj.name,
-        tabId: destTabId || undefined,
-        timestamp: Date.now(),
-      });
+      // Batch selectedItemId + navHistory into one store write.
+      pushNav(
+        {
+          type: 'worktree',
+          projectId: proj.id,
+          contextId: itemId,
+          label: deriveContextLabel(itemId, proj),
+          projectName: proj.name,
+          tabId: destTabId || undefined,
+          timestamp: Date.now(),
+        },
+        itemId,
+      );
       if (destTabId) {
         navigate({
           to: '/projects/$projectId/tabs/$tabId',
@@ -334,9 +333,16 @@ export function selectProjectItem(
         });
         return;
       }
+    } else {
+      uiCollection.update('ui', (draft) => {
+        draft.selectedItemId = itemId;
+      });
     }
     navigate({ to: '/projects/$projectId', params: { projectId: itemId } });
   } else {
+    uiCollection.update('ui', (draft) => {
+      draft.selectedItemId = null;
+    });
     navigate({ to: '/' });
   }
 }
@@ -345,12 +351,7 @@ export function selectProjectItem(
 function getActiveProject(): Project | undefined {
   const { activeContextId } = getUiState();
   if (!activeContextId) return undefined;
-  return getProjectCollection().toArray.find(
-    (p) =>
-      activeContextId === p.id ||
-      activeContextId.startsWith(`${p.id}-branch-`) ||
-      activeContextId.startsWith(`${p.id}-wt-`),
-  );
+  return resolveProject(activeContextId, getProjectCollection().toArray);
 }
 
 /** Safe modular step: when currentIndex is -1 (not found), clamp to 0 before stepping. */
@@ -435,7 +436,6 @@ export function navigateToSettings(section: string, navigate: NavigateFn): void 
   navigate({ to: '/settings', search: { section } });
 }
 
-// Does not call pushNav — history index is already updated by goBack/goForward.
 function navigateToEntry(entry: NavEntry, navigate: NavigateFn): void {
   if (entry.type === 'settings') {
     navigate({ to: '/settings', search: { section: entry.section ?? 'appearance' } });

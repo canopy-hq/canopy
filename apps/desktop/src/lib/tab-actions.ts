@@ -19,6 +19,7 @@ import {
   writeToPty,
 } from '@canopy/terminal';
 
+import { resolveProject } from '../commands/utils';
 import { router } from '../router';
 import { pushNav } from './nav-history';
 import {
@@ -258,12 +259,7 @@ export function closeTab(tabId: string): void {
 
 function pushTabNav(tab: { id: string; label: string; projectItemId: string }): void {
   const contextId = tab.projectItemId;
-  const proj = getProjectCollection().toArray.find(
-    (p) =>
-      contextId === p.id ||
-      contextId.startsWith(`${p.id}-branch-`) ||
-      contextId.startsWith(`${p.id}-wt-`),
-  );
+  const proj = resolveProject(contextId, getProjectCollection().toArray);
   pushNav({
     type: 'worktree',
     contextId,
