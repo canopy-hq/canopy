@@ -6,7 +6,7 @@ export function buildStaticCommands(navigate: Nav): CommandItem[] {
   return [
     {
       id: 'action:add-project',
-      label: 'Add project',
+      label: 'New project',
       category: 'global',
       keywords: ['import', 'repository', 'repo', 'open', 'folder'],
       icon: 'folder',
