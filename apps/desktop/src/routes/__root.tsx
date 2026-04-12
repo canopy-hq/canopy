@@ -18,6 +18,8 @@ import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 import { LucideProvider } from 'lucide-react';
 
 import { useAllCommands } from '../commands';
+import { makeProjectPaletteItem } from '../commands/project-commands';
+import { resolveProject } from '../commands/utils';
 import { AddProjectDialog } from '../components/AddProjectDialog';
 import { AgentOverlay } from '../components/AgentOverlay';
 import { AgentToastRegion } from '../components/AgentToastRegion';
@@ -43,7 +45,7 @@ import {
   goForward,
   navigateToSettings,
 } from '../lib/project-actions';
-import { onOpenProjectPalette } from '../lib/project-palette-bridge';
+import { onOpenProjectPalette, openProjectPalette } from '../lib/project-palette-bridge';
 import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
 
@@ -305,7 +307,18 @@ function RootLayout() {
           }),
       },
       { key: 'b', meta: true, action: () => toggleSidebar() },
-      { key: 'n', meta: true, action: () => openAddProjectDialog() },
+      { key: 'N', meta: true, shift: true, action: () => openAddProjectDialog() },
+      {
+        key: 'n',
+        meta: true,
+        action: () => {
+          const { activeContextId } = getUiState();
+          if (!activeContextId) return;
+          const proj = resolveProject(activeContextId, getProjectCollection().toArray);
+          if (!proj || proj.invalid) return;
+          openProjectPalette(makeProjectPaletteItem(proj));
+        },
+      },
       { key: 'O', meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
       // ⌘⇧H: recently viewed dropdown
       { key: 'H', meta: true, shift: true, action: () => setRecentlyViewedOpen((prev) => !prev) },

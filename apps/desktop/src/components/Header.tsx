@@ -31,6 +31,42 @@ import type { NavEntry } from '@canopy/db';
 
 const RECENTLY_VIEWED_MAX = 15;
 
+function getEntryLabels(
+  entry: NavEntry,
+  projects: { id: string; worktrees: { name: string; label?: string; branch: string }[] }[],
+  tabLabelMap: Map<string, string>,
+): { primaryLabel: string; secondaryLabel: string } {
+  let primaryLabel = entry.label;
+  let secondaryLabel = '';
+
+  if (entry.type === 'settings') {
+    if (entry.section) {
+      secondaryLabel = entry.section.charAt(0).toUpperCase() + entry.section.slice(1);
+    }
+  } else if (entry.contextId && entry.projectId) {
+    const projectName = entry.projectName ?? '';
+    const tabLabel = entry.tabId ? (tabLabelMap.get(entry.tabId) ?? entry.label) : null;
+    primaryLabel = tabLabel ? `${projectName} · ${tabLabel}` : projectName || entry.label;
+    const pid = entry.projectId;
+    let contextName = '';
+    if (entry.contextId.includes(`${pid}-branch-`)) {
+      contextName = entry.contextId.split(`${pid}-branch-`)[1] ?? '';
+    } else if (entry.contextId.includes(`${pid}-wt-`)) {
+      const wtName = entry.contextId.split(`${pid}-wt-`)[1];
+      const proj = projects.find((p) => p.id === pid);
+      const wt = proj?.worktrees.find((w) => w.name === wtName);
+      contextName = wt?.label || wt?.branch || wtName || '';
+    }
+    if (contextName && contextName !== primaryLabel) {
+      secondaryLabel = contextName;
+    }
+  } else {
+    primaryLabel = entry.projectName ?? entry.label;
+  }
+
+  return { primaryLabel, secondaryLabel };
+}
+
 interface HeaderProps {
   onSearchClick?: () => void;
   sessionsOpen?: boolean;
@@ -104,7 +140,6 @@ export function Header({
       data-tauri-drag-region
       className="relative flex h-12 shrink-0 items-center border-b border-edge/20 bg-raised pl-[78px]"
     >
-      {/* Left zone — sidebar toggle + nav + recently-viewed + PTY sessions */}
       <div data-tauri-drag-region className="flex h-full items-center px-1">
         {projects.length > 0 && (
           <Tooltip
@@ -121,7 +156,6 @@ export function Header({
           </Tooltip>
         )}
 
-        {/* Back / Forward buttons */}
         <Tooltip
           label={
             <>
@@ -192,38 +226,11 @@ export function Header({
                   const projectColor = entry.projectId
                     ? (projectColorMap.get(entry.projectId) ?? null)
                     : null;
-
-                  let primaryLabel = entry.label;
-                  let secondaryLabel = '';
-                  if (entry.type === 'settings') {
-                    if (entry.section) {
-                      secondaryLabel =
-                        entry.section.charAt(0).toUpperCase() + entry.section.slice(1);
-                    }
-                  } else if (entry.contextId && entry.projectId) {
-                    const projectName = entry.projectName ?? '';
-                    const tabLabel = entry.tabId
-                      ? (tabLabelMap.get(entry.tabId) ?? entry.label)
-                      : null;
-                    primaryLabel = tabLabel
-                      ? `${projectName} · ${tabLabel}`
-                      : projectName || entry.label;
-                    const pid = entry.projectId;
-                    let contextName = '';
-                    if (entry.contextId.includes(`${pid}-branch-`)) {
-                      contextName = entry.contextId.split(`${pid}-branch-`)[1] ?? '';
-                    } else if (entry.contextId.includes(`${pid}-wt-`)) {
-                      const wtName = entry.contextId.split(`${pid}-wt-`)[1];
-                      const proj = projects.find((p) => p.id === pid);
-                      const wt = proj?.worktrees.find((w) => w.name === wtName);
-                      contextName = wt?.label || wt?.branch || wtName || '';
-                    }
-                    if (contextName && contextName !== primaryLabel) {
-                      secondaryLabel = contextName;
-                    }
-                  } else {
-                    primaryLabel = entry.projectName ?? entry.label;
-                  }
+                  const { primaryLabel, secondaryLabel } = getEntryLabels(
+                    entry,
+                    projects,
+                    tabLabelMap,
+                  );
 
                   return (
                     <MenuItem
@@ -274,7 +281,6 @@ export function Header({
         </DialogTrigger>
       </div>
 
-      {/* Center zone — spacer to push right zone right */}
       <div data-tauri-drag-region className="flex-1" />
 
       {/* Search — absolutely centered in the full header width */}

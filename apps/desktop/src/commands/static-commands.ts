@@ -10,7 +10,7 @@ export function buildStaticCommands(navigate: Nav): CommandItem[] {
       category: 'global',
       keywords: ['import', 'repository', 'repo', 'open', 'folder'],
       icon: 'folder',
-      shortcut: '⌘N',
+      shortcut: '⌘⇧N',
       action: ({ close }) => {
         close();
         openAddProjectDialog();
