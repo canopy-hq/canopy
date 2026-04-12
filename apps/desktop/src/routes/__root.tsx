@@ -250,15 +250,12 @@ function RootLayout() {
     };
   }, []);
 
-  // Single source of truth for nav history: one listener records every navigation
-  // that isn't explicitly opted out via state.skipNav. Replaces scattered pushNav calls.
   useEffect(() => {
     return router.subscribe('onResolved', ({ toLocation }) => {
       if (toLocation.state.skipNav) return;
       const { pathname } = toLocation;
       if (pathname.startsWith('/settings')) {
-        const section =
-          (toLocation.search as Record<string, string> | undefined)?.section ?? 'appearance';
+        const section = (toLocation.search as Record<string, string>).section ?? 'appearance';
         pushNav({ type: 'settings', label: 'Settings', section, timestamp: Date.now() });
         return;
       }

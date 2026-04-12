@@ -338,7 +338,7 @@ export function selectProjectItem(
         navigate({
           to: '/projects/$projectId/tabs/$tabId',
           params: { projectId: itemId, tabId: destTabId },
-          ...(silent ? { state: { skipNav: true } } : {}),
+          state: silent ? { skipNav: true } : undefined,
         });
         return;
       }
@@ -350,7 +350,7 @@ export function selectProjectItem(
     navigate({
       to: '/projects/$projectId',
       params: { projectId: itemId },
-      ...(silent ? { state: { skipNav: true } } : {}),
+      state: silent ? { skipNav: true } : undefined,
     });
   } else {
     uiCollection.update('ui', (draft) => {
@@ -468,7 +468,7 @@ export function switchProjectItemRelative(
 // ---------------------------------------------------------------------------
 
 export function navigateToSettings(section: string, navigate: NavigateFn, silent?: boolean): void {
-  navigate({ to: '/settings', search: { section }, ...(silent ? { state: { skipNav: true } } : {}) });
+  navigate({ to: '/settings', search: { section }, state: silent ? { skipNav: true } : undefined });
 }
 
 function navigateToEntry(entry: NavEntry, navigate: NavigateFn): void {
