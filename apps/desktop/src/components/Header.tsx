@@ -166,7 +166,7 @@ export function Header({
             offset={4}
             className="w-64 overflow-hidden rounded-lg border border-edge/60 bg-raised shadow-xl outline-none"
           >
-            <div className="border-b border-edge/20 px-3 py-2">
+            <div className="px-3 py-2">
               <span className="text-xs font-medium text-fg-muted">Recently Viewed</span>
             </div>
             {recentEntries.length === 0 ? (
