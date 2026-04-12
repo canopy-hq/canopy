@@ -19,6 +19,8 @@ let _uiState: UiState = {
   invalidProjectIds: [],
   justStartedWorktreeId: null,
   pendingClaudeSession: null,
+  navHistory: [],
+  navIndex: -1,
 };
 
 const mockSetSetting = vi.fn();
@@ -122,6 +124,8 @@ describe('importRepo', () => {
       invalidProjectIds: [],
       justStartedWorktreeId: null,
       pendingClaudeSession: null,
+      navHistory: [],
+      navIndex: -1,
     };
     vi.clearAllMocks();
   });
@@ -302,6 +306,8 @@ function resetNav() {
     invalidProjectIds: [],
     justStartedWorktreeId: null,
     pendingClaudeSession: null,
+    navHistory: [],
+    navIndex: -1,
   };
 }
 

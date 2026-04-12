@@ -20,6 +20,8 @@ let _uiState: UiState = {
   invalidProjectIds: [],
   justStartedWorktreeId: null,
   pendingClaudeSession: null,
+  navHistory: [],
+  navIndex: -1,
 };
 
 const _projects: Project[] = [
@@ -143,6 +145,8 @@ function resetState() {
     invalidProjectIds: [],
     justStartedWorktreeId: null,
     pendingClaudeSession: null,
+    navHistory: [],
+    navIndex: -1,
   };
   mockSetSetting.mockClear();
 }

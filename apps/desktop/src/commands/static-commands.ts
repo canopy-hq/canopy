@@ -1,4 +1,4 @@
-import { openAddProjectDialog, toggleSidebar } from '../lib/project-actions';
+import { openAddProjectDialog, toggleSidebar, pushNav } from '../lib/project-actions';
 
 import type { Nav, CommandItem } from '@canopy/command-palette';
 
@@ -35,6 +35,7 @@ export function buildStaticCommands(navigate: Nav): CommandItem[] {
       keywords: ['preferences', 'config', 'theme'],
       icon: 'settings',
       action: ({ close }) => {
+        pushNav({ type: 'settings', label: 'Settings', timestamp: Date.now() });
         navigate({ to: '/settings', search: { section: 'appearance' } });
         close();
       },

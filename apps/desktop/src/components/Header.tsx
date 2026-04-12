@@ -1,26 +1,89 @@
-import { Button, Kbd, Tooltip } from '@canopy/ui';
-import { PanelLeft, Search, Shell } from 'lucide-react';
+import { useMemo, useCallback } from 'react';
+import { Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
 
-import { useProjects } from '../hooks/useCollections';
-import { toggleSidebar } from '../lib/project-actions';
+import { Button, Kbd, Tooltip } from '@canopy/ui';
+import { useNavigate } from '@tanstack/react-router';
+import { ChevronLeft, ChevronRight, History, PanelLeft, Search, Shell } from 'lucide-react';
+
+import { useProjects, useUiState } from '../hooks/useCollections';
+import {
+  goBack,
+  goForward,
+  pushNav,
+  selectProjectItem,
+  toggleSidebar,
+} from '../lib/project-actions';
 import { DevBranchBadge } from './DevBranchBadge';
 import { GitHubStatus } from './GitHubStatus';
 import { OpenInEditorButton } from './OpenInEditorButton';
 
+import type { NavEntry } from '@canopy/db';
+
+const RECENTLY_VIEWED_MAX = 15;
+
 interface HeaderProps {
   onSessionsClick?: () => void;
   onSearchClick?: () => void;
+  recentlyViewedOpen?: boolean;
+  onRecentlyViewedChange?: (open: boolean) => void;
 }
 
-export function Header({ onSessionsClick, onSearchClick }: HeaderProps = {}) {
+export function Header({
+  onSessionsClick,
+  onSearchClick,
+  recentlyViewedOpen,
+  onRecentlyViewedChange,
+}: HeaderProps = {}) {
   const projects = useProjects();
+  const { navHistory, navIndex } = useUiState();
+  const navigate = useNavigate();
+
+  const canGoBack = navIndex > 0;
+  const canGoForward = navIndex < navHistory.length - 1;
+
+  const recentEntries = useMemo<NavEntry[]>(() => {
+    const seen = new Set<string>();
+    const result: NavEntry[] = [];
+    for (let i = navHistory.length - 1; i >= 0; i--) {
+      const entry = navHistory[i]!;
+      const key = entry.type === 'settings' ? 'settings' : (entry.contextId ?? '');
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        result.push(entry);
+        if (result.length >= RECENTLY_VIEWED_MAX) break;
+      }
+    }
+    return result;
+  }, [navHistory]);
+
+  const handleRecentSelect = useCallback(
+    (key: string) => {
+      const index = parseInt(key, 10);
+      const entry = recentEntries[index];
+      if (!entry) return;
+      onRecentlyViewedChange?.(false);
+      if (entry.type === 'settings') {
+        pushNav({ type: 'settings', label: 'Settings', timestamp: Date.now() });
+        void navigate({ to: '/settings', search: { section: 'appearance' } });
+      } else if (entry.contextId) {
+        selectProjectItem(entry.contextId, navigate);
+      }
+    },
+    [recentEntries, navigate, onRecentlyViewedChange],
+  );
+
+  const projectColorMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const p of projects) map.set(p.id, p.color ?? null);
+    return map;
+  }, [projects]);
 
   return (
     <header
       data-tauri-drag-region
       className="relative flex h-12 shrink-0 items-center border-b border-edge/20 bg-raised pl-[78px]"
     >
-      {/* Left zone — sidebar toggle + PTY sessions */}
+      {/* Left zone — sidebar toggle + nav + recently-viewed + PTY sessions */}
       <div data-tauri-drag-region className="flex h-full items-center px-1">
         {projects.length > 0 && (
           <Tooltip
@@ -36,6 +99,112 @@ export function Header({ onSessionsClick, onSearchClick }: HeaderProps = {}) {
             </Button>
           </Tooltip>
         )}
+
+        {/* Back / Forward buttons */}
+        <Tooltip
+          label={
+            <>
+              Go back <Kbd>⌘←</Kbd>
+            </>
+          }
+          placement="right"
+        >
+          <Button
+            variant="ghost"
+            iconOnly
+            isDisabled={!canGoBack}
+            onPress={() => goBack(navigate)}
+            aria-label="Go back"
+          >
+            <ChevronLeft size={16} />
+          </Button>
+        </Tooltip>
+        <Tooltip
+          label={
+            <>
+              Go forward <Kbd>⌘→</Kbd>
+            </>
+          }
+          placement="right"
+        >
+          <Button
+            variant="ghost"
+            iconOnly
+            isDisabled={!canGoForward}
+            onPress={() => goForward(navigate)}
+            aria-label="Go forward"
+          >
+            <ChevronRight size={16} />
+          </Button>
+        </Tooltip>
+
+        {/* Recently Viewed dropdown */}
+        <MenuTrigger isOpen={recentlyViewedOpen} onOpenChange={onRecentlyViewedChange}>
+          <Tooltip
+            label={
+              <>
+                Recently Viewed <Kbd>⌘⇧H</Kbd>
+              </>
+            }
+            placement="right"
+          >
+            <Button variant="ghost" iconOnly aria-label="Recently Viewed">
+              <History size={16} />
+            </Button>
+          </Tooltip>
+          <Popover
+            placement="bottom start"
+            offset={4}
+            className="w-72 overflow-hidden rounded-lg border border-edge/60 bg-raised shadow-xl outline-none"
+          >
+            <div className="px-3 pt-2.5 pb-1">
+              <div className="text-xs font-medium text-fg-muted">Recently Viewed</div>
+              <div className="mt-2 border-t border-edge/20" />
+            </div>
+            {recentEntries.length === 0 ? (
+              <div className="px-3 py-3 text-xs text-fg-faint">No history yet.</div>
+            ) : (
+              <Menu
+                className="max-h-80 overflow-y-auto p-1 pb-1.5 outline-none"
+                onAction={(key) => handleRecentSelect(String(key))}
+              >
+                {recentEntries.map((entry, i) => {
+                  const projectColor = entry.projectId
+                    ? (projectColorMap.get(entry.projectId) ?? null)
+                    : null;
+                  return (
+                    <MenuItem
+                      key={`${entry.contextId ?? 'settings'}-${i}`}
+                      id={String(i)}
+                      className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 outline-none data-[focused]:bg-surface"
+                    >
+                      <span className="w-[72px] shrink-0 text-[11px] text-fg-faint">
+                        {entry.type === 'settings' ? 'Settings' : 'Workspace'}
+                      </span>
+                      {projectColor ? (
+                        <span
+                          className="h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: projectColor }}
+                        />
+                      ) : (
+                        <span className="h-1.5 w-1.5 shrink-0" />
+                      )}
+                      <span className="flex-1 truncate font-mono text-xs text-fg-dim">
+                        {entry.label}
+                      </span>
+                      {entry.projectName && entry.type !== 'settings' && (
+                        <span className="ml-1 shrink-0 text-[10px] text-fg-faint">
+                          {entry.projectName}
+                        </span>
+                      )}
+                    </MenuItem>
+                  );
+                })}
+              </Menu>
+            )}
+          </Popover>
+        </MenuTrigger>
+
         <Tooltip label="PTY Sessions" placement="right">
           <Button variant="ghost" iconOnly onPress={onSessionsClick} aria-label="PTY sessions">
             <Shell size={16} />

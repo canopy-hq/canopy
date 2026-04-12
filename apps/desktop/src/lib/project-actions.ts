@@ -18,9 +18,13 @@ import { collectAllLeafPaneIds, collectLeafPtyIds } from './pane-tree-ops';
 import { addClaudeCodeTab, closeTab } from './tab-actions';
 import { showErrorToast, showInfoToast } from './toast';
 
-type NavigateFn = (opts: { to: string; params?: Record<string, string> }) => void;
+type NavigateFn = (opts: {
+  to: string;
+  params?: Record<string, string>;
+  search?: Record<string, string>;
+}) => void;
 
-import type { Project } from '@canopy/db';
+import type { NavEntry, Project } from '@canopy/db';
 
 /** Returns true for branch/worktree IDs — the only items that carry selection state. */
 export function isSelectableProjectItem(id: string): boolean {
@@ -296,15 +300,31 @@ function trackRecentProject(itemId: string): void {
   setSetting('recentProjectIds', updated);
 }
 
-export function selectProjectItem(
-  itemId: string | null,
-  navigate: (opts: { to: string; params?: Record<string, string> }) => void,
-): void {
+export function selectProjectItem(itemId: string | null, navigate: NavigateFn): void {
   uiCollection.update('ui', (draft) => {
     draft.selectedItemId = itemId;
   });
   if (itemId !== null) {
     trackRecentProject(itemId);
+    const proj = getProjectCollection().toArray.find(
+      (p) =>
+        itemId === p.id || itemId.startsWith(`${p.id}-branch-`) || itemId.startsWith(`${p.id}-wt-`),
+    );
+    if (proj) {
+      const label = itemId.includes(`${proj.id}-branch-`)
+        ? (itemId.split(`${proj.id}-branch-`)[1] ?? itemId)
+        : itemId.includes(`${proj.id}-wt-`)
+          ? (itemId.split(`${proj.id}-wt-`)[1] ?? itemId)
+          : proj.name;
+      pushNav({
+        type: 'worktree',
+        projectId: proj.id,
+        contextId: itemId,
+        label,
+        projectName: proj.name,
+        timestamp: Date.now(),
+      });
+    }
     navigate({ to: '/projects/$projectId', params: { projectId: itemId } });
   } else {
     navigate({ to: '/' });
@@ -394,6 +414,86 @@ export function switchProjectItemRelative(
   const currentIndex = items.indexOf(activeContextId);
   const itemId = items[stepIndex(currentIndex, direction, items.length)];
   if (itemId) selectProjectItem(itemId, navigate);
+}
+
+// ---------------------------------------------------------------------------
+// Navigation history
+// ---------------------------------------------------------------------------
+
+const NAV_HISTORY_MAX = 50;
+const RECENTLY_VIEWED_MAX = 15;
+
+/** Set to true during goBack/goForward traversal to suppress pushNav re-entry. */
+let _isTraversal = false;
+
+export function pushNav(entry: NavEntry): void {
+  if (_isTraversal) {
+    _isTraversal = false;
+    return;
+  }
+  uiCollection.update('ui', (draft) => {
+    // Truncate forward history when branching
+    if (draft.navIndex < draft.navHistory.length - 1) {
+      draft.navHistory = draft.navHistory.slice(0, draft.navIndex + 1);
+    }
+    draft.navHistory.push(entry);
+    if (draft.navHistory.length > NAV_HISTORY_MAX) {
+      draft.navHistory = draft.navHistory.slice(-NAV_HISTORY_MAX);
+    }
+    draft.navIndex = draft.navHistory.length - 1;
+  });
+}
+
+function navigateToEntry(entry: NavEntry, navigate: NavigateFn): void {
+  if (entry.type === 'settings') {
+    navigate({ to: '/settings', search: { section: 'appearance' } });
+  } else if (entry.contextId) {
+    uiCollection.update('ui', (draft) => {
+      draft.selectedItemId = entry.contextId!;
+    });
+    navigate({ to: '/projects/$projectId', params: { projectId: entry.contextId } });
+  }
+}
+
+export function goBack(navigate: NavigateFn): void {
+  const ui = getUiState();
+  if (ui.navIndex <= 0) return;
+  const entry = ui.navHistory[ui.navIndex - 1];
+  if (!entry) return;
+  _isTraversal = true;
+  uiCollection.update('ui', (draft) => {
+    draft.navIndex -= 1;
+  });
+  navigateToEntry(entry, navigate);
+}
+
+export function goForward(navigate: NavigateFn): void {
+  const ui = getUiState();
+  if (ui.navIndex >= ui.navHistory.length - 1) return;
+  const entry = ui.navHistory[ui.navIndex + 1];
+  if (!entry) return;
+  _isTraversal = true;
+  uiCollection.update('ui', (draft) => {
+    draft.navIndex += 1;
+  });
+  navigateToEntry(entry, navigate);
+}
+
+/** Returns last 15 unique visited locations (most-recent first, deduped by contextId or type). */
+export function getRecentlyViewed(): NavEntry[] {
+  const { navHistory } = getUiState();
+  const seen = new Set<string>();
+  const result: NavEntry[] = [];
+  for (let i = navHistory.length - 1; i >= 0; i--) {
+    const entry = navHistory[i]!;
+    const key = entry.type === 'settings' ? 'settings' : (entry.contextId ?? '');
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      result.push(entry);
+      if (result.length >= RECENTLY_VIEWED_MAX) break;
+    }
+  }
+  return result;
 }
 
 export function toggleSidebar(): void {

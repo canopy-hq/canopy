@@ -4,6 +4,7 @@ import { useNavigate } from '@tanstack/react-router';
 
 import { useSettings } from '../hooks/useCollections';
 import { GITHUB_CONNECTION_KEY, type GitHubConnection } from '../lib/github';
+import { pushNav } from '../lib/project-actions';
 
 function GitHubIcon() {
   return (
@@ -19,6 +20,7 @@ export function GitHubStatus() {
   const connection = getSetting<GitHubConnection | null>(settings, GITHUB_CONNECTION_KEY, null);
 
   const handlePress = () => {
+    pushNav({ type: 'settings', label: 'Settings', timestamp: Date.now() });
     void navigate({ to: '/settings', search: { section: 'git' } });
   };
 

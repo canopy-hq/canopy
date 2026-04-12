@@ -20,6 +20,16 @@ export interface CloneProgress {
   bytes: number;
 }
 
+export interface NavEntry {
+  type: 'worktree' | 'settings' | 'session';
+  projectId?: string;
+  contextId?: string;
+  tabId?: string;
+  label: string;
+  projectName?: string;
+  timestamp: number;
+}
+
 export interface UiState {
   id: 'ui';
   // Sidebar
@@ -37,6 +47,9 @@ export interface UiState {
   invalidProjectIds: string[];
   justStartedWorktreeId: string | null;
   pendingClaudeSession: { worktreeId: string; mode: 'bypass' | 'plan'; prompt?: string } | null;
+  // Navigation history (in-memory only, not persisted)
+  navHistory: NavEntry[];
+  navIndex: number;
 }
 
 const INITIAL_UI_STATE: UiState = {
@@ -53,6 +66,8 @@ const INITIAL_UI_STATE: UiState = {
   invalidProjectIds: [],
   justStartedWorktreeId: null,
   pendingClaudeSession: null,
+  navHistory: [],
+  navIndex: -1,
 };
 
 export const uiCollection = createCollection(
