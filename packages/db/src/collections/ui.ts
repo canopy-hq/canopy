@@ -25,6 +25,8 @@ export interface NavEntry {
   projectId?: string;
   contextId?: string;
   tabId?: string;
+  /** For settings entries: which settings section was active (e.g. 'git', 'appearance'). */
+  section?: string;
   label: string;
   projectName?: string;
   timestamp: number;

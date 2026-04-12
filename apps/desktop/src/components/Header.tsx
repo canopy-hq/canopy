@@ -6,6 +6,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { ChevronLeft, ChevronRight, History, PanelLeft, Search, Shell } from 'lucide-react';
 
 import { useProjects, useUiState } from '../hooks/useCollections';
+import { deriveContextLabel } from '../lib/nav-history';
 import {
   goBack,
   goForward,
@@ -20,15 +21,6 @@ import { OpenInEditorButton } from './OpenInEditorButton';
 import type { NavEntry } from '@canopy/db';
 
 const RECENTLY_VIEWED_MAX = 15;
-
-function contextNameFromEntry(entry: NavEntry): string {
-  if (!entry.contextId || !entry.projectId) return '';
-  const branchPrefix = `${entry.projectId}-branch-`;
-  const wtPrefix = `${entry.projectId}-wt-`;
-  if (entry.contextId.startsWith(branchPrefix)) return entry.contextId.slice(branchPrefix.length);
-  if (entry.contextId.startsWith(wtPrefix)) return entry.contextId.slice(wtPrefix.length);
-  return '';
-}
 
 interface HeaderProps {
   onSessionsClick?: () => void;
@@ -73,7 +65,7 @@ export function Header({
       if (!entry) return;
       onRecentlyViewedChange?.(false);
       if (entry.type === 'settings') {
-        navigateToSettings('appearance', navigate);
+        navigateToSettings(entry.section ?? 'appearance', navigate);
       } else if (entry.contextId) {
         selectProjectItem(entry.contextId, navigate, entry.tabId);
       }
@@ -186,7 +178,10 @@ export function Header({
                   if (entry.type !== 'settings') {
                     primaryLabel = entry.projectName ?? entry.label;
                     if (entry.tabId) {
-                      const contextName = contextNameFromEntry(entry);
+                      const contextName =
+                        entry.contextId && entry.projectId
+                          ? deriveContextLabel(entry.contextId, { id: entry.projectId, name: '' })
+                          : '';
                       secondaryLabel = [contextName, entry.label].filter(Boolean).join(' · ');
                     } else if (entry.label !== (entry.projectName ?? '')) {
                       secondaryLabel = entry.label;

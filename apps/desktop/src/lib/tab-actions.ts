@@ -193,8 +193,9 @@ export function addClaudeCodeTab(
     pushTabNav(tab);
   } else {
     insertTab(tab);
-    // Spawn PTY in the background so Claude starts immediately without the user
-    // having to navigate to the worktree first.
+    // Tab created in the background (user is on a different worktree) — no navigation
+    // or nav history entry since the user hasn't visited it yet.
+    // Spawn PTY immediately so Claude starts as soon as the user switches to this worktree.
     const paneId = tab.paneRoot.id;
     const cwd = resolveProjectItemCwd(itemId);
     void (async () => {

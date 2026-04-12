@@ -431,14 +431,14 @@ export function switchProjectItemRelative(
 // ---------------------------------------------------------------------------
 
 export function navigateToSettings(section: string, navigate: NavigateFn): void {
-  pushNav({ type: 'settings', label: 'Settings', timestamp: Date.now() });
+  pushNav({ type: 'settings', label: 'Settings', section, timestamp: Date.now() });
   navigate({ to: '/settings', search: { section } });
 }
 
 // Does not call pushNav — history index is already updated by goBack/goForward.
 function navigateToEntry(entry: NavEntry, navigate: NavigateFn): void {
   if (entry.type === 'settings') {
-    navigate({ to: '/settings', search: { section: 'appearance' } });
+    navigate({ to: '/settings', search: { section: entry.section ?? 'appearance' } });
   } else if (entry.contextId) {
     setSelectedItem(entry.contextId);
     if (entry.tabId && getTabCollection().toArray.find((t) => t.id === entry.tabId)) {
