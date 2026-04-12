@@ -229,7 +229,7 @@ export function Header({
                     <MenuItem
                       key={`${entry.contextId ?? 'settings'}-${entry.tabId ?? ''}`}
                       id={String(i)}
-                      className="flex cursor-default items-start gap-1.5 rounded px-2 py-1 outline-none transition-colors data-[focused]:bg-surface"
+                      className="flex cursor-default items-start gap-1.5 rounded px-2 py-1 outline-none transition-colors data-[hovered]:bg-surface data-[focus-visible]:bg-surface"
                     >
                       {entry.type === 'settings' ? (
                         <Settings size={10} className="mt-0.5 shrink-0 text-fg-faint" />

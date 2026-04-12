@@ -188,7 +188,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                   key={row.info.ptyId}
                   id={row.info.ptyId}
                   isDisabled={!row.tab}
-                  className="flex cursor-default items-center gap-1.5 rounded px-2 py-1 text-xs text-fg outline-none transition-colors data-[disabled]:opacity-40 data-[focused]:bg-surface"
+                  className="flex cursor-default items-center gap-1.5 rounded px-2 py-1 text-xs text-fg outline-none transition-colors data-[disabled]:opacity-40 data-[hovered]:bg-surface data-[focus-visible]:bg-surface"
                 >
                   <span className="min-w-0 flex-1 truncate font-mono">
                     {row.tab?.label ?? '—'}
