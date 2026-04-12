@@ -3,16 +3,22 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 // ── Types ──────────────────────────────────────────────────────────────
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AgentStatus {
+    // Legacy states (silence-based detection) — kept during transition
     Running,
     Waiting,
     Idle,
+    // Hook-based states
+    Working,
+    Permission,
+    Stopped,
+    Review,
 }
 
 impl AgentStatus {
@@ -21,6 +27,10 @@ impl AgentStatus {
             AgentStatus::Running => "running",
             AgentStatus::Waiting => "waiting",
             AgentStatus::Idle => "idle",
+            AgentStatus::Working => "working",
+            AgentStatus::Permission => "permission",
+            AgentStatus::Stopped => "stopped",
+            AgentStatus::Review => "review",
         }
     }
 }
@@ -32,6 +42,8 @@ pub struct AgentStatusPayload {
     pub status: String,
     pub agent_name: String,
     pub pid: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_state: Option<String>,
 }
 
 // ── Known agents ───────────────────────────────────────────────────────
@@ -55,6 +67,9 @@ pub fn is_known_agent(name: &str) -> Option<&'static str> {
 pub struct AgentWatcherState {
     pub cancel_senders: HashMap<u32, tokio::sync::oneshot::Sender<()>>,
     pub last_outputs: HashMap<u32, Arc<AtomicU64>>,
+    /// Hook-based agent states, keyed by pty_id. When present for a given
+    /// pty_id, the silence-based watcher suppresses its emissions (hook wins).
+    pub hook_states: HashMap<u32, AgentStatus>,
 }
 
 impl AgentWatcherState {
@@ -62,7 +77,70 @@ impl AgentWatcherState {
         Self {
             cancel_senders: HashMap::new(),
             last_outputs: HashMap::new(),
+            hook_states: HashMap::new(),
         }
+    }
+}
+
+/// Update agent state from a hook event. Looks up `pty_id` by scanning
+/// `PtyState.sessions` for the given `pane_id`. Emits `agent-status-changed`
+/// only when the status actually changes.
+pub fn set_hook_status(
+    pane_id: &str,
+    status: AgentStatus,
+    sub_state: Option<String>,
+    agent_name: &str,
+    app_handle: &tauri::AppHandle,
+    pty_state: &Mutex<crate::pty::PtyState>,
+    watcher_state: &Mutex<AgentWatcherState>,
+) {
+    // Resolve pane_id → pty_id via PtyState accessor
+    let pty_id = {
+        let s = match pty_state.lock() {
+            Ok(s) => s,
+            Err(_) => return,
+        };
+        match s.pty_id_for_pane(pane_id) {
+            Some(pid) => pid,
+            None => {
+                eprintln!("[hook] unknown pane_id: {pane_id}");
+                return;
+            }
+        }
+    };
+
+    let changed = {
+        let mut ws = match watcher_state.lock() {
+            Ok(ws) => ws,
+            Err(_) => return,
+        };
+        let prev = ws.hook_states.get(&pty_id);
+        if prev == Some(&status) {
+            false
+        } else {
+            ws.hook_states.insert(pty_id, status.clone());
+            true
+        }
+    };
+
+    if changed {
+        let _ = app_handle.emit(
+            "agent-status-changed",
+            AgentStatusPayload {
+                pty_id,
+                status: status.as_str().to_string(),
+                agent_name: agent_name.to_string(),
+                pid: 0,
+                sub_state,
+            },
+        );
+    }
+}
+
+/// Remove hook state for a pty_id (called when PTY is closed).
+pub fn clear_hook_status(pty_id: u32, watcher_state: &Mutex<AgentWatcherState>) {
+    if let Ok(mut ws) = watcher_state.lock() {
+        ws.hook_states.remove(&pty_id);
     }
 }
 
@@ -189,6 +267,16 @@ pub fn start_watching(
                         }
                     };
 
+                    // Hook state takes priority: if a hook-based state exists for
+                    // this pty_id, suppress silence-based emissions entirely.
+                    let hook_active = app_handle
+                        .try_state::<Mutex<AgentWatcherState>>()
+                        .and_then(|s| s.lock().ok().map(|ws| ws.hook_states.contains_key(&pty_id)))
+                        .unwrap_or(false);
+                    if hook_active {
+                        continue;
+                    }
+
                     // Only emit if status changed
                     let status_changed = last_status.as_ref() != Some(&new_status);
                     let agent_changed = last_agent_name.as_deref() != Some(&agent_name);
@@ -206,6 +294,7 @@ pub fn start_watching(
                                 status: new_status.as_str().to_string(),
                                 agent_name: agent_name.clone(),
                                 pid: agent_pid,
+                                sub_state: None,
                             },
                         );
 
@@ -269,6 +358,7 @@ pub fn toggle_agent_manual(
             status: "manual".to_string(),
             agent_name: "manual".to_string(),
             pid: 0,
+            sub_state: None,
         },
     );
     Ok(())
@@ -313,6 +403,7 @@ mod tests {
             status: "running".to_string(),
             agent_name: "claude".to_string(),
             pid: 42,
+            sub_state: None,
         };
         let json = serde_json::to_string(&payload).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -321,10 +412,26 @@ mod tests {
         assert_eq!(parsed["status"], "running");
         assert_eq!(parsed["agentName"], "claude");
         assert_eq!(parsed["pid"], 42);
+        // sub_state should be omitted when None
+        assert!(parsed.get("subState").is_none());
 
         // Verify camelCase (not snake_case)
         assert!(parsed.get("pty_id").is_none());
         assert!(parsed.get("agent_name").is_none());
+    }
+
+    #[test]
+    fn test_agent_status_payload_with_sub_state() {
+        let payload = AgentStatusPayload {
+            pty_id: 1,
+            status: "permission".to_string(),
+            agent_name: "claude".to_string(),
+            pid: 0,
+            sub_state: Some("Waiting for approval".to_string()),
+        };
+        let json = serde_json::to_string(&payload).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["subState"], "Waiting for approval");
     }
 
     #[test]
@@ -341,6 +448,10 @@ mod tests {
         assert_eq!(AgentStatus::Running.as_str(), "running");
         assert_eq!(AgentStatus::Waiting.as_str(), "waiting");
         assert_eq!(AgentStatus::Idle.as_str(), "idle");
+        assert_eq!(AgentStatus::Working.as_str(), "working");
+        assert_eq!(AgentStatus::Permission.as_str(), "permission");
+        assert_eq!(AgentStatus::Stopped.as_str(), "stopped");
+        assert_eq!(AgentStatus::Review.as_str(), "review");
     }
 
     #[test]
@@ -354,6 +465,7 @@ mod tests {
         let state = AgentWatcherState::new();
         assert!(state.cancel_senders.is_empty());
         assert!(state.last_outputs.is_empty());
+        assert!(state.hook_states.is_empty());
     }
 
     #[test]

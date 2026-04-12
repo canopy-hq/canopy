@@ -55,16 +55,25 @@ function useProjectAgentMap(): Record<string, DotStatus> {
       let best: DotStatus = 'idle';
       for (const id of ptyIds) {
         const agent = agentByPty.get(id);
-        if (agent?.status === 'waiting') {
-          best = 'waiting';
+        const s = agent?.status;
+        if (s === 'permission' || s === 'waiting') {
+          best = 'permission';
           break;
         }
-        if (agent?.status === 'running') best = 'running';
+        if (s === 'working' || s === 'running') best = 'working';
+        else if (s === 'review' && best === 'idle') best = 'review';
       }
       const existing = result[tab.projectItemId];
-      if (best === 'waiting' || (best === 'running' && existing !== 'waiting')) {
-        result[tab.projectItemId] = best;
-      } else if (!existing) {
+      // Priority: permission > working > review > idle
+      const prio = (d: DotStatus) =>
+        d === 'permission' || d === 'waiting'
+          ? 0
+          : d === 'working' || d === 'running'
+            ? 1
+            : d === 'review'
+              ? 2
+              : 3;
+      if (!existing || prio(best) < prio(existing)) {
         result[tab.projectItemId] = best;
       }
     }

@@ -45,8 +45,13 @@ const agentRowStyle = tv({
 export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
   const navigate = useNavigate();
   const agentList = useAgents();
-  const runningCount = agentList.filter((a) => a.status === 'running').length;
-  const waitingCount = agentList.filter((a) => a.status === 'waiting').length;
+  const workingCount = agentList.filter(
+    (a) => a.status === 'working' || a.status === 'running',
+  ).length;
+  const permissionCount = agentList.filter(
+    (a) => a.status === 'permission' || a.status === 'waiting',
+  ).length;
+  const reviewCount = agentList.filter((a) => a.status === 'review').length;
   const projects = useProjects();
   const tabs = useTabs();
 
@@ -170,17 +175,21 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
             <Heading slot="title" className="m-0 text-lg font-semibold text-fg">
               Agent Overview
             </Heading>
-            {(runningCount > 0 || waitingCount > 0) && (
+            {(workingCount > 0 || permissionCount > 0 || reviewCount > 0) && (
               <span className="flex items-center gap-1.5 text-sm">
-                {runningCount > 0 && (
-                  <span className="text-(--agent-running)">{runningCount} running</span>
+                {workingCount > 0 && (
+                  <span className="text-(--agent-running)">{workingCount} working</span>
                 )}
-                {runningCount > 0 && waitingCount > 0 && (
+                {workingCount > 0 && (permissionCount > 0 || reviewCount > 0) && (
                   <span className="text-fg-muted opacity-60">{'\u00B7'}</span>
                 )}
-                {waitingCount > 0 && (
-                  <span className="text-(--agent-waiting)">{waitingCount} waiting</span>
+                {permissionCount > 0 && (
+                  <span className="text-(--agent-waiting)">{permissionCount} waiting</span>
                 )}
+                {permissionCount > 0 && reviewCount > 0 && (
+                  <span className="text-fg-muted opacity-60">{'\u00B7'}</span>
+                )}
+                {reviewCount > 0 && <span className="text-green-500">{reviewCount} done</span>}
               </span>
             )}
           </div>
@@ -202,7 +211,8 @@ export function AgentOverlay({ isOpen, onClose }: AgentOverlayProps) {
                   {rows.map((row) => {
                     const flatIndex = flatRows.indexOf(row);
                     const isSelected = flatIndex === selectedIndex;
-                    const isWaiting = row.agent.status === 'waiting';
+                    const isWaiting =
+                      row.agent.status === 'waiting' || row.agent.status === 'permission';
                     const state: 'waiting' | 'selected' | 'idle' = isWaiting
                       ? 'waiting'
                       : isSelected

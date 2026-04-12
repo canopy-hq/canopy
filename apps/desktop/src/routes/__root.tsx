@@ -294,7 +294,7 @@ function RootLayout() {
         if (!agentTab || agentTab.id === activeTabId) continue;
         const projects = getProjectCollection().toArray;
         const ws = projects.find((p) => agentTab.projectItemId.startsWith(p.id));
-        if (agent.status === 'waiting') {
+        if (agent.status === 'waiting' || agent.status === 'permission') {
           showAgentToastDeduped({
             type: 'agent-waiting',
             agentName: agent.agentName,

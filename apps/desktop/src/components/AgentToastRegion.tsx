@@ -45,7 +45,7 @@ export function AgentToastRegion() {
           <ToastContentSlot>
             <div className="flex items-center gap-2">
               <StatusDot
-                status={toast.content.type === 'agent-waiting' ? 'waiting' : 'idle'}
+                status={toast.content.type === 'agent-waiting' ? 'permission' : 'idle'}
                 size={8}
               />
               <Text slot="title" className="font-semibold text-base text-fg">

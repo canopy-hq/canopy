@@ -43,6 +43,13 @@ impl PtyState {
     pub fn new() -> Self {
         Self { sessions: HashMap::new(), sys: System::new(), attach_handles: HashMap::new() }
     }
+
+    /// Find the pty_id (child PID) for a given pane_id.
+    pub fn pty_id_for_pane(&self, pane_id: &str) -> Option<u32> {
+        self.sessions.iter()
+            .find(|(_, pane)| pane.as_str() == pane_id)
+            .map(|(&pid, _)| pid)
+    }
 }
 
 #[derive(serde::Serialize)]

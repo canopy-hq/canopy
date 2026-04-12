@@ -72,13 +72,18 @@ const closeButton = tv({
 function useTabAgentStatus(tab: Tab): DotStatus {
   const ptyIds = useMemo(() => collectLeafPtyIds(tab.paneRoot), [tab.paneRoot]);
   const agents = useAgents();
-  let hasRunning = false;
+  // Priority: permission > working > review > idle
+  let hasWorking = false;
+  let hasReview = false;
   for (const id of ptyIds) {
     const status = agents.find((a) => a.ptyId === id)?.status;
-    if (status === 'waiting') return 'waiting';
-    if (status === 'running') hasRunning = true;
+    if (status === 'permission' || status === 'waiting') return 'permission';
+    if (status === 'working' || status === 'running') hasWorking = true;
+    if (status === 'review') hasReview = true;
   }
-  return hasRunning ? 'running' : 'idle';
+  if (hasWorking) return 'working';
+  if (hasReview) return 'review';
+  return 'idle';
 }
 
 const TabItemComponent = memo(
@@ -179,7 +184,7 @@ const TabItemComponent = memo(
           data-flip-id={tab.id}
           className={tabItem({
             active: isActive,
-            agentWaiting: agentStatus === 'waiting',
+            agentWaiting: agentStatus === 'waiting' || agentStatus === 'permission',
             dragging: isDragging || isDropping,
           })}
           style={{
@@ -250,7 +255,7 @@ const TabItemComponent = memo(
               </span>
             </>
           )}
-          {agentStatus === 'waiting' && !editing && (
+          {(agentStatus === 'waiting' || agentStatus === 'permission') && !editing && (
             <Badge pill color="warning" size="sm">
               input
             </Badge>

@@ -212,7 +212,7 @@ function TerminalPaneInner({
   const agents = useAgents();
   const agent = agents.find((a) => a.ptyId === ptyId);
   const agentStatus = agent?.status ?? 'idle';
-  const isWaiting = agentStatus === 'waiting';
+  const isWaiting = agentStatus === 'waiting' || agentStatus === 'permission';
 
   // Hide the raw terminal output while Claude boots — avoids showing TUI escape
   // sequences and flickering startup. Only applies to Claude auto-launch sessions
@@ -235,7 +235,9 @@ function TerminalPaneInner({
   // Without a prompt: reveal as soon as the process is detected ('waiting' or 'running').
   useEffect(() => {
     if (!bootOverlay) return;
-    const ready = savedHasPrompt ? agentStatus === 'running' : agentStatus !== 'idle';
+    const ready = savedHasPrompt
+      ? agentStatus === 'running' || agentStatus === 'working'
+      : agentStatus !== 'idle';
     if (!ready) return;
     const t = setTimeout(() => setBootOverlay(false), 350);
     return () => clearTimeout(t);
