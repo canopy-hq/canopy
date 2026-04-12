@@ -175,7 +175,12 @@ export function Header({
 
                   let primaryLabel = entry.label;
                   let secondaryLabel = '';
-                  if (entry.type !== 'settings') {
+                  if (entry.type === 'settings') {
+                    if (entry.section) {
+                      secondaryLabel =
+                        entry.section.charAt(0).toUpperCase() + entry.section.slice(1);
+                    }
+                  } else {
                     primaryLabel = entry.projectName ?? entry.label;
                     if (entry.tabId) {
                       const contextName =
