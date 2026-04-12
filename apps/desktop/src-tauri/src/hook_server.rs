@@ -93,14 +93,19 @@ async fn handle_hook(
 // ── Server startup ─────────────────────────────────────────────────────
 
 /// Start the hook HTTP server on an ephemeral port.
+/// Binds synchronously (safe to call from Tauri's sync `.setup()`), then
+/// spawns the async server on the tokio runtime.
 /// Returns `(port, token)` for injection into PTY env vars.
-pub async fn start_hook_server(app_handle: AppHandle) -> Result<(u16, String), String> {
+pub fn start_hook_server(app_handle: AppHandle) -> Result<(u16, String), String> {
     let token = uuid::Uuid::now_v7().to_string();
 
-    let listener = TcpListener::bind("127.0.0.1:0")
-        .await
+    // Bind synchronously to avoid block_on deadlock in setup()
+    let std_listener = std::net::TcpListener::bind("127.0.0.1:0")
         .map_err(|e| format!("hook server bind failed: {e}"))?;
-    let port = listener
+    std_listener
+        .set_nonblocking(true)
+        .map_err(|e| format!("hook server set_nonblocking: {e}"))?;
+    let port = std_listener
         .local_addr()
         .map_err(|e| format!("hook server addr: {e}"))?
         .port();
@@ -116,7 +121,15 @@ pub async fn start_hook_server(app_handle: AppHandle) -> Result<(u16, String), S
 
     eprintln!("[hook] server listening on 127.0.0.1:{port}");
 
+    // Convert std listener to tokio and spawn the server
     tokio::spawn(async move {
+        let listener = match TcpListener::from_std(std_listener) {
+            Ok(l) => l,
+            Err(e) => {
+                eprintln!("[hook] failed to convert listener: {e}");
+                return;
+            }
+        };
         if let Err(e) = axum::serve(listener, router).await {
             eprintln!("[hook] server error: {e}");
         }

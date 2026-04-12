@@ -104,9 +104,9 @@ pub fn run() {
             app.manage(github::HttpClient(github::build_http_client()));
 
             // Start the hook HTTP server for agent state callbacks.
-            // Uses tauri::async_runtime to run the async function from the sync setup closure.
+            // Binds synchronously, spawns the async server on the tokio runtime.
             let handle = app.handle().clone();
-            match tauri::async_runtime::block_on(hook_server::start_hook_server(handle)) {
+            match hook_server::start_hook_server(handle) {
                 Ok((port, token)) => {
                     app.manage(hook_server::HookServerState { port, token });
                 }
