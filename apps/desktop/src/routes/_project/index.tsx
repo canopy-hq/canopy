@@ -35,7 +35,7 @@ function Onboarding() {
           Add a project
         </Button>
         <span className="font-mono text-xs text-fg-faint">
-          or press <Kbd>⌘N</Kbd>
+          or press <Kbd>⌘⇧N</Kbd>
         </span>
       </div>
 

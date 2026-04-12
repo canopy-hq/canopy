@@ -246,7 +246,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
           <Tooltip
             label={
               <>
-                Add project <Kbd>⌘N</Kbd>
+                Add project <Kbd>⌘⇧N</Kbd>
               </>
             }
             placement="right"
