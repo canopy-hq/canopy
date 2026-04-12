@@ -202,6 +202,10 @@ export function Header({
                     } else {
                       primaryLabel = entry.projectName ?? entry.label;
                     }
+                    const projectName = entry.projectName ?? '';
+                    if (projectName && projectName !== primaryLabel) {
+                      secondaryLabel = projectName;
+                    }
                   } else {
                     primaryLabel = entry.projectName ?? entry.label;
                   }
