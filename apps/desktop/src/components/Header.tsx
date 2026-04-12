@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 
 import { useProjects, useUiState } from '../hooks/useCollections';
-import { deriveContextLabel } from '../lib/nav-history';
 import {
   goBack,
   goForward,
@@ -191,19 +190,20 @@ export function Header({
                       secondaryLabel =
                         entry.section.charAt(0).toUpperCase() + entry.section.slice(1);
                     }
+                  } else if (entry.contextId && entry.projectId) {
+                    const pid = entry.projectId;
+                    if (entry.contextId.includes(`${pid}-branch-`)) {
+                      primaryLabel = entry.contextId.split(`${pid}-branch-`)[1] ?? entry.label;
+                    } else if (entry.contextId.includes(`${pid}-wt-`)) {
+                      const wtName = entry.contextId.split(`${pid}-wt-`)[1];
+                      const proj = projects.find((p) => p.id === pid);
+                      const wt = proj?.worktrees.find((w) => w.name === wtName);
+                      primaryLabel = wt?.label || wt?.branch || wtName || entry.label;
+                    } else {
+                      primaryLabel = entry.projectName ?? entry.label;
+                    }
                   } else {
                     primaryLabel = entry.projectName ?? entry.label;
-                    if (entry.contextId && entry.projectId) {
-                      const contextName = deriveContextLabel(entry.contextId, {
-                        id: entry.projectId,
-                        name: '',
-                      });
-                      if (contextName && contextName !== primaryLabel) {
-                        secondaryLabel = contextName;
-                      }
-                    } else if (entry.label !== (entry.projectName ?? '')) {
-                      secondaryLabel = entry.label;
-                    }
                   }
 
                   return (

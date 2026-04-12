@@ -136,7 +136,7 @@ function ItemRow({
 }) {
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex h-4 items-center gap-2">
         {icon}
         {editing ? (
           <input
