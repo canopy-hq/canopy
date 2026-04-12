@@ -2,7 +2,6 @@ import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 
 import { CommandMenu } from '@canopy/command-palette';
 import {
-  agentCollection,
   getUiState,
   uiCollection,
   getTabCollection,
@@ -22,7 +21,6 @@ import { makeProjectPaletteItem } from '../commands/project-commands';
 import { resolveProject } from '../commands/utils';
 import { AddProjectDialog } from '../components/AddProjectDialog';
 import { AgentOverlay } from '../components/AgentOverlay';
-import { AgentToastRegion } from '../components/AgentToastRegion';
 import { Header } from '../components/Header';
 import { ErrorToastRegion } from '../components/ToastProvider';
 import { useUiState } from '../hooks/useCollections';
@@ -34,7 +32,7 @@ import { checkProjectPaths, listWorktrees } from '../lib/git';
 import { getConnection, GITHUB_CONNECTION_KEY } from '../lib/github';
 import { logInfo } from '../lib/log';
 import { pushNav, deriveContextLabel } from '../lib/nav-history';
-import { collectLeafPtyIds, collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
+import { collectRestorablePaneIds } from '../lib/pane-tree-ops';
 import {
   toggleSidebar,
   refreshRepo,
@@ -47,8 +45,7 @@ import {
   navigateToSettings,
 } from '../lib/project-actions';
 import { onOpenProjectPalette, openProjectPalette } from '../lib/project-palette-bridge';
-import { getActiveTab, setPtyIdInTab, getContextIdFromUrl } from '../lib/tab-actions';
-import { showAgentToastDeduped, dismissAgentToastsForPtyIds } from '../lib/toast';
+import { setPtyIdInTab, getContextIdFromUrl } from '../lib/tab-actions';
 import { router } from '../router';
 
 import type { CommandItem } from '@canopy/command-palette';
@@ -283,34 +280,8 @@ function RootLayout() {
     });
   }, []);
 
-  useEffect(() => {
-    const sub = agentCollection.subscribeChanges((changes) => {
-      for (const change of changes) {
-        if (change.type === 'delete') continue;
-        const agent = change.value;
-        const tabs = getTabCollection().toArray;
-        const activeTabId = getActiveTab()?.id;
-        const agentTab = tabs.find((t) => containsPtyId(t.paneRoot, agent.ptyId));
-        if (!agentTab || agentTab.id === activeTabId) continue;
-        const projects = getProjectCollection().toArray;
-        const ws = projects.find((p) => agentTab.projectItemId.startsWith(p.id));
-        if (agent.status === 'permission') {
-          showAgentToastDeduped({
-            type: 'agent-waiting',
-            agentName: agent.agentName,
-            project: ws?.name ?? 'Unknown',
-            branch: agentTab.label,
-            ptyId: agent.ptyId,
-          });
-        }
-      }
-    });
-    return () => sub.unsubscribe();
-  }, []);
-
-  // Clear review state + dismiss toasts when the user switches to a tab.
-  // Review means "done while you weren't looking", so viewing the tab
-  // clears it. Permission toasts for panes in the tab are also dismissed.
+  // Clear review state when the user switches to a tab.
+  // Review means "done while you weren't looking", so viewing the tab clears it.
   useEffect(() => {
     const sub = uiCollection.subscribeChanges((changes) => {
       for (const change of changes) {
@@ -318,8 +289,6 @@ function RootLayout() {
         const ui = change.value;
         if (ui.activeTabId) {
           clearReviewForTab(ui.activeTabId);
-          const tab = getTabCollection().toArray.find((t) => t.id === ui.activeTabId);
-          if (tab) dismissAgentToastsForPtyIds(collectLeafPtyIds(tab.paneRoot));
         }
       }
     });
@@ -426,7 +395,7 @@ function RootLayout() {
         />
         <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
         {addProjectOpen && <AddProjectDialog onClose={() => setAddProjectOpen(false)} />}
-        <AgentToastRegion />
+
         {import.meta.env.DEV && <FpsOverlay visible={fpsVisible} />}
       </div>
     </LucideProvider>
