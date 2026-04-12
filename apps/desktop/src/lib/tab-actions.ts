@@ -19,9 +19,7 @@ import {
   writeToPty,
 } from '@canopy/terminal';
 
-import { resolveProject } from '../commands/utils';
 import { router } from '../router';
-import { pushNav } from './nav-history';
 import {
   collectAllLeafPaneIds,
   collectLeafPtyIds,
@@ -187,7 +185,6 @@ export function addTab(projectItemId?: string): void {
   insertTab(tab);
   syncNavStateToLocalStorage(tab.id, itemId, [...getTabCollection().toArray, tab]);
   navigateToTab(itemId, tab.id);
-  pushTabNav(tab);
 }
 
 export const CLAUDE_DEFAULT_MODE_KEY = 'claudeDefaultMode';
@@ -223,7 +220,6 @@ export function addClaudeCodeTab(
     insertTab(tab);
     syncNavStateToLocalStorage(tab.id, itemId, [...getTabCollection().toArray, tab]);
     navigateToTab(itemId, tab.id);
-    pushTabNav(tab);
   } else {
     insertTab(tab);
     // Tab created in the background (user is on a different worktree) — no navigation
@@ -283,31 +279,20 @@ export function closeTab(tabId: string): void {
   deleteTab(tabId);
 
   if (ui.activeTabId === tabId) {
-    // Prefer the tab to the left; fall back to the right if closing the first.
     const newTab = remaining[Math.max(0, closedIndex - 1)]!;
-    navigateToTab(contextId, newTab.id);
+    void router.navigate({
+      to: '/projects/$projectId/tabs/$tabId',
+      params: { projectId: contextId, tabId: newTab.id },
+      replace: true,
+      state: { skipNav: true },
+    });
   }
-}
-
-function pushTabNav(tab: { id: string; label: string; projectItemId: string }): void {
-  const contextId = tab.projectItemId;
-  const proj = resolveProject(contextId, getProjectCollection().toArray);
-  pushNav({
-    type: 'worktree',
-    contextId,
-    tabId: tab.id,
-    label: tab.label,
-    projectId: proj?.id,
-    projectName: proj?.name,
-    timestamp: Date.now(),
-  });
 }
 
 export function switchTab(tabId: string): void {
   const tab = getTabCollection().toArray.find((t) => t.id === tabId);
   if (!tab) return;
   navigateToTab(tab.projectItemId, tabId);
-  pushTabNav(tab);
 }
 
 export function switchTabByIndex(index: number): void {
@@ -316,9 +301,7 @@ export function switchTabByIndex(index: number): void {
     (t) => t.projectItemId === ui.activeContextId,
   );
   if (index >= 0 && index < contextTabs.length) {
-    const tab = contextTabs[index]!;
-    navigateToTab(ui.activeContextId, tab.id);
-    pushTabNav(tab);
+    navigateToTab(ui.activeContextId, contextTabs[index]!.id);
   }
 }
 
@@ -333,9 +316,7 @@ export function switchTabRelative(direction: 'prev' | 'next'): void {
     direction === 'next'
       ? (idx + 1) % contextTabs.length
       : (idx - 1 + contextTabs.length) % contextTabs.length;
-  const tab = contextTabs[newIdx]!;
-  navigateToTab(ui.activeContextId, tab.id);
-  pushTabNav(tab);
+  navigateToTab(ui.activeContextId, contextTabs[newIdx]!.id);
 }
 
 export function getActiveTab(): Tab | undefined {

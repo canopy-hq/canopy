@@ -16,7 +16,6 @@ import { listen } from '@tauri-apps/api/event';
 import { resolveProject } from '../commands/utils';
 import { openAddProjectDialogViaBridge } from './add-project-bridge';
 import * as gitApi from './git';
-import { pushNav, deriveContextLabel } from './nav-history';
 import { collectAllLeafPaneIds, collectLeafPtyIds } from './pane-tree-ops';
 import { addClaudeCodeTab, closeTab } from './tab-actions';
 import { showErrorToast, showInfoToast } from './toast';
@@ -25,6 +24,7 @@ type NavigateFn = (opts: {
   to: string;
   params?: Record<string, string>;
   search?: Record<string, string>;
+  state?: Record<string, unknown>;
 }) => void;
 
 import type { NavEntry, Project } from '@canopy/db';
@@ -333,26 +333,12 @@ export function selectProjectItem(
         (candidateTabId && contextTabs.some((t) => t.id === candidateTabId)
           ? candidateTabId
           : null) ?? contextTabs[0]?.id;
-      if (!silent) {
-        pushNav(
-          {
-            type: 'worktree',
-            projectId: proj.id,
-            contextId: itemId,
-            label: deriveContextLabel(itemId, proj),
-            projectName: proj.name,
-            tabId: destTabId || undefined,
-            timestamp: Date.now(),
-          },
-          itemId,
-        );
-      } else {
-        setSelectedItem(itemId);
-      }
+      setSelectedItem(itemId);
       if (destTabId) {
         navigate({
           to: '/projects/$projectId/tabs/$tabId',
           params: { projectId: itemId, tabId: destTabId },
+          ...(silent ? { state: { skipNav: true } } : {}),
         });
         return;
       }
@@ -361,7 +347,11 @@ export function selectProjectItem(
         draft.selectedItemId = itemId;
       });
     }
-    navigate({ to: '/projects/$projectId', params: { projectId: itemId } });
+    navigate({
+      to: '/projects/$projectId',
+      params: { projectId: itemId },
+      ...(silent ? { state: { skipNav: true } } : {}),
+    });
   } else {
     uiCollection.update('ui', (draft) => {
       draft.selectedItemId = null;
@@ -478,22 +468,22 @@ export function switchProjectItemRelative(
 // ---------------------------------------------------------------------------
 
 export function navigateToSettings(section: string, navigate: NavigateFn, silent?: boolean): void {
-  if (!silent) pushNav({ type: 'settings', label: 'Settings', section, timestamp: Date.now() });
-  navigate({ to: '/settings', search: { section } });
+  navigate({ to: '/settings', search: { section }, ...(silent ? { state: { skipNav: true } } : {}) });
 }
 
 function navigateToEntry(entry: NavEntry, navigate: NavigateFn): void {
   if (entry.type === 'settings') {
-    navigate({ to: '/settings', search: { section: entry.section ?? 'appearance' } });
+    navigate({ to: '/settings', search: { section: entry.section ?? 'appearance' }, state: { skipNav: true } });
   } else if (entry.contextId) {
     setSelectedItem(entry.contextId);
     if (entry.tabId && getTabCollection().toArray.find((t) => t.id === entry.tabId)) {
       navigate({
         to: '/projects/$projectId/tabs/$tabId',
         params: { projectId: entry.contextId, tabId: entry.tabId },
+        state: { skipNav: true },
       });
     } else {
-      navigate({ to: '/projects/$projectId', params: { projectId: entry.contextId } });
+      navigate({ to: '/projects/$projectId', params: { projectId: entry.contextId }, state: { skipNav: true } });
     }
   }
 }

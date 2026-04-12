@@ -45,8 +45,10 @@ import {
   goForward,
   navigateToSettings,
 } from '../lib/project-actions';
+import { pushNav, deriveContextLabel } from '../lib/nav-history';
 import { onOpenProjectPalette, openProjectPalette } from '../lib/project-palette-bridge';
 import { getActiveTab, setPtyIdInTab, getContextIdFromUrl } from '../lib/tab-actions';
+import { router } from '../router';
 import { showAgentToastDeduped } from '../lib/toast';
 
 import type { CommandItem } from '@canopy/command-palette';
@@ -89,9 +91,14 @@ function RootLayout() {
         void navigate({
           to: '/projects/$projectId/tabs/$tabId',
           params: { projectId: activeContextId, tabId: activeTab.id },
+          state: { skipNav: true },
         });
       } else {
-        void navigate({ to: '/projects/$projectId', params: { projectId: activeContextId } });
+        void navigate({
+          to: '/projects/$projectId',
+          params: { projectId: activeContextId },
+          state: { skipNav: true },
+        });
       }
     }
     for (const ws of projects) {
@@ -241,6 +248,34 @@ function RootLayout() {
     return () => {
       unlisten?.();
     };
+  }, []);
+
+  // Single source of truth for nav history: one listener records every navigation
+  // that isn't explicitly opted out via state.skipNav. Replaces scattered pushNav calls.
+  useEffect(() => {
+    return router.subscribe('onResolved', ({ toLocation }) => {
+      if (toLocation.state.skipNav) return;
+      const { pathname } = toLocation;
+      if (pathname.startsWith('/settings')) {
+        const section =
+          (toLocation.search as Record<string, string> | undefined)?.section ?? 'appearance';
+        pushNav({ type: 'settings', label: 'Settings', section, timestamp: Date.now() });
+        return;
+      }
+      const projectMatch = /\/projects\/([^/]+)/.exec(pathname);
+      if (!projectMatch) return;
+      const contextId = decodeURIComponent(projectMatch[1]!);
+      const tabMatch = /\/tabs\/([^/]+)/.exec(pathname);
+      const tabId = tabMatch ? decodeURIComponent(tabMatch[1]!) : undefined;
+      const proj = resolveProject(contextId, getProjectCollection().toArray);
+      if (!proj) return;
+      const tab = tabId ? getTabCollection().toArray.find((t) => t.id === tabId) : undefined;
+      const label = tab?.label ?? deriveContextLabel(contextId, proj);
+      pushNav(
+        { type: 'worktree', projectId: proj.id, contextId, tabId, label, projectName: proj.name, timestamp: Date.now() },
+        contextId,
+      );
+    });
   }, []);
 
   useEffect(() => {

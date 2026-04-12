@@ -96,6 +96,7 @@ function ProjectRoute() {
       to: '/projects/$projectId/tabs/$tabId',
       params: { projectId, tabId: tab.id },
       replace: true,
+      state: { skipNav: true },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
