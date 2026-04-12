@@ -44,7 +44,7 @@ import type { Tab } from '@canopy/db';
  * the primary source of truth wherever the store may be stale (addTab, addClaudeCodeTab…).
  */
 export function getContextIdFromUrl(): string | undefined {
-  const match = /\/projects\/([^/]+)/.exec(router.state.location.pathname);
+  const match = /\/projects\/([^/]+)/.exec(router.latestLocation.pathname);
   return match ? decodeURIComponent(match[1]!) : undefined;
 }
 
@@ -177,8 +177,6 @@ export function activateContextFromRoute(contextId: string): void {
 }
 
 export function addTab(projectItemId?: string): void {
-  // Prefer the URL over ui.activeContextId — the store lags one render cycle behind
-  // the URL when activateTabFromRoute/activateContextFromRoute haven't fired yet.
   const itemId = projectItemId ?? getContextIdFromUrl() ?? getUiState().activeContextId;
   if (!itemId) return;
   const tab = makeTab({ projectItemId: itemId });
@@ -203,7 +201,8 @@ export function addClaudeCodeTab(
   projectItemId?: string,
   options?: { mode?: 'bypass' | 'plan'; prompt?: string },
 ): void {
-  const itemId = projectItemId ?? getContextIdFromUrl() ?? getUiState().activeContextId;
+  const contextIdFromUrl = getContextIdFromUrl();
+  const itemId = projectItemId ?? contextIdFromUrl ?? getUiState().activeContextId;
   if (!itemId) return;
   const base = makeTab({ projectItemId: itemId, label: 'Claude Code' });
   const tab = { ...base, labelIsManual: true, icon: 'claude-code' };
@@ -217,9 +216,7 @@ export function addClaudeCodeTab(
   setSetting(`init-cmd:${tab.paneRoot.id}`, cmd);
   // Store a flag so TerminalPane knows a prompt arg is embedded — avoids fragile regex on the cmd string.
   if (options?.prompt) setSetting(`init-has-prompt:${tab.paneRoot.id}`, 'true');
-  // Only switch to the new tab if the user is currently on this worktree.
-  // Use the URL (always current) rather than ui.activeContextId which may lag.
-  if ((getContextIdFromUrl() ?? getUiState().activeContextId) === itemId) {
+  if ((contextIdFromUrl ?? getUiState().activeContextId) === itemId) {
     insertTab(tab);
     syncNavStateToLocalStorage(tab.id, itemId, [...getTabCollection().toArray, tab]);
     navigateToTab(itemId, tab.id);
