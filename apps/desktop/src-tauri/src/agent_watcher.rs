@@ -220,8 +220,9 @@ pub fn start_process_watcher(
                 _ = tokio::time::sleep(std::time::Duration::from_millis(interval_ms)) => {
                     // If the hook system has claimed this pty_id, suppress
                     // process-watcher emissions — hooks are the source of truth.
+                    // Use try_lock to avoid blocking the tokio thread pool.
                     if let Some(ws) = app_handle.try_state::<Mutex<AgentWatcherState>>() {
-                        if let Ok(guard) = ws.lock() {
+                        if let Ok(guard) = ws.try_lock() {
                             if guard.hook_states.contains_key(&pty_id) {
                                 continue;
                             }

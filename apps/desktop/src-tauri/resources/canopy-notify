@@ -5,8 +5,10 @@
 [ -z "$CANOPY_PORT" ] && exit 0
 [ -z "$CANOPY_PANE_ID" ] && exit 0
 [ -z "$CANOPY_TOKEN" ] && exit 0
+PAYLOAD=$(printf '{"event":"%s","pane_id":"%s","agent":"%s"}' \
+  "$CANOPY_HOOK_EVENT" "$CANOPY_PANE_ID" "$CANOPY_AGENT")
 curl -sf -m 1 -X POST "http://127.0.0.1:${CANOPY_PORT}/hook" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer ${CANOPY_TOKEN}" \
-  -d "{\"event\":\"${CANOPY_HOOK_EVENT}\",\"pane_id\":\"${CANOPY_PANE_ID}\",\"agent\":\"${CANOPY_AGENT}\"}" \
+  -d "$PAYLOAD" \
   >/dev/null 2>&1 || true

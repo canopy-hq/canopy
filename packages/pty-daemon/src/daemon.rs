@@ -371,6 +371,20 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                                 pixel_width: 0,
                                 pixel_height: 0,
                             });
+                            // Inject env vars into the already-running shell so
+                            // hook callbacks (canopy-notify) can reach the hook server.
+                            // Leading space suppresses history in most shells.
+                            if let Some(ref vars) = env_vars {
+                                if !vars.is_empty() {
+                                    let exports: Vec<String> = vars
+                                        .iter()
+                                        .map(|(k, v)| format!("{}={}", k, shell_escape(v)))
+                                        .collect();
+                                    let cmd = format!(" export {}\n", exports.join(" "));
+                                    let _ = sess.writer.write_all(cmd.as_bytes());
+                                    let _ = sess.writer.flush();
+                                }
+                            }
                             // Update the shared pane_id so the reader thread
                             // looks up the session under the new key.
                             *sess.pane_id_ref.lock().unwrap() = pane_id.clone();
@@ -608,6 +622,11 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
             _ => {}
         }
     }
+}
+
+/// Single-quote a value for safe shell interpolation.
+fn shell_escape(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "'\\''"))
 }
 
 /// Returns `(pid, is_new)` where `is_new` is false when the session already existed.
