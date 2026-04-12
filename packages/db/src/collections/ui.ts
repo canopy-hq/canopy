@@ -47,7 +47,7 @@ export interface UiState {
   invalidProjectIds: string[];
   justStartedWorktreeId: string | null;
   pendingClaudeSession: { worktreeId: string; mode: 'bypass' | 'plan'; prompt?: string } | null;
-  // Navigation history (in-memory only, not persisted)
+  // Navigation history
   navHistory: NavEntry[];
   navIndex: number;
 }
@@ -87,6 +87,8 @@ export const uiCollection = createCollection(
       if (old.sidebarVisible !== next.sidebarVisible)
         setSetting('sidebarVisible', next.sidebarVisible);
       if (old.sidebarWidth !== next.sidebarWidth) setSetting('sidebarWidth', next.sidebarWidth);
+      if (old.navHistory !== next.navHistory) setSetting('navHistory', next.navHistory);
+      if (old.navIndex !== next.navIndex) setSetting('navIndex', next.navIndex);
     },
   }),
 );
