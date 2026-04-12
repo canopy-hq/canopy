@@ -46,7 +46,8 @@ export function Header({
     const result: NavEntry[] = [];
     for (let i = navHistory.length - 1; i >= 0; i--) {
       const entry = navHistory[i]!;
-      const key = entry.type === 'settings' ? 'settings' : (entry.contextId ?? '');
+      const key =
+        entry.type === 'settings' ? 'settings' : `${entry.contextId ?? ''}:${entry.tabId ?? ''}`;
       if (key && !seen.has(key)) {
         seen.add(key);
         result.push(entry);

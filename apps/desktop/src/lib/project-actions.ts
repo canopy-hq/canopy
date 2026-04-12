@@ -14,6 +14,7 @@ import { listen } from '@tauri-apps/api/event';
 
 import { openAddProjectDialogViaBridge } from './add-project-bridge';
 import * as gitApi from './git';
+import { pushNav, deriveContextLabel } from './nav-history';
 import { collectAllLeafPaneIds, collectLeafPtyIds } from './pane-tree-ops';
 import { addClaudeCodeTab, closeTab } from './tab-actions';
 import { showErrorToast, showInfoToast } from './toast';
@@ -304,16 +305,11 @@ export function selectProjectItem(itemId: string | null, navigate: NavigateFn): 
     );
     if (proj) {
       trackRecentProject(proj.id);
-      const label = itemId.includes(`${proj.id}-branch-`)
-        ? (itemId.split(`${proj.id}-branch-`)[1] ?? itemId)
-        : itemId.includes(`${proj.id}-wt-`)
-          ? (itemId.split(`${proj.id}-wt-`)[1] ?? itemId)
-          : proj.name;
       pushNav({
         type: 'worktree',
         projectId: proj.id,
         contextId: itemId,
-        label,
+        label: deriveContextLabel(itemId, proj),
         projectName: proj.name,
         timestamp: Date.now(),
       });
@@ -413,22 +409,6 @@ export function switchProjectItemRelative(
 // Navigation history
 // ---------------------------------------------------------------------------
 
-const NAV_HISTORY_MAX = 50;
-
-export function pushNav(entry: NavEntry): void {
-  uiCollection.update('ui', (draft) => {
-    // Truncate forward history when branching
-    if (draft.navIndex < draft.navHistory.length - 1) {
-      draft.navHistory = draft.navHistory.slice(0, draft.navIndex + 1);
-    }
-    draft.navHistory.push(entry);
-    if (draft.navHistory.length > NAV_HISTORY_MAX) {
-      draft.navHistory = draft.navHistory.slice(-NAV_HISTORY_MAX);
-    }
-    draft.navIndex = draft.navHistory.length - 1;
-  });
-}
-
 export function navigateToSettings(section: string, navigate: NavigateFn): void {
   pushNav({ type: 'settings', label: 'Settings', timestamp: Date.now() });
   navigate({ to: '/settings', search: { section } });
@@ -440,6 +420,20 @@ function navigateToEntry(entry: NavEntry, navigate: NavigateFn): void {
     navigate({ to: '/settings', search: { section: 'appearance' } });
   } else if (entry.contextId) {
     setSelectedItem(entry.contextId);
+    if (entry.tabId) {
+      const tab = getTabCollection().toArray.find((t) => t.id === entry.tabId);
+      if (tab) {
+        uiCollection.update('ui', (draft) => {
+          // Pre-seed contextActiveTabIds so setActiveContext restores the right tab
+          // if it runs after the route transition; also set directly if we're already
+          // in this context (same route, no re-mount).
+          draft.contextActiveTabIds[entry.contextId!] = entry.tabId!;
+          if (draft.activeContextId === entry.contextId) {
+            draft.activeTabId = entry.tabId!;
+          }
+        });
+      }
+    }
     navigate({ to: '/projects/$projectId', params: { projectId: entry.contextId } });
   }
 }

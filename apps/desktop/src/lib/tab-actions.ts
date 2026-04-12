@@ -20,6 +20,7 @@ import {
   writeToPty,
 } from '@canopy/terminal';
 
+import { pushNav, deriveContextLabel } from './nav-history';
 import {
   collectAllLeafPaneIds,
   collectLeafPtyIds,
@@ -196,12 +197,33 @@ export function closeTab(tabId: string): void {
   }
 }
 
+function pushTabNav(tab: { id: string; label: string; projectItemId: string }): void {
+  const contextId = tab.projectItemId;
+  const proj = getProjectCollection().toArray.find(
+    (p) =>
+      contextId === p.id ||
+      contextId.startsWith(`${p.id}-branch-`) ||
+      contextId.startsWith(`${p.id}-wt-`),
+  );
+  pushNav({
+    type: 'worktree',
+    contextId,
+    tabId: tab.id,
+    label: proj ? deriveContextLabel(contextId, proj) : contextId,
+    projectId: proj?.id,
+    projectName: proj?.name,
+    timestamp: Date.now(),
+  });
+}
+
 export function switchTab(tabId: string): void {
-  if (getTabCollection().toArray.some((t) => t.id === tabId)) {
+  const tab = getTabCollection().toArray.find((t) => t.id === tabId);
+  if (tab) {
     syncNavStateToLocalStorage(tabId, getUiState().activeContextId);
     uiCollection.update('ui', (draft) => {
       draft.activeTabId = tabId;
     });
+    pushTabNav(tab);
   }
 }
 
@@ -211,11 +233,12 @@ export function switchTabByIndex(index: number): void {
     (t) => t.projectItemId === ui.activeContextId,
   );
   if (index >= 0 && index < contextTabs.length) {
-    const tabId = contextTabs[index]!.id;
-    syncNavStateToLocalStorage(tabId, ui.activeContextId);
+    const tab = contextTabs[index]!;
+    syncNavStateToLocalStorage(tab.id, ui.activeContextId);
     uiCollection.update('ui', (draft) => {
-      draft.activeTabId = tabId;
+      draft.activeTabId = tab.id;
     });
+    pushTabNav(tab);
   }
 }
 
@@ -230,11 +253,12 @@ export function switchTabRelative(direction: 'prev' | 'next'): void {
     direction === 'next'
       ? (idx + 1) % contextTabs.length
       : (idx - 1 + contextTabs.length) % contextTabs.length;
-  const tabId = contextTabs[newIdx]!.id;
-  syncNavStateToLocalStorage(tabId, ui.activeContextId);
+  const tab = contextTabs[newIdx]!;
+  syncNavStateToLocalStorage(tab.id, ui.activeContextId);
   uiCollection.update('ui', (draft) => {
-    draft.activeTabId = tabId;
+    draft.activeTabId = tab.id;
   });
+  pushTabNav(tab);
 }
 
 // Prevents spawning shells for every intermediate project during rapid switching —
