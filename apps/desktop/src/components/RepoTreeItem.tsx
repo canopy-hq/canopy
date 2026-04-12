@@ -6,6 +6,7 @@ import {
   Button,
   DiffPill,
   IconWithBadge,
+  Kbd,
   Spinner,
   StatusDot,
   Tooltip,
@@ -496,7 +497,18 @@ const RepoHeader = memo(
               </Button>
             )}
             {!isCloning && (
-              <Tooltip label="New worktree" placement="right">
+              <Tooltip
+                label={
+                  isSelected ? (
+                    <>
+                      New worktree <Kbd>⌘N</Kbd>
+                    </>
+                  ) : (
+                    'New worktree'
+                  )
+                }
+                placement="right"
+              >
                 <Button
                   iconOnly
                   size="sm"
