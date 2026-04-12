@@ -46,7 +46,7 @@ import {
   navigateToSettings,
 } from '../lib/project-actions';
 import { onOpenProjectPalette, openProjectPalette } from '../lib/project-palette-bridge';
-import { getActiveTab, setPtyIdInTab } from '../lib/tab-actions';
+import { getActiveTab, setPtyIdInTab, getContextIdFromUrl } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
 
 import type { CommandItem } from '@canopy/command-palette';
@@ -312,9 +312,9 @@ function RootLayout() {
         key: 'n',
         meta: true,
         action: () => {
-          const { activeContextId } = getUiState();
-          if (!activeContextId) return;
-          const proj = resolveProject(activeContextId, getProjectCollection().toArray);
+          const contextId = getContextIdFromUrl() ?? getUiState().activeContextId;
+          if (!contextId) return;
+          const proj = resolveProject(contextId, getProjectCollection().toArray);
           if (!proj || proj.invalid) return;
           openProjectPalette(makeProjectPaletteItem(proj));
         },
