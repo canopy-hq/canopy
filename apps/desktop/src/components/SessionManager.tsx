@@ -176,7 +176,6 @@ export function SessionManager({ onClose }: SessionManagerProps) {
             <Button
               variant="destructive-ghost"
               size="sm"
-              className="opacity-0 transition-opacity group-hover/header:opacity-100"
               onPress={() => void handleKillAll()}
               isDisabled={rows.every((r) => killing.has(r.info.ptyId))}
             >
@@ -198,7 +197,6 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                   variant="destructive-ghost"
                   size="sm"
                   aria-label={`Kill all sessions in ${projName}`}
-                  className="opacity-0 transition-opacity group-hover/section:opacity-100"
                   onPress={() => void handleKillGroup(groupRows)}
                   isDisabled={groupRows.every((r) => killing.has(r.info.ptyId))}
                 >
@@ -227,7 +225,7 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                     <Button
                       variant="destructive-ghost"
                       size="sm"
-                      className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                      className="shrink-0"
                       onPress={() => void handleKill(row)}
                       isDisabled={killing.has(row.info.ptyId)}
                     >
