@@ -164,7 +164,7 @@ export function Header({
           <Popover
             placement="bottom start"
             offset={4}
-            className="w-72 overflow-hidden rounded-lg border border-edge/60 bg-raised shadow-xl outline-none"
+            className="w-64 overflow-hidden rounded-lg border border-edge/60 bg-raised shadow-xl outline-none"
           >
             <div className="px-3 pt-2.5 pb-1">
               <div className="text-xs font-medium text-fg-muted">Recently Viewed</div>
@@ -181,46 +181,37 @@ export function Header({
                   const projectColor = entry.projectId
                     ? (projectColorMap.get(entry.projectId) ?? null)
                     : null;
+
+                  let secondaryLabel = '';
+                  if (entry.tabId) {
+                    const contextName = contextNameFromEntry(entry);
+                    secondaryLabel = [contextName, entry.projectName].filter(Boolean).join(' · ');
+                  } else if (entry.type !== 'settings' && entry.label !== entry.projectName) {
+                    secondaryLabel = entry.projectName ?? '';
+                  }
+
                   return (
                     <MenuItem
                       key={`${entry.contextId ?? 'settings'}-${entry.tabId ?? ''}-${i}`}
                       id={String(i)}
-                      className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 outline-none data-[focused]:bg-surface"
+                      className="flex cursor-default items-start gap-2 rounded px-2 py-1.5 outline-none data-[focused]:bg-surface"
                     >
-                      <span className="w-[64px] shrink-0 text-[11px] text-fg-faint">
-                        {entry.type === 'settings' ? 'Settings' : entry.tabId ? 'Tab' : 'Workspace'}
-                      </span>
-                      {projectColor ? (
-                        <span
-                          className="h-1.5 w-1.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: projectColor }}
-                        />
-                      ) : (
-                        <span className="h-1.5 w-1.5 shrink-0" />
-                      )}
-                      {entry.tabId ? (
-                        <div className="flex min-w-0 flex-1 flex-col">
-                          <span className="truncate font-mono text-xs text-fg-dim">
-                            {entry.label}
-                          </span>
-                          <span className="truncate text-[10px] text-fg-faint">
-                            {[contextNameFromEntry(entry), entry.projectName]
-                              .filter(Boolean)
-                              .join(' · ')}
-                          </span>
-                        </div>
-                      ) : (
-                        <>
-                          <span className="flex-1 truncate font-mono text-xs text-fg-dim">
-                            {entry.label}
-                          </span>
-                          {entry.projectName && (
-                            <span className="ml-1 shrink-0 text-[10px] text-fg-faint">
-                              {entry.projectName}
-                            </span>
-                          )}
-                        </>
-                      )}
+                      <span
+                        className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full"
+                        style={
+                          projectColor
+                            ? { backgroundColor: projectColor }
+                            : { visibility: 'hidden' }
+                        }
+                      />
+                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="truncate font-mono text-xs text-fg-dim">
+                          {entry.label}
+                        </span>
+                        <span className="truncate text-[10px] text-fg-faint">
+                          {secondaryLabel || '\u00A0'}
+                        </span>
+                      </div>
                     </MenuItem>
                   );
                 })}
