@@ -116,10 +116,17 @@ fn find_agent_in_children(root_pid: u32) -> Option<(String, u32)> {
 /// Silence threshold: if no output for this many ms, agent is "waiting".
 const SILENCE_THRESHOLD_MS: u64 = 3_000;
 
-/// Poll interval for process tree scanning.
-/// Each poll is ~50-100µs (direct libproc syscalls, no process spawning),
-/// so 250ms gives near-instant detection with negligible CPU cost.
+/// Poll interval for process tree scanning when an agent may be present.
 const POLL_INTERVAL_MS: u64 = 250;
+
+/// Backed-off poll interval once a terminal has been consistently idle.
+/// At 5s the watcher is nearly invisible; agent detection is still fast
+/// because any found agent immediately resets idle_count to 0 (250ms polling).
+const POLL_INTERVAL_IDLE_MS: u64 = 5_000;
+
+/// Consecutive idle polls before switching to the backed-off interval.
+/// 8 × 250ms = 2s of confirmed no-agent before slowing down.
+const IDLE_BACKOFF_THRESHOLD: u32 = 8;
 
 // ── Process-polling agent watcher ──────────────────────────────────────
 
@@ -139,17 +146,32 @@ pub fn start_watching(
         // Track last emitted status to avoid duplicate events
         let mut last_status: Option<AgentStatus> = None;
         let mut last_agent_name: Option<String> = None;
+        // Consecutive idle poll count — drives adaptive backoff.
+        let mut idle_count: u32 = 0;
 
         loop {
+            // Back off to 2 s once we've been idle long enough; snap back immediately
+            // when an agent is found. This cuts libproc syscalls from ~4/s to ~0.5/s
+            // for terminals sitting at a shell prompt.
+            let interval_ms = if idle_count >= IDLE_BACKOFF_THRESHOLD {
+                POLL_INTERVAL_IDLE_MS
+            } else {
+                POLL_INTERVAL_MS
+            };
+
             tokio::select! {
                 _ = &mut cancel => break,
-                _ = tokio::time::sleep(std::time::Duration::from_millis(POLL_INTERVAL_MS)) => {
-                    // Scan child process tree for known agents
-                    let agent = find_agent_in_children(shell_pid);
+                _ = tokio::time::sleep(std::time::Duration::from_millis(interval_ms)) => {
+                    // Scan child process tree for known agents.
+                    // libproc syscalls block for ~50-100µs — run off the async executor.
+                    let agent = tokio::task::spawn_blocking(move || find_agent_in_children(shell_pid))
+                        .await
+                        .unwrap_or(None);
 
                     let (new_status, agent_name, agent_pid) = match agent {
                         Some((name, pid)) => {
-                            // Agent found — check output activity
+                            // Agent found — snap back to fast polling immediately.
+                            idle_count = 0;
                             let last = last_output.load(Ordering::Relaxed);
                             let silence = now_millis().saturating_sub(last);
 
@@ -161,7 +183,8 @@ pub fn start_watching(
                             (status, name, pid)
                         }
                         None => {
-                            // No agent found
+                            // No agent found — accumulate toward backoff threshold.
+                            idle_count = idle_count.saturating_add(1);
                             (AgentStatus::Idle, last_agent_name.clone().unwrap_or_default(), 0)
                         }
                     };
@@ -356,5 +379,9 @@ mod tests {
     #[test]
     fn test_poll_interval() {
         assert_eq!(POLL_INTERVAL_MS, 250);
+        assert_eq!(POLL_INTERVAL_IDLE_MS, 5_000);
+        assert!(IDLE_BACKOFF_THRESHOLD > 0);
+        // Idle interval must be strictly longer than the active interval.
+        assert!(POLL_INTERVAL_IDLE_MS > POLL_INTERVAL_MS);
     }
 }

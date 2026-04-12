@@ -302,7 +302,7 @@ pub async fn init_terminal_pool(
         return Ok(());
     }
     eprintln!("[pool] init_terminal_pool called with cwd={cwd}");
-    let result = daemon.init_pool(&cwd, 2).await;
+    let result = daemon.init_pool(&cwd, 3).await;
     eprintln!("[pool] init_terminal_pool result: {result:?}");
     result
 }
