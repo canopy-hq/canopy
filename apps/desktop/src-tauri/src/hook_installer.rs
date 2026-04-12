@@ -184,15 +184,6 @@ fn install_hooks_inner(
         serde_json::json!({})
     };
 
-    // Create backup before first modification — only once, so it always
-    // reflects the user's pre-Canopy config for clean rollback.
-    if config_path.exists() {
-        let backup = config_path.with_extension("canopy-backup");
-        if !backup.exists() {
-            fs::copy(config_path, &backup)
-                .map_err(|e| format!("backup {}: {e}", config_path.display()))?;
-        }
-    }
 
     // Get or create the hooks container
     let hooks_obj = match config.format {
@@ -441,21 +432,6 @@ mod tests {
         // File should be unchanged
         let content = fs::read_to_string(&config_path).unwrap();
         assert_eq!(content, "not valid json {{{");
-    }
-
-    #[test]
-    fn test_backup_created() {
-        let dir = tempfile::tempdir().unwrap();
-        let config_path = write_config(dir.path(), r#"{"existing": true}"#);
-        let notify = PathBuf::from("/home/test/.canopy/bin/canopy-notify");
-
-        let config = test_config(HookConfigFormat::DirectEvents);
-        install_hooks_inner(&config, &config_path, &notify.to_string_lossy()).unwrap();
-
-        let backup = config_path.with_extension("canopy-backup");
-        assert!(backup.exists());
-        let backup_content = fs::read_to_string(&backup).unwrap();
-        assert!(backup_content.contains("\"existing\": true") || backup_content.contains("\"existing\":true"));
     }
 
     #[test]
