@@ -12,7 +12,7 @@ import { X } from 'lucide-react';
 
 import { containsPtyId } from '../lib/pane-tree-ops';
 import { switchTab } from '../lib/tab-actions';
-import { agentToastQueue } from '../lib/toast';
+import { agentToastQueue, dismissAgentToast } from '../lib/toast';
 
 import type { AgentToastContent } from '../lib/toast';
 
@@ -23,13 +23,13 @@ function eventDescription(type: AgentToastContent['type']): string {
 export function AgentToastRegion() {
   const navigate = useNavigate();
 
-  function handleJump(ptyId: number, close: () => void) {
+  function handleJump(ptyId: number) {
     const tab = getTabCollection().toArray.find((t) => containsPtyId(t.paneRoot, ptyId));
     if (tab) {
       void navigate({ to: '/projects/$projectId', params: { projectId: tab.projectItemId } });
       switchTab(tab.id);
     }
-    close();
+    dismissAgentToast(ptyId);
   }
 
   return (
@@ -70,18 +70,14 @@ export function AgentToastRegion() {
             </Text>
 
             <div className="mt-2 flex gap-3">
-              <Button
-                variant="link"
-                size="sm"
-                onPress={() => handleJump(toast.content.ptyId, () => toast.onClose?.())}
-              >
+              <Button variant="link" size="sm" onPress={() => handleJump(toast.content.ptyId)}>
                 Jump to pane
               </Button>
               <Button
                 variant="link"
                 size="sm"
                 className="text-fg-muted"
-                onPress={() => toast.onClose?.()}
+                onPress={() => agentToastQueue.close(toast.key)}
               >
                 Dismiss
               </Button>

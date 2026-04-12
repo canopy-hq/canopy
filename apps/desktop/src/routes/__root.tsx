@@ -34,7 +34,7 @@ import { checkProjectPaths, listWorktrees } from '../lib/git';
 import { getConnection, GITHUB_CONNECTION_KEY } from '../lib/github';
 import { logInfo } from '../lib/log';
 import { pushNav, deriveContextLabel } from '../lib/nav-history';
-import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
+import { collectLeafPtyIds, collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
 import {
   toggleSidebar,
   refreshRepo,
@@ -48,7 +48,7 @@ import {
 } from '../lib/project-actions';
 import { onOpenProjectPalette, openProjectPalette } from '../lib/project-palette-bridge';
 import { getActiveTab, setPtyIdInTab, getContextIdFromUrl } from '../lib/tab-actions';
-import { showAgentToastDeduped } from '../lib/toast';
+import { showAgentToastDeduped, dismissAgentToastsForPtyIds } from '../lib/toast';
 import { router } from '../router';
 
 import type { CommandItem } from '@canopy/command-palette';
@@ -308,8 +308,9 @@ function RootLayout() {
     return () => sub.unsubscribe();
   }, []);
 
-  // Clear review state when the user switches to a tab — review means
-  // "done while you weren't looking", so viewing the tab clears it.
+  // Clear review state + dismiss toasts when the user switches to a tab.
+  // Review means "done while you weren't looking", so viewing the tab
+  // clears it. Permission toasts for panes in the tab are also dismissed.
   useEffect(() => {
     const sub = uiCollection.subscribeChanges((changes) => {
       for (const change of changes) {
@@ -317,6 +318,8 @@ function RootLayout() {
         const ui = change.value;
         if (ui.activeTabId) {
           clearReviewForTab(ui.activeTabId);
+          const tab = getTabCollection().toArray.find((t) => t.id === ui.activeTabId);
+          if (tab) dismissAgentToastsForPtyIds(collectLeafPtyIds(tab.paneRoot));
         }
       }
     });

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { agentToastQueue, showAgentToast, showAgentToastDeduped } from '../../lib/toast';
+import { agentToastQueue, showAgentToastDeduped, dismissAgentToast } from '../../lib/toast';
 
 import type { AgentToastContent } from '../../lib/toast';
 
@@ -17,36 +17,34 @@ function makeToast(overrides?: Partial<AgentToastContent>): AgentToastContent {
 
 describe('AgentToastRegion', () => {
   beforeEach(() => {
-    // Clear any existing toasts by closing them through the queue
     for (const toast of agentToastQueue.visibleToasts) {
       agentToastQueue.close(toast.key);
     }
   });
 
-  it('renders waiting toast with persist behavior (no timeout)', () => {
+  it('waiting toast has no timeout (persists until dismissed)', () => {
     const addSpy = vi.spyOn(agentToastQueue, 'add');
-    showAgentToast(makeToast({ type: 'agent-waiting' }));
+    showAgentToastDeduped(makeToast({ type: 'agent-waiting', ptyId: 100 }));
 
     expect(addSpy).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'agent-waiting', agentName: 'claude' }),
-      { timeout: undefined },
+      expect.objectContaining({ timeout: undefined }),
     );
     addSpy.mockRestore();
   });
 
-  it('renders complete toast with agent name and auto-dismiss after 10s', () => {
+  it('complete toast auto-dismisses after 10s', () => {
     const addSpy = vi.spyOn(agentToastQueue, 'add');
-    showAgentToast(makeToast({ type: 'agent-complete', agentName: 'aider' }));
+    showAgentToastDeduped(makeToast({ type: 'agent-complete', agentName: 'aider', ptyId: 101 }));
 
     expect(addSpy).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'agent-complete', agentName: 'aider' }),
-      { timeout: 10000 },
+      expect.objectContaining({ timeout: 10000 }),
     );
     addSpy.mockRestore();
   });
 
-  it('shows Jump to pane and Dismiss action buttons in toast content', () => {
-    // Verify the AgentToastContent interface has required fields
+  it('toast content includes all required fields', () => {
     const content = makeToast();
     expect(content).toHaveProperty('ptyId');
     expect(content).toHaveProperty('agentName');
@@ -55,7 +53,7 @@ describe('AgentToastRegion', () => {
     expect(content.type).toBe('agent-waiting');
   });
 
-  it('deduplication suppresses duplicate toasts within 5s', () => {
+  it('deduplication suppresses duplicate toasts for same ptyId', () => {
     const addSpy = vi.spyOn(agentToastQueue, 'add');
 
     const content = makeToast({ ptyId: 999 });
@@ -66,21 +64,27 @@ describe('AgentToastRegion', () => {
     addSpy.mockRestore();
   });
 
-  it('deduplication allows toast after 5s window', () => {
+  it('allows new toast after previous one is dismissed', () => {
     const addSpy = vi.spyOn(agentToastQueue, 'add');
-    const nowSpy = vi.spyOn(Date, 'now');
 
     const content = makeToast({ ptyId: 2000 });
-    const baseTime = 1000000;
-    nowSpy.mockReturnValue(baseTime);
     showAgentToastDeduped(content);
 
-    // Advance past 5s window
-    nowSpy.mockReturnValue(baseTime + 6000);
+    // Dismiss the active toast
+    dismissAgentToast(2000);
+
     showAgentToastDeduped(content);
+    expect(addSpy).toHaveBeenCalledTimes(2);
+    addSpy.mockRestore();
+  });
+
+  it('different ptyIds can have concurrent toasts', () => {
+    const addSpy = vi.spyOn(agentToastQueue, 'add');
+
+    showAgentToastDeduped(makeToast({ ptyId: 10 }));
+    showAgentToastDeduped(makeToast({ ptyId: 20 }));
 
     expect(addSpy).toHaveBeenCalledTimes(2);
     addSpy.mockRestore();
-    nowSpy.mockRestore();
   });
 });

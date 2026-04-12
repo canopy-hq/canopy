@@ -28,18 +28,25 @@ export interface AgentToastContent {
 
 export const agentToastQueue = new ToastQueue<AgentToastContent>({ maxVisibleToasts: 3 });
 
-export function showAgentToast(content: AgentToastContent) {
-  const timeout = content.type === 'agent-complete' ? 10000 : undefined;
-  agentToastQueue.add(content, { timeout });
-}
-
-// De-duplication: suppress duplicate toasts for same ptyId within 5s
-const lastToastTime: Record<number, number> = {};
+// Track active agent toasts: ptyId → toast key (prevents duplicates)
+const activeAgentToasts = new Map<number, string>();
 
 export function showAgentToastDeduped(content: AgentToastContent) {
-  const now = Date.now();
-  const last = lastToastTime[content.ptyId] ?? 0;
-  if (now - last < 5000) return; // suppress within 5s window
-  lastToastTime[content.ptyId] = now;
-  showAgentToast(content);
+  if (activeAgentToasts.has(content.ptyId)) return;
+
+  const timeout = content.type === 'agent-complete' ? 10000 : undefined;
+  const key = agentToastQueue.add(content, {
+    timeout,
+    onClose: () => activeAgentToasts.delete(content.ptyId),
+  });
+  activeAgentToasts.set(content.ptyId, key);
+}
+
+export function dismissAgentToast(ptyId: number) {
+  const key = activeAgentToasts.get(ptyId);
+  if (key) agentToastQueue.close(key);
+}
+
+export function dismissAgentToastsForPtyIds(ptyIds: number[]) {
+  for (const id of ptyIds) dismissAgentToast(id);
 }
