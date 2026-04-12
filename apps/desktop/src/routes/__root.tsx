@@ -224,7 +224,7 @@ function RootLayout() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useTauriMenuEvent('menu:settings', () => {
-    void navigateToSettings('appearance', navigate);
+    navigateToSettings('appearance', navigate);
   });
   useTauriMenuEvent('menu:fps-overlay', () => setFpsVisible((prev) => !prev), import.meta.env.DEV);
 

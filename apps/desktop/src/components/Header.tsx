@@ -63,7 +63,7 @@ export function Header({
       if (!entry) return;
       onRecentlyViewedChange?.(false);
       if (entry.type === 'settings') {
-        void navigateToSettings('appearance', navigate);
+        navigateToSettings('appearance', navigate);
       } else if (entry.contextId) {
         selectProjectItem(entry.contextId, navigate);
       }
