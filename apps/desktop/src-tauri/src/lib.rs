@@ -3,6 +3,7 @@ mod agent_watcher;
 mod editor;
 mod git;
 mod github;
+mod hook_installer;
 mod hook_server;
 mod menu;
 mod pty;
@@ -118,6 +119,23 @@ pub fn run() {
                     });
                 }
             }
+
+            // Install notify script + agent hooks (non-blocking background task).
+            // Uses the bundled canopy-notify script resource.
+            let notify_content = include_bytes!("../resources/canopy-notify").to_vec();
+            tokio::task::spawn_blocking(move || {
+                match hook_installer::ensure_notify_script(&notify_content) {
+                    Ok(path) => {
+                        let results = hook_installer::install_all_hooks(&path);
+                        for (name, result) in &results {
+                            if let Err(e) = result {
+                                eprintln!("[hook] failed to install hooks for {name}: {e}");
+                            }
+                        }
+                    }
+                    Err(e) => eprintln!("[hook] failed to install notify script: {e}"),
+                }
+            });
 
             Ok(())
         })

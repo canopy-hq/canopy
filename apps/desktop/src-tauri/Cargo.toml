@@ -31,3 +31,5 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"
 axum = { version = "0.7", default-features = false, features = ["http1", "json", "tokio"] }
 uuid = { version = "1", features = ["v7"] }
+dirs = "5"
+libc = "0.2"
