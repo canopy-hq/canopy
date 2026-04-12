@@ -21,6 +21,15 @@ import type { NavEntry } from '@canopy/db';
 
 const RECENTLY_VIEWED_MAX = 15;
 
+function contextNameFromEntry(entry: NavEntry): string {
+  if (!entry.contextId || !entry.projectId) return '';
+  const branchPrefix = `${entry.projectId}-branch-`;
+  const wtPrefix = `${entry.projectId}-wt-`;
+  if (entry.contextId.startsWith(branchPrefix)) return entry.contextId.slice(branchPrefix.length);
+  if (entry.contextId.startsWith(wtPrefix)) return entry.contextId.slice(wtPrefix.length);
+  return '';
+}
+
 interface HeaderProps {
   onSessionsClick?: () => void;
   onSearchClick?: () => void;
@@ -66,7 +75,7 @@ export function Header({
       if (entry.type === 'settings') {
         navigateToSettings('appearance', navigate);
       } else if (entry.contextId) {
-        selectProjectItem(entry.contextId, navigate);
+        selectProjectItem(entry.contextId, navigate, entry.tabId);
       }
     },
     [recentEntries, navigate, onRecentlyViewedChange],
@@ -174,12 +183,12 @@ export function Header({
                     : null;
                   return (
                     <MenuItem
-                      key={`${entry.contextId ?? 'settings'}-${i}`}
+                      key={`${entry.contextId ?? 'settings'}-${entry.tabId ?? ''}-${i}`}
                       id={String(i)}
                       className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 outline-none data-[focused]:bg-surface"
                     >
-                      <span className="w-[72px] shrink-0 text-[11px] text-fg-faint">
-                        {entry.type === 'settings' ? 'Settings' : 'Workspace'}
+                      <span className="w-[64px] shrink-0 text-[11px] text-fg-faint">
+                        {entry.type === 'settings' ? 'Settings' : entry.tabId ? 'Tab' : 'Workspace'}
                       </span>
                       {projectColor ? (
                         <span
@@ -189,13 +198,28 @@ export function Header({
                       ) : (
                         <span className="h-1.5 w-1.5 shrink-0" />
                       )}
-                      <span className="flex-1 truncate font-mono text-xs text-fg-dim">
-                        {entry.label}
-                      </span>
-                      {entry.projectName && entry.type !== 'settings' && (
-                        <span className="ml-1 shrink-0 text-[10px] text-fg-faint">
-                          {entry.projectName}
-                        </span>
+                      {entry.tabId ? (
+                        <div className="flex min-w-0 flex-1 flex-col">
+                          <span className="truncate font-mono text-xs text-fg-dim">
+                            {entry.label}
+                          </span>
+                          <span className="truncate text-[10px] text-fg-faint">
+                            {[contextNameFromEntry(entry), entry.projectName]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="flex-1 truncate font-mono text-xs text-fg-dim">
+                            {entry.label}
+                          </span>
+                          {entry.projectName && (
+                            <span className="ml-1 shrink-0 text-[10px] text-fg-faint">
+                              {entry.projectName}
+                            </span>
+                          )}
+                        </>
                       )}
                     </MenuItem>
                   );
@@ -204,6 +228,8 @@ export function Header({
             )}
           </Popover>
         </MenuTrigger>
+
+        <div className="mx-1 h-4 w-px shrink-0 bg-edge/40" />
 
         <Tooltip label="PTY Sessions" placement="right">
           <Button variant="ghost" iconOnly onPress={onSessionsClick} aria-label="PTY sessions">

@@ -294,25 +294,51 @@ function trackRecentProject(projectId: string): void {
   setSetting('recentProjectIds', updated);
 }
 
-export function selectProjectItem(itemId: string | null, navigate: NavigateFn): void {
+export function selectProjectItem(
+  itemId: string | null,
+  navigate: NavigateFn,
+  /** When set (e.g. from Recently Viewed), this specific tab is pre-seeded for restoration. */
+  overrideTabId?: string,
+): void {
   uiCollection.update('ui', (draft) => {
     draft.selectedItemId = itemId;
   });
   if (itemId !== null) {
+    const ui = getUiState();
     const proj = getProjectCollection().toArray.find(
       (p) =>
         itemId === p.id || itemId.startsWith(`${p.id}-branch-`) || itemId.startsWith(`${p.id}-wt-`),
     );
     if (proj) {
       trackRecentProject(proj.id);
+      // Record which tab will be active in the target context so that goBack can restore it.
+      // Priority: explicit override (e.g. Recently Viewed) > already in this context (current tab)
+      //           > last saved tab for this context > first tab in context.
+      const contextTabs = getTabCollection().toArray.filter((t) => t.projectItemId === itemId);
+      const tabToRecord =
+        overrideTabId ??
+        (ui.activeContextId === itemId
+          ? ui.activeTabId
+          : (ui.contextActiveTabIds[itemId] ?? contextTabs[0]?.id));
       pushNav({
         type: 'worktree',
         projectId: proj.id,
         contextId: itemId,
         label: deriveContextLabel(itemId, proj),
         projectName: proj.name,
+        tabId: tabToRecord || undefined,
         timestamp: Date.now(),
       });
+    }
+    // Pre-seed the tab so setActiveContext restores the right one after the route transition.
+    if (overrideTabId) {
+      const tab = getTabCollection().toArray.find((t) => t.id === overrideTabId);
+      if (tab) {
+        uiCollection.update('ui', (draft) => {
+          draft.contextActiveTabIds[itemId] = overrideTabId;
+          if (draft.activeContextId === itemId) draft.activeTabId = overrideTabId;
+        });
+      }
     }
     navigate({ to: '/projects/$projectId', params: { projectId: itemId } });
   } else {

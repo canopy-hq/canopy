@@ -20,7 +20,7 @@ import {
   writeToPty,
 } from '@canopy/terminal';
 
-import { pushNav, deriveContextLabel } from './nav-history';
+import { pushNav } from './nav-history';
 import {
   collectAllLeafPaneIds,
   collectLeafPtyIds,
@@ -209,7 +209,7 @@ function pushTabNav(tab: { id: string; label: string; projectItemId: string }): 
     type: 'worktree',
     contextId,
     tabId: tab.id,
-    label: proj ? deriveContextLabel(contextId, proj) : contextId,
+    label: tab.label,
     projectId: proj?.id,
     projectName: proj?.name,
     timestamp: Date.now(),
