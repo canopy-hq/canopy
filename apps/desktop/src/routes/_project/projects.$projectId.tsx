@@ -71,10 +71,12 @@ function ProjectRoute() {
   const pendingSession =
     ui.pendingClaudeSession?.worktreeId === projectId ? ui.pendingClaudeSession : null;
 
-  // Safety net: if we land on the parent URL but tabs exist, redirect to the saved tab.
-  // This covers edge cases (crash recovery, stale boot state).
-  // Normal navigation always goes directly to /projects/$projectId/tabs/$tabId.
+  // Safety net: if we land on the bare project URL (no /tabs/ segment) but tabs exist,
+  // redirect to the saved tab. Covers crash recovery and stale boot state.
+  // Skip when we're already on a tab sub-route — the tab route's useEffect handles
+  // activation there, and this effect's stale closure would redirect to the wrong tab.
   useEffect(() => {
+    if (router.state.location.pathname.includes('/tabs/')) return;
     if (contextTabs.length === 0) return;
     const savedTabId = ui.contextActiveTabIds[projectId];
     const savedTab = savedTabId ? contextTabs.find((t) => t.id === savedTabId) : undefined;
@@ -89,7 +91,7 @@ function ProjectRoute() {
 
   return (
     <>
-      <TabBar />
+      <TabBar projectId={projectId} />
       <div className="relative min-h-0 flex-1">
         {isCreating ? (
           <CreatingWorktree pendingSession={pendingSession} />

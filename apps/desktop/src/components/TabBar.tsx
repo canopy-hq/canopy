@@ -323,11 +323,14 @@ const TabItemComponent = memo(
     prev.tab === next.tab && prev.isActive === next.isActive && prev.color === next.color,
 );
 
-export function TabBar() {
+export function TabBar({ projectId: propProjectId }: { projectId?: string } = {}) {
   const allTabs = useTabs();
   const projects = useProjects();
   const ui = useUiState();
-  const activeContextId = ui.activeContextId;
+  // Use the URL-derived projectId when available so the tab list is correct
+  // on the very first render after a project switch, before activateTabFromRoute
+  // has had a chance to update ui.activeContextId via its useEffect.
+  const activeContextId = propProjectId ?? ui.activeContextId;
   const tabs = useMemo(
     () =>
       allTabs
@@ -343,7 +346,11 @@ export function TabBar() {
     return project?.color ?? null;
   }, [projects, activeContextId]);
 
-  const activeTabId = ui.activeTabId;
+  // Use the context-specific saved tab as the active marker while
+  // ui.activeTabId may still point to the previous project's tab.
+  const activeTabId = propProjectId
+    ? (ui.contextActiveTabIds[propProjectId] ?? ui.activeTabId)
+    : ui.activeTabId;
   const [dragging, setDragging] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const addButtonRef = useRef<HTMLDivElement>(null);
@@ -427,7 +434,7 @@ export function TabBar() {
     maskImage = 'linear-gradient(to right, black calc(100% - 24px), transparent)';
   }
 
-  const projectId = activeContextId ?? '';
+  const projectId = propProjectId ?? activeContextId ?? '';
 
   return (
     <div className="flex h-10 shrink-0 items-center border-b border-edge/20 bg-raised">
