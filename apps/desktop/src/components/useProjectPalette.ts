@@ -12,7 +12,7 @@ import {
   type BranchDetail,
   type WorktreeInfo,
 } from '../lib/git';
-import { startWorktreeCreation, openWorktree } from '../lib/project-actions';
+import { startWorktreeCreation, openWorktree, selectProjectItem } from '../lib/project-actions';
 
 import type { PanelContext } from '@canopy/command-palette';
 import type { Project } from '@canopy/db';
@@ -288,9 +288,10 @@ export function useProjectPalette(project: Project, ctx: PanelContext): UseProje
   const handleOpenWorktree = useCallback(
     (name: string, path: string, branch: string) => {
       openWorktree(project.id, name, path, branch);
+      selectProjectItem(`${project.id}-wt-${name}`, navigate);
       ctx.close();
     },
-    [project.id, ctx],
+    [project.id, ctx, navigate],
   );
 
   return {

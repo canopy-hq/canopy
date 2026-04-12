@@ -51,11 +51,6 @@ struct PtySession {
 
 struct PoolEntry {
     pane_id: String,
-    ready: bool,
-    /// Scrollback length at last check — used to detect stabilization.
-    last_scrollback_len: usize,
-    /// How many consecutive polls the scrollback length hasn't changed.
-    stable_ticks: u32,
 }
 
 pub struct DaemonState {
@@ -64,6 +59,10 @@ pub struct DaemonState {
     pool_cwd: Option<String>,
     pool_target_size: usize,
     pool_counter: u64,
+    /// Incremented on every init_pool call. Async replenishment tasks compare
+    /// against their captured generation and exit early if it changed, preventing
+    /// orphan shells on rapid project switches.
+    pool_generation: u64,
 }
 
 impl DaemonState {
@@ -74,12 +73,64 @@ impl DaemonState {
             pool_cwd: None,
             pool_target_size: 0,
             pool_counter: 0,
+            pool_generation: 0,
         }
     }
 }
 
 /// Exit when the owning app process disappears — handles crash and kill -9.
+///
+/// macOS: uses kqueue EVFILT_PROC NOTE_EXIT — zero CPU, event-driven, notified
+/// the instant the parent exits. Falls back to 500ms polling if kqueue setup
+/// fails (e.g. insufficient permissions or already-dead parent).
 async fn watch_parent(parent_pid: u32) {
+    // Quick liveness check: parent may have died before we got here.
+    let alive = unsafe { libc::kill(parent_pid as libc::pid_t, 0) } == 0;
+    if !alive {
+        eprintln!("[daemon] parent {parent_pid} already gone on startup — exiting");
+        std::process::exit(0);
+    }
+
+    let notified = tokio::task::spawn_blocking(move || -> bool {
+        let kq = unsafe { libc::kqueue() };
+        if kq < 0 { return false; }
+
+        let change = libc::kevent {
+            ident: parent_pid as libc::uintptr_t,
+            filter: libc::EVFILT_PROC,
+            flags: libc::EV_ADD | libc::EV_ONESHOT,
+            fflags: libc::NOTE_EXIT,
+            data: 0,
+            udata: std::ptr::null_mut(),
+        };
+
+        // Register: fails with ESRCH if parent already exited between our kill(0) and here.
+        let ret = unsafe {
+            libc::kevent(kq, &change as *const _, 1, std::ptr::null_mut(), 0, std::ptr::null())
+        };
+        if ret < 0 {
+            unsafe { libc::close(kq); }
+            return false; // trigger polling fallback
+        }
+
+        // Block indefinitely — zero CPU until the kernel delivers NOTE_EXIT.
+        let mut event = unsafe { std::mem::zeroed::<libc::kevent>() };
+        let fired = unsafe {
+            libc::kevent(kq, std::ptr::null(), 0, &mut event as *mut _, 1, std::ptr::null())
+        };
+        unsafe { libc::close(kq); }
+        fired > 0
+    })
+    .await
+    .unwrap_or(false);
+
+    if notified {
+        eprintln!("[daemon] parent {parent_pid} gone (kqueue) — exiting");
+        std::process::exit(0);
+    }
+
+    // Fallback: kqueue setup failed — revert to 500ms polling.
+    eprintln!("[daemon] kqueue unavailable, falling back to poll for parent {parent_pid}");
     let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
     loop {
         interval.tick().await;
@@ -115,7 +166,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
     let mut reader = BufReader::new(reader_half);
     let mut line = String::new();
 
-    loop {
+    'outer: loop {
         line.clear();
         match reader.read_line(&mut line).await {
             Ok(0) | Err(_) => break,
@@ -233,11 +284,14 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                     let mut st = state.lock().unwrap();
                     st.sessions.remove(&pane_id)
                 };
-                if let Some(mut sess) = removed {
-                    let _ = sess.child.kill();
-                    let _ = sess.child.wait();
-                }
+                // Respond before blocking — kill/wait can take up to SIGKILL_TIMEOUT.
                 let _ = write_half.write_all(b"{\"ok\":true}\n").await;
+                if let Some(mut sess) = removed {
+                    tokio::task::spawn_blocking(move || {
+                        let _ = sess.child.kill();
+                        let _ = sess.child.wait();
+                    });
+                }
             }
 
             "cwd" => {
@@ -276,7 +330,7 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                     // existing session and the user's scrollback is lost.
                     if st.sessions.contains_key(&pane_id) {
                         None
-                    } else if let Some(idx) = st.pool.iter().position(|e| e.ready) {
+                    } else if let Some(idx) = st.pool.iter().position(|_| true) {
                         let entry = st.pool.remove(idx);
                         let old_pane_id = entry.pane_id;
                         // Reassign paneId: remove session under old key, reinsert under new key
@@ -308,46 +362,61 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
 
                 let resp = match claimed {
                     Some(pid) => {
-                        // Trigger async replenishment
+                        // Trigger async replenishment — replace the consumed pool entry.
                         let state_bg = state.clone();
-                        let pool_cwd = {
+                        let (pool_cwd, gen) = {
                             let st = state.lock().unwrap();
-                            st.pool_cwd.clone()
+                            (st.pool_cwd.clone(), st.pool_generation)
                         };
                         if let Some(cwd) = pool_cwd {
                             tokio::spawn(async move {
+                                // Bail if init_pool was called since this claim.
+                                if state_bg.lock().unwrap().pool_generation != gen {
+                                    return;
+                                }
+
                                 let counter = {
                                     let mut st = state_bg.lock().unwrap();
                                     st.pool_counter += 1;
                                     st.pool_counter
                                 };
                                 let pool_pane_id = format!("__pool_{counter}");
-                                let result = do_spawn(
-                                    state_bg.clone(),
-                                    pool_pane_id.clone(),
-                                    Some(cwd),
-                                    24,
-                                    80,
-                                    None,
-                                    vec![],
-                                );
+
+                                // Use spawn_blocking: openpty + spawn_command are blocking
+                                // syscalls that must not run on the async executor.
+                                let state_for_spawn = state_bg.clone();
+                                let pane_for_spawn = pool_pane_id.clone();
+                                let result = tokio::task::spawn_blocking(move || {
+                                    do_spawn(state_for_spawn, pane_for_spawn, Some(cwd), 24, 80, None, vec![])
+                                })
+                                .await
+                                .unwrap_or(Err("spawn_blocking panicked".to_string()));
+
                                 match &result {
                                     Ok((pid, _)) => eprintln!("[pool] REPLENISH spawned {pool_pane_id} pid={pid}"),
                                     Err(e) => eprintln!("[pool] REPLENISH failed: {e}"),
                                 }
+
                                 if result.is_ok() {
-                                    let mut st = state_bg.lock().unwrap();
-                                    st.pool.push(PoolEntry {
-                                        pane_id: pool_pane_id.clone(),
-                                        ready: false,
-                                        last_scrollback_len: 0,
-                                        stable_ticks: 0,
-                                    });
+                                    // Re-check generation — kill orphan if init_pool arrived
+                                    // while we were waiting for the shell to start.
+                                    let orphan = {
+                                        let mut st = state_bg.lock().unwrap();
+                                        if st.pool_generation == gen {
+                                            st.pool.push(PoolEntry {
+                                                pane_id: pool_pane_id.clone(),
+                                            });
+                                            None
+                                        } else {
+                                            st.sessions.remove(&pool_pane_id)
+                                        }
+                                    };
+                                    if let Some(mut sess) = orphan {
+                                        let _ = sess.child.kill();
+                                        let _ = sess.child.wait();
+                                        return;
+                                    }
                                 }
-                                // Background readiness polling — wait for scrollback to stabilize
-                                // (no new output for 5 consecutive ticks = 500ms of silence).
-                                let state_poll = state_bg.clone();
-                                poll_pool_readiness(state_poll).await;
                             });
                         }
                         format!("{{\"ok\":true,\"pid\":{pid}}}\n")
@@ -358,133 +427,128 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
             }
 
             "drain_pool" => {
-                {
+                let old_sessions: Vec<PtySession> = {
                     let mut st = state.lock().unwrap();
                     let pool_entries: Vec<String> = st.pool.drain(..).map(|e| e.pane_id).collect();
-                    for pane_id in pool_entries {
-                        if let Some(mut sess) = st.sessions.remove(&pane_id) {
+                    st.pool_target_size = 0;
+                    st.pool_cwd = None;
+                    pool_entries.into_iter().filter_map(|id| st.sessions.remove(&id)).collect()
+                };
+                let _ = write_half.write_all(b"{\"ok\":true}\n").await;
+                if !old_sessions.is_empty() {
+                    tokio::task::spawn_blocking(move || {
+                        for mut sess in old_sessions {
                             let _ = sess.child.kill();
                             let _ = sess.child.wait();
                         }
-                    }
-                    st.pool_target_size = 0;
-                    st.pool_cwd = None;
+                    });
                 }
-                let _ = write_half.write_all(b"{\"ok\":true}\n").await;
             }
 
             "init_pool" => {
                 let cwd = cmd["cwd"].as_str().unwrap_or("/tmp").to_string();
                 let size = cmd["size"].as_u64().unwrap_or(2) as usize;
 
-                // Kill existing pool entries
-                {
+                // No-op: if the pool is already warm for this CWD and has enough entries,
+                // skip killing and respawning — daemon survives app restarts so the shells
+                // are still alive and immediately claimable.
+                let already_warm = {
+                    let st = state.lock().unwrap();
+                    st.pool_cwd.as_deref() == Some(&cwd) && st.pool.len() >= size
+                };
+                if already_warm {
+                    let _ = write_half.write_all(b"{\"ok\":true}\n").await;
+                    continue 'outer;
+                }
+
+                // Collect old pool sessions and release the lock BEFORE killing them.
+                // child.wait() is a blocking syscall — holding the mutex during it
+                // blocks claim/spawn handlers and causes the 200ms claim timeout.
+                let old_sessions: Vec<PtySession> = {
                     let mut st = state.lock().unwrap();
-                    let old_pool: Vec<String> = st.pool.drain(..).map(|e| e.pane_id).collect();
-                    for pane_id in old_pool {
-                        if let Some(mut sess) = st.sessions.remove(&pane_id) {
+                    let old_pane_ids: Vec<String> = st.pool.drain(..).map(|e| e.pane_id).collect();
+                    st.pool_cwd = Some(cwd.clone());
+                    st.pool_target_size = size;
+                    st.pool_generation += 1;
+                    old_pane_ids.into_iter().filter_map(|id| st.sessions.remove(&id)).collect()
+                };
+                if !old_sessions.is_empty() {
+                    tokio::task::spawn_blocking(move || {
+                        for mut sess in old_sessions {
                             let _ = sess.child.kill();
                             let _ = sess.child.wait();
                         }
-                    }
-                    st.pool_cwd = Some(cwd.clone());
-                    st.pool_target_size = size;
+                    });
                 }
 
-                // Spawn pool entries
-                for _ in 0..size {
-                    let counter = {
-                        let mut st = state.lock().unwrap();
-                        st.pool_counter += 1;
-                        st.pool_counter
-                    };
-                    let pool_pane_id = format!("__pool_{counter}");
-                    let result = do_spawn(
-                        state.clone(),
-                        pool_pane_id.clone(),
-                        Some(cwd.clone()),
-                        24,
-                        80,
-                        None,
-                        vec![],
-                    );
-                    match &result {
-                        Ok((pid, _)) => eprintln!("[pool] INIT spawned {pool_pane_id} pid={pid}"),
-                        Err(e) => eprintln!("[pool] INIT spawn failed: {e}"),
-                    }
-                    if result.is_ok() {
-                        let mut st = state.lock().unwrap();
-                        st.pool.push(PoolEntry {
-                            pane_id: pool_pane_id,
-                            ready: false,
-                            last_scrollback_len: 0,
-                            stable_ticks: 0,
-                        });
-                    }
-                }
-
-                // Start background task to mark pool entries as ready once shell stabilizes
-                let state_bg = state.clone();
-                tokio::spawn(poll_pool_readiness(state_bg));
-
+                // Respond immediately — pool spawning is deferred to a background task.
+                // Blocking here (openpty + shell startup) stalls concurrent init_pool
+                // calls and causes rapid project-switch CPU spikes from simultaneous
+                // shell initializations.
                 let _ = write_half.write_all(b"{\"ok\":true}\n").await;
+
+                // Background pool spawning with generation guard to prevent zombie shells.
+                // When init_pool is called again before this task completes, the
+                // generation changes and any partially-spawned entries are killed
+                // immediately rather than leaking as running-but-untracked shells.
+                let state_bg = state.clone();
+                let generation = { state.lock().unwrap().pool_generation };
+                tokio::spawn(async move {
+                    for _ in 0..size {
+                        // Bail early if a newer init_pool already arrived.
+                        if state_bg.lock().unwrap().pool_generation != generation {
+                            break;
+                        }
+
+                        let counter = {
+                            let mut st = state_bg.lock().unwrap();
+                            st.pool_counter += 1;
+                            st.pool_counter
+                        };
+                        let pool_pane_id = format!("__pool_{counter}");
+
+                        // Use spawn_blocking: openpty + spawn_command are blocking
+                        // syscalls that must not run on the async executor.
+                        let state_for_spawn = state_bg.clone();
+                        let cwd_for_spawn = cwd.clone();
+                        let pane_for_spawn = pool_pane_id.clone();
+                        let result = tokio::task::spawn_blocking(move || {
+                            do_spawn(state_for_spawn, pane_for_spawn, Some(cwd_for_spawn), 24, 80, None, vec![])
+                        })
+                        .await
+                        .unwrap_or(Err("spawn_blocking panicked".to_string()));
+
+                        match &result {
+                            Ok((pid, _)) => eprintln!("[pool] INIT spawned {pool_pane_id} pid={pid}"),
+                            Err(e) => eprintln!("[pool] INIT spawn failed: {e}"),
+                        }
+
+                        if result.is_ok() {
+                            // Re-check generation after the blocking spawn — another
+                            // init_pool may have arrived while we were waiting for the
+                            // shell to start. If so, kill the orphaned shell immediately.
+                            let orphan = {
+                                let mut st = state_bg.lock().unwrap();
+                                if st.pool_generation == generation {
+                                    st.pool.push(PoolEntry {
+                                        pane_id: pool_pane_id.clone(),
+                                    });
+                                    None
+                                } else {
+                                    st.sessions.remove(&pool_pane_id)
+                                }
+                            };
+                            if let Some(mut sess) = orphan {
+                                let _ = sess.child.kill();
+                                let _ = sess.child.wait();
+                                break;
+                            }
+                        }
+                    }
+                });
             }
 
             _ => {}
-        }
-    }
-}
-
-/// Poll pool entries until their scrollback stabilizes (no new output for 5 consecutive
-/// 100ms ticks = 500ms of silence). This ensures the shell prompt is fully rendered
-/// (e.g. Starship has finished initializing) before marking the entry as ready.
-async fn poll_pool_readiness(state: Arc<Mutex<DaemonState>>) {
-    // Up to 150 ticks × 100ms = 15s max wait
-    for _ in 0..150 {
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        let mut st = state.lock().unwrap();
-        // Collect current scrollback lengths (avoids simultaneous borrow)
-        let lens: Vec<(usize, bool)> = st
-            .pool
-            .iter()
-            .map(|entry| {
-                if entry.ready {
-                    (0, true)
-                } else {
-                    let len = st
-                        .sessions
-                        .get(&entry.pane_id)
-                        .map(|s| s.scrollback.len())
-                        .unwrap_or(0);
-                    (len, false)
-                }
-            })
-            .collect();
-        let mut all_ready = true;
-        for (entry, &(len, already_ready)) in st.pool.iter_mut().zip(&lens) {
-            if already_ready {
-                continue;
-            }
-            if len == 0 {
-                // Shell hasn't produced any output yet
-                all_ready = false;
-                continue;
-            }
-            if len == entry.last_scrollback_len {
-                entry.stable_ticks += 1;
-                if entry.stable_ticks >= 5 {
-                    entry.ready = true;
-                    eprintln!("[pool] READY {} (scrollback={len} bytes)", entry.pane_id);
-                    continue;
-                }
-            } else {
-                entry.last_scrollback_len = len;
-                entry.stable_ticks = 0;
-            }
-            all_ready = false;
-        }
-        if all_ready {
-            break;
         }
     }
 }

@@ -237,6 +237,11 @@ export function switchTabRelative(direction: 'prev' | 'next'): void {
   });
 }
 
+// Prevents spawning shells for every intermediate project during rapid switching —
+// only the final destination gets a pool init, avoiding N×(shell startup CPU) spikes.
+const POOL_INIT_DEBOUNCE_MS = 300;
+let _poolInitTimer: ReturnType<typeof setTimeout> | null = null;
+
 export function setActiveContext(contextId: string): void {
   const ui = getUiState();
   // Re-init the terminal pool for the new context's cwd so claimed
@@ -246,7 +251,13 @@ export function setActiveContext(contextId: string): void {
   const isInvalid = ui.invalidProjectIds.some(
     (id) => contextId === id || contextId.startsWith(`${id}-`),
   );
-  if (newCwd && !isInvalid) void initTerminalPool(newCwd);
+  if (newCwd && !isInvalid) {
+    if (_poolInitTimer !== null) clearTimeout(_poolInitTimer);
+    _poolInitTimer = setTimeout(() => {
+      _poolInitTimer = null;
+      void initTerminalPool(newCwd);
+    }, POOL_INIT_DEBOUNCE_MS);
+  }
 
   const col = getTabCollection();
 

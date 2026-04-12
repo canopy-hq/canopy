@@ -14,7 +14,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Pencil, SquarePlus, SquareTerminal, X, XCircle, XSquare } from 'lucide-react';
 import { tv } from 'tailwind-variants';
 
-import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
+import { useTabs, useAgents, useProjects, useUiState } from '../hooks/useCollections';
 import { useDragStyle } from '../hooks/useDragStyle';
 import { useDropping } from '../hooks/useDropping';
 import { useFlipAnimation } from '../hooks/useFlipAnimation';
@@ -47,7 +47,7 @@ const closeTabLabel = (
 );
 
 const tabItem = tv({
-  base: 'group relative flex h-full max-w-[240px] min-w-[120px] shrink items-center gap-2 px-3.5 transition-colors touch-none',
+  base: 'group relative flex h-full max-w-[240px] min-w-[120px] shrink items-center gap-2 px-3.5 transition-colors touch-none border-t-2 border-t-transparent',
   variants: {
     active: {
       true: 'bg-base text-fg',
@@ -82,7 +82,15 @@ function useTabAgentStatus(tab: Tab): DotStatus {
 }
 
 const TabItemComponent = memo(
-  function TabItemComponent({ tab, isActive }: { tab: Tab; isActive: boolean }) {
+  function TabItemComponent({
+    tab,
+    isActive,
+    color,
+  }: {
+    tab: Tab;
+    isActive: boolean;
+    color?: string | null;
+  }) {
     const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
       id: tab.id,
       transition: sortableTransition,
@@ -156,6 +164,14 @@ const TabItemComponent = memo(
       transition,
     };
 
+    const colorStyle = useMemo((): React.CSSProperties => {
+      if (!color) return {};
+      return {
+        '--c': color,
+        borderTopColor: `color-mix(in srgb, var(--c) ${isActive ? 70 : 30}%, transparent)`,
+      } as React.CSSProperties;
+    }, [color, isActive]);
+
     return (
       <>
         <div
@@ -166,11 +182,15 @@ const TabItemComponent = memo(
             agentWaiting: agentStatus === 'waiting',
             dragging: isDragging || isDropping,
           })}
-          style={
-            frozenWidth !== null
-              ? { ...dndStyle, width: frozenWidth, minWidth: frozenWidth, maxWidth: frozenWidth }
-              : dndStyle
-          }
+          style={{
+            ...dndStyle,
+            ...colorStyle,
+            ...(frozenWidth !== null && {
+              width: frozenWidth,
+              minWidth: frozenWidth,
+              maxWidth: frozenWidth,
+            }),
+          }}
           onClick={editing ? undefined : () => switchTab(tab.id)}
           onContextMenu={(e) => {
             e.preventDefault();
@@ -299,11 +319,13 @@ const TabItemComponent = memo(
       </>
     );
   },
-  (prev, next) => prev.tab === next.tab && prev.isActive === next.isActive,
+  (prev, next) =>
+    prev.tab === next.tab && prev.isActive === next.isActive && prev.color === next.color,
 );
 
 export function TabBar() {
   const allTabs = useTabs();
+  const projects = useProjects();
   const ui = useUiState();
   const activeContextId = ui.activeContextId;
   const tabs = useMemo(
@@ -313,6 +335,14 @@ export function TabBar() {
         .sort((a, b) => a.position - b.position),
     [allTabs, activeContextId],
   );
+  const projectColor = useMemo(() => {
+    if (!activeContextId) return null;
+    const project = projects.find(
+      (p) => activeContextId === p.id || activeContextId.startsWith(p.id + '-'),
+    );
+    return project?.color ?? null;
+  }, [projects, activeContextId]);
+
   const activeTabId = ui.activeTabId;
   const [dragging, setDragging] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -452,7 +482,12 @@ export function TabBar() {
             style={{ maskImage, WebkitMaskImage: maskImage }}
           >
             {tabs.map((tab) => (
-              <TabItemComponent key={tab.id} tab={tab} isActive={tab.id === activeTabId} />
+              <TabItemComponent
+                key={tab.id}
+                tab={tab}
+                isActive={tab.id === activeTabId}
+                color={projectColor}
+              />
             ))}
           </div>
         </SortableContext>

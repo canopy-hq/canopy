@@ -54,12 +54,15 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
     ];
   }, [paneId]);
 
-  // Poll CWD from Rust side every 2 seconds and persist changes.
+  // Poll CWD from Rust side and persist changes.
+  // Focused pane: 2s (immediate feedback for cd, etc.).
+  // Unfocused panes: 10s (stale for a moment is fine; 5× fewer socket round-trips).
   const refreshCwdRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (realPtyId === null) return;
 
     let cancelled = false;
+    const intervalMs = isFocused ? 2_000 : 10_000;
 
     const poll = async () => {
       try {
@@ -81,14 +84,14 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
     };
 
     void poll();
-    const interval = setInterval(poll, 2000);
+    const interval = setInterval(poll, intervalMs);
 
     return () => {
       cancelled = true;
       refreshCwdRef.current = null;
       clearInterval(interval);
     };
-  }, [realPtyId, paneId]);
+  }, [realPtyId, paneId, isFocused]);
 
   // Delete session record when killed (ptyId → -2) or when pane is removed from tree.
   useEffect(() => {

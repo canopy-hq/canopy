@@ -108,15 +108,27 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
           handleCreateWorktree({ base: item.branch.name });
           return;
         }
-        if (item.branch.is_head || item.branch.is_in_worktree) return;
+        if (item.branch.is_head) return;
+        if (item.branch.is_in_worktree) {
+          const wt = diskWorktrees.find((w) => w.branch === item.branch!.name);
+          if (wt) handleOpenWorktree(wt.name, wt.path, wt.branch);
+          return;
+        }
         handleCreateWorktree({ existingBranch: item.branch.name });
         return;
       }
-      if (item.kind === 'worktree' && item.worktree && !item.worktree.isInSidebar) {
+      if (item.kind === 'worktree' && item.worktree) {
         handleOpenWorktree(item.worktree.name, item.worktree.path, item.worktree.branch);
       }
     },
-    [pickingBase, handleCreateWorktree, handleOpenWorktree, setPickingBase, setQuickBase],
+    [
+      pickingBase,
+      diskWorktrees,
+      handleCreateWorktree,
+      handleOpenWorktree,
+      setPickingBase,
+      setQuickBase,
+    ],
   );
 
   // Keyboard — same pattern as CommandMenu, wired to the input
@@ -251,12 +263,12 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
     }
     if (selectedItem?.kind === 'branch') {
       const b = selectedItem.branch!;
-      if (b.is_head || b.is_in_worktree) {
+      if (b.is_head) {
         return (
           <>
             {nav}
             <FooterSep />
-            <span>{b.is_head ? 'checked out' : 'already in worktree'}</span>
+            <span>checked out</span>
             {tail}
           </>
         );
@@ -265,7 +277,7 @@ export function ProjectPalettePanel({ project, ctx }: ProjectPalettePanelProps) 
         <>
           {nav}
           <FooterSep />
-          <FooterHint label="create worktree">
+          <FooterHint label={b.is_in_worktree ? 'focus worktree' : 'create worktree'}>
             <Kbd variant="menu">
               <CornerDownLeft size={9} />
             </Kbd>
@@ -461,10 +473,7 @@ const PaletteRow = memo(
     onClick: () => void;
     onMouseDown: (e: React.MouseEvent) => void;
   }) {
-    const isDisabled =
-      item.kind === 'branch' &&
-      !pickingBase &&
-      (item.branch?.is_head || item.branch?.is_in_worktree);
+    const isDisabled = item.kind === 'branch' && !pickingBase && item.branch?.is_head;
 
     const isBasePicked = pickingBase && item.branch?.name === baseBranch;
 
