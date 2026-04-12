@@ -1,7 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import { Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
 
-import { Button, Kbd, Tooltip } from '@canopy/ui';
+import { Button, Kbd, SectionLabel, Tooltip } from '@canopy/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { ChevronLeft, ChevronRight, History, PanelLeft, Search, Shell } from 'lucide-react';
 
@@ -166,8 +166,8 @@ export function Header({
             offset={4}
             className="w-64 overflow-hidden rounded-lg border border-edge/60 bg-raised shadow-xl outline-none"
           >
-            <div className="px-3 py-2">
-              <span className="text-xs font-medium text-fg-muted">Recently Viewed</span>
+            <div className="px-3 pt-2 pb-1">
+              <SectionLabel>Recently Viewed</SectionLabel>
             </div>
             {recentEntries.length === 0 ? (
               <div className="px-3 py-3 text-xs text-fg-faint">No history yet.</div>
