@@ -438,7 +438,7 @@ export function TabBar({ projectId: propProjectId }: { projectId?: string } = {}
 
   return (
     <div className="flex h-10 shrink-0 items-center border-b border-edge/20 bg-raised">
-      <div ref={addButtonRef}>
+      <div ref={addButtonRef} className="flex items-center">
         <MenuTrigger>
           <Button aria-label="New tab" size="sm" variant="ghost" iconOnly className="mx-2">
             <SquarePlus size={14} />

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 import { ActionRow, Button, Spinner } from '@canopy/ui';
-import { createFileRoute, Outlet } from '@tanstack/react-router';
+import { createFileRoute, Outlet, useLocation } from '@tanstack/react-router';
 import { PanelLeft, SquareTerminal, X } from 'lucide-react';
 
 import { ClaudeCodeIcon } from '../../components/ClaudeCodeIcon';
@@ -61,6 +61,7 @@ function CreatingWorktree({
 
 function ProjectRoute() {
   const { projectId } = Route.useParams();
+  const location = useLocation();
   const ui = useUiState();
   const allTabs = useTabs();
 
@@ -99,9 +100,14 @@ function ProjectRoute() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  // Only show the tab bar once the URL has committed to a tab sub-route.
+  // insertTab fires before navigateToTab, so without this guard a render frame would
+  // show the tab bar (40 px) while the content area still shows EmptyState — a layout shift.
+  const showTabBar = location.pathname.includes('/tabs/');
+
   return (
     <>
-      <TabBar projectId={projectId} />
+      {showTabBar && <TabBar projectId={projectId} />}
       <div className="relative min-h-0 flex-1">
         {isCreating ? (
           <CreatingWorktree pendingSession={pendingSession} />
