@@ -38,9 +38,7 @@ const _projects: Project[] = [
 ];
 
 const mockSetSetting = vi.fn();
-const mockRouterNavigate = vi.fn().mockResolvedValue(undefined);
-
-let _insertTabSilentlyCalls: Tab[] = [];
+const mockRouterNavigate = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 vi.mock('@canopy/db', () => ({
   getProjectCollection: () => ({
@@ -78,10 +76,6 @@ vi.mock('@canopy/db', () => ({
   setSetting: (...args: unknown[]) => mockSetSetting(...args),
   insertTab: (tab: Tab) => {
     _tabs.push(tab);
-  },
-  insertTabSilently: (tab: Tab) => {
-    _tabs.push(tab);
-    _insertTabSilentlyCalls.push(tab);
   },
   deleteTab: (tabId: string) => {
     _tabs = _tabs.filter((t) => t.id !== tabId);
@@ -132,7 +126,6 @@ function findCwdSettingCall() {
 
 function resetState() {
   _tabs = [];
-  _insertTabSilentlyCalls = [];
   _uiState = {
     id: 'ui',
     sidebarVisible: false,
@@ -166,15 +159,15 @@ describe('activateTabFromRoute', () => {
     expect(_uiState.activeTabId).toBe('tab-1');
   });
 
-  it('saves outgoing context tab to contextActiveTabIds before switching', () => {
+  it('updates active context and tab when switching contexts', () => {
     _uiState.activeContextId = 'ctx-a';
     _uiState.activeTabId = 'tab-a';
 
     activateTabFromRoute('ctx-b', 'tab-b');
 
-    expect(_uiState.contextActiveTabIds['ctx-a']).toBe('tab-a');
     expect(_uiState.activeContextId).toBe('ctx-b');
     expect(_uiState.activeTabId).toBe('tab-b');
+    expect(_uiState.contextActiveTabIds['ctx-b']).toBe('tab-b');
   });
 
   it('records the new context tab in contextActiveTabIds', () => {
@@ -441,7 +434,6 @@ describe('addClaudeCodeTab', () => {
     addClaudeCodeTab('ws-1');
 
     expect(_tabs).toHaveLength(1);
-    expect(_insertTabSilentlyCalls).toHaveLength(0);
     expect(mockRouterNavigate).toHaveBeenCalledWith(
       expect.objectContaining({ to: '/projects/$projectId/tabs/$tabId' }),
     );
@@ -453,7 +445,6 @@ describe('addClaudeCodeTab', () => {
     addClaudeCodeTab('ws-1-wt-feature-x');
 
     expect(_tabs).toHaveLength(1);
-    expect(_insertTabSilentlyCalls).toHaveLength(1);
     expect(mockRouterNavigate).not.toHaveBeenCalled();
   });
 

@@ -328,10 +328,6 @@ export function selectProjectItem(
         timestamp: Date.now(),
       });
       if (destTabId) {
-        // Pre-seed so activateTabFromRoute picks the right tab on arrival.
-        uiCollection.update('ui', (draft) => {
-          draft.contextActiveTabIds[itemId] = destTabId;
-        });
         navigate({
           to: '/projects/$projectId/tabs/$tabId',
           params: { projectId: itemId, tabId: destTabId },
@@ -446,10 +442,6 @@ function navigateToEntry(entry: NavEntry, navigate: NavigateFn): void {
   } else if (entry.contextId) {
     setSelectedItem(entry.contextId);
     if (entry.tabId && getTabCollection().toArray.find((t) => t.id === entry.tabId)) {
-      // Pre-seed so activateTabFromRoute picks the right tab on arrival.
-      uiCollection.update('ui', (draft) => {
-        draft.contextActiveTabIds[entry.contextId!] = entry.tabId!;
-      });
       navigate({
         to: '/projects/$projectId/tabs/$tabId',
         params: { projectId: entry.contextId, tabId: entry.tabId },

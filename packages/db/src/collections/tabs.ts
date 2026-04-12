@@ -79,11 +79,6 @@ export function insertTab(tab: Tab): void {
   getTabCollection().insert(tab);
 }
 
-/** Insert a tab without switching to it. Used when the user is on a different context. */
-export function insertTabSilently(tab: Tab): void {
-  getTabCollection().insert(tab);
-}
-
 /** Delete a tab. Navigation to the next active tab is handled by the caller. */
 export function deleteTab(tabId: string): void {
   getTabCollection().delete(tabId);
