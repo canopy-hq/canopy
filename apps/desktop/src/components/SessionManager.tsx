@@ -158,31 +158,10 @@ export function SessionManager({ onClose }: SessionManagerProps) {
     });
   }, []);
 
-  const handleKillAll = useCallback(async () => {
-    await handleKillGroup(rows);
-  }, [handleKillGroup, rows]);
-
   return (
     <>
       <div className="px-3 pt-2 pb-1">
-        <div className="group/header flex items-center gap-2">
-          <SectionLabel className="flex-1">PTY Sessions</SectionLabel>
-          {rows.length > 0 && (
-            <span className="font-mono text-[10px] tabular-nums text-fg-faint">
-              {rows.length} {rows.length === 1 ? 'session' : 'sessions'}
-            </span>
-          )}
-          {rows.length > 0 && (
-            <Button
-              variant="destructive-ghost"
-              size="sm"
-              onPress={() => void handleKillAll()}
-              isDisabled={rows.every((r) => killing.has(r.info.ptyId))}
-            >
-              Kill all
-            </Button>
-          )}
-        </div>
+        <SectionLabel>PTY Sessions</SectionLabel>
       </div>
 
       <div className="max-h-80 overflow-y-auto p-1">
