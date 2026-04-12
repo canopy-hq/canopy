@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button as AriaButton, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
 
-import { Badge, Button, Kbd, StatusDot, Tooltip } from '@canopy/ui';
+import { Button, Kbd, StatusDot, Tooltip } from '@canopy/ui';
 import { ContextMenu } from '@canopy/ui';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import {
@@ -53,10 +53,9 @@ const tabItem = tv({
       true: 'bg-base text-fg',
       false: 'bg-transparent text-fg-muted hover:bg-base/50 hover:text-fg-dim',
     },
-    agentWaiting: { true: 'bg-(--agent-waiting-glow)' },
     dragging: { true: 'pointer-events-none z-50 bg-base' },
   },
-  defaultVariants: { active: false, agentWaiting: false, dragging: false },
+  defaultVariants: { active: false, dragging: false },
 });
 
 const closeButton = tv({
@@ -72,13 +71,19 @@ const closeButton = tv({
 function useTabAgentStatus(tab: Tab): DotStatus {
   const ptyIds = useMemo(() => collectLeafPtyIds(tab.paneRoot), [tab.paneRoot]);
   const agents = useAgents();
-  let hasRunning = false;
+  const agentByPty = useMemo(() => new Map(agents.map((a) => [a.ptyId, a])), [agents]);
+  // Priority: permission > working > review > idle
+  let hasWorking = false;
+  let hasReview = false;
   for (const id of ptyIds) {
-    const status = agents.find((a) => a.ptyId === id)?.status;
-    if (status === 'waiting') return 'waiting';
-    if (status === 'running') hasRunning = true;
+    const status = agentByPty.get(id)?.status;
+    if (status === 'permission') return 'permission';
+    if (status === 'working') hasWorking = true;
+    if (status === 'review') hasReview = true;
   }
-  return hasRunning ? 'running' : 'idle';
+  if (hasWorking) return 'working';
+  if (hasReview) return 'review';
+  return 'idle';
 }
 
 const TabItemComponent = memo(
@@ -177,11 +182,7 @@ const TabItemComponent = memo(
         <div
           ref={mergedRef}
           data-flip-id={tab.id}
-          className={tabItem({
-            active: isActive,
-            agentWaiting: agentStatus === 'waiting',
-            dragging: isDragging || isDropping,
-          })}
+          className={tabItem({ active: isActive, dragging: isDragging || isDropping })}
           style={{
             ...dndStyle,
             ...colorStyle,
@@ -249,11 +250,6 @@ const TabItemComponent = memo(
                 {tab.label}
               </span>
             </>
-          )}
-          {agentStatus === 'waiting' && !editing && (
-            <Badge pill color="warning" size="sm">
-              input
-            </Badge>
           )}
           {!editing && (
             <Tooltip label={closeTabLabel} placement="bottom">

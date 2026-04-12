@@ -10,7 +10,7 @@ export { getTabCollection, insertTab, deleteTab } from './collections/tabs';
 export { getSessionCollection } from './collections/sessions';
 export { getSettingCollection, getSetting, setSetting } from './collections/settings';
 export { agentCollection } from './collections/agents';
-export type { AgentInfo } from './collections/agents';
+export type { AgentInfo, AgentStatus } from './collections/agents';
 export {
   uiCollection,
   getUiState,

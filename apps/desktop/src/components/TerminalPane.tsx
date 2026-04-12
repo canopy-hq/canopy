@@ -212,8 +212,6 @@ function TerminalPaneInner({
   const agents = useAgents();
   const agent = agents.find((a) => a.ptyId === ptyId);
   const agentStatus = agent?.status ?? 'idle';
-  const isWaiting = agentStatus === 'waiting';
-
   // Hide the raw terminal output while Claude boots — avoids showing TUI escape
   // sequences and flickering startup. Only applies to Claude auto-launch sessions
   // (those with an init-cmd containing "claude"). Removed once the agent watcher
@@ -231,11 +229,11 @@ function TerminalPaneInner({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Dismiss sooner once the agent is detected (or immediately if already detected).
-  // With a pre-prompt: wait for 'running' so the TUI is rendering the response.
-  // Without a prompt: reveal as soon as the process is detected ('waiting' or 'running').
+  // With a pre-prompt: wait for 'working' so the TUI is rendering the response.
+  // Without a prompt: reveal as soon as the agent is detected (any non-idle status).
   useEffect(() => {
     if (!bootOverlay) return;
-    const ready = savedHasPrompt ? agentStatus === 'running' : agentStatus !== 'idle';
+    const ready = savedHasPrompt ? agentStatus === 'working' : agentStatus !== 'idle';
     if (!ready) return;
     const t = setTimeout(() => setBootOverlay(false), 350);
     return () => clearTimeout(t);
@@ -262,13 +260,7 @@ function TerminalPaneInner({
     <div
       className="relative h-full w-full"
       data-testid="terminal-pane-wrapper"
-      style={{
-        border: isWaiting ? '1px solid var(--agent-waiting-border)' : '1px solid transparent',
-        boxShadow: isWaiting
-          ? '0 0 12px var(--agent-waiting-glow), inset 0 0 24px var(--agent-waiting-inset)'
-          : 'none',
-        transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
-      }}
+      style={{ border: '1px solid transparent' }}
       onPointerDown={() => {
         setFocus(paneId);
         termRef.current?.focus();

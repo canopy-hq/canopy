@@ -1,4 +1,5 @@
 import {
+  agentCollection,
   getTabCollection,
   getProjectCollection,
   uiCollection,
@@ -246,9 +247,12 @@ export function closeTab(tabId: string): void {
   const tab = col.toArray.find((t) => t.id === tabId);
   if (!tab) return;
 
-  // Clean up all PTYs for this tab — both known (by ptyId) and orphan (by paneId).
+  // Clean up all PTYs and agents for this tab.
   for (const ptyId of collectLeafPtyIds(tab.paneRoot)) {
     disposeCached(ptyId);
+    if (agentCollection.toArray.some((a) => a.ptyId === ptyId)) {
+      agentCollection.delete(ptyId);
+    }
     void closePty(ptyId).catch(() => {});
   }
   void closePtysForPanes(collectAllLeafPaneIds(tab.paneRoot)).catch(() => {});
@@ -365,10 +369,13 @@ export function closePaneInTab(tabId: string, paneId: PaneId): void {
 export function closePane(paneId: PaneId): void {
   const tab = getTabCollection().toArray.find((t) => t.id === getUiState().activeTabId);
   if (!tab) return;
-  // Clean up PTY for this pane before removing it from the tree.
+  // Clean up PTY and agent for this pane before removing it from the tree.
   const leaf = findLeaf(tab.paneRoot, paneId);
   if (leaf && leaf.ptyId > 0) {
     disposeCached(leaf.ptyId);
+    if (agentCollection.toArray.some((a) => a.ptyId === leaf.ptyId)) {
+      agentCollection.delete(leaf.ptyId);
+    }
     void closePty(leaf.ptyId).catch(() => {});
   }
   void closePtysForPanes([paneId]).catch(() => {});

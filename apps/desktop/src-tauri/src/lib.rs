@@ -3,6 +3,8 @@ mod agent_watcher;
 mod editor;
 mod git;
 mod github;
+mod hook_installer;
+mod hook_server;
 mod menu;
 mod pty;
 
@@ -100,6 +102,49 @@ pub fn run() {
             app.manage(Mutex::new(agent_watcher::AgentWatcherState::new()));
             app.manage(github::PollCancelFlag(std::sync::atomic::AtomicBool::new(false)));
             app.manage(github::HttpClient(github::build_http_client()));
+
+            // Start the hook HTTP server for agent state callbacks.
+            // Binds synchronously, spawns the async server on the tokio runtime.
+            let handle = app.handle().clone();
+            match hook_server::start_hook_server(handle) {
+                Ok((port, token)) => {
+                    app.manage(hook_server::HookServerState { port, token });
+                }
+                Err(e) => {
+                    eprintln!("Warning: could not start hook server: {e}");
+                    // Fallback: manage a dummy state so spawn_terminal doesn't panic
+                    app.manage(hook_server::HookServerState {
+                        port: 0,
+                        token: String::new(),
+                    });
+                }
+            }
+
+            // Clean stale pane_id sidecar files from previous runs.
+            if let Some(home) = dirs::home_dir() {
+                let run_dir = home.join(".canopy").join("run");
+                if run_dir.is_dir() {
+                    let _ = std::fs::remove_dir_all(&run_dir);
+                }
+                let _ = std::fs::create_dir_all(&run_dir);
+            }
+
+            // Install notify script + agent hooks (non-blocking background task).
+            // Uses the bundled canopy-notify script resource.
+            let notify_content = include_bytes!("../resources/canopy-notify").to_vec();
+            tauri::async_runtime::spawn_blocking(move || {
+                match hook_installer::ensure_notify_script(&notify_content) {
+                    Ok(path) => {
+                        let results = hook_installer::install_all_hooks(&path);
+                        for (name, result) in &results {
+                            if let Err(e) = result {
+                                eprintln!("[hook] failed to install hooks for {name}: {e}");
+                            }
+                        }
+                    }
+                    Err(e) => eprintln!("[hook] failed to install notify script: {e}"),
+                }
+            });
 
             Ok(())
         })
