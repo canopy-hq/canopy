@@ -36,7 +36,7 @@ interface SessionRow {
 }
 
 const sessionRowCls = tv({
-  base: 'group flex items-center gap-1.5 rounded px-2 py-1 text-xs text-fg outline-none',
+  base: 'group flex items-center gap-1.5 rounded px-2 py-1 text-xs text-fg outline-none transition-colors',
   variants: {
     interactive: { true: 'cursor-pointer hover:bg-surface', false: 'cursor-default opacity-40' },
   },
