@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button as AriaButton, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
 
-import { Badge, Button, Kbd, StatusDot, Tooltip } from '@canopy/ui';
+import { Button, Kbd, StatusDot, Tooltip } from '@canopy/ui';
 import { ContextMenu } from '@canopy/ui';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import {
@@ -53,10 +53,9 @@ const tabItem = tv({
       true: 'bg-base text-fg',
       false: 'bg-transparent text-fg-muted hover:bg-base/50 hover:text-fg-dim',
     },
-    agentWaiting: { true: 'bg-(--agent-waiting-glow)' },
     dragging: { true: 'pointer-events-none z-50 bg-base' },
   },
-  defaultVariants: { active: false, agentWaiting: false, dragging: false },
+  defaultVariants: { active: false, dragging: false },
 });
 
 const closeButton = tv({
@@ -182,11 +181,7 @@ const TabItemComponent = memo(
         <div
           ref={mergedRef}
           data-flip-id={tab.id}
-          className={tabItem({
-            active: isActive,
-            agentWaiting: agentStatus === 'permission',
-            dragging: isDragging || isDropping,
-          })}
+          className={tabItem({ active: isActive, dragging: isDragging || isDropping })}
           style={{
             ...dndStyle,
             ...colorStyle,
@@ -254,11 +249,6 @@ const TabItemComponent = memo(
                 {tab.label}
               </span>
             </>
-          )}
-          {agentStatus === 'permission' && !editing && (
-            <Badge pill color="warning" size="sm">
-              input
-            </Badge>
           )}
           {!editing && (
             <Tooltip label={closeTabLabel} placement="bottom">

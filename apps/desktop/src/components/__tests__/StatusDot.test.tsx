@@ -18,11 +18,11 @@ describe('StatusDot', () => {
     expect(dot.className).toContain('bg-(--agent-running)');
   });
 
-  it('renders red dot with ping animation when permission', () => {
+  it('renders red dot with pulse-slow animation when permission', () => {
     render(<StatusDot status="permission" />);
     const dot = screen.getByRole('img', { name: 'Agent permission' });
     expect(dot).toBeDefined();
-    expect(dot.className).toContain('ping');
+    expect(dot.className).toContain('pulse-slow');
     expect(dot.className).toContain('bg-(--agent-waiting)');
   });
 

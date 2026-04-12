@@ -8,7 +8,7 @@ const statusDot = tv({
     status: {
       idle: 'bg-(--agent-idle)',
       working: 'bg-(--agent-running) animate-[pulse-slow_2s_ease-in-out_infinite]',
-      permission: 'bg-(--agent-waiting) animate-[ping_1.5s_cubic-bezier(0,0,0.2,1)_infinite]',
+      permission: 'bg-(--agent-waiting) animate-[pulse-slow_2s_ease-in-out_infinite]',
       review: 'bg-green-500',
     },
   },
