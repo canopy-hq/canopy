@@ -307,9 +307,9 @@ function RootLayout() {
       },
       { key: 'b', meta: true, action: () => toggleSidebar() },
       { key: 'n', meta: true, action: () => openAddProjectDialog() },
-      { key: 'o', meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
+      { key: 'O', meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
       // ⌘⇧H: recently viewed dropdown
-      { key: 'h', meta: true, shift: true, action: () => setRecentlyViewedOpen((prev) => !prev) },
+      { key: 'H', meta: true, shift: true, action: () => setRecentlyViewedOpen((prev) => !prev) },
       // ⌘[ / ⌘]: back/forward navigation
       { key: '[', meta: true, action: () => goBack(navigate) },
       { key: ']', meta: true, action: () => goForward(navigate) },
