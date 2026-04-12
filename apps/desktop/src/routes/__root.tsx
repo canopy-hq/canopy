@@ -47,6 +47,7 @@ import {
   navigateToSettings,
 } from '../lib/project-actions';
 import { onOpenProjectPalette, openProjectPalette } from '../lib/project-palette-bridge';
+import { updateSearch } from '../lib/router-utils';
 import { getActiveTab, setPtyIdInTab, getContextIdFromUrl } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
 import { router } from '../router';
@@ -61,15 +62,6 @@ void ensureGhosttyInit();
 // font is fetched. Matches the exact font string used in useTerminal's Terminal config.
 void document.fonts?.load('13px "Geist Mono", Menlo, Monaco, "Courier New", monospace');
 void document.fonts?.load('bold 13px "Geist Mono", Menlo, Monaco, "Courier New", monospace');
-
-/**
- * Update search params without changing the current path.
- * TanStack Router's navigate() can't infer the search schema for search-only navigation
- * (no `from`/`to`), so we escape the type here rather than at every call site.
- */
-function updateSearch(updater: (prev: Record<string, unknown>) => Record<string, unknown>): void {
-  void router.navigate({ search: updater as never });
-}
 
 function RootLayout() {
   const [cmdMenuOpen, setCmdMenuOpen] = useState(false);

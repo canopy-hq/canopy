@@ -617,7 +617,7 @@ export function startWorktreeCreation(
           entry.branch = wt.branch;
         }
       });
-      // Clear creating state before navigation — that function creates a
+      // Clear creating state before selectProjectItem — that function creates a
       // TanStack DB transaction that snapshots uiCollection. If we clear here first,
       // the snapshot captures creatingWorktreeIds:[] and acceptMutations() won't
       // restore the stale "creating" state when the async commit resolves.

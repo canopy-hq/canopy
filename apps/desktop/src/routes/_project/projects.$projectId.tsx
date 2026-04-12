@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 
 import { ActionRow, Spinner } from '@canopy/ui';
 import { createFileRoute, Outlet, useLocation } from '@tanstack/react-router';
@@ -9,17 +9,9 @@ import { ClaudeCodeSetupDialog } from '../../components/ClaudeCodeSetupDialog';
 import { TabBar } from '../../components/TabBar';
 import { useUiState, useTabs } from '../../hooks/useCollections';
 import { toggleSidebar } from '../../lib/project-actions';
+import { updateSearch } from '../../lib/router-utils';
 import { addTab, addClaudeCodeTab, activateContextFromRoute } from '../../lib/tab-actions';
 import { router } from '../../router';
-
-/**
- * Update search params without changing the current path.
- * TanStack Router's navigate() can't infer the search schema for search-only
- * navigation (no `from`/`to`), so we escape the type once here.
- */
-function updateSearch(updater: (prev: Record<string, unknown>) => Record<string, unknown>): void {
-  void router.navigate({ search: updater as never });
-}
 
 function CreatingWorktree() {
   return (
@@ -70,9 +62,7 @@ function ProjectRoute() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  const clearSetup = useCallback(() => {
-    updateSearch((prev) => ({ ...prev, setup: undefined }));
-  }, []);
+  const clearSetup = () => updateSearch((prev) => ({ ...prev, setup: undefined }));
 
   // Only show the tab bar once the URL has committed to a tab sub-route.
   // insertTab fires before navigateToTab, so without this guard a render frame would
