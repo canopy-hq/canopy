@@ -57,7 +57,7 @@ impl DaemonClient {
     }
 
     /// Expected daemon protocol version. Must match `PROTOCOL_VERSION` in daemon.rs.
-    const EXPECTED_PROTOCOL_VERSION: u32 = 2;
+    const EXPECTED_PROTOCOL_VERSION: u32 = 3;
 
     /// Ensure daemon process is running with the correct protocol version.
     /// Synchronous — safe to call from Tauri setup.

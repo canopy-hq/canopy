@@ -1,4 +1,5 @@
 import {
+  agentCollection,
   getTabCollection,
   getProjectCollection,
   uiCollection,
@@ -20,7 +21,6 @@ import {
 } from '@canopy/terminal';
 
 import { router } from '../router';
-import { removeAgent } from './agent-actions';
 import {
   collectAllLeafPaneIds,
   collectLeafPtyIds,
@@ -250,7 +250,7 @@ export function closeTab(tabId: string): void {
   // Clean up all PTYs and agents for this tab.
   for (const ptyId of collectLeafPtyIds(tab.paneRoot)) {
     disposeCached(ptyId);
-    removeAgent(ptyId);
+    agentCollection.delete(ptyId);
     void closePty(ptyId).catch(() => {});
   }
   void closePtysForPanes(collectAllLeafPaneIds(tab.paneRoot)).catch(() => {});
@@ -371,7 +371,7 @@ export function closePane(paneId: PaneId): void {
   const leaf = findLeaf(tab.paneRoot, paneId);
   if (leaf && leaf.ptyId > 0) {
     disposeCached(leaf.ptyId);
-    removeAgent(leaf.ptyId);
+    agentCollection.delete(leaf.ptyId);
     void closePty(leaf.ptyId).catch(() => {});
   }
   void closePtysForPanes([paneId]).catch(() => {});

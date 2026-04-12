@@ -10,7 +10,7 @@ use crate::scrollback::ScrollbackBuffer;
 
 /// Protocol version — bump when the daemon protocol changes (new ops, new fields).
 /// The app checks this on startup and restarts the daemon if it doesn't match.
-pub const PROTOCOL_VERSION: u32 = 2;
+pub const PROTOCOL_VERSION: u32 = 3;
 
 /// Get the current working directory of a process on macOS via proc_pidinfo(PROC_PIDVNODEPATHINFO).
 /// proc_pid::pidcwd from the libproc crate reads /proc/{pid}/cwd which only exists on Linux.
@@ -447,13 +447,23 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                         // This executes in the shell before any frontend-initiated writes
                         // (the response hasn't been sent yet, so the frontend hasn't
                         // written the initialCommand).
+                        //
+                        // The export is wrapped to suppress echo:
+                        //   1. `stty -echo` disables terminal echo
+                        //   2. `export ...` sets the variables silently
+                        //   3. `stty echo` re-enables echo
+                        //   4. `clear` wipes the screen so no trace remains
+                        // All joined with `;` on one line + `\r` to execute.
                         if let Some(ref vars) = env_vars {
                             if !vars.is_empty() {
                                 let exports: Vec<String> = vars
                                     .iter()
                                     .map(|(k, v)| format!("{k}={v}"))
                                     .collect();
-                                let cmd_str = format!("export {}\r", exports.join(" "));
+                                let cmd_str = format!(
+                                    " stty -echo; export {}; stty echo; clear\r",
+                                    exports.join(" ")
+                                );
                                 let mut st = state.lock().unwrap();
                                 if let Some(sess) = st.sessions.get_mut(&pane_id) {
                                     let _ = sess.writer.write_all(cmd_str.as_bytes());
