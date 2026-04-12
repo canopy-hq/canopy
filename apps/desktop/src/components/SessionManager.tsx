@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Header, Menu, MenuItem, Section } from 'react-aria-components';
 
 import { closePty, listPtySessions } from '@canopy/terminal';
 import { Button, SectionLabel } from '@canopy/ui';
 import { useNavigate } from '@tanstack/react-router';
-import { tv } from 'tailwind-variants';
 
 import { useTabs, useProjects } from '../hooks/useCollections';
 import { containsPtyId } from '../lib/pane-tree-ops';
@@ -34,13 +34,6 @@ interface SessionRow {
   projectName: string;
   projectItemId: string;
 }
-
-const sessionRowCls = tv({
-  base: 'group flex items-center gap-1.5 rounded px-2 py-1 text-xs text-fg outline-none transition-colors',
-  variants: {
-    interactive: { true: 'cursor-pointer hover:bg-surface', false: 'cursor-default opacity-40' },
-  },
-});
 
 /**
  * Mounted only when the panel is open — polling starts on mount, stops on unmount.
@@ -164,13 +157,20 @@ export function SessionManager({ onClose }: SessionManagerProps) {
         <SectionLabel>PTY Sessions</SectionLabel>
       </div>
 
-      <div className="max-h-80 overflow-y-auto p-1">
-        {rows.length === 0 ? (
-          <div className="px-2 py-3 text-xs text-fg-faint">No active sessions.</div>
-        ) : (
-          Array.from(grouped.entries()).map(([projName, groupRows]) => (
-            <div key={projName} className="group/section">
-              <div className="flex h-6 items-center gap-2 px-2">
+      {rows.length === 0 ? (
+        <div className="px-3 py-3 text-xs text-fg-faint">No active sessions.</div>
+      ) : (
+        <Menu
+          className="max-h-80 overflow-y-auto p-1 outline-none"
+          onAction={(key) => {
+            const ptyId = parseInt(String(key), 10);
+            const row = rows.find((r) => r.info.ptyId === ptyId);
+            if (row) handleJump(row);
+          }}
+        >
+          {Array.from(grouped.entries()).map(([projName, groupRows]) => (
+            <Section key={projName}>
+              <Header className="group/section flex h-6 items-center gap-2 px-2">
                 <SectionLabel className="flex-1">{projName}</SectionLabel>
                 <Button
                   variant="destructive-ghost"
@@ -181,26 +181,22 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                 >
                   Kill all
                 </Button>
-              </div>
+              </Header>
 
               {groupRows.map((row) => (
-                <div
+                <MenuItem
                   key={row.info.ptyId}
-                  role="button"
-                  tabIndex={row.tab ? 0 : -1}
-                  onClick={() => handleJump(row)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleJump(row);
-                  }}
-                  className={sessionRowCls({ interactive: !!row.tab })}
+                  id={row.info.ptyId}
+                  isDisabled={!row.tab}
+                  className="flex cursor-default items-center gap-1.5 rounded px-2 py-1 text-xs text-fg outline-none transition-colors data-[disabled]:opacity-40 data-[focused]:bg-surface"
                 >
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs">
+                  <span className="min-w-0 flex-1 truncate font-mono">
                     {row.tab?.label ?? '—'}
                   </span>
                   <span className="shrink-0 font-mono text-[10px] tabular-nums text-fg-faint">
                     {row.info.cpuPercent.toFixed(1)}% · {row.info.memoryMb}MB
                   </span>
-                  <div onClick={(e) => e.stopPropagation()}>
+                  <div onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
                     <Button
                       variant="destructive-ghost"
                       size="sm"
@@ -211,12 +207,12 @@ export function SessionManager({ onClose }: SessionManagerProps) {
                       kill
                     </Button>
                   </div>
-                </div>
+                </MenuItem>
               ))}
-            </div>
-          ))
-        )}
-      </div>
+            </Section>
+          ))}
+        </Menu>
+      )}
     </>
   );
 }
