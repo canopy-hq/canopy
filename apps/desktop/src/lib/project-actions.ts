@@ -301,6 +301,8 @@ export function selectProjectItem(
   navigate: NavigateFn,
   /** When set (e.g. from Recently Viewed), navigate directly to this specific tab. */
   overrideTabId?: string,
+  /** When true, skip pushing a new navHistory entry (e.g. navigating from Recently Viewed). */
+  silent?: boolean,
 ): void {
   if (itemId !== null) {
     const ui = getUiState();
@@ -318,19 +320,22 @@ export function selectProjectItem(
         (candidateTabId && contextTabs.some((t) => t.id === candidateTabId)
           ? candidateTabId
           : null) ?? contextTabs[0]?.id;
-      // Batch selectedItemId + navHistory into one store write.
-      pushNav(
-        {
-          type: 'worktree',
-          projectId: proj.id,
-          contextId: itemId,
-          label: deriveContextLabel(itemId, proj),
-          projectName: proj.name,
-          tabId: destTabId || undefined,
-          timestamp: Date.now(),
-        },
-        itemId,
-      );
+      if (!silent) {
+        pushNav(
+          {
+            type: 'worktree',
+            projectId: proj.id,
+            contextId: itemId,
+            label: deriveContextLabel(itemId, proj),
+            projectName: proj.name,
+            tabId: destTabId || undefined,
+            timestamp: Date.now(),
+          },
+          itemId,
+        );
+      } else {
+        setSelectedItem(itemId);
+      }
       if (destTabId) {
         navigate({
           to: '/projects/$projectId/tabs/$tabId',
@@ -459,8 +464,8 @@ export function switchProjectItemRelative(
 // Navigation history
 // ---------------------------------------------------------------------------
 
-export function navigateToSettings(section: string, navigate: NavigateFn): void {
-  pushNav({ type: 'settings', label: 'Settings', section, timestamp: Date.now() });
+export function navigateToSettings(section: string, navigate: NavigateFn, silent?: boolean): void {
+  if (!silent) pushNav({ type: 'settings', label: 'Settings', section, timestamp: Date.now() });
   navigate({ to: '/settings', search: { section } });
 }
 

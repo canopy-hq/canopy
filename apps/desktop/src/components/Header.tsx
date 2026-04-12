@@ -63,7 +63,9 @@ export function Header({
     for (let i = navHistory.length - 1; i >= 0; i--) {
       const entry = navHistory[i]!;
       const key =
-        entry.type === 'settings' ? `settings:${entry.section ?? ''}` : (entry.contextId ?? '');
+        entry.type === 'settings'
+          ? `settings:${entry.section ?? ''}`
+          : `${entry.contextId ?? ''}:${entry.tabId ?? ''}`;
       if (key && !seen.has(key)) {
         seen.add(key);
         result.push(entry);
@@ -80,9 +82,9 @@ export function Header({
       if (!entry) return;
       onRecentlyViewedChange?.(false);
       if (entry.type === 'settings') {
-        navigateToSettings(entry.section ?? 'appearance', navigate);
+        navigateToSettings(entry.section ?? 'appearance', navigate, true);
       } else if (entry.contextId) {
-        selectProjectItem(entry.contextId, navigate, entry.tabId);
+        selectProjectItem(entry.contextId, navigate, entry.tabId, true);
       }
     },
     [recentEntries, navigate, onRecentlyViewedChange],
