@@ -12,19 +12,25 @@ const CACHE_KEY = `ghostty-vt-${__GHOSTTY_VERSION__}`;
 // ─── IndexedDB helpers ───────────────────────────────────────────────────────
 // Every operation swallows errors — a broken IDB cache must never block init.
 
+// Cached so getFromCache and setInCache share one IDBOpenRequest per session.
+let _dbPromise: Promise<IDBDatabase | null> | null = null;
+
 function openDb(): Promise<IDBDatabase | null> {
-  return new Promise((resolve) => {
-    try {
-      const req = indexedDB.open(IDB_DB_NAME, 1);
-      req.onupgradeneeded = (e) => {
-        (e.target as IDBOpenDBRequest).result.createObjectStore(IDB_STORE);
-      };
-      req.onsuccess = (e) => resolve((e.target as IDBOpenDBRequest).result);
-      req.onerror = () => resolve(null);
-    } catch {
-      resolve(null);
-    }
-  });
+  if (!_dbPromise) {
+    _dbPromise = new Promise((resolve) => {
+      try {
+        const req = indexedDB.open(IDB_DB_NAME, 1);
+        req.onupgradeneeded = (e) => {
+          (e.target as IDBOpenDBRequest).result.createObjectStore(IDB_STORE);
+        };
+        req.onsuccess = (e) => resolve((e.target as IDBOpenDBRequest).result);
+        req.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+  return _dbPromise;
 }
 
 async function getFromCache(): Promise<ArrayBuffer | null> {
