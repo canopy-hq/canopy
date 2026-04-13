@@ -25,7 +25,7 @@ const TAB_CTX2_A = tabItem('tab:2a', 'ctx-2', 'Project Beta');
 const NEW_TAB = item({ id: 'action:new-tab', category: 'action' });
 const TOGGLE_SIDEBAR = item({ id: 'action:toggle-sidebar', category: 'action' });
 
-const AGENT_RUNNING = item({ id: 'agent:1', category: 'agent', agentStatus: 'running' });
+const AGENT_RUNNING = item({ id: 'agent:1', category: 'agent', agentStatus: 'working' });
 const AGENT_IDLE = item({ id: 'agent:2', category: 'agent', agentStatus: 'idle' });
 
 // ── Root section — default view ───────────────────────────────────────────────

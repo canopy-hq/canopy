@@ -2,7 +2,6 @@ import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 
 import { CommandMenu } from '@canopy/command-palette';
 import {
-  agentCollection,
   getUiState,
   uiCollection,
   getTabCollection,
@@ -13,7 +12,7 @@ import {
   getSessionCollection,
 } from '@canopy/db';
 import { FpsOverlay } from '@canopy/fps';
-import { ensureGhosttyInit, spawnTerminal, initTerminalPool } from '@canopy/terminal';
+import { spawnTerminal, initTerminalPool } from '@canopy/terminal';
 import { createRootRoute, Outlet, useSearch } from '@tanstack/react-router';
 import { LucideProvider } from 'lucide-react';
 import * as v from 'valibot';
@@ -23,19 +22,18 @@ import { makeProjectPaletteItem } from '../commands/project-commands';
 import { resolveProject } from '../commands/utils';
 import { AddProjectDialog } from '../components/AddProjectDialog';
 import { AgentOverlay } from '../components/AgentOverlay';
-import { AgentToastRegion } from '../components/AgentToastRegion';
 import { Header } from '../components/Header';
 import { ErrorToastRegion } from '../components/ToastProvider';
 import { useUiState } from '../hooks/useCollections';
 import { useKeyboardRegistry, type Keybinding } from '../hooks/useKeyboardRegistry';
 import { useTauriMenuEvent } from '../hooks/useTauriMenuEvent';
 import { onOpenAddProjectDialog } from '../lib/add-project-bridge';
-import { initAgentListener } from '../lib/agent-actions';
+import { initAgentListener, clearReviewForTab } from '../lib/agent-actions';
 import { checkProjectPaths, listWorktrees } from '../lib/git';
 import { getConnection, GITHUB_CONNECTION_KEY } from '../lib/github';
 import { logInfo } from '../lib/log';
 import { pushNav, deriveContextLabel } from '../lib/nav-history';
-import { collectRestorablePaneIds, containsPtyId } from '../lib/pane-tree-ops';
+import { collectRestorablePaneIds } from '../lib/pane-tree-ops';
 import {
   toggleSidebar,
   refreshRepo,
@@ -48,20 +46,10 @@ import {
   navigateToSettings,
 } from '../lib/project-actions';
 import { onOpenProjectPalette, openProjectPalette } from '../lib/project-palette-bridge';
-import { getActiveTab, setPtyIdInTab, getContextIdFromUrl } from '../lib/tab-actions';
-import { showAgentToastDeduped } from '../lib/toast';
+import { setPtyIdInTab, getContextIdFromUrl } from '../lib/tab-actions';
 import { router } from '../router';
 
 import type { CommandItem } from '@canopy/command-palette';
-
-// Pre-initialize ghostty-web WASM at module load.
-void ensureGhosttyInit();
-
-// Preload Geist Mono so the terminal font gate in useTerminal resolves immediately
-// on first mount — without this, Ghostty renders with a fallback font until the
-// font is fetched. Matches the exact font string used in useTerminal's Terminal config.
-void document.fonts?.load('13px "Geist Mono", Menlo, Monaco, "Courier New", monospace');
-void document.fonts?.load('bold 13px "Geist Mono", Menlo, Monaco, "Courier New", monospace');
 
 function RootLayout() {
   const [cmdMenuOpen, setCmdMenuOpen] = useState(false);
@@ -288,25 +276,17 @@ function RootLayout() {
     });
   }, []);
 
+  // Clear review state when the user switches to a tab.
+  // Review means "done while you weren't looking", so viewing the tab clears it.
+  const prevTabIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    const sub = agentCollection.subscribeChanges((changes) => {
+    const sub = uiCollection.subscribeChanges((changes) => {
       for (const change of changes) {
         if (change.type === 'delete') continue;
-        const agent = change.value;
-        const tabs = getTabCollection().toArray;
-        const activeTabId = getActiveTab()?.id;
-        const agentTab = tabs.find((t) => containsPtyId(t.paneRoot, agent.ptyId));
-        if (!agentTab || agentTab.id === activeTabId) continue;
-        const projects = getProjectCollection().toArray;
-        const ws = projects.find((p) => agentTab.projectItemId.startsWith(p.id));
-        if (agent.status === 'waiting') {
-          showAgentToastDeduped({
-            type: 'agent-waiting',
-            agentName: agent.agentName,
-            project: ws?.name ?? 'Unknown',
-            branch: agentTab.label,
-            ptyId: agent.ptyId,
-          });
+        const tabId = change.value.activeTabId;
+        if (tabId && tabId !== prevTabIdRef.current) {
+          prevTabIdRef.current = tabId;
+          clearReviewForTab(tabId);
         }
       }
     });
@@ -429,7 +409,7 @@ function RootLayout() {
           onClose={() => void navigate({ search: (prev) => ({ ...prev, overlay: undefined }) })}
         />
         {addProjectOpen && <AddProjectDialog onClose={() => setAddProjectOpen(false)} />}
-        <AgentToastRegion />
+
         {import.meta.env.DEV && <FpsOverlay visible={fpsVisible} />}
       </div>
     </LucideProvider>

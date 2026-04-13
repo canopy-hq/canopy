@@ -6,9 +6,10 @@ const statusDot = tv({
   base: 'inline-block shrink-0 rounded-full size-(--dot-size)',
   variants: {
     status: {
-      running: 'bg-(--agent-running) animate-[pulse-slow_2s_ease-in-out_infinite]',
-      waiting: 'bg-(--agent-waiting) animate-[breathe_2.5s_ease-in-out_infinite]',
       idle: 'bg-(--agent-idle)',
+      working: 'bg-(--agent-running) animate-[pulse-slow_2s_ease-in-out_infinite]',
+      permission: 'bg-(--agent-waiting) animate-[pulse-slow_2s_ease-in-out_infinite]',
+      review: 'bg-green-500',
     },
   },
 });

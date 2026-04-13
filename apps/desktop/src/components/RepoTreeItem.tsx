@@ -368,7 +368,7 @@ const RepoHeader = memo(
     dragListeners,
   }: {
     project: Project;
-    agentSummary?: Array<'running' | 'waiting'>;
+    agentSummary?: DotStatus[];
     isSelected: boolean;
     isRenaming: boolean;
     isCloning: boolean;
@@ -551,18 +551,15 @@ const RepoHeader = memo(
     prev.dragListeners === next.dragListeners,
 );
 
-export function getRepoAgentSummary(
-  ws: Project,
-  agentMap: Record<string, DotStatus>,
-): Array<'running' | 'waiting'> {
-  const statuses: Array<'running' | 'waiting'> = [];
+export function getRepoAgentSummary(ws: Project, agentMap: Record<string, DotStatus>): DotStatus[] {
+  const statuses: DotStatus[] = [];
   for (const id of getProjectItemIds(ws)) {
     const s = agentMap[id];
-    if (s === 'running' || s === 'waiting') statuses.push(s);
+    if (s && s !== 'idle') statuses.push(s);
   }
-  statuses.sort((a, b) =>
-    a === 'waiting' && b !== 'waiting' ? -1 : a !== 'waiting' && b === 'waiting' ? 1 : 0,
-  );
+  // Priority sort: permission > working > review > others
+  const priority: Record<string, number> = { permission: 0, working: 1, review: 2 };
+  statuses.sort((a, b) => (priority[a] ?? 3) - (priority[b] ?? 3));
   return statuses;
 }
 

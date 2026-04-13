@@ -22,15 +22,12 @@
 
 use std::os::unix::net::UnixStream as StdUnixStream;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, atomic::AtomicU64};
-use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
 use tauri::ipc::Channel;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tokio::sync::Mutex;
-
-use crate::agent_watcher::now_millis;
 
 #[derive(Debug)]
 pub struct ClaimResult {
@@ -59,12 +56,39 @@ impl DaemonClient {
         }
     }
 
-    /// Ensure daemon process is running. Synchronous — safe to call from Tauri setup.
+    /// Expected daemon protocol version. Must match `PROTOCOL_VERSION` in daemon.rs.
+    const EXPECTED_PROTOCOL_VERSION: u32 = 4;
+
+    /// Ensure daemon process is running with the correct protocol version.
+    /// Synchronous — safe to call from Tauri setup.
     /// Returns `Some(pid)` when a new daemon was spawned, `None` when one was already running.
     pub fn ensure_daemon_sync(socket: &Path, bin: &Path) -> Result<Option<u32>, String> {
         // Try to connect first (daemon may already be running)
-        if StdUnixStream::connect(socket).is_ok() {
-            return Ok(None);
+        if let Ok(mut stream) = StdUnixStream::connect(socket) {
+            // Check protocol version — stale daemon (from a previous build) might
+            // not support new ops/fields. Kill and restart if mismatched.
+            use std::io::{BufRead, BufReader, Write as _};
+            let _ = stream.write_all(b"{\"op\":\"version\",\"paneId\":\"\"}\n");
+            let _ = stream.set_read_timeout(Some(std::time::Duration::from_millis(500)));
+            let mut line = String::new();
+            let version_ok = BufReader::new(&stream)
+                .read_line(&mut line)
+                .ok()
+                .and_then(|_| serde_json::from_str::<serde_json::Value>(line.trim()).ok())
+                .and_then(|v| v["version"].as_u64())
+                .map(|v| v as u32)
+                == Some(Self::EXPECTED_PROTOCOL_VERSION);
+
+            if version_ok {
+                return Ok(None);
+            }
+
+            // Stale daemon — kill it so we can spawn a fresh one.
+            eprintln!("[daemon] protocol version mismatch (got {line:?}), restarting");
+            drop(stream);
+            let _ = std::fs::remove_file(socket);
+            // Give the old daemon time to exit after socket removal.
+            std::thread::sleep(std::time::Duration::from_millis(100));
         }
 
         // Spawn daemon in its own process group so it survives app restart
@@ -169,7 +193,14 @@ impl DaemonClient {
 
     /// Spawn a PTY session for pane_id (no-op if already exists).
     /// Returns `(pid, is_new)` — `is_new` is false when the session already existed.
-    pub async fn spawn(&self, pane_id: &str, cwd: Option<&str>, rows: u16, cols: u16) -> Result<(u32, bool), String> {
+    pub async fn spawn(
+        &self,
+        pane_id: &str,
+        cwd: Option<&str>,
+        rows: u16,
+        cols: u16,
+        env_vars: Option<&std::collections::HashMap<String, String>>,
+    ) -> Result<(u32, bool), String> {
         let mut obj = serde_json::json!({
             "op": "spawn",
             "paneId": pane_id,
@@ -178,6 +209,9 @@ impl DaemonClient {
         });
         if let Some(cwd) = cwd {
             obj["cwd"] = serde_json::json!(cwd);
+        }
+        if let Some(vars) = env_vars {
+            obj["envVars"] = serde_json::json!(vars);
         }
         let msg = format!("{obj}\n");
 
@@ -228,7 +262,14 @@ impl DaemonClient {
     /// Claim a pre-warmed PTY from the daemon pool.
     /// Returns `ClaimResult { pid, empty }`. When `empty` is true (pool empty or
     /// cwd mismatch), the caller should fall back to a regular `spawn`.
-    pub async fn claim(&self, pane_id: &str, cwd: Option<&str>, rows: u16, cols: u16) -> Result<ClaimResult, String> {
+    pub async fn claim(
+        &self,
+        pane_id: &str,
+        cwd: Option<&str>,
+        rows: u16,
+        cols: u16,
+        env_vars: Option<&std::collections::HashMap<String, String>>,
+    ) -> Result<ClaimResult, String> {
         let mut obj = serde_json::json!({
             "op": "claim",
             "paneId": pane_id,
@@ -237,6 +278,9 @@ impl DaemonClient {
         });
         if let Some(cwd) = cwd {
             obj["cwd"] = serde_json::json!(cwd);
+        }
+        if let Some(vars) = env_vars {
+            obj["envVars"] = serde_json::json!(vars);
         }
         let msg = format!("{obj}\n");
         let resp = Self::check_ok(self.send_cmd(&msg).await?, "claim failed")?;
@@ -247,12 +291,23 @@ impl DaemonClient {
     }
 
     /// Initialize the daemon's PTY pool for the given CWD.
-    pub async fn init_pool(&self, cwd: &str, size: usize) -> Result<(), String> {
-        let msg = format!(
-            "{{\"op\":\"init_pool\",\"cwd\":{},\"size\":{}}}\n",
-            serde_json::json!(cwd),
-            size,
-        );
+    /// Optional `env_vars` (e.g. CANOPY_PORT, CANOPY_TOKEN) are baked into pool
+    /// shells at spawn time — no visible `export` in the terminal.
+    pub async fn init_pool(
+        &self,
+        cwd: &str,
+        size: usize,
+        env_vars: Option<&std::collections::HashMap<String, String>>,
+    ) -> Result<(), String> {
+        let mut obj = serde_json::json!({
+            "op": "init_pool",
+            "cwd": cwd,
+            "size": size,
+        });
+        if let Some(vars) = env_vars {
+            obj["envVars"] = serde_json::json!(vars);
+        }
+        let msg = format!("{obj}\n");
         Self::check_ok(self.send_cmd(&msg).await?, "init_pool failed")?;
         Ok(())
     }
@@ -266,8 +321,7 @@ impl DaemonClient {
     }
 
     /// Attach to a PTY session: spawns a background task that reads frames
-    /// from the daemon and sends them to `on_output`. Updates `last_output` timestamp
-    /// on each chunk (used by the agent watcher for silence detection).
+    /// from the daemon and sends them to `on_output`.
     ///
     /// `ready_tx` is fired once when the daemon sentinel (zero-length frame marking
     /// end of scrollback replay) is forwarded. `spawn_terminal` awaits this signal
@@ -279,7 +333,6 @@ impl DaemonClient {
         &self,
         pane_id: String,
         on_output: Channel<Vec<u8>>,
-        last_output: Arc<AtomicU64>,
         ready_tx: tokio::sync::oneshot::Sender<()>,
     ) -> tokio::task::JoinHandle<()> {
         let socket = self.socket.clone();
@@ -315,9 +368,6 @@ impl DaemonClient {
                     if stream.read_exact(&mut data).await.is_err() {
                         break;
                     }
-                    // Only update the activity timestamp for real output, not the
-                    // zero-length sentinel frame.
-                    last_output.store(now_millis(), Ordering::Relaxed);
                 } else {
                     // Sentinel: scrollback replay complete. Signal spawn_terminal so it
                     // can return to TypeScript with a fully-buffered ChannelEntry.

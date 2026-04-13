@@ -31,7 +31,7 @@ export interface CommandItem {
   keywords?: string[];
   icon?: CommandIcon;
   shortcut?: string;
-  agentStatus?: 'running' | 'waiting' | 'idle';
+  agentStatus?: 'idle' | 'working' | 'permission' | 'review';
   /** Group label for sectioned views (e.g. workspace name in the tabs section). */
   group?: string;
   /** Stable context ID used to filter root-section tabs to the active project. */

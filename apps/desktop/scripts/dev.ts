@@ -5,12 +5,15 @@ import { fileURLToPath } from 'node:url';
 const desktopDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = resolve(desktopDir, '../..');
 
+// Always kill stale daemon so the new app gets a fresh one.
+// Safe: single-instance plugin prevents concurrent dev instances anyway.
+spawnSync('pkill', ['-f', 'canopy-pty-daemon'], { stdio: 'ignore' });
+
 const rebuild = process.argv.includes('--rebuild');
 if (rebuild) {
   const daemonBin = resolve(repoRoot, 'target/debug/canopy-pty-daemon');
-  spawnSync('pkill', ['-f', 'canopy-pty-daemon'], { stdio: 'ignore' });
   spawnSync('rm', ['-f', daemonBin], { stdio: 'ignore' });
-  console.log('[dev] daemon killed and binary removed — will rebuild on start');
+  console.log('[dev] daemon binary removed — will rebuild on start');
 }
 
 // Fixed identifier — keeps dev/prod data dirs separate without creating per-worktree dirs.
@@ -68,11 +71,13 @@ const tauri = spawn(
 const cleanup = () => {
   vite.kill();
   tauri.kill();
+  spawnSync('pkill', ['-f', 'canopy-pty-daemon'], { stdio: 'ignore' });
 };
 process.on('SIGINT', cleanup);
 process.on('SIGTERM', cleanup);
 
 tauri.on('exit', (code) => {
   vite.kill();
+  spawnSync('pkill', ['-f', 'canopy-pty-daemon'], { stdio: 'ignore' });
   process.exit(code ?? 0);
 });
