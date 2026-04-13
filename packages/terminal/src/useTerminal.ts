@@ -177,6 +177,11 @@ export function useTerminal(
       const el = term.element;
       if (el) container.appendChild(el);
 
+      // Resume rendering after suspension from the previous unmount.
+      // Called after reparenting but before fit so the render loop starts
+      // with correct dimensions (suspend() prevents resize() from restarting
+      // the loop, so resume() here is the only thing that kicks it off).
+      term.resume();
       fitAddon.fit();
       void resizePty(ptyId, term.rows, term.cols);
 
@@ -558,6 +563,9 @@ export function useTerminal(
       if (sigwinchTimer !== null) clearTimeout(sigwinchTimer);
       // DON'T dispose term — just detach from container. Cache keeps it alive
       // so the next mount can reparent the same element (preserving scrollback).
+      // Suspend the render loop before detaching — the terminal stays alive in
+      // cache but shouldn't keep running WebGL frames while off-screen.
+      term.suspend();
       const el = term.element;
       if (el && el.parentNode === container) {
         container.removeChild(el);
