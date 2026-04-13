@@ -28,6 +28,9 @@ function loadCachedStatsMap(): StatsMap {
 
 const POLL_MS = 3_000;
 const MISS_THRESHOLD = 2;
+/** Debounce delay for resetKey — prevents rapid project switches from firing
+ * multiple concurrent pollAllProjectStates calls. */
+const RESET_KEY_DEBOUNCE_MS = 300;
 
 export function getInterval(noChangeCount: number): number {
   if (noChangeCount >= 10) return 15_000;
@@ -139,11 +142,18 @@ export function useProjectPolling(
     projectsRef.current = projects;
   }, [projects]);
 
+  // Debounce resetKey so rapid project switches don't fire multiple concurrent polls.
+  const [debouncedResetKey, setDebouncedResetKey] = useState(resetKey);
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedResetKey(resetKey), RESET_KEY_DEBOUNCE_MS);
+    return () => clearTimeout(id);
+  }, [resetKey]);
+
   const projectKey = useMemo(
     () =>
       projects.map((p) => `${p.id}:${p.expanded ? 1 : 0}`).join(',') +
-      (resetKey != null ? `|${resetKey}` : ''),
-    [projects, resetKey],
+      (debouncedResetKey != null ? `|${debouncedResetKey}` : ''),
+    [projects, debouncedResetKey],
   );
 
   useEffect(() => {

@@ -25,6 +25,7 @@ struct HookPayload {
     event: String,
     pane_id: String,
     agent: Option<String>,
+    pid: Option<u32>,
 }
 
 #[derive(Clone)]
@@ -71,8 +72,8 @@ async fn handle_hook(
 
     let agent_name = payload.agent.as_deref().unwrap_or("unknown");
     eprintln!(
-        "[hook] received: event={} agent={} pane={} → {:?}",
-        payload.event, agent_name, payload.pane_id, status
+        "[hook] received: event={} agent={} pane={} pid={:?} → {:?}",
+        payload.event, agent_name, payload.pane_id, payload.pid, status
     );
 
     // Access Tauri-managed state via the AppHandle
@@ -85,6 +86,7 @@ async fn handle_hook(
             status,
             None,
             agent_name,
+            payload.pid,
             &state.app_handle,
             &pty_state,
             &watcher_state,

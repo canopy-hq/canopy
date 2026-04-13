@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import { memo, useRef, useState, useEffect, useMemo, useCallback } from 'react';
 
 import {
   getSettingCollection,
@@ -11,16 +11,10 @@ import { useTerminal, getPtyCwd } from '@canopy/terminal';
 import { CircleX } from 'lucide-react';
 
 import { useTabs, useAgents, useUiState } from '../hooks/useCollections';
+import { findLeaf } from '../lib/pane-tree-ops';
 import { setFocus, setPtyId, renameTab } from '../lib/tab-actions';
 import { ClaudeCodeIcon } from './ClaudeCodeIcon';
 import { PaneHeader } from './PaneHeader';
-
-import type { PaneNode } from '../lib/pane-tree-ops';
-
-function containsPane(node: PaneNode, paneId: string): boolean {
-  if (node.type === 'leaf') return node.id === paneId;
-  return node.children.some((c) => containsPane(c, paneId));
-}
 
 interface TerminalPaneProps {
   paneId: string;
@@ -33,7 +27,7 @@ interface TerminalPaneProps {
  * Delegates PTY spawn to useTerminal so that spawn dimensions are derived from
  * the fitted terminal — eliminating dimension estimates and spurious SIGWINCHes.
  */
-export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
+export const TerminalPane = memo(function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const killedRef = useRef(false);
   const tabs = useTabs();
@@ -41,6 +35,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
   const activeTab = tabs.find((t) => t.id === ui.activeTabId);
   const focusedPaneId = activeTab?.focusedPaneId ?? null;
   const isFocused = focusedPaneId === paneId;
+  const isTabActive = activeTab ? findLeaf(activeTab.paneRoot, paneId) !== null : false;
   const [cwd, setCwd] = useState('');
   const [realPtyId, setRealPtyId] = useState<number | null>(ptyId > 0 ? ptyId : null);
 
@@ -55,10 +50,11 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
 
   // Poll CWD from Rust side and persist changes.
   // Focused pane: 2s (immediate feedback for cd, etc.).
-  // Unfocused panes: 10s (stale for a moment is fine; 5× fewer socket round-trips).
+  // Unfocused panes within active tab: 10s (stale for a moment is fine).
+  // Inactive tab: skip entirely — no polling until the tab is shown again.
   const refreshCwdRef = useRef<(() => void) | null>(null);
   useEffect(() => {
-    if (realPtyId === null) return;
+    if (realPtyId === null || !isTabActive) return;
 
     let cancelled = false;
     const intervalMs = isFocused ? 2_000 : 10_000;
@@ -90,7 +86,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
       refreshCwdRef.current = null;
       clearInterval(interval);
     };
-  }, [realPtyId, paneId, isFocused]);
+  }, [realPtyId, paneId, isFocused, isTabActive]);
 
   // Delete session record when killed (ptyId → -2) or when pane is removed from tree.
   useEffect(() => {
@@ -133,7 +129,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
         setRealPtyId(id);
         setPtyId(paneId, id);
         const col = getSessionCollection();
-        const tab = getTabCollection().toArray.find((t) => containsPane(t.paneRoot, paneId));
+        const tab = getTabCollection().toArray.find((t) => findLeaf(t.paneRoot, paneId) !== null);
         const existing = col.toArray.find((s) => s.paneId === paneId);
         if (existing) {
           col.update(existing.id, (draft) => {
@@ -154,7 +150,7 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
       }}
     />
   );
-}
+});
 
 /**
  * Inner component — separated so hook calls stay unconditional.
@@ -183,7 +179,7 @@ function TerminalPaneInner({
   const handleCommand = useCallback(
     (cmd: string) => {
       if (!isFocused) return;
-      const tab = getTabCollection().toArray.find((t) => containsPane(t.paneRoot, paneId));
+      const tab = getTabCollection().toArray.find((t) => findLeaf(t.paneRoot, paneId) !== null);
       if (tab && !tab.labelIsManual) {
         const label = cmd.length > 10 ? `${cmd.slice(0, 10)}...` : cmd;
         renameTab(tab.id, label, false);
@@ -212,10 +208,11 @@ function TerminalPaneInner({
   // sequences and flickering startup. Only applies to Claude auto-launch sessions
   // (those with an init-cmd containing "claude"). Removed once the agent watcher
   // detects the Claude process (agentStatus leaves 'idle'), or after 15s fallback.
-  // Skip on re-mount (tab switch) when the agent is already running — agentStatus
-  // is read from the live collection at mount time, so this is synchronous.
+  // Skip on re-mount (tab switch): ptyId > 0 means the PTY is already running,
+  // so we never want to show the boot overlay again even if agentStatus is 'idle'
+  // (which happens after Claude finishes a turn and the agent entry is removed).
   const [bootOverlay, setBootOverlay] = useState(
-    () => agentStatus === 'idle' && !!savedInitCmd?.includes('claude'),
+    () => ptyId <= 0 && agentStatus === 'idle' && !!savedInitCmd?.includes('claude'),
   );
 
   // One-time 15s fallback — scheduled once on mount, never restarted.
@@ -239,20 +236,31 @@ function TerminalPaneInner({
   }, [agentStatus, bootOverlay]);
 
   // Sync the claude-code icon with the agent watcher: set when claude is running, clear on exit.
+  // Icon clearing is debounced (500ms) to avoid flicker between Claude turns — Stop fires at
+  // the end of each turn, but UserPromptSubmit fires at the start of the next.
   useEffect(() => {
     if (ptyId <= 0) return;
-    const tab = getTabCollection().toArray.find((t) => containsPane(t.paneRoot, paneId));
+    const tab = getTabCollection().toArray.find((t) => findLeaf(t.paneRoot, paneId) !== null);
     if (!tab) return;
     const claudeActive = agent?.agentName === 'claude' && agentStatus !== 'idle';
-    if (claudeActive && tab.icon !== 'claude-code') {
-      getTabCollection().update(tab.id, (draft) => {
-        draft.icon = 'claude-code';
-      });
-    } else if (!claudeActive && tab.icon === 'claude-code') {
-      getTabCollection().update(tab.id, (draft) => {
-        draft.icon = undefined;
-      });
+    if (claudeActive) {
+      if (tab.icon !== 'claude-code') {
+        getTabCollection().update(tab.id, (draft) => {
+          draft.icon = 'claude-code';
+        });
+      }
+      return;
     }
+    if (tab.icon !== 'claude-code') return;
+    const t = setTimeout(() => {
+      const latest = getTabCollection().toArray.find((t) => findLeaf(t.paneRoot, paneId) !== null);
+      if (latest?.icon === 'claude-code') {
+        getTabCollection().update(latest.id, (draft) => {
+          draft.icon = undefined;
+        });
+      }
+    }, 500);
+    return () => clearTimeout(t);
   }, [agent?.agentName, agentStatus, ptyId, paneId]);
 
   return (

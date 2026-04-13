@@ -383,6 +383,34 @@ function RootLayout() {
 
   useKeyboardRegistry(bindings);
 
+  // Side mouse buttons (thumb back/forward) → same as ⌘[ / ⌘]
+  // wry synthesises mousedown + mouseup events for buttons 3/4 and calls
+  // window.history.back/forward() in its mouseup handler, but only if
+  // ev.defaultPrevented is false. We must therefore:
+  //   1. Call goBack/goForward on mousedown (fast response)
+  //   2. preventDefault() on mouseup so wry skips window.history.back/forward()
+  // capture:true ensures both handlers fire before the terminal can swallow events.
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (e.button === 3) {
+        goBack(navigate);
+        e.preventDefault();
+      } else if (e.button === 4) {
+        goForward(navigate);
+        e.preventDefault();
+      }
+    };
+    const onUp = (e: MouseEvent) => {
+      if (e.button === 3 || e.button === 4) e.preventDefault();
+    };
+    window.addEventListener('mousedown', onDown, { capture: true });
+    window.addEventListener('mouseup', onUp, { capture: true });
+    return () => {
+      window.removeEventListener('mousedown', onDown, { capture: true });
+      window.removeEventListener('mouseup', onUp, { capture: true });
+    };
+  }, [navigate]);
+
   return (
     <LucideProvider strokeWidth={1}>
       <div className="flex h-screen w-screen flex-col overflow-hidden bg-base">

@@ -57,7 +57,7 @@ impl DaemonClient {
     }
 
     /// Expected daemon protocol version. Must match `PROTOCOL_VERSION` in daemon.rs.
-    const EXPECTED_PROTOCOL_VERSION: u32 = 4;
+    const EXPECTED_PROTOCOL_VERSION: u32 = 5;
 
     /// Ensure daemon process is running with the correct protocol version.
     /// Synchronous — safe to call from Tauri setup.
@@ -262,13 +262,14 @@ impl DaemonClient {
     /// Claim a pre-warmed PTY from the daemon pool.
     /// Returns `ClaimResult { pid, empty }`. When `empty` is true (pool empty or
     /// cwd mismatch), the caller should fall back to a regular `spawn`.
+    /// Pool shells already have CANOPY_PORT and CANOPY_TOKEN as env vars; no
+    /// injection needed here.
     pub async fn claim(
         &self,
         pane_id: &str,
         cwd: Option<&str>,
         rows: u16,
         cols: u16,
-        env_vars: Option<&std::collections::HashMap<String, String>>,
     ) -> Result<ClaimResult, String> {
         let mut obj = serde_json::json!({
             "op": "claim",
@@ -278,9 +279,6 @@ impl DaemonClient {
         });
         if let Some(cwd) = cwd {
             obj["cwd"] = serde_json::json!(cwd);
-        }
-        if let Some(vars) = env_vars {
-            obj["envVars"] = serde_json::json!(vars);
         }
         let msg = format!("{obj}\n");
         let resp = Self::check_ok(self.send_cmd(&msg).await?, "claim failed")?;
