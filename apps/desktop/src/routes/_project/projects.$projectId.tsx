@@ -10,7 +10,6 @@ import { ClaudeCodeSetupDialog } from '../../components/ClaudeCodeSetupDialog';
 import { TabBar } from '../../components/TabBar';
 import { useUiState, useTabs } from '../../hooks/useCollections';
 import { toggleSidebar } from '../../lib/project-actions';
-import { updateSearch } from '../../lib/router-utils';
 import { addTab, addClaudeCodeTab, activateContextFromRoute } from '../../lib/tab-actions';
 import { router } from '../../router';
 
@@ -26,6 +25,7 @@ function CreatingWorktree() {
 function ProjectRoute() {
   const { projectId } = Route.useParams();
   const { setup } = Route.useSearch();
+  const navigate = Route.useNavigate();
   const location = useLocation();
   const ui = useUiState();
   const allTabs = useTabs();
@@ -63,7 +63,7 @@ function ProjectRoute() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  const clearSetup = () => updateSearch((prev) => ({ ...prev, setup: undefined }));
+  const clearSetup = () => void navigate({ search: (prev) => ({ ...prev, setup: undefined }) });
 
   // Only show the tab bar once the URL has committed to a tab sub-route.
   // insertTab fires before navigateToTab, so without this guard a render frame would

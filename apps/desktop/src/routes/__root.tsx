@@ -14,7 +14,7 @@ import {
 } from '@canopy/db';
 import { FpsOverlay } from '@canopy/fps';
 import { ensureGhosttyInit, spawnTerminal, initTerminalPool } from '@canopy/terminal';
-import { createRootRoute, Outlet, useNavigate, useSearch } from '@tanstack/react-router';
+import { createRootRoute, Outlet, useSearch } from '@tanstack/react-router';
 import { LucideProvider } from 'lucide-react';
 import * as v from 'valibot';
 
@@ -48,7 +48,6 @@ import {
   navigateToSettings,
 } from '../lib/project-actions';
 import { onOpenProjectPalette, openProjectPalette } from '../lib/project-palette-bridge';
-import { updateSearch } from '../lib/router-utils';
 import { getActiveTab, setPtyIdInTab, getContextIdFromUrl } from '../lib/tab-actions';
 import { showAgentToastDeduped } from '../lib/toast';
 import { router } from '../router';
@@ -78,7 +77,7 @@ function RootLayout() {
   const overlayOpen = overlay === 'agents';
   const cmdItems = useAllCommands();
   const { activeContextId } = useUiState();
-  const navigate = useNavigate();
+  const navigate = Route.useNavigate();
   const booted = useRef(false);
 
   // Boot: restore last active workspace from DB (routing is source of truth after this)
@@ -370,10 +369,12 @@ function RootLayout() {
         meta: true,
         shift: true,
         action: () =>
-          updateSearch((prev) => ({
-            ...prev,
-            overlay: prev.overlay === 'agents' ? undefined : 'agents',
-          })),
+          void navigate({
+            search: (prev) => ({
+              ...prev,
+              overlay: prev.overlay === 'agents' ? undefined : 'agents',
+            }),
+          }),
       },
       // ⌘⇧H: recently viewed dropdown
       { key: 'H', meta: true, shift: true, action: () => setRecentlyViewedOpen((prev) => !prev) },
@@ -409,7 +410,7 @@ function RootLayout() {
           onSearchClick={() => setCmdMenuOpen(true)}
           sessionsOpen={sessionsOpen}
           onSessionsOpenChange={(open) =>
-            updateSearch((prev) => ({ ...prev, panel: open ? 'sessions' : undefined }))
+            void navigate({ search: (prev) => ({ ...prev, panel: open ? 'sessions' : undefined }) })
           }
           recentlyViewedOpen={recentlyViewedOpen}
           onRecentlyViewedChange={setRecentlyViewedOpen}
@@ -425,7 +426,7 @@ function RootLayout() {
         />
         <AgentOverlay
           isOpen={overlayOpen}
-          onClose={() => updateSearch((prev) => ({ ...prev, overlay: undefined }))}
+          onClose={() => void navigate({ search: (prev) => ({ ...prev, overlay: undefined }) })}
         />
         {addProjectOpen && <AddProjectDialog onClose={() => setAddProjectOpen(false)} />}
         <AgentToastRegion />
