@@ -62,7 +62,7 @@ jobs:
           draft: false
           generate_release_notes: true
           files: |
-            apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
-            apps/desktop/src-tauri/target/release/bundle/macos/*.app.tar.gz
-            apps/desktop/src-tauri/target/release/bundle/macos/*.app.tar.gz.sig
-            apps/desktop/src-tauri/target/release/bundle/macos/latest.json
+            target/release/bundle/dmg/*.dmg
+            target/release/bundle/macos/*.app.tar.gz
+            target/release/bundle/macos/*.app.tar.gz.sig
+            target/release/bundle/macos/latest.json
