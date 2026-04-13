@@ -831,6 +831,10 @@ fn create_worktree_sync(
         _ref_holder = branch.into_reference();
         opts.reference(Some(&_ref_holder));
     } else if let Some(ref branch_name) = base_branch {
+        let existing_wts = enumerate_worktrees(&repo)?;
+        if let Some(existing) = existing_wts.iter().find(|w| w.branch == *branch_name) {
+            return Ok(existing.clone());
+        }
         // Use an existing branch as-is
         let branch = find_local_or_tracking_branch(&repo, branch_name)?;
         _ref_holder = branch.into_reference();
@@ -851,6 +855,21 @@ fn create_worktree_sync(
     };
     let target = Path::new(&expanded_path);
 
+    if target.exists() {
+        // Already a registered worktree at this path — return it instead of erroring.
+        let canonical_target = target.canonicalize().ok();
+        let existing_wts = enumerate_worktrees(&repo)?;
+        if let Some(existing) = existing_wts.iter().find(|w| {
+            Path::new(&w.path).canonicalize().ok() == canonical_target
+        }) {
+            return Ok(existing.clone());
+        }
+        return Err(format!(
+            "Target path \"{}\" already exists. Choose a different location.",
+            path
+        ));
+    }
+
     // Ensure parent directory exists
     if let Some(parent) = target.parent() {
         std::fs::create_dir_all(parent).map_err(|e| {
@@ -861,13 +880,6 @@ fn create_worktree_sync(
                 _ => format!("Cannot create directory {}: {}", parent.display(), e),
             }
         })?;
-    }
-
-    if target.exists() {
-        return Err(format!(
-            "Target path \"{}\" already exists. Choose a different location.",
-            path
-        ));
     }
 
     let wt = repo
@@ -1441,6 +1453,70 @@ mod tests {
         let result = resolve_worktree_branch("feat-cool", &wt_path, &repo);
         // Falls back to HEAD which is "feat/cool"
         assert_eq!(result, Some("feat/cool".to_string()));
+    }
+
+    /// Creates a repo with a single commit, a branch, and a worktree for that branch.
+    /// Returns `(repo_tmp, wt_tmp, repo_path, worktree_info)`.
+    async fn setup_worktree(branch: &str) -> (TempDir, TempDir, String, WorktreeInfo) {
+        let tmp = TempDir::new().unwrap();
+        init_repo_with_commit(tmp.path());
+        let repo_path = tmp.path().to_string_lossy().to_string();
+        let branches = list_branches(repo_path.clone()).await.unwrap();
+        create_branch(repo_path.clone(), branch.to_string(), branches[0].name.clone())
+            .await
+            .unwrap();
+        let wt_tmp = TempDir::new().unwrap();
+        let wt_path = wt_tmp.path().join(branch);
+        let wt = create_worktree(
+            repo_path.clone(),
+            branch.to_string(),
+            wt_path.to_string_lossy().to_string(),
+            Some(branch.to_string()),
+            None,
+        )
+        .await
+        .unwrap();
+        (tmp, wt_tmp, repo_path, wt)
+    }
+
+    #[tokio::test]
+    async fn test_create_worktree_idempotent_branch() {
+        let (_tmp, wt_tmp, repo_path, first) = setup_worktree("ext-feature").await;
+
+        // Same branch, different canonical Canopy path — should return the existing worktree, not error.
+        let canopy_path = wt_tmp.path().join("canopy-ext-feature");
+        let second = create_worktree(
+            repo_path.clone(),
+            "canopy-ext-feature".to_string(),
+            canopy_path.to_string_lossy().to_string(),
+            Some("ext-feature".to_string()),
+            None,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(second.name, first.name);
+        assert_eq!(second.branch, first.branch);
+    }
+
+    #[tokio::test]
+    async fn test_create_worktree_idempotent_path() {
+        let (_tmp, _wt_tmp, repo_path, first) = setup_worktree("path-feature").await;
+
+        // Call again with the exact same path — should return existing worktree
+        let second = create_worktree(
+            repo_path.clone(),
+            "path-feature".to_string(),
+            first.path.clone(),
+            Some("path-feature".to_string()),
+            None,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(second.name, first.name);
+        assert_eq!(second.path, first.path);
+        assert_eq!(second.branch, first.branch);
     }
 
     #[tokio::test]
