@@ -85,6 +85,8 @@ vi.mock('../../router', () => ({
   router: { navigate: mockRouterNavigate, latestLocation: { pathname: '' } },
 }));
 
+vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn().mockResolvedValue(undefined) }));
+
 vi.mock('@canopy/terminal', () => ({
   spawnTerminal: vi.fn().mockResolvedValue({ ptyId: 42 }),
   writeToPty: vi.fn().mockResolvedValue(undefined),

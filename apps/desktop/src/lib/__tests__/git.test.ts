@@ -8,7 +8,59 @@ vi.mock('@canopy/db', () => ({
   getSettingCollection: () => mockGetSettingCollection(),
 }));
 
-import { buildWorktreePath } from '../git';
+import { sanitizeWorktreeName, worktreeAdminName, buildWorktreePath } from '../git';
+
+describe('sanitizeWorktreeName', () => {
+  it('replaces spaces with dashes', () => {
+    expect(sanitizeWorktreeName('my feature')).toBe('my-feature');
+  });
+
+  it('replaces underscores with dashes', () => {
+    expect(sanitizeWorktreeName('my_feature')).toBe('my-feature');
+  });
+
+  it('trims leading and trailing whitespace', () => {
+    expect(sanitizeWorktreeName('  my-feature  ')).toBe('my-feature');
+  });
+
+  it('preserves internal slashes (used as subdirectory separators by buildWorktreePath)', () => {
+    expect(sanitizeWorktreeName('feature/my-fix')).toBe('feature/my-fix');
+  });
+
+  it('strips leading and trailing slashes', () => {
+    expect(sanitizeWorktreeName('/feature/my-fix/')).toBe('feature/my-fix');
+  });
+
+  it('collapses multiple consecutive slashes to one', () => {
+    expect(sanitizeWorktreeName('feature//my-fix')).toBe('feature/my-fix');
+  });
+});
+
+describe('worktreeAdminName', () => {
+  it('is a no-op when the name has no slashes', () => {
+    expect(worktreeAdminName('my-feature')).toBe('my-feature');
+  });
+
+  it('replaces a single slash with a dash', () => {
+    expect(worktreeAdminName('feature/my-fix')).toBe('feature-my-fix');
+  });
+
+  it('replaces all slashes in a deeply nested name', () => {
+    expect(worktreeAdminName('team/feat/my-fix')).toBe('team-feat-my-fix');
+  });
+
+  it('roundtrip: sanitizeWorktreeName → worktreeAdminName never contains slashes', () => {
+    const inputs = ['feature/foo', 'a/b/c', 'simple', 'with spaces', 'team/feat/bar', '/leading/'];
+    for (const input of inputs) {
+      expect(worktreeAdminName(sanitizeWorktreeName(input))).not.toContain('/');
+    }
+  });
+
+  it('matches simple names produced by sanitizeWorktreeName unchanged', () => {
+    // For names without slashes, the two functions commute: order doesn't matter
+    expect(worktreeAdminName(sanitizeWorktreeName('my feature'))).toBe('my-feature');
+  });
+});
 
 describe('buildWorktreePath', () => {
   beforeEach(() => {

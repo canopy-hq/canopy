@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { ActionRow, Spinner } from '@canopy/ui';
 import { createFileRoute, Outlet, useLocation } from '@tanstack/react-router';
 import { PanelLeft, SquareTerminal } from 'lucide-react';
+import * as v from 'valibot';
 
 import { ClaudeCodeIcon } from '../../components/ClaudeCodeIcon';
 import { ClaudeCodeSetupDialog } from '../../components/ClaudeCodeSetupDialog';
@@ -118,9 +119,11 @@ function EmptyState({ projectId }: { projectId: string }) {
   );
 }
 
+const projectSearchSchema = v.object({
+  setup: v.fallback(v.optional(v.literal(true as const)), undefined),
+});
+
 export const Route = createFileRoute('/_project/projects/$projectId')({
   component: ProjectRoute,
-  validateSearch: (s: Record<string, unknown>): { setup?: true } => ({
-    setup: s.setup === true ? true : undefined,
-  }),
+  validateSearch: projectSearchSchema,
 });

@@ -73,7 +73,12 @@ vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn().mockResolvedValue(() =
 
 // ── Mock git API ─────────────────────────────────────────────────────────────
 
-vi.mock('../git', () => ({ importRepo: vi.fn(), cloneRepo: vi.fn(), listBranches: vi.fn() }));
+vi.mock('../git', () => ({
+  importRepo: vi.fn(),
+  cloneRepo: vi.fn(),
+  listBranches: vi.fn(),
+  createWorktree: vi.fn(),
+}));
 
 // ── Mock toast ───────────────────────────────────────────────────────────────
 
@@ -96,6 +101,7 @@ import {
   importRepo,
   importLocalProject,
   startProjectClone,
+  startWorktreeCreation,
   switchProjectRelative,
   switchProjectItemRelative,
 } from '../project-actions';
@@ -431,5 +437,103 @@ describe('switchProjectItemRelative', () => {
     _uiState.activeContextId = 'p1'; // project root, not in items list
     expect(() => switchProjectItemRelative('prev', mockNavigate)).not.toThrow();
     expect(mockNavigate).toHaveBeenCalled();
+  });
+});
+
+// ── startWorktreeCreation ─────────────────────────────────────────────────────
+
+import { router } from '../../router';
+
+describe('startWorktreeCreation', () => {
+  const PROJECT_ID = 'proj-abc';
+  const PROJECT_PATH = '/repos/my-repo';
+
+  beforeEach(() => {
+    _projects = [makeProject({ id: PROJECT_ID, path: PROJECT_PATH })];
+    _uiState.creatingWorktreeIds = [];
+    _uiState.selectedItemId = null;
+    vi.clearAllMocks();
+  });
+
+  it('optimistically adds the worktree and marks it as creating', () => {
+    vi.mocked(gitApi.createWorktree).mockReturnValue(new Promise(() => {})); // never resolves
+
+    startWorktreeCreation(PROJECT_ID, 'my-feature', '/wt/my-feature', 'main', 'my-feature');
+
+    expect(_uiState.creatingWorktreeIds).toContain(`${PROJECT_ID}-wt-my-feature`);
+    expect(_projects[0]!.worktrees).toHaveLength(1);
+    expect(_projects[0]!.worktrees[0]!.name).toBe('my-feature');
+  });
+
+  it('clears creating state, selects and navigates to the new wt on success', async () => {
+    vi.mocked(gitApi.createWorktree).mockResolvedValue({
+      name: 'my-feature',
+      path: '/wt/my-feature',
+      branch: 'my-feature',
+    });
+
+    startWorktreeCreation(PROJECT_ID, 'my-feature', '/wt/my-feature', 'main', 'my-feature');
+
+    await vi.waitFor(() => expect(_uiState.creatingWorktreeIds).toHaveLength(0));
+
+    expect(_uiState.selectedItemId).toBe(`${PROJECT_ID}-wt-my-feature`);
+    expect(vi.mocked(router.navigate)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: { projectId: `${PROJECT_ID}-wt-my-feature` },
+        search: { setup: true },
+        replace: true,
+      }),
+    );
+  });
+
+  it('uses wt.name (git-confirmed) for item ID — handles slash→dash normalisation', async () => {
+    // Caller (handleCreateWorktree) passes the admin name "feature-foo" after calling
+    // worktreeAdminName("feature/foo"). Git confirms the same admin name back.
+    vi.mocked(gitApi.createWorktree).mockResolvedValue({
+      name: 'feature-foo',
+      path: '/wt/feature/my-repo.foo',
+      branch: 'feature/foo',
+    });
+
+    startWorktreeCreation(PROJECT_ID, 'feature-foo', '/wt/feature/my-repo.foo', 'main', undefined);
+
+    await vi.waitFor(() => expect(_uiState.creatingWorktreeIds).toHaveLength(0));
+
+    const expectedId = `${PROJECT_ID}-wt-feature-foo`;
+    expect(_uiState.selectedItemId).toBe(expectedId);
+    expect(vi.mocked(router.navigate)).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { projectId: expectedId } }),
+    );
+  });
+
+  it('shows error toast, removes optimistic entry, and clears creating state on failure', async () => {
+    vi.mocked(gitApi.createWorktree).mockRejectedValue(new Error('disk full'));
+
+    startWorktreeCreation(PROJECT_ID, 'my-feature', '/wt/my-feature', 'main', 'my-feature');
+
+    await vi.waitFor(() => expect(_uiState.creatingWorktreeIds).toHaveLength(0));
+
+    expect(showErrorToast).toHaveBeenCalledWith(
+      'Create worktree failed',
+      expect.stringContaining('disk full'),
+    );
+    expect(_projects[0]!.worktrees).toHaveLength(0);
+    expect(vi.mocked(router.navigate)).not.toHaveBeenCalled();
+  });
+
+  it('is a no-op when the project does not exist', () => {
+    startWorktreeCreation('nonexistent', 'my-feature', '/wt', 'main', 'my-feature');
+    expect(_uiState.creatingWorktreeIds).toHaveLength(0);
+    expect(vi.mocked(gitApi.createWorktree)).not.toHaveBeenCalled();
+  });
+
+  it('does not add a duplicate optimistic entry when called twice for the same wt', () => {
+    vi.mocked(gitApi.createWorktree).mockReturnValue(new Promise(() => {}));
+
+    startWorktreeCreation(PROJECT_ID, 'my-feature', '/wt/my-feature', 'main', 'my-feature');
+    startWorktreeCreation(PROJECT_ID, 'my-feature', '/wt/my-feature', 'main', 'my-feature');
+
+    expect(_uiState.creatingWorktreeIds).toHaveLength(1);
+    expect(_projects[0]!.worktrees).toHaveLength(1);
   });
 });

@@ -16,6 +16,7 @@ import { FpsOverlay } from '@canopy/fps';
 import { ensureGhosttyInit, spawnTerminal, initTerminalPool } from '@canopy/terminal';
 import { createRootRoute, Outlet, useNavigate, useSearch } from '@tanstack/react-router';
 import { LucideProvider } from 'lucide-react';
+import * as v from 'valibot';
 
 import { useAllCommands } from '../commands';
 import { makeProjectPaletteItem } from '../commands/project-commands';
@@ -69,10 +70,10 @@ function RootLayout() {
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const [fpsVisible, setFpsVisible] = useState(false);
   const [recentlyViewedOpen, setRecentlyViewedOpen] = useState(false);
-  const { panel, overlay } = useSearch({ strict: false }) as {
-    panel?: 'sessions';
-    overlay?: 'agents';
-  };
+  const { panel, overlay } = useSearch({
+    from: '__root__',
+    select: (s) => ({ panel: s.panel, overlay: s.overlay }),
+  });
   const sessionsOpen = panel === 'sessions';
   const overlayOpen = overlay === 'agents';
   const cmdItems = useAllCommands();
@@ -434,10 +435,9 @@ function RootLayout() {
   );
 }
 
-export const Route = createRootRoute({
-  component: RootLayout,
-  validateSearch: (s: Record<string, unknown>): { panel?: 'sessions'; overlay?: 'agents' } => ({
-    panel: s.panel === 'sessions' ? 'sessions' : undefined,
-    overlay: s.overlay === 'agents' ? 'agents' : undefined,
-  }),
+const rootSearchSchema = v.object({
+  panel: v.fallback(v.optional(v.literal('sessions')), undefined),
+  overlay: v.fallback(v.optional(v.literal('agents')), undefined),
 });
+
+export const Route = createRootRoute({ component: RootLayout, validateSearch: rootSearchSchema });

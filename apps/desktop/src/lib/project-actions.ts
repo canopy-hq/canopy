@@ -24,8 +24,7 @@ import { showErrorToast, showInfoToast } from './toast';
 type NavigateFn = (opts: {
   to: string;
   params?: Record<string, string>;
-  search?: Record<string, string | boolean | undefined>;
-  replace?: boolean;
+  search?: Record<string, string>;
   state?: Record<string, unknown>;
 }) => void;
 
@@ -650,6 +649,9 @@ export function startWorktreeCreation(
         draft.worktrees = draft.worktrees.filter((w) => w.name !== name);
       });
     } finally {
+      // On success, creatingWorktreeIds was already cleared above (before navigation)
+      // to satisfy TanStack DB snapshot ordering — this is a no-op in that case.
+      // On error, this is the only cleanup.
       uiCollection.update('ui', (draft) => {
         draft.creatingWorktreeIds = draft.creatingWorktreeIds.filter((id) => id !== wtItemId);
       });
