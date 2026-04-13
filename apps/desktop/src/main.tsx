@@ -39,10 +39,9 @@ async function boot() {
     return;
   }
 
-  await hydrateCollections();
-
-  // Block render until WASM + fonts are both ready.
-  await Promise.all([ghosttyReady, fontsReady]);
+  // hydrateCollections needs the DB (ready above) but not WASM or fonts —
+  // run all three in parallel, then render once everything is settled.
+  await Promise.all([hydrateCollections(), ghosttyReady, fontsReady]);
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
