@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 
 import tailwindcss from '@tailwindcss/vite';
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
@@ -17,6 +18,11 @@ if (!process.env.VITE_GIT_BRANCH) {
     process.env.VITE_GIT_BRANCH = 'unknown';
   }
 }
+
+// Read the installed ghostty-web version to build the IndexedDB cache key.
+// This ensures the WASM byte cache is invalidated automatically on upgrades.
+const require = createRequire(import.meta.url);
+const ghosttyVersion: string = (require('ghostty-web/package.json') as { version: string }).version;
 
 export default defineConfig({
   plugins: [
@@ -40,5 +46,9 @@ export default defineConfig({
     target: 'safari15',
     minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
+  },
+  define: {
+    // Replaced at build time — used by ghostty-init.ts for the IDB cache key.
+    __GHOSTTY_VERSION__: JSON.stringify(ghosttyVersion),
   },
 });
