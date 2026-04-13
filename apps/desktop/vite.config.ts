@@ -3,6 +3,7 @@ import { execSync } from 'node:child_process';
 import tailwindcss from '@tailwindcss/vite';
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
+import ghosttyPkg from 'ghostty-web/package.json' with { type: 'json' };
 import { defineConfig } from 'vite';
 
 const host = process.env.TAURI_DEV_HOST;
@@ -40,5 +41,9 @@ export default defineConfig({
     target: 'safari15',
     minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
+  },
+  define: {
+    // Replaced at build time — used by ghostty-init.ts for the IDB cache key.
+    __GHOSTTY_VERSION__: JSON.stringify(ghosttyPkg.version),
   },
 });

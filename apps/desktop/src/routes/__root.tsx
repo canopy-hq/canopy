@@ -12,7 +12,7 @@ import {
   getSessionCollection,
 } from '@canopy/db';
 import { FpsOverlay } from '@canopy/fps';
-import { ensureGhosttyInit, spawnTerminal, initTerminalPool } from '@canopy/terminal';
+import { spawnTerminal, initTerminalPool } from '@canopy/terminal';
 import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
 import { LucideProvider } from 'lucide-react';
 
@@ -49,15 +49,6 @@ import { setPtyIdInTab, getContextIdFromUrl } from '../lib/tab-actions';
 import { router } from '../router';
 
 import type { CommandItem } from '@canopy/command-palette';
-
-// Pre-initialize ghostty-web WASM at module load.
-void ensureGhosttyInit();
-
-// Preload Geist Mono so the terminal font gate in useTerminal resolves immediately
-// on first mount — without this, Ghostty renders with a fallback font until the
-// font is fetched. Matches the exact font string used in useTerminal's Terminal config.
-void document.fonts?.load('13px "Geist Mono", Menlo, Monaco, "Courier New", monospace');
-void document.fonts?.load('bold 13px "Geist Mono", Menlo, Monaco, "Courier New", monospace');
 
 function RootLayout() {
   const [cmdMenuOpen, setCmdMenuOpen] = useState(false);
