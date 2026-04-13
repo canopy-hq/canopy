@@ -281,6 +281,9 @@ export function useTerminal(
         termElement.addEventListener(
           'keydown',
           (e: KeyboardEvent) => {
+            const write = (seq: string) => {
+              if (ptrRef.ptyId > 0) void writeToPty(ptrRef.ptyId, seq);
+            };
             // macOS system shortcuts: stop ghostty-web from consuming them,
             // but do NOT preventDefault so the native menu handler fires.
             if (e.metaKey && 'qhm,'.includes(e.key)) {
@@ -291,8 +294,25 @@ export function useTerminal(
             if (e.key === 'Tab' && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
               e.stopImmediatePropagation();
               e.preventDefault();
-              if (ptrRef.ptyId > 0) void writeToPty(ptrRef.ptyId, '\x1b[Z');
+              write('\x1b[Z');
               return;
+            }
+            // ghostty-web doesn't emit kitty keyboard protocol sequences for modified Enter.
+            // Intercept so apps like Claude Code can distinguish Shift+Enter (newline) and
+            // Ctrl+Enter from plain Enter.
+            if (e.key === 'Enter' && !e.metaKey && !e.altKey) {
+              if (e.shiftKey && !e.ctrlKey) {
+                e.stopImmediatePropagation();
+                e.preventDefault();
+                write('\x1b[13;2u');
+                return;
+              }
+              if (e.ctrlKey && !e.shiftKey) {
+                e.stopImmediatePropagation();
+                e.preventDefault();
+                write('\x1b[13;5u');
+                return;
+              }
             }
             // Option+letter on macOS: the browser gives e.key = composed char (e.g. "†" for Option+T)
             // instead of e.key = "t" with altKey=true. The WASM encoder can't derive the base letter
@@ -302,13 +322,30 @@ export function useTerminal(
               const letter = e.code.slice(3).toLowerCase();
               e.stopImmediatePropagation();
               e.preventDefault();
-              if (ptrRef.ptyId > 0) void writeToPty(ptrRef.ptyId, '\x1b' + letter);
+              write('\x1b' + letter);
               return;
+            }
+            // Option+ArrowLeft/Right: readline word-jump shortcuts (\x1bb / \x1bf).
+            // The e.code.startsWith('Key') guard above misses arrow keys, so ghostty-web
+            // never receives the correct Alt+Arrow sequence for word navigation.
+            if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+              if (e.key === 'ArrowLeft') {
+                e.stopImmediatePropagation();
+                e.preventDefault();
+                write('\x1bb');
+                return;
+              }
+              if (e.key === 'ArrowRight') {
+                e.stopImmediatePropagation();
+                e.preventDefault();
+                write('\x1bf');
+                return;
+              }
             }
             if (e.repeat && e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
               e.stopImmediatePropagation();
               e.preventDefault();
-              if (ptrRef.ptyId > 0) void writeToPty(ptrRef.ptyId, e.key);
+              write(e.key);
             }
           },
           true,
