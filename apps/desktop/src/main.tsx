@@ -14,9 +14,16 @@ import './index.css';
 // createRoot is blocked until all three resolve, so the app never renders
 // without WASM ready or with a flash of unstyled terminal font.
 const ghosttyReady = ensureGhosttyInit();
-const fontsReady = Promise.all([
-  document.fonts.load('13px "Geist Mono"'),
-  document.fonts.load('bold 13px "Geist Mono"'),
+// 3 s safety-valve: document.fonts.load() should always resolve (not reject),
+// but hangs have been observed in Tauri/WKWebView when the asset bundle is
+// corrupted. Never let a font stall the whole boot.
+const FONT_LOAD_TIMEOUT_MS = 3_000;
+const fontsReady = Promise.race([
+  Promise.all([
+    document.fonts.load('13px "Geist Mono"'),
+    document.fonts.load('bold 13px "Geist Mono"'),
+  ]),
+  new Promise<void>((resolve) => setTimeout(resolve, FONT_LOAD_TIMEOUT_MS)),
 ]);
 
 async function boot() {

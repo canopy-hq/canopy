@@ -46,6 +46,23 @@ async function getFromCache(): Promise<ArrayBuffer | null> {
   }
 }
 
+// Delete all keys except the current CACHE_KEY so stale WASM blobs don't
+// accumulate across ghostty-web version bumps.
+function pruneStaleKeys(db: IDBDatabase): void {
+  try {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    const store = tx.objectStore(IDB_STORE);
+    const req = store.getAllKeys();
+    req.onsuccess = () => {
+      for (const key of req.result) {
+        if (key !== CACHE_KEY) store.delete(key);
+      }
+    };
+  } catch {
+    // best-effort — ignore failures
+  }
+}
+
 function setInCache(bytes: ArrayBuffer): void {
   openDb()
     .then((db) => {
@@ -53,6 +70,8 @@ function setInCache(bytes: ArrayBuffer): void {
       try {
         const tx = db.transaction(IDB_STORE, 'readwrite');
         tx.objectStore(IDB_STORE).put(bytes, CACHE_KEY);
+        // Prune after the write commits so the new key is not accidentally deleted.
+        tx.oncomplete = () => pruneStaleKeys(db);
       } catch {
         // Cache write is best-effort — ignore failures
       }
