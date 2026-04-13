@@ -1,5 +1,15 @@
 import { spawn } from 'node:child_process';
-import { chmodSync, copyFileSync, existsSync } from 'node:fs';
+import {
+  chmodSync,
+  copyFileSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -7,12 +17,13 @@ const desktopDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = resolve(desktopDir, '../..');
 const bundleDir = resolve(repoRoot, 'target/release/bundle');
 const appPath = resolve(bundleDir, 'macos/Canopy.app');
+const dmgDir = resolve(bundleDir, 'dmg');
+const dmgPath = resolve(dmgDir, 'Canopy.dmg');
 
-// Build the Tauri app (runs beforeBuildCommand + vite build internally)
-const build = spawn('tauri', ['build', '--bundles', 'app,dmg'], {
-  cwd: desktopDir,
-  stdio: 'inherit',
-});
+// Build the .app only — DMG is created below *after* daemon injection so the
+// DMG contains the daemon. Building app,dmg together would produce a DMG
+// before the daemon copy step runs.
+const build = spawn('tauri', ['build', '--bundles', 'app'], { cwd: desktopDir, stdio: 'inherit' });
 
 build.on('exit', (code) => {
   if (code !== 0) process.exit(code ?? 1);
@@ -34,10 +45,30 @@ build.on('exit', (code) => {
   // Strip macOS quarantine so the unsigned app opens without Gatekeeper blocking it.
   // Users can also run: xattr -cr /path/to/Canopy.app
   const xattr = spawn('xattr', ['-cr', appPath], { stdio: 'inherit' });
-  xattr.on('exit', () => {
-    console.log(`\nBuild complete (unsigned):`);
-    console.log(`  .app  → ${appPath}`);
-    console.log(`  .dmg  → ${resolve(bundleDir, 'dmg/')}`);
-    console.log(`\nOpen with: open "${appPath}"`);
+  xattr.on('exit', (xattrCode) => {
+    if (xattrCode !== 0) process.exit(xattrCode ?? 1);
+
+    // Create the DMG from the fully-assembled .app (daemon already injected).
+    // Staging dir: .app + /Applications symlink → standard drag-to-install layout.
+    mkdirSync(dmgDir, { recursive: true });
+    const stagingDir = mkdtempSync(resolve(tmpdir(), 'canopy-dmg-'));
+
+    cpSync(appPath, resolve(stagingDir, 'Canopy.app'), { recursive: true });
+    symlinkSync('/Applications', resolve(stagingDir, 'Applications'));
+
+    const hdiutil = spawn(
+      'hdiutil',
+      ['create', '-volname', 'Canopy', '-srcfolder', stagingDir, '-ov', '-format', 'UDZO', dmgPath],
+      { stdio: 'inherit' },
+    );
+    hdiutil.on('exit', (hdiCode) => {
+      rmSync(stagingDir, { recursive: true, force: true });
+      if (hdiCode !== 0) process.exit(hdiCode ?? 1);
+
+      console.log(`\nBuild complete (unsigned):`);
+      console.log(`  .app  → ${appPath}`);
+      console.log(`  .dmg  → ${dmgPath}`);
+      console.log(`\nOpen with: open "${appPath}"`);
+    });
   });
 });
