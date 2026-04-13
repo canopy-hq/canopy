@@ -882,6 +882,7 @@ fn create_worktree_sync(
         .or(base_branch.as_deref())
         .unwrap_or(&wt_name)
         .to_string();
+
     Ok(WorktreeInfo {
         name: wt_name,
         path: wt_path,

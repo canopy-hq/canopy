@@ -15,11 +15,10 @@ let _uiState: UiState = {
   activeContextId: '',
   contextActiveTabIds: {},
   creatingWorktreeIds: [],
+  pendingClaudeSession: null,
   cloningProjectIds: [],
   cloneProgress: {},
   invalidProjectIds: [],
-  justStartedWorktreeId: null,
-  pendingClaudeSession: null,
   navHistory: [],
   navIndex: -1,
 };
@@ -87,6 +86,8 @@ vi.mock('../../router', () => ({
   router: { navigate: mockRouterNavigate, latestLocation: { pathname: '' } },
 }));
 
+vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn().mockResolvedValue(undefined) }));
+
 vi.mock('@canopy/terminal', () => ({
   spawnTerminal: vi.fn().mockResolvedValue({ ptyId: 42 }),
   writeToPty: vi.fn().mockResolvedValue(undefined),
@@ -137,11 +138,10 @@ function resetState() {
     activeContextId: '',
     contextActiveTabIds: {},
     creatingWorktreeIds: [],
+    pendingClaudeSession: null,
     cloningProjectIds: [],
     cloneProgress: {},
     invalidProjectIds: [],
-    justStartedWorktreeId: null,
-    pendingClaudeSession: null,
     navHistory: [],
     navIndex: -1,
   };

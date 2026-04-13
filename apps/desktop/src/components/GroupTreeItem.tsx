@@ -176,9 +176,9 @@ export function GroupTreeItem({
   onSelectItem,
   deletingWtIds,
   creatingWorktreeIds,
+  pendingClaudeWorktreeId,
   cloningProjectIdSet,
   cloneProgressMap,
-  pendingClaudeWorktreeId,
   groups,
 }: {
   group: Group;
@@ -198,9 +198,9 @@ export function GroupTreeItem({
   onSelectItem: (itemId: string) => void;
   deletingWtIds: Set<string>;
   creatingWorktreeIds: Set<string>;
+  pendingClaudeWorktreeId?: string | null;
   cloningProjectIdSet: Set<string>;
   cloneProgressMap: Record<string, CloneProgress>;
-  pendingClaudeWorktreeId: string | null;
   groups: Group[];
 }) {
   const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
@@ -285,10 +285,10 @@ export function GroupTreeItem({
                   onSelectItem={onSelectItem}
                   deletingWtIds={deletingWtIds}
                   creatingWorktreeIds={creatingWorktreeIds}
+                  pendingClaudeWorktreeId={pendingClaudeWorktreeId}
                   isCloning={cloningProjectIdSet.has(ws.id)}
                   cloneProgress={cloneProgressMap[ws.id]}
                   isInvalid={ws.invalid}
-                  pendingClaudeWorktreeId={pendingClaudeWorktreeId}
                   groups={groups}
                 />
               ))}

@@ -126,13 +126,29 @@ export function checkProjectPaths(paths: string[]): Promise<string[]> {
   return invoke<string[]>('check_project_paths', { paths });
 }
 
-/** Normalize a branch/worktree name to a safe identifier (spaces, underscores, slashes → dashes). */
+/**
+ * Normalize a branch/worktree name to a safe display identifier.
+ * Spaces and underscores become dashes; internal slashes are preserved so
+ * `buildWorktreePath` can use them as subdirectory separators.
+ */
 export function sanitizeWorktreeName(name: string): string {
   return name
     .trim()
     .replace(/[\s_]+/g, '-') // spaces/underscores → dash
     .replace(/\/+/g, '/') // collapse multiple slashes
     .replace(/^\/|\/$/g, ''); // strip leading/trailing slashes
+}
+
+/**
+ * Convert a sanitized worktree name to the git admin directory name.
+ * Git stores worktree metadata under `.git/worktrees/{name}/` using plain
+ * `mkdir`, so slashes must become dashes. Mirrors Rust's `sanitize_worktree_name`.
+ *
+ * Always use this when computing a `projectItemId` for a worktree — the item
+ * ID must match the name git2 will return, not the display/path name.
+ */
+export function worktreeAdminName(name: string): string {
+  return name.replace(/\//g, '-');
 }
 
 export const WORKTREE_BASE_DIR_KEY = 'worktreeBaseDir';

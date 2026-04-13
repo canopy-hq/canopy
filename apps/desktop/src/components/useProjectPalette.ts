@@ -8,6 +8,7 @@ import {
   listWorktrees,
   fetchRemote,
   sanitizeWorktreeName,
+  worktreeAdminName,
   buildWorktreePath,
   type BranchDetail,
   type WorktreeInfo,
@@ -270,19 +271,13 @@ export function useProjectPalette(project: Project, ctx: PanelContext): UseProje
       const { existingBranch, base = baseBranch } = opts ?? {};
       const wtName = existingBranch ? sanitizeWorktreeName(existingBranch) : sanitizedName;
       if (!wtName) return;
-      const wtPath = buildWorktreePath(project.path, wtName);
-      const newBranch = existingBranch ? undefined : wtName;
+      const wtPath = buildWorktreePath(project.path, wtName); // slashes → subdirectories
+      const adminName = worktreeAdminName(wtName); // slashes → dashes (git admin constraint)
+      const newBranch = existingBranch ? undefined : wtName; // branch names allow slashes
       ctx.close();
-      startWorktreeCreation(
-        project.id,
-        wtName,
-        wtPath,
-        existingBranch ?? base,
-        newBranch,
-        navigate,
-      );
+      startWorktreeCreation(project.id, adminName, wtPath, existingBranch ?? base, newBranch);
     },
-    [sanitizedName, project, baseBranch, ctx, navigate],
+    [sanitizedName, project, baseBranch, ctx],
   );
 
   const handleOpenWorktree = useCallback(

@@ -45,12 +45,11 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
   const [realPtyId, setRealPtyId] = useState<number | null>(ptyId > 0 ? ptyId : null);
 
   // Read once; only used for the initial spawn inside useTerminal.
-  const [savedCwd, savedInitCmd, savedHasPrompt] = useMemo(() => {
+  const [savedCwd, savedInitCmd] = useMemo(() => {
     const s = getSettingCollection().toArray;
     return [
       (getSetting(s, `cwd:${paneId}`, '') as string) || undefined,
       (getSetting(s, `init-cmd:${paneId}`, '') as string) || undefined,
-      (getSetting(s, `init-has-prompt:${paneId}`, '') as string) === 'true',
     ];
   }, [paneId]);
 
@@ -126,7 +125,6 @@ export function TerminalPane({ paneId, ptyId }: TerminalPaneProps) {
       ptyId={realPtyId ?? ptyId}
       savedCwd={savedCwd}
       savedInitCmd={savedInitCmd}
-      savedHasPrompt={savedHasPrompt}
       isFocused={isFocused}
       cwd={cwd}
       containerRef={containerRef}
@@ -166,7 +164,6 @@ function TerminalPaneInner({
   ptyId,
   savedCwd,
   savedInitCmd,
-  savedHasPrompt,
   isFocused,
   cwd,
   containerRef,
@@ -177,7 +174,6 @@ function TerminalPaneInner({
   ptyId: number;
   savedCwd: string | undefined;
   savedInitCmd: string | undefined;
-  savedHasPrompt: boolean;
   isFocused: boolean;
   cwd: string;
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -229,15 +225,15 @@ function TerminalPaneInner({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Dismiss sooner once the agent is detected (or immediately if already detected).
-  // With a pre-prompt: wait for 'working' so the TUI is rendering the response.
-  // Without a prompt: reveal as soon as the agent is detected (any non-idle status).
+  // Reveal as soon as the agent is detected (any non-idle status). This also
+  // handles edge cases where Claude shows an interactive prompt (e.g., trust dialog)
+  // before processing the initial prompt: the overlay must clear so the user can respond.
   useEffect(() => {
     if (!bootOverlay) return;
-    const ready = savedHasPrompt ? agentStatus === 'working' : agentStatus !== 'idle';
-    if (!ready) return;
+    if (agentStatus === 'idle') return;
     const t = setTimeout(() => setBootOverlay(false), 350);
     return () => clearTimeout(t);
-  }, [agentStatus, bootOverlay, savedHasPrompt]);
+  }, [agentStatus, bootOverlay]);
 
   // Sync the claude-code icon with the agent watcher: set when claude is running, clear on exit.
   useEffect(() => {

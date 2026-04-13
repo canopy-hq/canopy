@@ -19,6 +19,7 @@ import {
   spawnTerminal,
   writeToPty,
 } from '@canopy/terminal';
+import { invoke } from '@tauri-apps/api/core';
 
 import { router } from '../router';
 import {
@@ -208,6 +209,10 @@ export function addClaudeCodeTab(
   const base = makeTab({ projectItemId: itemId, label: 'Claude Code' });
   const tab = { ...base, labelIsManual: true, icon: 'claude-code' };
   storePaneCwd(tab.paneRoot.id, itemId);
+  // Pre-trust the project directory in Claude Code's settings so the session skips
+  // the "do you trust this folder?" prompt. Fire-and-forget — cosmetic only.
+  const cwd = resolveProjectItemCwd(itemId);
+  if (cwd) void invoke('pre_trust_claude_dir', { path: cwd });
   const mode = options?.mode ?? getClaudeDefaultMode();
   const permFlag = mode === 'plan' ? 'plan' : 'bypassPermissions';
   const baseCmd = `CLAUDE_CODE_NO_FLICKER=1 claude --permission-mode ${permFlag}`;
@@ -227,7 +232,6 @@ export function addClaudeCodeTab(
     // or nav history entry since the user hasn't visited it yet.
     // Spawn PTY immediately so Claude starts as soon as the user switches to this worktree.
     const paneId = tab.paneRoot.id;
-    const cwd = resolveProjectItemCwd(itemId);
     void (async () => {
       try {
         const { ptyId } = await spawnTerminal(paneId, cwd, 50, 220);

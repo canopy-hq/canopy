@@ -469,7 +469,7 @@ const RepoHeader = memo(
                 {cloneProgress && cloneProgress.total > 0
                   ? `${cloneProgress.phase === 'resolving' ? 'resolving' : cloneProgress.phase === 'checkout' ? 'checking out' : 'receiving'} ${Math.round((cloneProgress.step / cloneProgress.total) * 100)}%`
                   : 'cloning…'}
-                <Spinner size={11} className="text-accent/60" />
+                <Spinner size={12} className="shrink-0 text-accent/60" />
               </span>
             )}
           </>
@@ -578,10 +578,10 @@ export function RepoTreeItem({
   onSelectItem,
   deletingWtIds,
   creatingWorktreeIds,
+  pendingClaudeWorktreeId,
   isCloning,
   cloneProgress,
   isInvalid,
-  pendingClaudeWorktreeId,
   groups,
 }: {
   ws: Project;
@@ -598,10 +598,10 @@ export function RepoTreeItem({
   onSelectItem: (itemId: string) => void;
   deletingWtIds: Set<string>;
   creatingWorktreeIds: Set<string>;
+  pendingClaudeWorktreeId?: string | null;
   isCloning: boolean;
   cloneProgress?: CloneProgress;
   isInvalid: boolean;
-  pendingClaudeWorktreeId: string | null;
   groups: Group[];
 }) {
   const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
@@ -765,7 +765,7 @@ export function RepoTreeItem({
                         {name}
                       </span>
                       {hasPendingClaude && (
-                        <ClaudeCodeIcon size={11} className="shrink-0 text-claude/60" />
+                        <ClaudeCodeIcon size={12} className="shrink-0 text-claude" />
                       )}
                       <span className="shrink-0 font-mono text-xs text-accent/50">creating…</span>
                     </div>

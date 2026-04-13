@@ -13,8 +13,9 @@ import {
 } from '@canopy/db';
 import { FpsOverlay } from '@canopy/fps';
 import { spawnTerminal, initTerminalPool } from '@canopy/terminal';
-import { createRootRoute, Outlet, useNavigate } from '@tanstack/react-router';
+import { createRootRoute, Outlet, useSearch } from '@tanstack/react-router';
 import { LucideProvider } from 'lucide-react';
+import * as v from 'valibot';
 
 import { useAllCommands } from '../commands';
 import { makeProjectPaletteItem } from '../commands/project-commands';
@@ -53,14 +54,18 @@ import type { CommandItem } from '@canopy/command-palette';
 function RootLayout() {
   const [cmdMenuOpen, setCmdMenuOpen] = useState(false);
   const [defaultPanelItem, setDefaultPanelItem] = useState<CommandItem | null>(null);
-  const [overlayOpen, setOverlayOpen] = useState(false);
-  const [sessionManagerOpen, setSessionManagerOpen] = useState(false);
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const [fpsVisible, setFpsVisible] = useState(false);
   const [recentlyViewedOpen, setRecentlyViewedOpen] = useState(false);
+  const { panel, overlay } = useSearch({
+    from: '__root__',
+    select: (s) => ({ panel: s.panel, overlay: s.overlay }),
+  });
+  const sessionsOpen = panel === 'sessions';
+  const overlayOpen = overlay === 'agents';
   const cmdItems = useAllCommands();
   const { activeContextId } = useUiState();
-  const navigate = useNavigate();
+  const navigate = Route.useNavigate();
   const booted = useRef(false);
 
   // Boot: restore last active workspace from DB (routing is source of truth after this)
@@ -339,7 +344,18 @@ function RootLayout() {
           openProjectPalette(makeProjectPaletteItem(proj));
         },
       },
-      { key: 'O', meta: true, shift: true, action: () => setOverlayOpen((prev) => !prev) },
+      {
+        key: 'O',
+        meta: true,
+        shift: true,
+        action: () =>
+          void navigate({
+            search: (prev) => ({
+              ...prev,
+              overlay: prev.overlay === 'agents' ? undefined : 'agents',
+            }),
+          }),
+      },
       // ⌘⇧H: recently viewed dropdown
       { key: 'H', meta: true, shift: true, action: () => setRecentlyViewedOpen((prev) => !prev) },
       // ⌘[ / ⌘]: back/forward navigation
@@ -372,8 +388,10 @@ function RootLayout() {
       <div className="flex h-screen w-screen flex-col overflow-hidden bg-base">
         <Header
           onSearchClick={() => setCmdMenuOpen(true)}
-          sessionsOpen={sessionManagerOpen}
-          onSessionsOpenChange={setSessionManagerOpen}
+          sessionsOpen={sessionsOpen}
+          onSessionsOpenChange={(open) =>
+            void navigate({ search: (prev) => ({ ...prev, panel: open ? 'sessions' : undefined }) })
+          }
           recentlyViewedOpen={recentlyViewedOpen}
           onRecentlyViewedChange={setRecentlyViewedOpen}
         />
@@ -386,7 +404,10 @@ function RootLayout() {
           activeContextId={activeContextId}
           defaultPanelItem={defaultPanelItem}
         />
-        <AgentOverlay isOpen={overlayOpen} onClose={() => setOverlayOpen(false)} />
+        <AgentOverlay
+          isOpen={overlayOpen}
+          onClose={() => void navigate({ search: (prev) => ({ ...prev, overlay: undefined }) })}
+        />
         {addProjectOpen && <AddProjectDialog onClose={() => setAddProjectOpen(false)} />}
 
         {import.meta.env.DEV && <FpsOverlay visible={fpsVisible} />}
@@ -395,4 +416,9 @@ function RootLayout() {
   );
 }
 
-export const Route = createRootRoute({ component: RootLayout });
+const rootSearchSchema = v.object({
+  panel: v.fallback(v.optional(v.literal('sessions')), undefined),
+  overlay: v.fallback(v.optional(v.literal('agents')), undefined),
+});
+
+export const Route = createRootRoute({ component: RootLayout, validateSearch: rootSearchSchema });

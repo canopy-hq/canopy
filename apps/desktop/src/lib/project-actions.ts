@@ -11,13 +11,15 @@ import {
   SIDEBAR_WIDTH_MAX,
 } from '@canopy/db';
 import { closePty, closePtysForPanes, disposeCached } from '@canopy/terminal';
+import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
 import { resolveProject } from '../commands/utils';
+import { router } from '../router';
 import { openAddProjectDialogViaBridge } from './add-project-bridge';
 import * as gitApi from './git';
 import { collectAllLeafPaneIds, collectLeafPtyIds } from './pane-tree-ops';
-import { addClaudeCodeTab, closeTab } from './tab-actions';
+import { closeTab, addClaudeCodeTab } from './tab-actions';
 import { showErrorToast, showInfoToast } from './toast';
 
 type NavigateFn = (opts: {
@@ -585,7 +587,6 @@ export function startWorktreeCreation(
   path: string,
   baseBranch: string | undefined,
   newBranch: string | undefined,
-  navigate: NavigateFn,
 ): void {
   const proj = getProjectCollection().toArray.find((p) => p.id === projectId);
   if (!proj) return;
@@ -603,7 +604,22 @@ export function startWorktreeCreation(
     if (!draft.creatingWorktreeIds.includes(wtItemId)) {
       draft.creatingWorktreeIds.push(wtItemId);
     }
-    draft.justStartedWorktreeId = wtItemId;
+  });
+
+  // Navigate to the WT immediately so the setup dialog appears during creation.
+  // Use router.navigate directly — the palette (navigate callback source) may
+  // unmount before this fires. Replace the history entry so ⌘[ skips it.
+  const wtProj = resolveProject(wtItemId, getProjectCollection().toArray);
+  if (wtProj) {
+    expandProjectAndGroup(wtProj);
+    trackRecentProject(wtProj.id);
+  }
+  setSelectedItem(wtItemId);
+  void router.navigate({
+    to: '/projects/$projectId',
+    params: { projectId: wtItemId },
+    search: { setup: true },
+    replace: true,
   });
 
   void (async () => {
@@ -617,35 +633,43 @@ export function startWorktreeCreation(
           entry.branch = wt.branch;
         }
       });
-      // Clear creating state before addClaudeCodeTab — that function creates a
-      // TanStack DB transaction that snapshots uiCollection. If we clear here first,
-      // the snapshot captures creatingWorktreeIds:[] and acceptMutations() won't
+      // Pre-trust the new worktree directory as early as possible — well before the
+      // user clicks "Launch Claude" so the trust file is already in place.
+      void invoke('pre_trust_claude_dir', { path: wt.path });
+      // Clear creating state before the pending-session check — the uiCollection
+      // snapshot must capture creatingWorktreeIds:[] so acceptMutations() won't
       // restore the stale "creating" state when the async commit resolves.
       uiCollection.update('ui', (draft) => {
         draft.creatingWorktreeIds = draft.creatingWorktreeIds.filter((id) => id !== wtItemId);
       });
 
-      // Navigate only after the worktree exists on disk — navigating before
-      // would race terminal spawn against worktree creation.
-      selectProjectItem(wtItemId, navigate);
-
-      // If the user scheduled a Claude Code session for this worktree, launch it now
+      // If a Claude session was queued during creation, launch it now.
       const pending = getUiState().pendingClaudeSession;
       if (pending?.worktreeId === wtItemId) {
-        addClaudeCodeTab(wtItemId, { mode: pending.mode, prompt: pending.prompt });
         uiCollection.update('ui', (draft) => {
           draft.pendingClaudeSession = null;
         });
+        addClaudeCodeTab(wtItemId, { mode: pending.mode, prompt: pending.prompt });
       }
+      // Otherwise the user is already on the WT URL — no additional navigation needed.
+      // The ?setup=true dialog remains visible if not yet dismissed.
     } catch (err) {
       showErrorToast('Create worktree failed', String(err));
       getProjectCollection().update(projectId, (draft) => {
         draft.worktrees = draft.worktrees.filter((w) => w.name !== name);
       });
-      uiCollection.update('ui', (draft) => {
-        draft.pendingClaudeSession = null;
-      });
+      // Clear any queued session — the worktree doesn't exist.
+      const pending = getUiState().pendingClaudeSession;
+      if (pending?.worktreeId === wtItemId) {
+        uiCollection.update('ui', (draft) => {
+          draft.pendingClaudeSession = null;
+        });
+      }
+      // Navigate away from the WT URL since the worktree creation failed.
+      void router.navigate({ to: '/' });
     } finally {
+      // On success, creatingWorktreeIds was already cleared above — this is a no-op.
+      // On error, this is the only cleanup.
       uiCollection.update('ui', (draft) => {
         draft.creatingWorktreeIds = draft.creatingWorktreeIds.filter((id) => id !== wtItemId);
       });
@@ -653,24 +677,11 @@ export function startWorktreeCreation(
   })();
 }
 
-export function clearJustStartedWorktree(): void {
-  uiCollection.update('ui', (draft) => {
-    draft.justStartedWorktreeId = null;
-  });
-}
-
 export function setPendingClaudeSession(
   worktreeId: string,
   mode: 'bypass' | 'plan',
   prompt?: string,
 ): void {
-  // If the worktree finished creating before the user confirmed the dialog,
-  // launch Claude immediately — the async completion handler already ran and
-  // found no pending session, so we have to trigger it ourselves here.
-  if (!getUiState().creatingWorktreeIds.includes(worktreeId)) {
-    addClaudeCodeTab(worktreeId, { mode, prompt });
-    return;
-  }
   uiCollection.update('ui', (draft) => {
     draft.pendingClaudeSession = { worktreeId, mode, prompt };
   });

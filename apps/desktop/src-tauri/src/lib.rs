@@ -50,6 +50,44 @@ fn log_info(message: String) {
     eprintln!("[ui] {message}");
 }
 
+/// Write `projects[path].hasTrustDialogAccepted = true` into `~/.claude/settings.json`.
+///
+/// Claude Code checks this key before showing the "do you trust this folder?" prompt.
+/// Canopy calls this just before launching a Claude Code session so the prompt is
+/// skipped for directories the user already opened in Canopy.
+///
+/// The write is atomic (temp file + rename). Errors are silently swallowed —
+/// trust pre-seeding is cosmetic only and must never block a Claude launch.
+#[tauri::command]
+fn pre_trust_claude_dir(path: String) {
+    let Ok(home) = std::env::var("HOME") else { return };
+    // Claude Code stores per-project config (including hasTrustDialogAccepted) in
+    // ~/.claude.json — NOT ~/.claude/settings.json (which is the app-level hooks config).
+    let settings_path = format!("{home}/.claude.json");
+
+    // Normalize: strip trailing slashes so the key matches `process.cwd()` in Node.
+    // git2's Worktree::path() always appends a '/'; Node's process.cwd() does not.
+    let path = path.trim_end_matches('/').to_string();
+
+    let content = std::fs::read_to_string(&settings_path).unwrap_or_else(|_| "{}".to_string());
+    let Ok(mut json) = serde_json::from_str::<serde_json::Value>(&content) else { return };
+
+    if !json.get("projects").map(|v| v.is_object()).unwrap_or(false) {
+        json["projects"] = serde_json::json!({});
+    }
+    let projects = json["projects"].as_object_mut().expect("just ensured object");
+    let entry = projects.entry(path).or_insert_with(|| serde_json::json!({}));
+    if let Some(obj) = entry.as_object_mut() {
+        obj.insert("hasTrustDialogAccepted".to_string(), serde_json::json!(true));
+    }
+
+    let Ok(pretty) = serde_json::to_string_pretty(&json) else { return };
+    let tmp = format!("{settings_path}.canopy-tmp");
+    if std::fs::write(&tmp, pretty).is_ok() {
+        let _ = std::fs::rename(&tmp, &settings_path);
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -152,6 +190,7 @@ pub fn run() {
             get_db_path,
             delete_db,
             log_info,
+            pre_trust_claude_dir,
             pty::spawn_terminal,
             pty::write_to_pty,
             pty::resize_pty,

@@ -5,6 +5,7 @@ import { Button, SectionLabel } from '@canopy/ui';
 import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router';
 import { ChevronLeft, Palette, GitBranch } from 'lucide-react';
 import { tv } from 'tailwind-variants';
+import * as v from 'valibot';
 
 import { AppearanceSection } from '../components/settings/AppearanceSection';
 import { ConnectionSection } from '../components/settings/ConnectionSection';
@@ -114,12 +115,11 @@ function SettingsRoute() {
 
 export default SettingsRoute;
 
+const settingsSearchSchema = v.object({
+  section: v.fallback(v.optional(v.picklist(['appearance', 'git'] as const)), undefined),
+});
+
 export const Route = createFileRoute('/settings')({
   component: SettingsRoute,
-  validateSearch: (search: Record<string, unknown>): { section?: SectionId } => ({
-    section:
-      typeof search.section === 'string' && search.section in SECTIONS
-        ? (search.section as SectionId)
-        : undefined,
-  }),
+  validateSearch: settingsSearchSchema,
 });
