@@ -60,19 +60,19 @@
 
 /* ─── Graphite ───────────────────────────────────────────────────────────── */
 [data-theme='graphite'] {
-  --base: #080810;
-  --raised: #131320;
-  --surface: #202030;
-  --edge: #343448;
-  --focus: #8b5cf6;
-  --fg: #e8e8f4;
-  --fg-dim: #c0c0cc;
-  --fg-muted: #9898a8;
-  --fg-faint: #68687a;
-  --accent: #8b5cf6;
-  --branch: #a78bfa;
-  --worktree: #c084fc;
-  --splitter-hover: #484860;
+  --base: #0a0a0a;
+  --raised: #161616;
+  --surface: #242424;
+  --edge: #3a3a3a;
+  --focus: #f43f5e;
+  --fg: #e8e8e8;
+  --fg-dim: #c0c0c0;
+  --fg-muted: #989898;
+  --fg-faint: #686868;
+  --accent: #f43f5e;
+  --branch: #fb7185;
+  --worktree: #fda4af;
+  --splitter-hover: #484848;
 }
 
 /* ─── Slate ──────────────────────────────────────────────────────────────── */
@@ -111,36 +111,36 @@
 
 /* ─── Void ───────────────────────────────────────────────────────────────── */
 [data-theme='void'] {
-  --base: #040406;
-  --raised: #101018;
-  --surface: #1c1c28;
-  --edge: #303040;
-  --focus: #a855f7;
-  --fg: #d8d8e4;
-  --fg-dim: #a8a8b8;
-  --fg-muted: #787888;
-  --fg-faint: #5c5c6a;
-  --accent: #a855f7;
-  --branch: #c084fc;
-  --worktree: #c084fc;
-  --splitter-hover: #383840;
+  --base: #040408;
+  --raised: #101020;
+  --surface: #1c1c30;
+  --edge: #2c2c48;
+  --focus: #d946ef;
+  --fg: #dcdcf0;
+  --fg-dim: #acacc4;
+  --fg-muted: #7c7c98;
+  --fg-faint: #5c5c74;
+  --accent: #d946ef;
+  --branch: #e879f9;
+  --worktree: #f0abfc;
+  --splitter-hover: #383858;
 }
 
 /* ─── Smoke ──────────────────────────────────────────────────────────────── */
 [data-theme='smoke'] {
-  --base: #0e0b08;
-  --raised: #1e1912;
-  --surface: #2e261e;
-  --edge: #463c34;
-  --focus: #f59e0b;
-  --fg: #f0e8dc;
-  --fg-dim: #ccc4b8;
-  --fg-muted: #a8a09a;
-  --fg-faint: #807870;
-  --accent: #f59e0b;
-  --branch: #fbbf24;
-  --worktree: #c084fc;
-  --splitter-hover: #5a5048;
+  --base: #0c0c0b;
+  --raised: #1a1918;
+  --surface: #282524;
+  --edge: #3c3a38;
+  --focus: #f97316;
+  --fg: #eeece8;
+  --fg-dim: #cac8c4;
+  --fg-muted: #a6a4a0;
+  --fg-faint: #7e7c7a;
+  --accent: #f97316;
+  --branch: #fb923c;
+  --worktree: #fdba74;
+  --splitter-hover: #504e4c;
 }
 
 /* ─── Ash ────────────────────────────────────────────────────────────────── */

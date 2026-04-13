@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { ActionRow, Spinner } from '@canopy/ui';
 import { createFileRoute, Outlet, useLocation } from '@tanstack/react-router';
-import { PanelLeft, SquareTerminal } from 'lucide-react';
+import { Check, PanelLeft, SquareTerminal } from 'lucide-react';
 import * as v from 'valibot';
 
 import { ClaudeCodeIcon } from '../../components/ClaudeCodeIcon';
@@ -17,11 +17,85 @@ import {
 import { addTab, addClaudeCodeTab, activateContextFromRoute } from '../../lib/tab-actions';
 import { router } from '../../router';
 
-function CreatingWorktree() {
+type StepState = 'pending' | 'active' | 'done';
+
+function StepRow({ label, state }: { label: string; state: StepState }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 select-none">
-      <Spinner size={16} className="text-fg-faint" />
-      <span className="font-mono text-sm text-fg-faint">Creating worktree…</span>
+    <div className="flex items-center gap-2.5 font-mono text-sm">
+      {state === 'done' ? (
+        <Check size={12} className="shrink-0 text-fg-muted" />
+      ) : state === 'active' ? (
+        <Spinner size={12} className="shrink-0 text-fg-muted" />
+      ) : (
+        <div className="h-1.5 w-1.5 shrink-0 self-center rounded-full bg-fg-faint" />
+      )}
+      <span className={state === 'pending' ? 'text-fg-faint' : 'text-fg-muted'}>{label}</span>
+    </div>
+  );
+}
+
+function CreatingWorktree({
+  claudePending,
+  claudeMode,
+  claudePrompt,
+  onCancelClaude,
+}: {
+  claudePending: boolean;
+  claudeMode?: 'bypass' | 'plan';
+  claudePrompt?: string;
+  onCancelClaude: () => void;
+}) {
+  // Simulate step 0 ("Preparing") completing quickly so the UI shows momentum.
+  // Step 1 ("Creating worktree") stays active for the duration of the real async op.
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setStep(1), 600);
+    return () => clearTimeout(t);
+  }, []);
+
+  const steps: Array<{ label: string; state: StepState }> = [
+    { label: 'Preparing workspace', state: step > 0 ? 'done' : 'active' },
+    {
+      label: 'Creating git worktree',
+      state: step > 1 ? 'done' : step === 1 ? 'active' : 'pending',
+    },
+    ...(claudePending ? [{ label: 'Launching Claude Code', state: 'pending' as StepState }] : []),
+  ];
+
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-5 select-none">
+      <div className="flex flex-col gap-2">
+        {steps.map((s) => (
+          <StepRow key={s.label} label={s.label} state={s.state} />
+        ))}
+      </div>
+      {claudePending && (
+        <div className="flex flex-col items-center gap-1 font-mono text-xs">
+          <div className="flex items-center gap-1.5 text-fg-muted">
+            <ClaudeCodeIcon size={11} className="text-claude" />
+            <span>Claude Code will launch automatically</span>
+            <span className="text-fg-faint">·</span>
+            <button
+              type="button"
+              onClick={onCancelClaude}
+              className="text-fg-faint transition-colors hover:text-fg"
+            >
+              Cancel
+            </button>
+          </div>
+          {claudeMode && (
+            <div className="flex items-center gap-1.5 text-fg-faint">
+              <span>{claudeMode === 'plan' ? 'Plan mode' : 'Bypass permissions'}</span>
+              {claudePrompt && (
+                <>
+                  <span>·</span>
+                  <span className="max-w-xs truncate">"{claudePrompt}"</span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -36,6 +110,8 @@ function ProjectRoute() {
 
   const contextTabs = allTabs.filter((t) => t.projectItemId === projectId);
   const isCreating = ui.creatingWorktreeIds.includes(projectId);
+  const hasPendingClaude =
+    !!ui.pendingClaudeSession && ui.pendingClaudeSession.worktreeId === projectId;
   const worktreeName = projectId.includes('-wt-') ? (projectId.split('-wt-').pop() ?? '') : '';
 
   // Keep activeContextId in sync with the URL whenever projectId changes.
@@ -79,7 +155,12 @@ function ProjectRoute() {
       {showTabBar && <TabBar projectId={projectId} />}
       <div className="relative min-h-0 flex-1">
         {isCreating ? (
-          <CreatingWorktree />
+          <CreatingWorktree
+            claudePending={hasPendingClaude}
+            claudeMode={ui.pendingClaudeSession?.mode}
+            claudePrompt={ui.pendingClaudeSession?.prompt}
+            onCancelClaude={cancelPendingClaudeSession}
+          />
         ) : contextTabs.length === 0 ? (
           <EmptyState projectId={projectId} />
         ) : (

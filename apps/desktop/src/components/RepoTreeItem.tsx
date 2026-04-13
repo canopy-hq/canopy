@@ -469,7 +469,7 @@ const RepoHeader = memo(
                 {cloneProgress && cloneProgress.total > 0
                   ? `${cloneProgress.phase === 'resolving' ? 'resolving' : cloneProgress.phase === 'checkout' ? 'checking out' : 'receiving'} ${Math.round((cloneProgress.step / cloneProgress.total) * 100)}%`
                   : 'cloning…'}
-                <Spinner size={11} className="text-accent/60" />
+                <Spinner size={12} className="shrink-0 text-accent/60" />
               </span>
             )}
           </>
