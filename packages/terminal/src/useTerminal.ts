@@ -177,12 +177,11 @@ export function useTerminal(
       const el = term.element;
       if (el) container.appendChild(el);
 
-      // Resume rendering after suspension from the previous unmount.
-      // Called after reparenting but before fit so the render loop starts
-      // with correct dimensions (suspend() prevents resize() from restarting
-      // the loop, so resume() here is the only thing that kicks it off).
-      term.resume();
+      // Fit before resuming so the render loop starts at correct dimensions.
+      // resize() inside fitAddon.fit() won't restart the loop while suspended,
+      // so resume() is the sole thing that kicks it off — at the new size.
       fitAddon.fit();
+      term.resume();
       void resizePty(ptyId, term.rows, term.cols);
 
       if (pendingOverlayPtyIds.has(ptyId)) {
