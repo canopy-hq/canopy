@@ -37,6 +37,7 @@ pub static AGENT_CONFIGS: &[AgentHookConfig] = &[
         config_path: "~/.claude/settings.json",
         format: HookConfigFormat::NestedMatcherHooks,
         events: &[
+            ("SessionStart", "Start"),
             ("UserPromptSubmit", "Start"),
             ("PostToolUse", "Start"),
             ("Stop", "Stop"),
@@ -539,6 +540,49 @@ mod tests {
         let vh = build_entry(HookConfigFormat::VersionedHooks, cmd);
         assert_eq!(vh["command"], cmd);
         assert!(vh.get("type").is_none());
+    }
+
+    #[test]
+    fn test_preserves_user_sessionstart_hook() {
+        // Verifies that a user-defined SessionStart hook in Claude's NestedMatcherHooks
+        // format is preserved when Canopy installs its own SessionStart hook.
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = write_config(
+            dir.path(),
+            r#"{
+              "hooks": {
+                "SessionStart": [
+                  {
+                    "matcher": "",
+                    "hooks": [{"type": "command", "command": "my-session-hook.sh"}]
+                  }
+                ]
+              }
+            }"#,
+        );
+        let notify = PathBuf::from("/home/test/.canopy/bin/canopy-notify");
+
+        let config = AgentHookConfig {
+            name: "claude",
+            config_path: "unused",
+            format: HookConfigFormat::NestedMatcherHooks,
+            events: &[("SessionStart", "Start")],
+        };
+        install_hooks_inner(&config, &config_path, &notify.to_string_lossy()).unwrap();
+
+        let content: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&config_path).unwrap()).unwrap();
+        let arr = content["hooks"]["SessionStart"].as_array().unwrap();
+        // User hook + Canopy hook — user hook first, Canopy appended
+        assert_eq!(arr.len(), 2);
+        assert_eq!(
+            arr[0]["hooks"][0]["command"].as_str().unwrap(),
+            "my-session-hook.sh"
+        );
+        assert!(arr[1]["hooks"][0]["command"]
+            .as_str()
+            .unwrap()
+            .contains("canopy-notify"));
     }
 
     #[test]
