@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 
 import { initDb, runMigrations, hydrateCollections } from '@canopy/db';
+import { ensureGhosttyInit } from '@canopy/terminal';
 import { RouterProvider } from '@tanstack/react-router';
 import { invoke } from '@tauri-apps/api/core';
 import { check } from '@tauri-apps/plugin-updater';
@@ -8,6 +9,13 @@ import { createRoot } from 'react-dom/client';
 
 import { router } from './router';
 import './index.css';
+
+// Fire WASM loading and font preloading immediately, before DB init runs.
+// Both are fire-and-forget: DB init proceeds in parallel; terminals await the
+// resolved promise lazily when the first pane opens.
+void ensureGhosttyInit();
+void document.fonts?.load('13px "Geist Mono", Menlo, Monaco, "Courier New", monospace');
+void document.fonts?.load('bold 13px "Geist Mono", Menlo, Monaco, "Courier New", monospace');
 
 async function boot() {
   const dbPath = await invoke<string>('get_db_path');
