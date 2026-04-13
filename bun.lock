@@ -168,7 +168,7 @@
     "@tauri-apps/api": "^2.10.1",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
-    "ghostty-web": "npm:@canopy-hq/ghostty-web@0.5.0-next.0.g01c7ad2",
+    "ghostty-web": "npm:@canopy-hq/ghostty-web@0.6.0-next.4.ga0d5960",
     "happy-dom": "^20.8.9",
     "react": "^19.2.4",
     "typescript": "^5.9.3",
@@ -943,7 +943,7 @@
 
     "get-tsconfig": ["get-tsconfig@4.13.7", "", { "dependencies": { "resolve-pkg-maps": "^1.0.0" } }, "sha512-7tN6rFgBlMgpBML5j8typ92BKFi2sFQvIdpAqLA2beia5avZDrMs0FLZiM5etShWq5irVyGcGMEA1jcDaK7A/Q=="],
 
-    "ghostty-web": ["@canopy-hq/ghostty-web@0.5.0-next.0.g01c7ad2", "https://npm.pkg.github.com/download/@canopy-hq/ghostty-web/0.5.0-next.0.g01c7ad2/470312c31d5261bd6b9230ad0bacccd0ae0c45f9", {}, "sha512-M5j57xQaThTuPnVbyJABpmii8q9eEugM16WvqZtAte1TrRdYAGLOepI9Mcm1GixqHRKHynrvHQMS964INOsRkQ=="],
+    "ghostty-web": ["@canopy-hq/ghostty-web@0.6.0-next.4.ga0d5960", "https://npm.pkg.github.com/download/@canopy-hq/ghostty-web/0.6.0-next.4.ga0d5960/c1fa168ae3badc17b7fec841a5b7bdaf9f6cedef", {}, "sha512-jkn/eEJhaDf9A4ebWA1WaQmJMxe0XPae9DgAAwNdl0FtKWTd+tTBk48IpPDp/q2wYWh3Zyz768iD9MBVxi0thg=="],
 
     "glob-parent": ["glob-parent@5.1.2", "", { "dependencies": { "is-glob": "^4.0.1" } }, "sha512-AOIgSQCepiJYwP3ARnGx+5VnTu2HBYdzbGP45eLw1vr3zB3vZLeyed1sC9hnbcOc9/SrMyM5RPQrkGz4aS9Zow=="],
 
