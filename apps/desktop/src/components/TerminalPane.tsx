@@ -212,8 +212,11 @@ function TerminalPaneInner({
   // sequences and flickering startup. Only applies to Claude auto-launch sessions
   // (those with an init-cmd containing "claude"). Removed once the agent watcher
   // detects the Claude process (agentStatus leaves 'idle'), or after 15s fallback.
-  // Lazy init — read the setting once on mount, never re-evaluated.
-  const [bootOverlay, setBootOverlay] = useState(() => !!savedInitCmd?.includes('claude'));
+  // Skip on re-mount (tab switch) when the agent is already running — agentStatus
+  // is read from the live collection at mount time, so this is synchronous.
+  const [bootOverlay, setBootOverlay] = useState(
+    () => agentStatus === 'idle' && !!savedInitCmd?.includes('claude'),
+  );
 
   // One-time 15s fallback — scheduled once on mount, never restarted.
   // Separate from the agent-detection effect to avoid timer stacking on each
