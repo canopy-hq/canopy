@@ -278,12 +278,12 @@ export function useTerminal(
       // macOS press-and-hold fix: bypass ghostty-web's isComposing block for repeated keys.
       const termElement = term.element;
       if (termElement) {
+        const write = (seq: string) => {
+          if (ptrRef.ptyId > 0) void writeToPty(ptrRef.ptyId, seq);
+        };
         termElement.addEventListener(
           'keydown',
           (e: KeyboardEvent) => {
-            const write = (seq: string) => {
-              if (ptrRef.ptyId > 0) void writeToPty(ptrRef.ptyId, seq);
-            };
             // macOS system shortcuts: stop ghostty-web from consuming them,
             // but do NOT preventDefault so the native menu handler fires.
             if (e.metaKey && 'qhm,'.includes(e.key)) {
@@ -306,8 +306,7 @@ export function useTerminal(
                 e.preventDefault();
                 write('\x1b[13;2u');
                 return;
-              }
-              if (e.ctrlKey && !e.shiftKey) {
+              } else if (e.ctrlKey && !e.shiftKey) {
                 e.stopImmediatePropagation();
                 e.preventDefault();
                 write('\x1b[13;5u');
