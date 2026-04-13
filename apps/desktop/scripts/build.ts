@@ -3,11 +3,15 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const desktopDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const bundleDir = resolve(desktopDir, 'src-tauri/target/release/bundle');
+const repoRoot = resolve(desktopDir, '../..');
+const bundleDir = resolve(repoRoot, 'target/release/bundle');
 const appPath = resolve(bundleDir, 'macos/Canopy.app');
 
 // Build the Tauri app (runs beforeBuildCommand + vite build internally)
-const build = spawn('tauri', ['build'], { cwd: desktopDir, stdio: 'inherit' });
+const build = spawn('tauri', ['build', '--bundles', 'app,dmg'], {
+  cwd: desktopDir,
+  stdio: 'inherit',
+});
 
 build.on('exit', (code) => {
   if (code !== 0) process.exit(code ?? 1);
