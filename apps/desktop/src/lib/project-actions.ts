@@ -11,6 +11,7 @@ import {
   SIDEBAR_WIDTH_MAX,
 } from '@canopy/db';
 import { closePty, closePtysForPanes, disposeCached } from '@canopy/terminal';
+import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
 import { resolveProject } from '../commands/utils';
@@ -616,6 +617,9 @@ export function startWorktreeCreation(
           entry.branch = wt.branch;
         }
       });
+      // Pre-trust the new worktree directory as early as possible — well before the
+      // user clicks "Launch Claude" so the trust file is already in place.
+      void invoke('pre_trust_claude_dir', { path: wt.path });
       // Clear creating state before the sidebar/selection updates below — those
       // create TanStack DB transactions that snapshot uiCollection. Clearing here
       // ensures the snapshot captures creatingWorktreeIds:[] so acceptMutations()

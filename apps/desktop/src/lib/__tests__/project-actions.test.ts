@@ -67,8 +67,9 @@ vi.mock('@canopy/db', () => ({
   getSetting: (_arr: unknown[], _key: string, fallback: unknown) => fallback,
 }));
 
-// ── Mock Tauri event API ──────────────────────────────────────────────────────
+// ── Mock Tauri APIs ───────────────────────────────────────────────────────────
 
+vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn().mockResolvedValue(() => {}) }));
 
 // ── Mock git API ─────────────────────────────────────────────────────────────
