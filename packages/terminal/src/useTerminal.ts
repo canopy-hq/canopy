@@ -178,6 +178,7 @@ export function useTerminal(
       if (el) container.appendChild(el);
 
       fitAddon.fit();
+      term.resume();
       void resizePty(ptyId, term.rows, term.cols);
 
       if (pendingOverlayPtyIds.has(ptyId)) {
@@ -557,6 +558,9 @@ export function useTerminal(
       if (sigwinchTimer !== null) clearTimeout(sigwinchTimer);
       // DON'T dispose term — just detach from container. Cache keeps it alive
       // so the next mount can reparent the same element (preserving scrollback).
+      // Suspend the render loop before detaching — the terminal stays alive in
+      // cache but shouldn't keep running WebGL frames while off-screen.
+      term.suspend();
       const el = term.element;
       if (el && el.parentNode === container) {
         container.removeChild(el);

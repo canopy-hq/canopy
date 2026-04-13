@@ -12,6 +12,8 @@ export function createGhosttyWebMock() {
     this.write = vi.fn<() => void>();
     this.focus = vi.fn<() => void>();
     this.blur = vi.fn<() => void>();
+    this.suspend = vi.fn<() => void>();
+    this.resume = vi.fn<() => void>();
     this.dispose = vi.fn<() => void>();
     this.reset = vi.fn<() => void>();
     this.resize = vi.fn<(cols: number, rows: number) => void>((cols: number, rows: number) => {
