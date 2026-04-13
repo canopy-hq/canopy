@@ -20,6 +20,9 @@ const appPath = resolve(bundleDir, 'macos/Canopy.app');
 const dmgDir = resolve(bundleDir, 'dmg');
 const dmgPath = resolve(dmgDir, 'Canopy.dmg');
 
+// Clean stale bundle artifacts from previous builds.
+rmSync(bundleDir, { recursive: true, force: true });
+
 // Build the .app only — DMG is created below *after* daemon injection so the
 // DMG contains the daemon. Building app,dmg together would produce a DMG
 // before the daemon copy step runs.
