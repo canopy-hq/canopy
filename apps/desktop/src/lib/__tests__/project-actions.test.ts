@@ -14,6 +14,7 @@ let _uiState: UiState = {
   activeContextId: '',
   contextActiveTabIds: {},
   creatingWorktreeIds: [],
+  pendingClaudeSession: null,
   cloningProjectIds: [],
   cloneProgress: {},
   invalidProjectIds: [],
@@ -136,6 +137,7 @@ describe('importRepo', () => {
       activeContextId: '',
       contextActiveTabIds: {},
       creatingWorktreeIds: [],
+      pendingClaudeSession: null,
       cloningProjectIds: [],
       cloneProgress: {},
       invalidProjectIds: [],
@@ -316,6 +318,7 @@ function resetNav() {
     activeContextId: '',
     contextActiveTabIds: {},
     creatingWorktreeIds: [],
+    pendingClaudeSession: null,
     cloningProjectIds: [],
     cloneProgress: {},
     invalidProjectIds: [],
@@ -475,8 +478,7 @@ describe('startWorktreeCreation', () => {
 
     startWorktreeCreation(PROJECT_ID, 'my-feature', '/wt/my-feature', 'main', 'my-feature');
 
-    await vi.waitFor(() => expect(_uiState.creatingWorktreeIds).toHaveLength(0));
-
+    // Navigation to the WT URL happens synchronously (before async git op).
     expect(_uiState.selectedItemId).toBe(`${PROJECT_ID}-wt-my-feature`);
     expect(vi.mocked(router.navigate)).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -485,6 +487,8 @@ describe('startWorktreeCreation', () => {
         replace: true,
       }),
     );
+
+    await vi.waitFor(() => expect(_uiState.creatingWorktreeIds).toHaveLength(0));
   });
 
   it('uses wt.name (git-confirmed) for item ID — handles slash→dash normalisation', async () => {
@@ -519,7 +523,9 @@ describe('startWorktreeCreation', () => {
       expect.stringContaining('disk full'),
     );
     expect(_projects[0]!.worktrees).toHaveLength(0);
-    expect(vi.mocked(router.navigate)).not.toHaveBeenCalled();
+    // First navigate is sync (to WT URL with ?setup=true), second is on error (back to home).
+    expect(vi.mocked(router.navigate)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(router.navigate)).toHaveBeenLastCalledWith({ to: '/' });
   });
 
   it('is a no-op when the project does not exist', () => {

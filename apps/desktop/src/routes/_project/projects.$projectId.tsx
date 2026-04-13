@@ -9,7 +9,11 @@ import { ClaudeCodeIcon } from '../../components/ClaudeCodeIcon';
 import { ClaudeCodeSetupDialog } from '../../components/ClaudeCodeSetupDialog';
 import { TabBar } from '../../components/TabBar';
 import { useUiState, useTabs } from '../../hooks/useCollections';
-import { toggleSidebar } from '../../lib/project-actions';
+import {
+  toggleSidebar,
+  setPendingClaudeSession,
+  cancelPendingClaudeSession,
+} from '../../lib/project-actions';
 import { addTab, addClaudeCodeTab, activateContextFromRoute } from '../../lib/tab-actions';
 import { router } from '../../router';
 
@@ -85,9 +89,17 @@ function ProjectRoute() {
           <ClaudeCodeSetupDialog
             worktreeName={worktreeName}
             onLaunch={(mode, prompt) => {
-              addClaudeCodeTab(projectId, { mode, prompt });
+              if (isCreating) {
+                setPendingClaudeSession(projectId, mode, prompt);
+                clearSetup();
+              } else {
+                addClaudeCodeTab(projectId, { mode, prompt });
+              }
             }}
-            onSkip={clearSetup}
+            onSkip={() => {
+              cancelPendingClaudeSession();
+              clearSetup();
+            }}
           />
         )}
       </div>

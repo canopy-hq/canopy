@@ -101,6 +101,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
     activeContextId,
     sidebarVisible,
     creatingWorktreeIds,
+    pendingClaudeSession,
     cloningProjectIds,
     cloneProgress,
   } = useUiState();
@@ -202,6 +203,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
       onSelectItem: handleSelectItem,
       deletingWtIds,
       creatingWorktreeIds: creatingWorktreeIdSet,
+      pendingClaudeWorktreeId: pendingClaudeSession?.worktreeId ?? null,
       groups,
     }),
     [
@@ -213,6 +215,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
       handleSelectItem,
       deletingWtIds,
       creatingWorktreeIdSet,
+      pendingClaudeSession?.worktreeId,
       groups,
     ],
   );

@@ -44,6 +44,8 @@ export interface UiState {
   contextActiveTabIds: Record<string, string>;
   // Ephemeral creation state (not persisted)
   creatingWorktreeIds: string[];
+  /** Claude session queued during worktree creation — launched automatically when the WT is ready. */
+  pendingClaudeSession: { worktreeId: string; mode: 'bypass' | 'plan'; prompt?: string } | null;
   cloningProjectIds: string[];
   cloneProgress: Record<string, CloneProgress>;
   invalidProjectIds: string[];
@@ -61,6 +63,7 @@ const INITIAL_UI_STATE: UiState = {
   activeContextId: '',
   contextActiveTabIds: {},
   creatingWorktreeIds: [],
+  pendingClaudeSession: null,
   cloningProjectIds: [],
   cloneProgress: {},
   invalidProjectIds: [],

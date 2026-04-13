@@ -44,6 +44,7 @@ import {
   renameWorktree,
   setProjectColor,
 } from '../lib/project-actions';
+import { ClaudeCodeIcon } from './ClaudeCodeIcon';
 import { CountBadge } from './CountBadge';
 
 import type { BranchInfo, WorktreeInfo, DiffStat } from '../lib/git';
@@ -580,6 +581,7 @@ export function RepoTreeItem({
   onSelectItem,
   deletingWtIds,
   creatingWorktreeIds,
+  pendingClaudeWorktreeId,
   isCloning,
   cloneProgress,
   isInvalid,
@@ -599,6 +601,7 @@ export function RepoTreeItem({
   onSelectItem: (itemId: string) => void;
   deletingWtIds: Set<string>;
   creatingWorktreeIds: Set<string>;
+  pendingClaudeWorktreeId?: string | null;
   isCloning: boolean;
   cloneProgress?: CloneProgress;
   isInvalid: boolean;
@@ -749,6 +752,7 @@ export function RepoTreeItem({
             {localCreatingIds.map((id) => {
               const name = id.slice(`${ws.id}-wt-`.length);
               const isSelected = selectedItemId === id;
+              const hasPendingClaude = pendingClaudeWorktreeId === id;
               return (
                 <div
                   key={id}
@@ -763,6 +767,9 @@ export function RepoTreeItem({
                       <span className="min-w-0 flex-1 truncate font-mono text-sm text-fg-faint">
                         {name}
                       </span>
+                      {hasPendingClaude && (
+                        <ClaudeCodeIcon size={12} className="shrink-0 text-claude" />
+                      )}
                       <span className="shrink-0 font-mono text-xs text-accent/50">creating…</span>
                     </div>
                   </div>
