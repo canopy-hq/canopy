@@ -831,6 +831,16 @@ fn create_worktree_sync(
         _ref_holder = branch.into_reference();
         opts.reference(Some(&_ref_holder));
     } else if let Some(ref branch_name) = base_branch {
+        // If this branch is already checked out in a registered worktree, return it directly.
+        // This handles externally-created worktrees without triggering a redundant create.
+        let existing_wts = enumerate_worktrees(&repo)?;
+        if let Some(existing) = existing_wts.iter().find(|w| w.branch == *branch_name) {
+            return Ok(WorktreeInfo {
+                name: existing.name.clone(),
+                path: existing.path.clone(),
+                branch: existing.branch.clone(),
+            });
+        }
         // Use an existing branch as-is
         let branch = find_local_or_tracking_branch(&repo, branch_name)?;
         _ref_holder = branch.into_reference();
@@ -851,6 +861,26 @@ fn create_worktree_sync(
     };
     let target = Path::new(&expanded_path);
 
+    // Check target existence before attempting to create parent dirs. If the target
+    // is already a registered worktree (e.g. created externally at the canonical path),
+    // return it directly instead of erroring.
+    if target.exists() {
+        let existing_wts = enumerate_worktrees(&repo)?;
+        if let Some(existing) = existing_wts.iter().find(|w| {
+            Path::new(&w.path).canonicalize().ok() == target.canonicalize().ok()
+        }) {
+            return Ok(WorktreeInfo {
+                name: existing.name.clone(),
+                path: existing.path.clone(),
+                branch: existing.branch.clone(),
+            });
+        }
+        return Err(format!(
+            "Target path \"{}\" already exists. Choose a different location.",
+            path
+        ));
+    }
+
     // Ensure parent directory exists
     if let Some(parent) = target.parent() {
         std::fs::create_dir_all(parent).map_err(|e| {
@@ -861,13 +891,6 @@ fn create_worktree_sync(
                 _ => format!("Cannot create directory {}: {}", parent.display(), e),
             }
         })?;
-    }
-
-    if target.exists() {
-        return Err(format!(
-            "Target path \"{}\" already exists. Choose a different location.",
-            path
-        ));
     }
 
     let wt = repo
@@ -1441,6 +1464,98 @@ mod tests {
         let result = resolve_worktree_branch("feat-cool", &wt_path, &repo);
         // Falls back to HEAD which is "feat/cool"
         assert_eq!(result, Some("feat/cool".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_create_worktree_idempotent_branch() {
+        // Simulates an externally-created worktree: if the branch is already
+        // checked out in a registered worktree, create_worktree should return
+        // the existing info rather than failing.
+        let tmp = TempDir::new().unwrap();
+        let _repo = init_repo_with_commit(tmp.path());
+        let repo_path = tmp.path().to_string_lossy().to_string();
+
+        let branches = list_branches(repo_path.clone()).await.unwrap();
+        let default_branch = &branches[0].name;
+
+        // Create the branch
+        create_branch(repo_path.clone(), "ext-feature".to_string(), default_branch.clone())
+            .await
+            .unwrap();
+
+        // Create the worktree the first time (simulates the "external" creation)
+        let wt_tmp = TempDir::new().unwrap();
+        let wt_path = wt_tmp.path().join("ext-feature");
+        let first = create_worktree(
+            repo_path.clone(),
+            "ext-feature".to_string(),
+            wt_path.to_string_lossy().to_string(),
+            Some("ext-feature".to_string()),
+            None,
+        )
+        .await
+        .unwrap();
+
+        // Now call create_worktree again with the same branch but a different
+        // canonical Canopy path — should return the existing worktree, not error.
+        let canopy_path = wt_tmp.path().join("canopy-ext-feature");
+        let second = create_worktree(
+            repo_path.clone(),
+            "canopy-ext-feature".to_string(),
+            canopy_path.to_string_lossy().to_string(),
+            Some("ext-feature".to_string()),
+            None,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(second.name, first.name);
+        assert_eq!(second.branch, first.branch);
+    }
+
+    #[tokio::test]
+    async fn test_create_worktree_idempotent_path() {
+        // If the target path already exists and is a registered worktree,
+        // create_worktree should return it instead of failing with "already exists".
+        let tmp = TempDir::new().unwrap();
+        let _repo = init_repo_with_commit(tmp.path());
+        let repo_path = tmp.path().to_string_lossy().to_string();
+
+        let branches = list_branches(repo_path.clone()).await.unwrap();
+        let default_branch = &branches[0].name;
+
+        create_branch(repo_path.clone(), "path-feature".to_string(), default_branch.clone())
+            .await
+            .unwrap();
+
+        let wt_tmp = TempDir::new().unwrap();
+        let wt_path = wt_tmp.path().join("path-feature");
+
+        // Create the worktree initially
+        let first = create_worktree(
+            repo_path.clone(),
+            "path-feature".to_string(),
+            wt_path.to_string_lossy().to_string(),
+            Some("path-feature".to_string()),
+            None,
+        )
+        .await
+        .unwrap();
+
+        // Call again with the exact same path — should return existing worktree
+        let second = create_worktree(
+            repo_path.clone(),
+            "path-feature".to_string(),
+            wt_path.to_string_lossy().to_string(),
+            Some("path-feature".to_string()),
+            None,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(second.name, first.name);
+        assert_eq!(second.path, first.path);
+        assert_eq!(second.branch, first.branch);
     }
 
     #[tokio::test]
