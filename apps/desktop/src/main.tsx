@@ -10,12 +10,14 @@ import { createRoot } from 'react-dom/client';
 import { router } from './router';
 import './index.css';
 
-// Fire WASM loading and font preloading immediately, before DB init runs.
-// Both are fire-and-forget: DB init proceeds in parallel; terminals await the
-// resolved promise lazily when the first pane opens.
-void ensureGhosttyInit();
-void document.fonts?.load('13px "Geist Mono", Menlo, Monaco, "Courier New", monospace');
-void document.fonts?.load('bold 13px "Geist Mono", Menlo, Monaco, "Courier New", monospace');
+// Fire immediately — both run in parallel with DB init.
+// createRoot is blocked until all three resolve, so the app never renders
+// without WASM ready or with a flash of unstyled terminal font.
+const ghosttyReady = ensureGhosttyInit();
+const fontsReady = Promise.all([
+  document.fonts.load('13px "Geist Mono"'),
+  document.fonts.load('bold 13px "Geist Mono"'),
+]);
 
 async function boot() {
   const dbPath = await invoke<string>('get_db_path');
@@ -38,6 +40,9 @@ async function boot() {
   }
 
   await hydrateCollections();
+
+  // Block render until WASM + fonts are both ready.
+  await Promise.all([ghosttyReady, fontsReady]);
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
