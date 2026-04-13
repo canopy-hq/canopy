@@ -71,9 +71,8 @@ async function loadGhosttyModule(): Promise<void> {
     // Race cache hit against the in-flight fetch.
     // Cache miss returns a never-resolving promise so fetch always wins on miss.
     const winner = await Promise.race([
-      getFromCache().then(
-        (bytes): { kind: 'cache'; bytes: ArrayBuffer } | Promise<never> =>
-          bytes ? { kind: 'cache', bytes } : new Promise(() => {}),
+      getFromCache().then((bytes): { kind: 'cache'; bytes: ArrayBuffer } | Promise<never> =>
+        bytes ? { kind: 'cache', bytes } : new Promise(() => {}),
       ),
       fetchPromise.then((response) => ({ kind: 'fetch' as const, response })),
     ]);

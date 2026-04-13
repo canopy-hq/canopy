@@ -50,7 +50,6 @@ import { router } from '../router';
 
 import type { CommandItem } from '@canopy/command-palette';
 
-
 function RootLayout() {
   const [cmdMenuOpen, setCmdMenuOpen] = useState(false);
   const [defaultPanelItem, setDefaultPanelItem] = useState<CommandItem | null>(null);

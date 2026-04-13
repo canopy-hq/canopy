@@ -3,8 +3,8 @@ import { execSync } from 'node:child_process';
 import tailwindcss from '@tailwindcss/vite';
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
 import ghosttyPkg from 'ghostty-web/package.json' with { type: 'json' };
+import { defineConfig } from 'vite';
 
 const host = process.env.TAURI_DEV_HOST;
 
