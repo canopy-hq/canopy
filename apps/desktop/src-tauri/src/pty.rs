@@ -223,7 +223,11 @@ pub async fn close_pty(
         pane_id
     };
 
-    watcher_state.lock().map_err(|e| e.to_string())?.hook_states.remove(&pty_id);
+    {
+        let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
+        ws.cancel_pid_watcher(pty_id);
+        ws.hook_states.remove(&pty_id);
+    }
 
     remove_pane_id_file(pty_id);
     daemon.close(&pane_id).await
@@ -302,6 +306,7 @@ pub async fn close_ptys_for_panes(
     {
         let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
         for &(pty_id, _) in &to_close {
+            ws.cancel_pid_watcher(pty_id);
             ws.hook_states.remove(&pty_id);
         }
     }

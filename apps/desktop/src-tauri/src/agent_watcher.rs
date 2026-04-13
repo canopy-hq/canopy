@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -38,14 +38,67 @@ pub struct AgentStatusPayload {
 pub struct AgentWatcherState {
     /// Hook-based agent states, keyed by pty_id.
     pub hook_states: HashMap<u32, AgentStatus>,
+    /// PID watcher tasks, keyed by pty_id. Abort on PTY close or agent stop.
+    pid_watchers: HashMap<u32, tauri::async_runtime::JoinHandle<()>>,
 }
 
 impl AgentWatcherState {
     pub fn new() -> Self {
         Self {
             hook_states: HashMap::new(),
+            pid_watchers: HashMap::new(),
         }
     }
+
+    /// Cancel and remove the PID watcher for a PTY, if any.
+    pub fn cancel_pid_watcher(&mut self, pty_id: u32) {
+        if let Some(handle) = self.pid_watchers.remove(&pty_id) {
+            handle.abort();
+        }
+    }
+}
+
+/// Spawn a lightweight task that polls `kill(pid, 0)` every 2 s and emits
+/// `agent-status-changed` (Stopped) when the process no longer exists.
+/// This covers the case where Claude is killed via Ctrl+C without firing a Stop hook.
+fn start_pid_watcher(
+    pid: u32,
+    pty_id: u32,
+    agent_name: String,
+    app_handle: tauri::AppHandle,
+) -> tauri::async_runtime::JoinHandle<()> {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            let ret = unsafe { libc::kill(pid as libc::pid_t, 0) };
+            let alive = if ret == 0 {
+                true
+            } else {
+                // EPERM means process exists but we lack permission (shouldn't happen for children)
+                std::io::Error::last_os_error().raw_os_error().unwrap_or(0) == libc::EPERM
+            };
+            if !alive {
+                eprintln!("[pid-watcher] pid={pid} exited, emitting Stopped for pty={pty_id}");
+                let _ = app_handle.emit(
+                    "agent-status-changed",
+                    AgentStatusPayload {
+                        pty_id,
+                        status: "stopped".to_string(),
+                        agent_name: agent_name.clone(),
+                        pid: 0,
+                        sub_state: None,
+                    },
+                );
+                if let Some(ws) = app_handle.try_state::<Mutex<AgentWatcherState>>() {
+                    if let Ok(mut state) = ws.inner().lock() {
+                        state.hook_states.remove(&pty_id);
+                        // pid_watchers entry cleaned up lazily on PTY close
+                    }
+                }
+                break;
+            }
+        }
+    })
 }
 
 /// Update agent state from a hook event. Looks up `pty_id` by scanning
@@ -56,6 +109,7 @@ pub fn set_hook_status(
     status: AgentStatus,
     sub_state: Option<String>,
     agent_name: &str,
+    pid: Option<u32>,
     app_handle: &tauri::AppHandle,
     pty_state: &Mutex<crate::pty::PtyState>,
     watcher_state: &Mutex<AgentWatcherState>,
@@ -74,18 +128,29 @@ pub fn set_hook_status(
         }
     };
 
-    let changed = {
+    let (changed, should_start_watcher) = {
         let mut ws = match watcher_state.lock() {
             Ok(ws) => ws,
             Err(_) => return,
         };
         let prev = ws.hook_states.get(&pty_id);
-        if prev == Some(&status) {
-            false
-        } else {
+        let changed = prev != Some(&status);
+        if changed {
             ws.hook_states.insert(pty_id, status.clone());
-            true
         }
+        // Cancel PID watcher when the agent stops normally (hook-based Stop)
+        if changed && status == AgentStatus::Stopped {
+            ws.cancel_pid_watcher(pty_id);
+        }
+        // Start a new PID watcher when Working fires with a valid PID
+        let should_start = changed
+            && status == AgentStatus::Working
+            && pid.map(|p| p > 0).unwrap_or(false);
+        if should_start {
+            // Cancel any previous watcher before starting a new one
+            ws.cancel_pid_watcher(pty_id);
+        }
+        (changed, should_start)
     };
 
     if changed {
@@ -103,6 +168,21 @@ pub fn set_hook_status(
                 sub_state,
             },
         );
+    }
+
+    // Start PID watcher outside the lock to avoid holding it during spawn.
+    if should_start_watcher {
+        if let Some(claude_pid) = pid {
+            let handle = start_pid_watcher(
+                claude_pid,
+                pty_id,
+                agent_name.to_string(),
+                app_handle.clone(),
+            );
+            if let Ok(mut ws) = watcher_state.lock() {
+                ws.pid_watchers.insert(pty_id, handle);
+            }
+        }
     }
 }
 
@@ -178,5 +258,14 @@ mod tests {
     fn test_agent_watcher_state_new() {
         let state = AgentWatcherState::new();
         assert!(state.hook_states.is_empty());
+        assert!(state.pid_watchers.is_empty());
+    }
+
+    #[test]
+    fn test_cancel_pid_watcher_noop_when_empty() {
+        let mut state = AgentWatcherState::new();
+        // Should not panic when no watcher is registered
+        state.cancel_pid_watcher(999);
+        assert!(state.pid_watchers.is_empty());
     }
 }

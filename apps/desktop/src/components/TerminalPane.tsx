@@ -208,10 +208,11 @@ function TerminalPaneInner({
   // sequences and flickering startup. Only applies to Claude auto-launch sessions
   // (those with an init-cmd containing "claude"). Removed once the agent watcher
   // detects the Claude process (agentStatus leaves 'idle'), or after 15s fallback.
-  // Skip on re-mount (tab switch) when the agent is already running — agentStatus
-  // is read from the live collection at mount time, so this is synchronous.
+  // Skip on re-mount (tab switch): ptyId > 0 means the PTY is already running,
+  // so we never want to show the boot overlay again even if agentStatus is 'idle'
+  // (which happens after Claude finishes a turn and the agent entry is removed).
   const [bootOverlay, setBootOverlay] = useState(
-    () => agentStatus === 'idle' && !!savedInitCmd?.includes('claude'),
+    () => ptyId <= 0 && agentStatus === 'idle' && !!savedInitCmd?.includes('claude'),
   );
 
   // One-time 15s fallback — scheduled once on mount, never restarted.
@@ -235,20 +236,31 @@ function TerminalPaneInner({
   }, [agentStatus, bootOverlay]);
 
   // Sync the claude-code icon with the agent watcher: set when claude is running, clear on exit.
+  // Icon clearing is debounced (500ms) to avoid flicker between Claude turns — Stop fires at
+  // the end of each turn, but UserPromptSubmit fires at the start of the next.
   useEffect(() => {
     if (ptyId <= 0) return;
     const tab = getTabCollection().toArray.find((t) => findLeaf(t.paneRoot, paneId) !== null);
     if (!tab) return;
     const claudeActive = agent?.agentName === 'claude' && agentStatus !== 'idle';
-    if (claudeActive && tab.icon !== 'claude-code') {
-      getTabCollection().update(tab.id, (draft) => {
-        draft.icon = 'claude-code';
-      });
-    } else if (!claudeActive && tab.icon === 'claude-code') {
-      getTabCollection().update(tab.id, (draft) => {
-        draft.icon = undefined;
-      });
+    if (claudeActive) {
+      if (tab.icon !== 'claude-code') {
+        getTabCollection().update(tab.id, (draft) => {
+          draft.icon = 'claude-code';
+        });
+      }
+      return;
     }
+    if (tab.icon !== 'claude-code') return;
+    const t = setTimeout(() => {
+      const latest = getTabCollection().toArray.find((t) => findLeaf(t.paneRoot, paneId) !== null);
+      if (latest?.icon === 'claude-code') {
+        getTabCollection().update(latest.id, (draft) => {
+          draft.icon = undefined;
+        });
+      }
+    }, 500);
+    return () => clearTimeout(t);
   }, [agent?.agentName, agentStatus, ptyId, paneId]);
 
   return (
