@@ -383,6 +383,21 @@ function RootLayout() {
 
   useKeyboardRegistry(bindings);
 
+  // Side mouse buttons (thumb back/forward) → same as ⌘[ / ⌘]
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (e.button === 3) {
+        goBack(navigate);
+        e.preventDefault();
+      } else if (e.button === 4) {
+        goForward(navigate);
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('mousedown', handler);
+    return () => window.removeEventListener('mousedown', handler);
+  }, [navigate]);
+
   return (
     <LucideProvider strokeWidth={1}>
       <div className="flex h-screen w-screen flex-col overflow-hidden bg-base">
