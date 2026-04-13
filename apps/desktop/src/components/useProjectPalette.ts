@@ -273,16 +273,9 @@ export function useProjectPalette(project: Project, ctx: PanelContext): UseProje
       const wtPath = buildWorktreePath(project.path, wtName);
       const newBranch = existingBranch ? undefined : wtName;
       ctx.close();
-      startWorktreeCreation(
-        project.id,
-        wtName,
-        wtPath,
-        existingBranch ?? base,
-        newBranch,
-        navigate,
-      );
+      startWorktreeCreation(project.id, wtName, wtPath, existingBranch ?? base, newBranch);
     },
-    [sanitizedName, project, baseBranch, ctx, navigate],
+    [sanitizedName, project, baseBranch, ctx],
   );
 
   const handleOpenWorktree = useCallback(

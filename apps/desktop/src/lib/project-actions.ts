@@ -14,6 +14,7 @@ import { closePty, closePtysForPanes, disposeCached } from '@canopy/terminal';
 import { listen } from '@tauri-apps/api/event';
 
 import { resolveProject } from '../commands/utils';
+import { router } from '../router';
 import { openAddProjectDialogViaBridge } from './add-project-bridge';
 import * as gitApi from './git';
 import { collectAllLeafPaneIds, collectLeafPtyIds } from './pane-tree-ops';
@@ -586,7 +587,6 @@ export function startWorktreeCreation(
   path: string,
   baseBranch: string | undefined,
   newBranch: string | undefined,
-  navigate: NavigateFn,
 ): void {
   const proj = getProjectCollection().toArray.find((p) => p.id === projectId);
   if (!proj) return;
@@ -617,19 +617,28 @@ export function startWorktreeCreation(
           entry.branch = wt.branch;
         }
       });
-      // Clear creating state before selectProjectItem — that function creates a
-      // TanStack DB transaction that snapshots uiCollection. If we clear here first,
-      // the snapshot captures creatingWorktreeIds:[] and acceptMutations() won't
-      // restore the stale "creating" state when the async commit resolves.
+      // Clear creating state before the sidebar/selection updates below — those
+      // create TanStack DB transactions that snapshot uiCollection. Clearing here
+      // ensures the snapshot captures creatingWorktreeIds:[] so acceptMutations()
+      // won't restore the stale "creating" state when the async commit resolves.
       uiCollection.update('ui', (draft) => {
         draft.creatingWorktreeIds = draft.creatingWorktreeIds.filter((id) => id !== wtItemId);
       });
 
       // Navigate only after the worktree exists on disk — navigating before
       // would race terminal spawn against worktree creation.
-      // Replace the history entry so that ⌘[ skips the bare /projects/wtId entry.
-      selectProjectItem(wtItemId, navigate);
-      navigate({
+      // Use router.navigate directly — the palette (navigate callback source)
+      // unmounts before this async callback fires, so the hook closure may be stale.
+      // Inline the selectProjectItem side-effects and do a single navigation so
+      // there are no concurrent navigate calls that could cancel each other.
+      // Replace the history entry so ⌘[ skips the bare /projects/wtId entry.
+      const wtProj = resolveProject(wtItemId, getProjectCollection().toArray);
+      if (wtProj) {
+        expandProjectAndGroup(wtProj);
+        trackRecentProject(wtProj.id);
+      }
+      setSelectedItem(wtItemId);
+      void router.navigate({
         to: '/projects/$projectId',
         params: { projectId: wtItemId },
         search: { setup: true },
