@@ -215,8 +215,6 @@ pub fn run() {
             git::get_all_diff_stats,
             git::poll_all_project_states,
             git::check_project_paths,
-            agent_watcher::start_agent_watching,
-            agent_watcher::stop_agent_watching,
             agent_watcher::toggle_agent_manual,
             github::github_start_device_flow,
             github::github_poll_token,

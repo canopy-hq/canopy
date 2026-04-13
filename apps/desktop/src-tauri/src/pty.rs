@@ -24,7 +24,7 @@ use sysinfo::{System, Pid, ProcessesToUpdate};
 
 use tauri::ipc::Channel;
 
-use crate::agent_watcher::{self, AgentWatcherState};
+use crate::agent_watcher::AgentWatcherState;
 use crate::daemon_client::DaemonClient;
 use crate::hook_server::HookServerState;
 
@@ -80,10 +80,8 @@ pub async fn spawn_terminal(
     rows: Option<u16>,
     cols: Option<u16>,
     on_output: Channel<Vec<u8>>,
-    app: tauri::AppHandle,
     state: tauri::State<'_, Mutex<PtyState>>,
     daemon: tauri::State<'_, DaemonClient>,
-    watcher_state: tauri::State<'_, Mutex<AgentWatcherState>>,
     hook_server: tauri::State<'_, HookServerState>,
 ) -> Result<SpawnResult, String> {
     // Validate CWD exists before passing to daemon — stale paths from session
@@ -155,18 +153,6 @@ pub async fn spawn_terminal(
         s.attach_handles.insert(pane_id.clone(), handle);
     }
 
-    // Start process-based watcher as fallback for all terminals.
-    // Hook-capable agents (Claude, Codex, Gemini, Cursor) use the hook server
-    // and the hook_states map takes priority; the process watcher serves as a
-    // safety net and primary detection path for Aider (no hook support).
-    let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
-    {
-        let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
-        ws.cancel_senders.insert(pid, cancel_tx);
-    }
-    // shell_pid == pty_id: daemon returns the shell PID which doubles as session key.
-    agent_watcher::start_process_watcher(pid, pid, app, cancel_rx);
-
     // Write sidecar file so canopy-notify can discover the pane_id by walking
     // up the process tree. Pool shells don't have CANOPY_PANE_ID in their env
     // (it's not known at spawn time), so this file is the fallback.
@@ -237,13 +223,7 @@ pub async fn close_pty(
         pane_id
     };
 
-    {
-        let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
-        if let Some(cancel) = ws.cancel_senders.remove(&pty_id) {
-            let _ = cancel.send(());
-        }
-        ws.hook_states.remove(&pty_id);
-    }
+    watcher_state.lock().map_err(|e| e.to_string())?.hook_states.remove(&pty_id);
 
     remove_pane_id_file(pty_id);
     daemon.close(&pane_id).await
@@ -322,9 +302,6 @@ pub async fn close_ptys_for_panes(
     {
         let mut ws = watcher_state.lock().map_err(|e| e.to_string())?;
         for &(pty_id, _) in &to_close {
-            if let Some(cancel) = ws.cancel_senders.remove(&pty_id) {
-                let _ = cancel.send(());
-            }
             ws.hook_states.remove(&pty_id);
         }
     }
