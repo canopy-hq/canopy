@@ -10,7 +10,7 @@ use crate::scrollback::ScrollbackBuffer;
 
 /// Protocol version — bump when the daemon protocol changes (new ops, new fields).
 /// The app checks this on startup and restarts the daemon if it doesn't match.
-pub const PROTOCOL_VERSION: u32 = 4;
+pub const PROTOCOL_VERSION: u32 = 5;
 
 /// Get the current working directory of a process on macOS via proc_pidinfo(PROC_PIDVNODEPATHINFO).
 /// proc_pid::pidcwd from the libproc crate reads /proc/{pid}/cwd which only exists on Linux.
