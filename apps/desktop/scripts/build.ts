@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import {
   chmodSync,
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -52,39 +53,22 @@ build.on('exit', (code) => {
     mkdirSync(dmgDir, { recursive: true });
     const stagingDir = mkdtempSync(resolve(tmpdir(), 'canopy-dmg-'));
 
-    const cpApp = spawn('cp', ['-R', appPath, stagingDir], { stdio: 'inherit' });
-    cpApp.on('exit', (cpCode) => {
-      if (cpCode !== 0) {
-        rmSync(stagingDir, { recursive: true, force: true });
-        process.exit(cpCode ?? 1);
-      }
+    cpSync(appPath, resolve(stagingDir, 'Canopy.app'), { recursive: true });
+    symlinkSync('/Applications', resolve(stagingDir, 'Applications'));
 
-      symlinkSync('/Applications', resolve(stagingDir, 'Applications'));
+    const hdiutil = spawn(
+      'hdiutil',
+      ['create', '-volname', 'Canopy', '-srcfolder', stagingDir, '-ov', '-format', 'UDZO', dmgPath],
+      { stdio: 'inherit' },
+    );
+    hdiutil.on('exit', (hdiCode) => {
+      rmSync(stagingDir, { recursive: true, force: true });
+      if (hdiCode !== 0) process.exit(hdiCode ?? 1);
 
-      const hdiutil = spawn(
-        'hdiutil',
-        [
-          'create',
-          '-volname',
-          'Canopy',
-          '-srcfolder',
-          stagingDir,
-          '-ov',
-          '-format',
-          'UDZO',
-          dmgPath,
-        ],
-        { stdio: 'inherit' },
-      );
-      hdiutil.on('exit', (hdiCode) => {
-        rmSync(stagingDir, { recursive: true, force: true });
-        if (hdiCode !== 0) process.exit(hdiCode ?? 1);
-
-        console.log(`\nBuild complete (unsigned):`);
-        console.log(`  .app  → ${appPath}`);
-        console.log(`  .dmg  → ${dmgPath}`);
-        console.log(`\nOpen with: open "${appPath}"`);
-      });
+      console.log(`\nBuild complete (unsigned):`);
+      console.log(`  .app  → ${appPath}`);
+      console.log(`  .dmg  → ${dmgPath}`);
+      console.log(`\nOpen with: open "${appPath}"`);
     });
   });
 });
