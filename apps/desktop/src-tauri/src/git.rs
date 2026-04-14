@@ -3,8 +3,49 @@ use serde::Serialize;
 use tauri::Emitter;
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock, Mutex};
+use std::time::SystemTime;
 use tokio::sync::Semaphore;
+
+// ---------------------------------------------------------------------------
+// Poll cache — skip full recomputation when nothing changed
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, PartialEq)]
+struct PollFingerprint {
+    head_oid: String,
+    index_mtime: SystemTime,
+    worktree_heads: Vec<(String, String)>,
+}
+
+struct CachedPoll {
+    fingerprint: PollFingerprint,
+    state: ProjectPollState,
+}
+
+static POLL_CACHE: LazyLock<Mutex<HashMap<String, CachedPoll>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+fn invalidate_poll_cache(repo_path: &str) {
+    if let Ok(mut cache) = POLL_CACHE.lock() {
+        cache.remove(repo_path);
+    }
+}
+
+/// Run a blocking git mutation via `spawn_blocking`, then invalidate the poll
+/// cache for the given repo.  Extracts the repeated
+/// `clone → spawn_blocking → invalidate` pattern used by all mutation commands.
+async fn mutate_and_invalidate<T, F>(cache_key: String, f: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+{
+    let result = tokio::task::spawn_blocking(f)
+        .await
+        .map_err(|e| e.to_string())?;
+    invalidate_poll_cache(&cache_key);
+    result
+}
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -141,10 +182,25 @@ pub fn resolve_worktree_branch(wt_name: &str, wt_path: &Path, repo: &Repository)
             return Some(name.to_string());
         }
     }
-    // 2. Fallback: read HEAD from the worktree itself.
+    // 2. Read HEAD directly from the worktree gitdir (avoids Repository::open).
+    let head_path = repo.path().join("worktrees").join(wt_name).join("HEAD");
+    if let Ok(content) = std::fs::read_to_string(&head_path) {
+        let content = content.trim();
+        if let Some(refname) = content.strip_prefix("ref: refs/heads/") {
+            return Some(refname.to_string());
+        }
+        // Detached HEAD (raw OID) — no branch name to resolve.
+        return None;
+    }
+    // 3. Last resort: open the worktree as a Repository (unusual layouts without
+    //    a .git/worktrees/<name>/HEAD admin file).
     let wt_repo = Repository::open(wt_path).ok()?;
     let head = wt_repo.head().ok()?;
-    Some(head.shorthand()?.to_string())
+    if head.is_branch() {
+        Some(head.shorthand()?.to_string())
+    } else {
+        None
+    }
 }
 
 fn enumerate_worktrees(repo: &Repository) -> Result<Vec<WorktreeInfo>, String> {
@@ -388,7 +444,24 @@ fn ssh_identity_files_for_host(host: &str, home: &str) -> Vec<std::path::PathBuf
 /// `~/.ssh/` for any file that has a `.pub` counterpart (standard private-key
 /// heuristic), so custom key names like `~/.ssh/github` are picked up too.
 /// Only returns paths that exist on disk, ordered by preference (ed25519 first).
+static SSH_KEY_CACHE: LazyLock<Mutex<HashMap<String, Vec<std::path::PathBuf>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
 fn resolve_ssh_keys(url: &str) -> Vec<std::path::PathBuf> {
+    let host = host_from_url(url).to_string();
+    if let Ok(cache) = SSH_KEY_CACHE.lock() {
+        if let Some(keys) = cache.get(&host) {
+            return keys.clone();
+        }
+    }
+    let keys = resolve_ssh_keys_uncached(url);
+    if let Ok(mut cache) = SSH_KEY_CACHE.lock() {
+        cache.insert(host, keys.clone());
+    }
+    keys
+}
+
+fn resolve_ssh_keys_uncached(url: &str) -> Vec<std::path::PathBuf> {
     let home = std::env::var("HOME").unwrap_or_default();
     let host = host_from_url(url);
     let mut keys = ssh_identity_files_for_host(host, &home);
@@ -490,9 +563,8 @@ fn fetch_remote_sync(repo_path: &str) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn fetch_remote(repo_path: String) -> Result<(), String> {
-    tokio::task::spawn_blocking(move || fetch_remote_sync(&repo_path))
-        .await
-        .map_err(|e| e.to_string())?
+    let path = repo_path.clone();
+    mutate_and_invalidate(repo_path, move || fetch_remote_sync(&path)).await
 }
 
 #[tauri::command]
@@ -719,8 +791,9 @@ pub async fn create_branch(
     name: String,
     base: String,
 ) -> Result<BranchInfo, String> {
-    tokio::task::spawn_blocking(move || {
-        let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
+    let path = repo_path.clone();
+    mutate_and_invalidate(repo_path, move || {
+        let repo = Repository::open(&path).map_err(|e| e.to_string())?;
         let base_branch = repo
             .find_branch(&base, BranchType::Local)
             .map_err(|e| e.to_string())?;
@@ -739,13 +812,13 @@ pub async fn create_branch(
         })
     })
     .await
-    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
 pub async fn delete_branch(repo_path: String, name: String) -> Result<(), String> {
-    tokio::task::spawn_blocking(move || {
-        let repo = Repository::open(&repo_path).map_err(|e| e.to_string())?;
+    let path = repo_path.clone();
+    mutate_and_invalidate(repo_path, move || {
+        let repo = Repository::open(&path).map_err(|e| e.to_string())?;
         let mut branch = repo
             .find_branch(&name, BranchType::Local)
             .map_err(|e| e.to_string())?;
@@ -756,7 +829,6 @@ pub async fn delete_branch(repo_path: String, name: String) -> Result<(), String
         Ok(())
     })
     .await
-    .map_err(|e| e.to_string())?
 }
 
 /// Find a branch commit, trying local first then origin remote.
@@ -910,9 +982,11 @@ pub async fn create_worktree(
     base_branch: Option<String>,
     new_branch: Option<String>,
 ) -> Result<WorktreeInfo, String> {
-    tokio::task::spawn_blocking(move || create_worktree_sync(repo_path, name, path, base_branch, new_branch))
-        .await
-        .map_err(|e| e.to_string())?
+    let rp = repo_path.clone();
+    mutate_and_invalidate(repo_path, move || {
+        create_worktree_sync(rp, name, path, base_branch, new_branch)
+    })
+    .await
 }
 
 fn remove_worktree_sync(repo_path: String, name: String) -> Result<(), String> {
@@ -938,9 +1012,8 @@ fn remove_worktree_sync(repo_path: String, name: String) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn remove_worktree(repo_path: String, name: String) -> Result<(), String> {
-    tokio::task::spawn_blocking(move || remove_worktree_sync(repo_path, name))
-        .await
-        .map_err(|e| e.to_string())?
+    let rp = repo_path.clone();
+    mutate_and_invalidate(repo_path, move || remove_worktree_sync(rp, name)).await
 }
 
 /// Compute diff stats between a base tree and a branch tip tree.
@@ -1120,8 +1193,7 @@ pub struct ProjectPollState {
 fn poll_project_state_sync(repo_path: &str) -> Result<ProjectPollState, String> {
     let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
 
-    let branches = enumerate_branches(&repo, true)?;
-
+    // 1. Build cheap fingerprint before doing expensive work.
     let head_oid = repo
         .head()
         .ok()
@@ -1129,8 +1201,41 @@ fn poll_project_state_sync(repo_path: &str) -> Result<ProjectPollState, String> 
         .map(|oid| oid.to_string())
         .unwrap_or_default();
 
-    let mut worktree_branches = HashMap::new();
+    let index_mtime = std::fs::metadata(repo.path().join("index"))
+        .and_then(|m| m.modified())
+        .unwrap_or(SystemTime::UNIX_EPOCH);
+
     let wt_names = repo.worktrees().map_err(|e| e.to_string())?;
+    let mut worktree_heads: Vec<(String, String)> = Vec::new();
+    for wt_name in wt_names.iter() {
+        let wt_name = match wt_name {
+            Some(n) => n,
+            None => continue,
+        };
+        let head_path = repo.path().join("worktrees").join(wt_name).join("HEAD");
+        let content = std::fs::read_to_string(&head_path).unwrap_or_default();
+        worktree_heads.push((wt_name.to_string(), content));
+    }
+
+    let fingerprint = PollFingerprint {
+        head_oid: head_oid.clone(),
+        index_mtime,
+        worktree_heads,
+    };
+
+    // 2. Return cached state if fingerprint unchanged.
+    if let Ok(cache) = POLL_CACHE.lock() {
+        if let Some(cached) = cache.get(repo_path) {
+            if cached.fingerprint == fingerprint {
+                return Ok(cached.state.clone());
+            }
+        }
+    }
+
+    // 3. Full computation — fingerprint changed.
+    let branches = enumerate_branches(&repo, true)?;
+
+    let mut worktree_branches = HashMap::new();
     for wt_name in wt_names.iter() {
         let wt_name = match wt_name {
             Some(n) => n,
@@ -1147,12 +1252,22 @@ fn poll_project_state_sync(repo_path: &str) -> Result<ProjectPollState, String> 
 
     let diff_stats = get_diff_stats_for_repo(&repo, Some(&worktree_branches))?;
 
-    Ok(ProjectPollState {
+    let state = ProjectPollState {
         head_oid,
         branches,
         worktree_branches,
         diff_stats,
-    })
+    };
+
+    // 4. Update cache.
+    if let Ok(mut cache) = POLL_CACHE.lock() {
+        cache.insert(
+            repo_path.to_string(),
+            CachedPoll { fingerprint, state: state.clone() },
+        );
+    }
+
+    Ok(state)
 }
 
 #[tauri::command]
