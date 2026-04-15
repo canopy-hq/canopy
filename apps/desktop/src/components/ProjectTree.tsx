@@ -19,7 +19,7 @@ import {
 import { useDragStyle } from '../hooks/useDragStyle';
 import { useFlipAnimation } from '../hooks/useFlipAnimation';
 import { usePageVisible } from '../hooks/usePageVisible';
-import { useProjectPolling } from '../hooks/useProjectPolling';
+import { useProjectWatcher } from '../hooks/useProjectWatcher';
 import { usePrPolling } from '../hooks/usePrPolling';
 import { useDragSensors } from '../lib/dnd';
 import { GITHUB_CONNECTION_KEY } from '../lib/github';
@@ -129,11 +129,7 @@ export function ProjectTree({ onAddProject }: { onAddProject?: () => void }) {
 
   const agentMap = useProjectAgentMap();
   const pageVisible = usePageVisible();
-  const diffStatsMap = useProjectPolling(
-    rawProjects,
-    sidebarVisible && pageVisible,
-    activeContextId ?? undefined,
-  );
+  const diffStatsMap = useProjectWatcher(rawProjects, sidebarVisible && pageVisible);
   const settings = useSettings();
   const githubConnected = getSetting(settings, GITHUB_CONNECTION_KEY, null) !== null;
   const prMap = usePrPolling(rawProjects, sidebarVisible && pageVisible, githubConnected);

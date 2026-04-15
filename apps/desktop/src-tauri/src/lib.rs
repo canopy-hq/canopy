@@ -1,6 +1,7 @@
 mod daemon_client;
 mod agent_watcher;
 mod editor;
+mod fs_watcher;
 mod git;
 mod github;
 mod hook_installer;
@@ -140,6 +141,7 @@ pub fn run() {
             app.manage(Mutex::new(agent_watcher::AgentWatcherState::new()));
             app.manage(github::PollCancelFlag(std::sync::atomic::AtomicBool::new(false)));
             app.manage(github::HttpClient(github::build_http_client()));
+            app.manage(std::sync::Mutex::new(fs_watcher::FsWatcherState::new()));
 
             // Start the hook HTTP server for agent state callbacks.
             // Binds synchronously, spawns the async server on the tokio runtime.
@@ -211,10 +213,12 @@ pub fn run() {
             git::delete_branch,
             git::create_worktree,
             git::remove_worktree,
-            git::get_diff_stats,
-            git::get_all_diff_stats,
             git::poll_all_project_states,
             git::check_project_paths,
+            fs_watcher::start_project_watcher,
+            fs_watcher::stop_project_watcher,
+            fs_watcher::pause_watchers,
+            fs_watcher::resume_watchers,
             agent_watcher::toggle_agent_manual,
             github::github_start_device_flow,
             github::github_poll_token,
