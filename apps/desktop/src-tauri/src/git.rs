@@ -1117,7 +1117,7 @@ pub struct ProjectPollState {
     pub diff_stats: HashMap<String, DiffStat>,
 }
 
-fn poll_project_state_sync(repo_path: &str) -> Result<ProjectPollState, String> {
+pub fn poll_project_state_sync(repo_path: &str) -> Result<ProjectPollState, String> {
     let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
 
     let branches = enumerate_branches(&repo, true)?;

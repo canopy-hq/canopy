@@ -121,6 +121,29 @@ export function pollAllProjectStates(
   return invoke<Record<string, ProjectPollState>>('poll_all_project_states', { repoPaths });
 }
 
+// ── FS watcher ─────────────────────────────────────────────────────────
+
+export interface ProjectStateChangedEvent {
+  projectPath: string;
+  state: ProjectPollState;
+}
+
+export function startProjectWatcher(projectPath: string): Promise<void> {
+  return invoke('start_project_watcher', { projectPath });
+}
+
+export function stopProjectWatcher(projectPath: string): Promise<void> {
+  return invoke('stop_project_watcher', { projectPath });
+}
+
+export function pauseWatchers(): Promise<void> {
+  return invoke('pause_watchers');
+}
+
+export function resumeWatchers(): Promise<void> {
+  return invoke('resume_watchers');
+}
+
 /** Returns the subset of paths that are not valid directories (deleted / unmounted). */
 export function checkProjectPaths(paths: string[]): Promise<string[]> {
   return invoke<string[]>('check_project_paths', { paths });
