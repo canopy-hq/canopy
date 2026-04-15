@@ -43,6 +43,12 @@ const pendingOverlayPtyIds = new Set<number>();
 const OVERLAY_QUIET_MS = 150;
 const OVERLAY_MAX_MS = 800;
 
+/** Returns true if the byte chunk contains the FinalTerm OSC 133;A prompt marker. */
+function hasOsc133A(data: Uint8Array): boolean {
+  const text = new TextDecoder().decode(data);
+  return text.includes('\x1b]133;A\x07') || text.includes('\x1b]133;A\x1b\\');
+}
+
 /** Create a debounced overlay remover: waits for output silence before revealing. */
 function createOverlayDebounce(doRemove: () => void) {
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -137,8 +143,9 @@ export function useTerminal(
     let spawnCancelled = false;
     let sigwinchTimer: ReturnType<typeof setTimeout> | null = null;
     let ptyResizeTimer: ReturnType<typeof setTimeout> | null = null;
-    // Hoisted so cleanup can always call it (no-op for the cached path).
+    // Hoisted so cleanup can always call them (no-ops for the cached path).
     let removeOverlay = () => {};
+    let gateTimeoutId: ReturnType<typeof setTimeout> | null = null;
     const cached = getCached(ptyId);
     let term: Terminal;
     let fitAddon: FitAddon;
@@ -265,6 +272,24 @@ export function useTerminal(
       // rewriting the prompt after zsh's initial PS1 draw. Hard cap at 800ms
       // prevents indefinite overlay on continuous output.
       const overlayDebounce = createOverlayDebounce(() => removeOverlay());
+
+      // Write gate: buffers user keystrokes until the shell's readline is ready.
+      // For fresh spawns, opened on OSC 133;A (FinalTerm prompt-ready marker)
+      // or after a 5s safety timeout. For warm/cold restores (isNew=false or
+      // ptyId > 0 reconnect), opened immediately — shell is already at readline.
+      const writeGate = { open: false, queue: [] as string[] };
+      function openWriteGate() {
+        if (writeGate.open) return;
+        writeGate.open = true;
+        if (gateTimeoutId !== null) {
+          clearTimeout(gateTimeoutId);
+          gateTimeoutId = null;
+        }
+        for (const d of writeGate.queue) {
+          if (ptrRef.ptyId > 0) void writeToPty(ptrRef.ptyId, d);
+        }
+        writeGate.queue = [];
+      }
 
       if (term.element) {
         // Prevent macOS press-and-hold accent popup on ghostty-web's hidden textarea.
@@ -394,7 +419,13 @@ export function useTerminal(
 
       let lineBuffer = '';
       term.onData((data: string) => {
-        if (ptrRef.ptyId > 0) void writeToPty(ptrRef.ptyId, data);
+        if (ptrRef.ptyId > 0) {
+          if (writeGate.open) {
+            void writeToPty(ptrRef.ptyId, data);
+          } else {
+            writeGate.queue.push(data);
+          }
+        }
         if (data === '\r' || data === '\n') {
           const cmd = lineBuffer.trim();
           if (cmd) onCommandRef.current?.(cmd);
@@ -427,10 +458,13 @@ export function useTerminal(
       function startPtyConnection() {
         if (ptyId > 0) {
           // Reconnect: PTY already running in daemon (cold app restart).
+          // Shell is alive at readline — open write gate immediately so the
+          // user can type as soon as the terminal is visible.
           // setHandler flushes buffered scrollback synchronously.
           // Defer reveal by one double-rAF so the container has its final
           // dimensions before we fit — otherwise the terminal shows with the
           // wrong column count until the next tab-switch triggers a re-fit.
+          openWriteGate();
           connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
           setCached(ptyId, term, fitAddon);
           revealAfterPaint();
@@ -462,13 +496,25 @@ export function useTerminal(
                 connectPtyOutput(newId, (data: Uint8Array) => {
                   term.write(data);
                   overlayDebounce.onOutput();
+                  // Open write gate on first OSC 133;A — shell readline is ready.
+                  // Queued keystrokes are flushed; initialCommand is sent here.
+                  if (!writeGate.open && hasOsc133A(data)) {
+                    openWriteGate();
+                    if (initialCommand) void writeToPty(newId, initialCommand + '\r');
+                  }
                 });
-                if (initialCommand) {
-                  void writeToPty(newId, initialCommand + '\r');
-                }
+                // Safety timeout: open gate after 5s even if OSC 133 never arrives
+                // (e.g. non-FinalTerm shells, or shells that don't emit the marker).
+                gateTimeoutId = setTimeout(() => {
+                  openWriteGate();
+                  if (initialCommand) void writeToPty(newId, initialCommand + '\r');
+                }, 5000);
               } else {
-                // Reconnect: Tauri Channel messages are queued before the invoke
-                // response, so the buffer is populated when setHandler is called.
+                // Warm restore: shell is already running at readline — open gate
+                // immediately so the user can type as soon as the terminal appears.
+                openWriteGate();
+                // Tauri Channel messages are queued before the invoke response,
+                // so the buffer is populated when setHandler is called.
                 // setHandler flushes synchronously → overlay safe to remove.
                 connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
                 removeOverlay();
@@ -556,6 +602,7 @@ export function useTerminal(
       document.body.classList.remove('resizing');
       if (ptyResizeTimer !== null) clearTimeout(ptyResizeTimer);
       if (sigwinchTimer !== null) clearTimeout(sigwinchTimer);
+      if (gateTimeoutId !== null) clearTimeout(gateTimeoutId);
       // DON'T dispose term — just detach from container. Cache keeps it alive
       // so the next mount can reparent the same element (preserving scrollback).
       // Suspend the render loop before detaching — the terminal stays alive in

@@ -4,7 +4,7 @@ mod editor;
 mod git;
 mod github;
 mod hook_installer;
-mod hook_server;
+mod hook_listener;
 mod menu;
 mod pty;
 
@@ -12,10 +12,6 @@ use std::sync::Mutex;
 use daemon_client::DaemonClient;
 use tauri::{Emitter, Manager};
 use tauri::window::Color;
-
-/// PID of the daemon process this app spawned. `None` if we attached to an
-/// already-running daemon (e.g. after a crash). Used to SIGTERM on clean exit.
-struct DaemonPid(Mutex<Option<u32>>);
 
 /// Returns the directory that holds the SQLite DB.
 /// - dev  → ~/Library/Application Support/com.canopy.dev/
@@ -129,34 +125,20 @@ pub fn run() {
                 .unwrap_or_else(|| std::path::PathBuf::from("canopy-pty-daemon"));
 
             // Start or connect to the daemon (synchronous)
-            let daemon_pid = match DaemonClient::ensure_daemon_sync(&socket, &bin) {
-                Ok(pid) => pid,
-                Err(e) => { eprintln!("Warning: could not start PTY daemon: {e}"); None }
-            };
+            match DaemonClient::ensure_daemon_sync(&socket, &bin) {
+                Ok(_) => {}
+                Err(e) => eprintln!("Warning: could not start PTY daemon: {e}"),
+            }
 
-            app.manage(DaemonPid(Mutex::new(daemon_pid)));
+            // Wire the hook listener — subscribes to hook_notify events from the daemon
+            // and routes them to agent_watcher. Reconnects automatically on disconnect.
+            hook_listener::start_hook_listener(app.handle().clone(), socket.clone());
+
             app.manage(DaemonClient::new(socket, bin));
             app.manage(Mutex::new(pty::PtyState::new()));
             app.manage(Mutex::new(agent_watcher::AgentWatcherState::new()));
             app.manage(github::PollCancelFlag(std::sync::atomic::AtomicBool::new(false)));
             app.manage(github::HttpClient(github::build_http_client()));
-
-            // Start the hook HTTP server for agent state callbacks.
-            // Binds synchronously, spawns the async server on the tokio runtime.
-            let handle = app.handle().clone();
-            match hook_server::start_hook_server(handle) {
-                Ok((port, token)) => {
-                    app.manage(hook_server::HookServerState { port, token });
-                }
-                Err(e) => {
-                    eprintln!("Warning: could not start hook server: {e}");
-                    // Fallback: manage a dummy state so spawn_terminal doesn't panic
-                    app.manage(hook_server::HookServerState {
-                        port: 0,
-                        token: String::new(),
-                    });
-                }
-            }
 
             // Clean stale pane_id sidecar files from previous runs.
             if let Some(home) = dirs::home_dir() {
@@ -259,19 +241,6 @@ pub fn run() {
                     if let Some(window) = app.get_webview_window("main") {
                         let _ = window.show();
                         let _ = window.set_focus();
-                    }
-                }
-            }
-            // Clean quit (Cmd+Q): kill the daemon we spawned so it doesn't linger.
-            // Not reached on force-kill (kill -9) — that's acceptable.
-            tauri::RunEvent::Exit => {
-                if let Some(state) = app.try_state::<DaemonPid>() {
-                    if let Ok(guard) = state.0.lock() {
-                        if let Some(pid) = *guard {
-                            let _ = std::process::Command::new("kill")
-                                .args(["-TERM", &pid.to_string()])
-                                .output();
-                        }
                     }
                 }
             }

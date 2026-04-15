@@ -57,7 +57,7 @@ impl DaemonClient {
     }
 
     /// Expected daemon protocol version. Must match `PROTOCOL_VERSION` in daemon.rs.
-    const EXPECTED_PROTOCOL_VERSION: u32 = 5;
+    const EXPECTED_PROTOCOL_VERSION: u32 = 6;
 
     /// Ensure daemon process is running with the correct protocol version.
     /// Synchronous — safe to call from Tauri setup.
@@ -83,12 +83,17 @@ impl DaemonClient {
                 return Ok(None);
             }
 
-            // Stale daemon — kill it so we can spawn a fresh one.
+            // Stale daemon — ask it to exit gracefully, then remove the socket.
             eprintln!("[daemon] protocol version mismatch (got {line:?}), restarting");
+            // Open a fresh connection to send shutdown (the version check stream may
+            // have already been half-closed by the read). Silently ignore failures —
+            // worst case the old daemon lingers until its orphan timeout fires.
+            let _ = StdUnixStream::connect(socket)
+                .map(|mut s| s.write_all(b"{\"op\":\"shutdown\",\"paneId\":\"\"}\n"));
             drop(stream);
             let _ = std::fs::remove_file(socket);
-            // Give the old daemon time to exit after socket removal.
-            std::thread::sleep(std::time::Duration::from_millis(100));
+            // Give the old daemon time to exit after receiving the shutdown command.
+            std::thread::sleep(std::time::Duration::from_millis(200));
         }
 
         // Spawn daemon in its own process group so it survives app restart
@@ -315,6 +320,13 @@ impl DaemonClient {
     pub async fn drain_pool(&self) -> Result<(), String> {
         let msg = "{\"op\":\"drain_pool\",\"paneId\":\"\"}\n";
         Self::check_ok(self.send_cmd(msg).await?, "drain_pool failed")?;
+        Ok(())
+    }
+
+    /// Ask the daemon to exit gracefully (used on version mismatch before respawning).
+    #[allow(dead_code)]
+    pub async fn shutdown(&self) -> Result<(), String> {
+        let _ = self.send_cmd("{\"op\":\"shutdown\",\"paneId\":\"\"}\n").await;
         Ok(())
     }
 

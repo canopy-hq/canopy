@@ -12,7 +12,9 @@ path = "src/bin/pty_daemon.rs"
 
 [dependencies]
 portable-pty.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 tempfile = "3"
 libc = "0.2"
+dirs = "5"
