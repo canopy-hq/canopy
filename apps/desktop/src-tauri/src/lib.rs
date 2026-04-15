@@ -213,8 +213,6 @@ pub fn run() {
             git::delete_branch,
             git::create_worktree,
             git::remove_worktree,
-            git::get_diff_stats,
-            git::get_all_diff_stats,
             git::poll_all_project_states,
             git::check_project_paths,
             fs_watcher::start_project_watcher,

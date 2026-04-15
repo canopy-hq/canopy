@@ -98,16 +98,6 @@ export function removeWorktree(repoPath: string, name: string): Promise<void> {
   return invoke<void>('remove_worktree', { repoPath, name });
 }
 
-export function getDiffStats(repoPath: string): Promise<Record<string, DiffStat>> {
-  return invoke<Record<string, DiffStat>>('get_diff_stats', { repoPath });
-}
-
-export function getAllDiffStats(
-  repoPaths: string[],
-): Promise<Record<string, Record<string, DiffStat>>> {
-  return invoke<Record<string, Record<string, DiffStat>>>('get_all_diff_stats', { repoPaths });
-}
-
 export interface ProjectPollState {
   head_oid: string;
   branches: BranchInfo[];

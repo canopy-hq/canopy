@@ -971,44 +971,6 @@ fn find_default_branch_tree<'a>(repo: &'a Repository) -> Option<git2::Tree<'a>> 
     None
 }
 
-#[tauri::command]
-pub async fn get_diff_stats(repo_path: String) -> Result<HashMap<String, DiffStat>, String> {
-    tokio::task::spawn_blocking(move || get_diff_stats_sync(&repo_path))
-        .await
-        .map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
-pub async fn get_all_diff_stats(
-    repo_paths: Vec<String>,
-) -> Result<HashMap<String, HashMap<String, DiffStat>>, String> {
-    let semaphore = Arc::new(Semaphore::new(6));
-    let mut handles = Vec::with_capacity(repo_paths.len());
-
-    for path in repo_paths {
-        let sem = semaphore.clone();
-        let key = path.clone();
-        handles.push(tokio::spawn(async move {
-            let _permit = sem.acquire().await.map_err(|e| e.to_string())?;
-            let stats = tokio::task::spawn_blocking(move || get_diff_stats_sync(&path))
-                .await
-                .map_err(|e| e.to_string())??;
-            Ok::<_, String>((key, stats))
-        }));
-    }
-
-    let mut result = HashMap::new();
-    for handle in handles {
-        match handle.await {
-            Ok(Ok((key, stats))) => {
-                result.insert(key, stats);
-            }
-            Ok(Err(e)) => eprintln!("get_all_diff_stats: repo failed: {e}"),
-            Err(e) => eprintln!("get_all_diff_stats: task panicked: {e}"),
-        }
-    }
-    Ok(result)
-}
 
 fn get_diff_stats_for_repo(
     repo: &Repository,
@@ -1104,6 +1066,7 @@ fn get_diff_stats_for_repo(
     Ok(stats_map)
 }
 
+#[cfg(test)]
 fn get_diff_stats_sync(repo_path: &str) -> Result<HashMap<String, DiffStat>, String> {
     let repo = Repository::open(repo_path).map_err(|e| e.to_string())?;
     get_diff_stats_for_repo(&repo, None)
@@ -1682,54 +1645,6 @@ mod tests {
         .unwrap();
 
         path
-    }
-
-    #[tokio::test]
-    async fn test_get_all_diff_stats() {
-        // Repo 1: has a feature branch with changes
-        let tmp1 = TempDir::new().unwrap();
-        let path1 = create_repo_with_feature_branch(tmp1.path());
-
-        // Repo 2: has a feature branch with changes
-        let tmp2 = TempDir::new().unwrap();
-        let path2 = create_repo_with_feature_branch(tmp2.path());
-
-        // Repo 3: only HEAD branch, no changes
-        let tmp3 = TempDir::new().unwrap();
-        let _repo3 = init_repo_with_commit(tmp3.path());
-        let path3 = tmp3.path().to_string_lossy().to_string();
-
-        let result = get_all_diff_stats(vec![
-            path1.clone(),
-            path2.clone(),
-            path3.clone(),
-        ])
-        .await
-        .unwrap();
-
-        // All three repos should have entries
-        assert_eq!(result.len(), 3, "Expected 3 entries, got {}", result.len());
-        assert!(result.contains_key(&path1));
-        assert!(result.contains_key(&path2));
-        assert!(result.contains_key(&path3));
-
-        // Repos with feature branches should have stats
-        let stats1 = &result[&path1];
-        assert!(
-            stats1.contains_key("feature/batch-test"),
-            "Repo 1 should have feature/batch-test stats"
-        );
-        assert!(stats1["feature/batch-test"].additions > 0);
-
-        let stats2 = &result[&path2];
-        assert!(
-            stats2.contains_key("feature/batch-test"),
-            "Repo 2 should have feature/batch-test stats"
-        );
-
-        // Repo with only HEAD should have empty stats
-        let stats3 = &result[&path3];
-        assert!(stats3.is_empty(), "Repo 3 should have empty stats");
     }
 
     #[tokio::test]
