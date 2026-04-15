@@ -207,12 +207,25 @@ export function useTerminal(
       if (pendingOverlayPtyIds.has(ptyId)) {
         // Post-spawn re-run: shell is still initializing (Starship not done).
         // Use debounced overlay removal — wait for output to stabilize.
+        // Also open the write gate here: the first mount stored openGate in the
+        // cache because onPtySpawned causes cleanup before the gate timeout fires.
         pendingOverlayPtyIds.delete(ptyId);
-        const debounce = createOverlayDebounce(() => transitionOverlay.remove());
+        const openGate = cached.openGate;
+        const doReveal = () => {
+          transitionOverlay.remove();
+          openGate?.();
+        };
+        const debounce = createOverlayDebounce(doReveal);
         connectPtyOutput(ptyId, (data: Uint8Array) => {
           term.write(data);
           debounce.onOutput();
+          // Open gate immediately on OSC 133;A (shell readline ready).
+          if (openGate && hasOsc133A(data)) openGate();
         });
+        // Safety fallback: open gate after 5s even if OSC 133 never arrives.
+        if (openGate) {
+          gateTimeoutId = setTimeout(() => openGate(), 5000);
+        }
       } else {
         // Genuine remount: terminal already has content, quick reveal.
         connectPtyOutput(ptyId, (data: Uint8Array) => term.write(data));
@@ -305,6 +318,9 @@ export function useTerminal(
           if (ptrRef.ptyId > 0) void writeToPty(ptrRef.ptyId, d);
         }
         writeGate.queue = [];
+        // Send initialCommand now that the shell's readline is ready.
+        if (initialCommand && ptrRef.ptyId > 0)
+          void writeToPty(ptrRef.ptyId, initialCommand + '\r');
       }
 
       if (term.element) {
@@ -512,19 +528,13 @@ export function useTerminal(
                 connectPtyOutput(newId, (data: Uint8Array) => {
                   term.write(data);
                   overlayDebounce.onOutput();
-                  // Open write gate on first OSC 133;A — shell readline is ready.
-                  // Queued keystrokes are flushed; initialCommand is sent here.
-                  if (!writeGate.open && hasOsc133A(data)) {
-                    openWriteGate();
-                    if (initialCommand) void writeToPty(newId, initialCommand + '\r');
-                  }
                 });
-                // Safety timeout: open gate after 5s even if OSC 133 never arrives
-                // (e.g. non-FinalTerm shells, or shells that don't emit the marker).
-                gateTimeoutId = setTimeout(() => {
-                  openWriteGate();
-                  if (initialCommand) void writeToPty(newId, initialCommand + '\r');
-                }, 5000);
+                // Store openWriteGate in the cache so the second mount (cached
+                // path) can open the gate once the shell's readline is ready.
+                // onPtySpawned(newId) below causes a ptyId prop change → cleanup
+                // → remount, so we cannot set the timeout here (it would be
+                // cleared by cleanup before it fires).
+                setCached(newId, term, fitAddon, openWriteGate);
               } else {
                 // Warm restore: shell is already running at readline — open gate
                 // immediately so the user can type as soon as the terminal appears.
@@ -534,8 +544,8 @@ export function useTerminal(
                 // setHandler flushes synchronously → overlay safe to remove.
                 connectPtyOutput(newId, (data: Uint8Array) => term.write(data));
                 removeOverlay();
+                setCached(newId, term, fitAddon);
               }
-              setCached(newId, term, fitAddon);
               onPtySpawned(newId);
 
               // Poll dimensions for 1s after spawn (every 200ms, up to 5 ticks).
