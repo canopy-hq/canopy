@@ -93,7 +93,6 @@ impl SessionStore {
 
         if let Some(ref mut f) = self.scrollback {
             let _ = f.write_all(data);
-            let _ = f.flush();
             self.bytes_written += data.len() as u64;
         }
     }
@@ -136,7 +135,7 @@ impl SessionStore {
     }
 
     /// Remove all on-disk data for this session.
-    pub fn delete(self) {
+    pub fn delete(&self) {
         let _ = fs::remove_dir_all(&self.dir);
     }
 

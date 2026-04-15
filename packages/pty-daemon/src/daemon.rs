@@ -54,7 +54,8 @@ struct PtySession {
     tx: broadcast::Sender<Vec<u8>>,
     pane_id_ref: Arc<Mutex<String>>,
     /// On-disk scrollback store — None for pool sessions.
-    session_store: Option<session_store::SessionStore>,
+    /// Arc<Mutex<>> so the reader thread can write to disk outside the state lock.
+    session_store: Option<Arc<std::sync::Mutex<session_store::SessionStore>>>,
 }
 
 struct PoolEntry {
@@ -186,7 +187,7 @@ fn enter_orphan_mode(state: Arc<Mutex<DaemonState>>) {
         st.pool_target_size = 0;
         pool_ids.into_iter().filter_map(|id| st.sessions.remove(&id)).collect()
     };
-    std::thread::spawn(move || {
+    tokio::task::spawn_blocking(move || {
         for mut sess in pool_sessions {
             let _ = sess.child.kill();
             let _ = sess.child.wait();
@@ -372,9 +373,11 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 if let Some(mut sess) = removed {
                     tokio::task::spawn_blocking(move || {
                         // Mark clean exit then delete disk data — no restore needed.
-                        if let Some(store) = sess.session_store.take() {
-                            store.mark_ended();
-                            store.delete();
+                        if let Some(arc) = sess.session_store.take() {
+                            if let Ok(store) = arc.lock() {
+                                store.mark_ended();
+                                store.delete();
+                            }
                         }
                         let _ = sess.child.kill();
                         let _ = sess.child.wait();
@@ -845,14 +848,14 @@ fn do_spawn(
                 scrollback,
                 tx,
                 pane_id_ref: pane_id_ref.clone(),
-                session_store: store,
+                session_store: store.map(|s| Arc::new(std::sync::Mutex::new(s))),
             },
         );
     }
 
     // Reader thread: blocking I/O — tee to scrollback, disk store, and broadcast.
-    // Scrollback push + disk write happen under the lock; broadcast send happens
-    // outside to avoid blocking all sessions if a receiver is slow.
+    // Scrollback push happens under the state lock; disk write and broadcast send
+    // happen outside to avoid blocking all sessions during potentially slow I/O.
     let state_clone = state.clone();
     std::thread::spawn(move || {
         let mut buf = [0u8; 4096];
@@ -861,19 +864,23 @@ fn do_spawn(
                 Ok(0) | Err(_) => break,
                 Ok(n) => {
                     let data = buf[..n].to_vec();
-                    let tx = {
+                    let (tx, store_arc) = {
                         let current_pane_id = pane_id_ref.lock().unwrap().clone();
                         let mut st = state_clone.lock().unwrap();
                         if let Some(sess) = st.sessions.get_mut(&current_pane_id) {
                             sess.scrollback.push(&data);
-                            if let Some(ref mut store) = sess.session_store {
-                                store.write(&data);
-                            }
-                            Some(sess.tx.clone())
+                            // Clone Arc (cheap) inside lock; write to disk outside.
+                            (Some(sess.tx.clone()), sess.session_store.clone())
                         } else {
-                            None
+                            (None, None)
                         }
                     };
+                    // Disk write outside the state lock — rotate can read/write 5 MB.
+                    if let Some(arc) = store_arc {
+                        if let Ok(mut store) = arc.lock() {
+                            store.write(&data);
+                        }
+                    }
                     if let Some(tx) = tx {
                         let _ = tx.send(data);
                     }

@@ -43,10 +43,26 @@ const pendingOverlayPtyIds = new Set<number>();
 const OVERLAY_QUIET_MS = 150;
 const OVERLAY_MAX_MS = 800;
 
+// OSC 133;A sequences as byte arrays:
+//   BEL-terminated: ESC ] 1 3 3 ; A BEL      (0x1b 0x5d 0x31 0x33 0x33 0x3b 0x41 0x07)
+//   ST-terminated:  ESC ] 1 3 3 ; A ESC \    (0x1b 0x5d 0x31 0x33 0x33 0x3b 0x41 0x1b 0x5c)
+const OSC133A_BEL = new Uint8Array([0x1b, 0x5d, 0x31, 0x33, 0x33, 0x3b, 0x41, 0x07]);
+const OSC133A_ST = new Uint8Array([0x1b, 0x5d, 0x31, 0x33, 0x33, 0x3b, 0x41, 0x1b, 0x5c]);
+
+function containsBytes(haystack: Uint8Array, needle: Uint8Array): boolean {
+  const end = haystack.length - needle.length;
+  outer: for (let i = 0; i <= end; i++) {
+    for (let j = 0; j < needle.length; j++) {
+      if (haystack[i + j] !== needle[j]) continue outer;
+    }
+    return true;
+  }
+  return false;
+}
+
 /** Returns true if the byte chunk contains the FinalTerm OSC 133;A prompt marker. */
 function hasOsc133A(data: Uint8Array): boolean {
-  const text = new TextDecoder().decode(data);
-  return text.includes('\x1b]133;A\x07') || text.includes('\x1b]133;A\x1b\\');
+  return containsBytes(data, OSC133A_BEL) || containsBytes(data, OSC133A_ST);
 }
 
 /** Create a debounced overlay remover: waits for output silence before revealing. */
