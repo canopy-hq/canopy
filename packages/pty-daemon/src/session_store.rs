@@ -47,9 +47,9 @@ impl SessionStore {
     }
 
     /// Open session storage for `pane_id`.
-    /// Creates the directory and truncates any previous scrollback file so the
-    /// new session starts clean on disk (cold-restore data was already loaded
-    /// into the in-memory ring buffer by do_spawn before calling this).
+    /// Creates the directory and opens the scrollback file in append mode so
+    /// existing history is preserved across daemon restarts (enabling repeated
+    /// cold restores if the daemon dies before new data accumulates).
     pub fn open(pane_id: &str, cwd: &str, cols: u16, rows: u16) -> Option<Self> {
         let dir = Self::base_dir()?.join(pane_id);
         if let Err(e) = fs::create_dir_all(&dir) {
@@ -68,16 +68,19 @@ impl SessionStore {
             eprintln!("[store] write meta for {pane_id}: {e}");
         }
 
-        // Truncate previous data — cold-restore bytes are in the ring buffer.
+        // Append to existing file — preserves scrollback across daemon restarts so
+        // cold restore keeps working if the daemon dies and is relaunched.
+        let bytes_written = fs::metadata(dir.join("scrollback.bin"))
+            .map(|m| m.len())
+            .unwrap_or(0);
         let scrollback = OpenOptions::new()
             .create(true)
-            .write(true)
-            .truncate(true)
+            .append(true)
             .open(dir.join("scrollback.bin"))
             .map_err(|e| eprintln!("[store] open scrollback for {pane_id}: {e}"))
             .ok();
 
-        Some(Self { dir, scrollback, bytes_written: 0 })
+        Some(Self { dir, scrollback, bytes_written })
     }
 
     /// Append PTY output. Rotates (keeps tail half) when the 5 MB cap is exceeded.
