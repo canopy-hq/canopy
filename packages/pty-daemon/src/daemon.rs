@@ -1,16 +1,18 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
 
 use crate::scrollback::ScrollbackBuffer;
+use crate::session_store;
 
 /// Protocol version — bump when the daemon protocol changes (new ops, new fields).
 /// The app checks this on startup and restarts the daemon if it doesn't match.
-pub const PROTOCOL_VERSION: u32 = 5;
+pub const PROTOCOL_VERSION: u32 = 6;
 
 /// Get the current working directory of a process on macOS via proc_pidinfo(PROC_PIDVNODEPATHINFO).
 /// proc_pid::pidcwd from the libproc crate reads /proc/{pid}/cwd which only exists on Linux.
@@ -51,6 +53,9 @@ struct PtySession {
     scrollback: ScrollbackBuffer,
     tx: broadcast::Sender<Vec<u8>>,
     pane_id_ref: Arc<Mutex<String>>,
+    /// On-disk scrollback store — None for pool sessions.
+    /// Arc<Mutex<>> so the reader thread can write to disk outside the state lock.
+    session_store: Option<Arc<std::sync::Mutex<session_store::SessionStore>>>,
 }
 
 struct PoolEntry {
@@ -61,7 +66,7 @@ pub struct DaemonState {
     sessions: HashMap<String, PtySession>,
     pool: Vec<PoolEntry>,
     pool_cwd: Option<String>,
-    /// Env vars baked into pool shells at spawn time (CANOPY_PORT, CANOPY_TOKEN).
+    /// Env vars baked into pool shells at spawn time (CANOPY_DAEMON_SOCK etc.).
     pool_env: Option<HashMap<String, String>>,
     pool_target_size: usize,
     pool_counter: u64,
@@ -69,6 +74,14 @@ pub struct DaemonState {
     /// against their captured generation and exit early if it changed, preventing
     /// orphan shells on rapid project switches.
     pool_generation: u64,
+    /// True while the app (parent) is not connected — triggers 30-min self-exit timer.
+    orphaned: bool,
+    /// Handle for the 30-min orphan timeout task — aborted when app reconnects.
+    orphan_shutdown_handle: Option<tokio::task::JoinHandle<()>>,
+    /// Ring of the last 500 hook events for replay on app reconnect.
+    hook_events: VecDeque<String>,
+    /// Active hook_subscribe streams — dead senders are pruned on each hook_notify.
+    hook_subscribers: Vec<mpsc::UnboundedSender<String>>,
 }
 
 impl DaemonState {
@@ -81,21 +94,26 @@ impl DaemonState {
             pool_target_size: 0,
             pool_counter: 0,
             pool_generation: 0,
+            orphaned: false,
+            orphan_shutdown_handle: None,
+            hook_events: VecDeque::new(),
+            hook_subscribers: Vec::new(),
         }
     }
 }
 
-/// Exit when the owning app process disappears — handles crash and kill -9.
+/// Watch the owning app process. When it disappears, enter orphan mode instead of exiting —
+/// the daemon keeps PTY sessions alive so the app can reconnect (warm restore).
 ///
-/// macOS: uses kqueue EVFILT_PROC NOTE_EXIT — zero CPU, event-driven, notified
-/// the instant the parent exits. Falls back to 500ms polling if kqueue setup
-/// fails (e.g. insufficient permissions or already-dead parent).
-async fn watch_parent(parent_pid: u32) {
+/// macOS: uses kqueue EVFILT_PROC NOTE_EXIT — zero CPU, event-driven.
+/// Falls back to 500ms polling if kqueue setup fails.
+async fn watch_parent(parent_pid: u32, state: Arc<Mutex<DaemonState>>) {
     // Quick liveness check: parent may have died before we got here.
     let alive = unsafe { libc::kill(parent_pid as libc::pid_t, 0) } == 0;
     if !alive {
-        eprintln!("[daemon] parent {parent_pid} already gone on startup — exiting");
-        std::process::exit(0);
+        eprintln!("[daemon] parent {parent_pid} already gone on startup — entering orphan mode");
+        enter_orphan_mode(state);
+        return;
     }
 
     let notified = tokio::task::spawn_blocking(move || -> bool {
@@ -132,35 +150,83 @@ async fn watch_parent(parent_pid: u32) {
     .unwrap_or(false);
 
     if notified {
-        eprintln!("[daemon] parent {parent_pid} gone (kqueue) — exiting");
-        std::process::exit(0);
+        eprintln!("[daemon] parent {parent_pid} gone (kqueue) — entering orphan mode");
+        enter_orphan_mode(state);
+        return;
     }
 
     // Fallback: kqueue setup failed — revert to 500ms polling.
     eprintln!("[daemon] kqueue unavailable, falling back to poll for parent {parent_pid}");
-    let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
+    let mut interval = tokio::time::interval(Duration::from_millis(500));
     loop {
         interval.tick().await;
         let ret = unsafe { libc::kill(parent_pid as libc::pid_t, 0) };
         if ret != 0 && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH) {
-            eprintln!("[daemon] parent {parent_pid} gone — exiting");
-            std::process::exit(0);
+            eprintln!("[daemon] parent {parent_pid} gone (poll) — entering orphan mode");
+            enter_orphan_mode(state);
+            return;
         }
     }
 }
 
-pub async fn run(socket_path: String, parent_pid: Option<u32>) {
-    if let Some(pid) = parent_pid {
-        tokio::spawn(watch_parent(pid));
-    }
+/// Kill all pool shells (stale env vars) and start the 30-minute self-exit timer.
+/// Called when the parent app process dies. Cancelled when the app reconnects.
+fn enter_orphan_mode(state: Arc<Mutex<DaemonState>>) {
+    eprintln!("[daemon] entering orphan mode — will self-exit in 30 min if app doesn't reconnect");
 
+    // Drain pool shells synchronously; they have stale env vars and are worthless.
+    let pool_sessions: Vec<PtySession> = {
+        let mut st = state.lock().unwrap();
+        if st.orphaned {
+            return; // already in orphan mode
+        }
+        st.orphaned = true;
+        let pool_ids: Vec<String> = st.pool.drain(..).map(|e| e.pane_id).collect();
+        st.pool_cwd = None;
+        st.pool_env = None;
+        st.pool_target_size = 0;
+        pool_ids.into_iter().filter_map(|id| st.sessions.remove(&id)).collect()
+    };
+    tokio::task::spawn_blocking(move || {
+        for mut sess in pool_sessions {
+            let _ = sess.child.kill();
+            let _ = sess.child.wait();
+        }
+    });
+
+    // 30-minute timeout: exit if the app never reconnects.
+    let handle = tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(30 * 60)).await;
+        eprintln!("[daemon] orphan timeout — exiting");
+        std::process::exit(0);
+    });
+
+    state.lock().unwrap().orphan_shutdown_handle = Some(handle);
+}
+
+pub async fn run(socket_path: String, parent_pid: Option<u32>) {
     let _ = std::fs::remove_file(&socket_path);
     let listener = UnixListener::bind(&socket_path).expect("daemon: bind failed");
     let state = Arc::new(Mutex::new(DaemonState::new()));
 
+    if let Some(pid) = parent_pid {
+        tokio::spawn(watch_parent(pid, state.clone()));
+    }
+
     loop {
         match listener.accept().await {
             Ok((stream, _)) => {
+                // New client connected — cancel the orphan timer and clear orphan flag.
+                {
+                    let mut st = state.lock().unwrap();
+                    if st.orphaned {
+                        eprintln!("[daemon] app reconnected — cancelling orphan timeout");
+                        if let Some(h) = st.orphan_shutdown_handle.take() {
+                            h.abort();
+                        }
+                        st.orphaned = false;
+                    }
+                }
                 tokio::spawn(handle_connection(stream, state.clone()));
             }
             Err(e) => eprintln!("daemon accept: {e}"),
@@ -306,6 +372,13 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 let _ = write_half.write_all(b"{\"ok\":true}\n").await;
                 if let Some(mut sess) = removed {
                     tokio::task::spawn_blocking(move || {
+                        // Mark clean exit then delete disk data — no restore needed.
+                        if let Some(arc) = sess.session_store.take() {
+                            if let Ok(store) = arc.lock() {
+                                store.mark_ended();
+                                store.delete();
+                            }
+                        }
                         let _ = sess.child.kill();
                         let _ = sess.child.wait();
                     });
@@ -592,6 +665,73 @@ async fn handle_connection(stream: UnixStream, state: Arc<Mutex<DaemonState>>) {
                 let _ = write_half.write_all(resp.as_bytes()).await;
             }
 
+            // Graceful self-exit — sent by the app when it detects a version mismatch
+            // and needs the old daemon to vacate the socket path.
+            "shutdown" => {
+                let _ = write_half.write_all(b"{\"ok\":true}\n").await;
+                eprintln!("[daemon] shutdown requested — exiting");
+                std::process::exit(0);
+            }
+
+            // Subscribe to hook events. Replays the last ≤500 buffered events first,
+            // then streams new ones as they arrive. One long-lived stream per app instance.
+            "hook_subscribe" => {
+                let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+
+                let buffered: Vec<String> = {
+                    let mut st = state.lock().unwrap();
+                    st.hook_subscribers.push(tx);
+                    st.hook_events.iter().cloned().collect()
+                };
+
+                // Replay buffered events.
+                for event in buffered {
+                    if write_half.write_all(event.as_bytes()).await.is_err() {
+                        break 'outer;
+                    }
+                    if write_half.write_all(b"\n").await.is_err() {
+                        break 'outer;
+                    }
+                }
+
+                // Stream new events.
+                loop {
+                    match rx.recv().await {
+                        Some(event) => {
+                            if write_half.write_all(event.as_bytes()).await.is_err() {
+                                break 'outer;
+                            }
+                            if write_half.write_all(b"\n").await.is_err() {
+                                break 'outer;
+                            }
+                        }
+                        None => break 'outer,
+                    }
+                }
+            }
+
+            // Receive a hook event from canopy-notify (a short-lived shell script).
+            // Buffers the event (ring of 500) and broadcasts to active subscribers.
+            "hook_notify" => {
+                // Normalise: keep only the hook-relevant fields.
+                let event_json = serde_json::json!({
+                    "event":     cmd["event"].as_str().unwrap_or(""),
+                    "paneId":    cmd["paneId"].as_str().unwrap_or(""),
+                    "agentName": cmd["agentName"].as_str().unwrap_or("unknown"),
+                    "pid":       cmd["pid"].as_i64().unwrap_or(0),
+                })
+                .to_string();
+
+                let mut st = state.lock().unwrap();
+                // Ring-buffer cap: 500 events.
+                if st.hook_events.len() >= 500 {
+                    st.hook_events.pop_front();
+                }
+                st.hook_events.push_back(event_json.clone());
+                // Broadcast; prune dead senders in-place.
+                st.hook_subscribers.retain(|tx| tx.send(event_json.clone()).is_ok());
+            }
+
             _ => {}
         }
     }
@@ -608,7 +748,7 @@ fn do_spawn(
     args: Vec<String>,
     env_vars: Option<std::collections::HashMap<String, String>>,
 ) -> Result<(u32, bool), String> {
-    // Return existing session pid if it already exists (reconnect case).
+    // Return existing session pid if it already exists (warm reconnect case).
     // Also resize the PTY to the requested dimensions so the subprocess sees the
     // current container size immediately and redraws — without this, the shell
     // keeps its stale dimensions from the previous session.
@@ -625,6 +765,20 @@ fn do_spawn(
             return Ok((pid, false));
         }
     }
+
+    // Cold restore: daemon was restarted (system reboot / crash).
+    // Seed the ring buffer with the on-disk scrollback so the user sees their
+    // history above the new shell prompt — without writing to the new shell.
+    // Only for real panes (not pool pre-warmed shells).
+    let is_pool = pane_id.starts_with("__pool_");
+    let cold_cwd = if !is_pool {
+        session_store::SessionStore::read_cold(&pane_id).map(|d| {
+            eprintln!("[daemon] cold restore: {} ({} bytes)", pane_id, d.scrollback.len());
+            d
+        })
+    } else {
+        None
+    };
 
     let pty_system = native_pty_system();
     let pair = pty_system
@@ -664,8 +818,26 @@ fn do_spawn(
 
     let pane_id_ref = Arc::new(Mutex::new(pane_id.clone()));
 
+    // Resolve effective cwd for the session store: prefer what was actually used.
+    let effective_cwd = cwd.as_deref().unwrap_or("/").to_string();
+
     {
         let mut st = state.lock().unwrap();
+        let mut scrollback = ScrollbackBuffer::new(SCROLLBACK_CAP);
+
+        // Seed ring buffer with cold-restore data so the attach handler replays
+        // on-disk history without sending any bytes to the new shell process.
+        if let Some(ref cold) = cold_cwd {
+            scrollback.push(&cold.scrollback);
+        }
+
+        // Open on-disk session store for real panes only.
+        let store = if !is_pool {
+            session_store::SessionStore::open(&pane_id, &effective_cwd, cols, rows)
+        } else {
+            None
+        };
+
         st.sessions.insert(
             pane_id.clone(),
             PtySession {
@@ -673,18 +845,17 @@ fn do_spawn(
                 master: pair.master,
                 child,
                 child_pid,
-                scrollback: ScrollbackBuffer::new(SCROLLBACK_CAP),
+                scrollback,
                 tx,
                 pane_id_ref: pane_id_ref.clone(),
+                session_store: store.map(|s| Arc::new(std::sync::Mutex::new(s))),
             },
         );
     }
 
-    // Reader thread: blocking I/O — tee to scrollback + broadcast.
-    // Scrollback push happens under the lock; broadcast send happens outside to
-    // avoid blocking all sessions if a receiver is slow. The attach handler
-    // subscribes to tx BEFORE copying scrollback (both under the same lock),
-    // so a chunk is received via scrollback OR broadcast, never both/neither.
+    // Reader thread: blocking I/O — tee to scrollback, disk store, and broadcast.
+    // Scrollback push happens under the state lock; disk write and broadcast send
+    // happen outside to avoid blocking all sessions during potentially slow I/O.
     let state_clone = state.clone();
     std::thread::spawn(move || {
         let mut buf = [0u8; 4096];
@@ -693,16 +864,23 @@ fn do_spawn(
                 Ok(0) | Err(_) => break,
                 Ok(n) => {
                     let data = buf[..n].to_vec();
-                    let tx = {
+                    let (tx, store_arc) = {
                         let current_pane_id = pane_id_ref.lock().unwrap().clone();
                         let mut st = state_clone.lock().unwrap();
                         if let Some(sess) = st.sessions.get_mut(&current_pane_id) {
                             sess.scrollback.push(&data);
-                            Some(sess.tx.clone())
+                            // Clone Arc (cheap) inside lock; write to disk outside.
+                            (Some(sess.tx.clone()), sess.session_store.clone())
                         } else {
-                            None
+                            (None, None)
                         }
                     };
+                    // Disk write outside the state lock — rotate can read/write 5 MB.
+                    if let Some(arc) = store_arc {
+                        if let Ok(mut store) = arc.lock() {
+                            store.write(&data);
+                        }
+                    }
                     if let Some(tx) = tx {
                         let _ = tx.send(data);
                     }

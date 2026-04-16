@@ -26,21 +26,23 @@ use tauri::ipc::Channel;
 
 use crate::agent_watcher::AgentWatcherState;
 use crate::daemon_client::DaemonClient;
-use crate::hook_server::HookServerState;
 
-/// Build env vars for hook system injection from the hook server state.
-/// Returns `None` if the hook server failed to start (port=0).
-fn hook_env_vars(hook_server: &HookServerState, pane_id: Option<&str>) -> Option<std::collections::HashMap<String, String>> {
-    if hook_server.port == 0 {
-        return None;
-    }
+/// Build env vars for hook system injection using the stable daemon socket path.
+/// Shells inherit CANOPY_DAEMON_SOCK so canopy-notify can always find the daemon,
+/// even after an app restart (unlike the old ephemeral CANOPY_PORT).
+fn hook_env_vars(
+    socket_path: &std::path::Path,
+    pane_id: Option<&str>,
+) -> std::collections::HashMap<String, String> {
     let mut vars = std::collections::HashMap::new();
+    vars.insert(
+        "CANOPY_DAEMON_SOCK".to_string(),
+        socket_path.to_string_lossy().into_owned(),
+    );
     if let Some(id) = pane_id {
         vars.insert("CANOPY_PANE_ID".to_string(), id.to_string());
     }
-    vars.insert("CANOPY_PORT".to_string(), hook_server.port.to_string());
-    vars.insert("CANOPY_TOKEN".to_string(), hook_server.token.clone());
-    Some(vars)
+    vars
 }
 
 /// PTY session state: maps ptyId (child PID) → paneId for IPC routing,
@@ -82,7 +84,6 @@ pub async fn spawn_terminal(
     on_output: Channel<Vec<u8>>,
     state: tauri::State<'_, Mutex<PtyState>>,
     daemon: tauri::State<'_, DaemonClient>,
-    hook_server: tauri::State<'_, HookServerState>,
 ) -> Result<SpawnResult, String> {
     // Validate CWD exists before passing to daemon — stale paths from session
     // restore or deleted worktrees would cause silent failures.
@@ -94,12 +95,8 @@ pub async fn spawn_terminal(
         exists
     });
 
-    let env_vars = hook_env_vars(&hook_server, Some(&pane_id));
-    if env_vars.is_some() {
-        eprintln!("[pty] env_vars for pane={pane_id}: port={} token={}…", hook_server.port, &hook_server.token[..8]);
-    } else {
-        eprintln!("[pty] WARNING: hook_server.port=0, skipping env vars for pane={pane_id}");
-    }
+    let env_vars = hook_env_vars(&daemon.socket, Some(&pane_id));
+    eprintln!("[pty] env_vars for pane={pane_id}: sock={}", daemon.socket.display());
 
     let (pid, is_new) = {
         let r = rows.unwrap_or(24);
@@ -118,7 +115,7 @@ pub async fn spawn_terminal(
             }
             other => {
                 eprintln!("[pool] FALLBACK to spawn for pane={pane_id} (claim result: {other:?})");
-                daemon.spawn(&pane_id, validated_cwd.as_deref(), r, c, env_vars.as_ref()).await?
+                daemon.spawn(&pane_id, validated_cwd.as_deref(), r, c, Some(&env_vars)).await?
             }
         }
     };
@@ -330,23 +327,22 @@ pub async fn get_pty_cwd(
 
 /// Pre-warm the daemon's PTY pool for the given CWD.
 /// Called once when a project is opened or switched.
-/// Pool shells inherit CANOPY_PORT and CANOPY_TOKEN at spawn time so hook
-/// callbacks work without visible `export` commands in the terminal.
+/// Pool shells inherit CANOPY_DAEMON_SOCK at spawn time so hook callbacks work
+/// without visible `export` commands in the terminal.
 #[tauri::command]
 pub async fn init_terminal_pool(
     cwd: String,
     daemon: tauri::State<'_, DaemonClient>,
-    hook_server: tauri::State<'_, HookServerState>,
 ) -> Result<(), String> {
     if !std::path::Path::new(&cwd).is_dir() {
         eprintln!("[pool] init_terminal_pool skipped — cwd does not exist: {cwd}");
         return Ok(());
     }
-    // Bake CANOPY_PORT and CANOPY_TOKEN into pool shells at spawn time.
+    // Bake CANOPY_DAEMON_SOCK into pool shells at spawn time.
     // CANOPY_PANE_ID is set per-pane via sidecar file on claim (see spawn_terminal).
-    let env_vars = hook_env_vars(&hook_server, None);
+    let env_vars = hook_env_vars(&daemon.socket, None);
     eprintln!("[pool] init_terminal_pool called with cwd={cwd}");
-    let result = daemon.init_pool(&cwd, 3, env_vars.as_ref()).await;
+    let result = daemon.init_pool(&cwd, 3, Some(&env_vars)).await;
     eprintln!("[pool] init_terminal_pool result: {result:?}");
     result
 }
