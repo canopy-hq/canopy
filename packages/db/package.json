@@ -10,7 +10,7 @@
     "@tanstack/db": "^0.6",
     "@tanstack/query-core": "^5",
     "@tauri-apps/plugin-sql": "^2",
-    "drizzle-orm": "^0.44"
+    "drizzle-orm": "^0.45"
   },
   "devDependencies": {
     "@canopy/tsconfig": "workspace:*",
